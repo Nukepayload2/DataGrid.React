@@ -1,0 +1,118 @@
+/**
+ * data-grid 样式层（F3）：antd v6 兼容的 CSS variables / design token。
+ *
+ * ★ 来源声明（决策 4）：
+ *   token 名取自 antd 6.4.4 源码 `components/table/style/index.ts` 的 `ComponentToken`
+ *   定义（见该文件 `export interface ComponentToken { ... }`，逐字段对照）。
+ *   antd v6 cssinjs 会把组件 token 以 `--<prefix>-<kebabCaseName>` 形式输出到 DOM
+ *   （默认 prefix=ant），故 `headerBg` → `--ant-header-bg`、`rowHoverBg` → `--ant-row-hover-bg`、
+ *   `cellPaddingBlock` → `--ant-cell-padding-block` 等。
+ *
+ *   **未浏览器实测**：本任务为实施者，不做 chrome-devtools UI 对照验证（由后续验证者 agent 负责）。
+ *   默认值参照 antd 6.4.4 `prepareComponentToken` 的派生结果（colorFillAlter / colorBgContainer /
+ *   colorBorderSecondary / borderRadiusLG / padding 等）在默认主题下的实测取值，已尽量贴近。
+ *
+ * 使用方式：
+ *   - 默认：`.dg-wrapper` 上自带本文件的 fallback 值，独立运行也视觉正确。
+ *   - 接入 antd v6 主题：在任意祖先节点挂载 antd（ConfigProvider 即可），antd 会输出同名
+ *     `--ant-*` 变量并覆盖这里的 fallback，从而与 antd 视觉一致。
+ *
+ * 后续任务（S30 component-token）将通过 CSS variables 把 ConfigProvider theme.components.Table
+ * 的动态值注入到这里。
+ */
+
+/* 当未接入 antd 主题时，dg-wrapper 提供与 antd 6.4.4 默认主题等价的 fallback。
+   接入 antd 后，这些变量会被 antd 输出的同名 `--ant-*` 覆盖。 */
+.dg-wrapper {
+  /* —— 颜色：表头 —— */
+  --ant-header-bg: #fafafa;
+  --ant-header-color: rgba(0, 0, 0, 0.88);
+  --ant-header-split-color: #f0f0f0;
+
+  /* —— 颜色：表体 / 行态 —— */
+  --ant-row-hover-bg: #fafafa;
+  --ant-row-selected-bg: #e6f4ff;
+  --ant-row-selected-hover-bg: #bae0ff;
+  --ant-row-expanded-bg: #fafafa;
+
+  /* —— 颜色：排序 / 过滤（预留，本阶段未消费） —— */
+  --ant-header-sort-active-bg: #fafafa;
+  --ant-header-sort-hover-bg: #f5f5f5;
+  --ant-body-sort-bg: #fafafa;
+  --ant-fixed-header-sort-active-bg: #fafafa;
+  --ant-header-filter-hover-bg: #f5f5f5;
+
+  /* —— 颜色：底部 / 过滤下拉（预留） —— */
+  --ant-footer-bg: #fafafa;
+  --ant-footer-color: rgba(0, 0, 0, 0.88);
+  --ant-filter-dropdown-bg: #ffffff;
+  --ant-filter-dropdown-menu-bg: #ffffff;
+  --ant-expand-icon-bg: #ffffff;
+
+  /* —— 边框 / 圆角 —— */
+  /* 注：该变量对应 antd 全局 token `colorBorderSecondary`（非 Table component token），
+     antd 也会以同名 `--ant-border-color` 输出，命名层面兼容。 */
+  --ant-border-color: #f0f0f0;
+  --ant-header-border-radius: 8;
+
+  /* —— 单元格内边距（large / 默认；来自 antd `cellPaddingBlock`/`cellPaddingInline`） —— */
+  --ant-cell-padding-block: 16;
+  --ant-cell-padding-inline: 16;
+
+  /* —— 单元格内边距（middle） —— */
+  /* 注：antd v6 cssinjs 命名规则为末尾大写串整体转小写（不拆开），
+     故 `cellPaddingBlockMD` → `--ant-cell-padding-block-md`（`MD` 不拆为 `m-d`）。 */
+  --ant-cell-padding-block-md: 12;
+  --ant-cell-padding-inline-md: 8;
+
+  /* —— 单元格内边距（small） —— */
+  --ant-cell-padding-block-sm: 8;
+  --ant-cell-padding-inline-sm: 8;
+
+  /* —— 字号 —— */
+  --ant-cell-font-size: 14;
+  --ant-cell-font-size-md: 14;
+  --ant-cell-font-size-sm: 14;
+
+  /* —— 表格底色（colorBgContainer） —— */
+  --ant-color-bg-container: #ffffff;
+
+  /* —— 全局线宽/线型（antd lineWidth/lineType） —— */
+  --ant-line-width: 1;
+  --ant-line-type: solid;
+
+  /* —— 选择列宽（预留，M5 消费） —— */
+  --ant-selection-column-width: 32;
+
+  /* —— sticky 滚动条（预留，S34 消费） —— */
+  --ant-sticky-scroll-bar-bg: rgba(0, 0, 0, 0.25);
+  --ant-sticky-scroll-bar-border-radius: 100;
+
+  /* —— data-grid 自身布局变量（非 antd token） —— */
+  --dg-row-hover-bg: var(--ant-row-hover-bg);
+  --dg-header-bg: var(--ant-header-bg);
+  --dg-header-color: var(--ant-header-color);
+  --dg-body-bg: var(--ant-color-bg-container);
+  --dg-border-color: var(--ant-border-color);
+  --dg-header-split-color: var(--ant-header-split-color);
+  --dg-footer-bg: var(--ant-footer-bg);
+  --dg-footer-color: var(--ant-footer-color);
+  --dg-font-size: calc(var(--ant-cell-font-size) * 1px);
+  --dg-cell-padding-block: calc(var(--ant-cell-padding-block) * 1px);
+  --dg-cell-padding-inline: calc(var(--ant-cell-padding-inline) * 1px);
+  --dg-radius: calc(var(--ant-header-border-radius) * 1px);
+  --dg-border: calc(var(--ant-line-width) * 1px) var(--ant-line-type) var(--ant-border-color);
+}
+
+/* size 变量切换：通过 dg-size-* 类覆写 padding / 字号 token。 */
+.dg-wrapper.dg-size-middle {
+  --dg-cell-padding-block: calc(var(--ant-cell-padding-block-md) * 1px);
+  --dg-cell-padding-inline: calc(var(--ant-cell-padding-inline-md) * 1px);
+  --dg-font-size: calc(var(--ant-cell-font-size-md) * 1px);
+}
+
+.dg-wrapper.dg-size-small {
+  --dg-cell-padding-block: calc(var(--ant-cell-padding-block-sm) * 1px);
+  --dg-cell-padding-inline: calc(var(--ant-cell-padding-inline-sm) * 1px);
+  --dg-font-size: calc(var(--ant-cell-font-size-sm) * 1px);
+}

@@ -1,0 +1,872 @@
+/**
+ * data-grid 引擎样式（F1 + F3）。
+ * 消费 tokens.css 中定义的 --dg-* / --ant-* 变量。
+ *
+ * 视觉对齐 antd 6.4.4 默认主题：
+ *   - 表头：底色 headerBg，文字 headerColor，底部 1px 分割线。
+ *   - 表体：白底（colorBgContainer），每行底部 1px 分割线。
+ *   - hover：整行底色变为 rowHoverBg。因 grid-auto-flow:column 下"同行"DOM 不连续，
+ *     纯 CSS 无法对任意动态 row index 关联整行（`:has()` 不适用），故改用 JS 方案：
+ *     GridTable 持有 hoveredRowIndex state，命中行所有 body cell 加 `dg-row-hover` 类。
+ *
+ * 说明：见 GridTable.tsx 文件头——hover 会触发整 grid 重渲染，M4 虚拟滚动需优化为局部更新。
+ */
+
+.dg-wrapper {
+  font-size: var(--dg-font-size);
+  background: var(--dg-body-bg);
+  border-radius: var(--dg-radius) var(--dg-radius) 0 0;
+  overflow: hidden; /* 圆角裁剪 */
+  width: 100%;
+}
+
+.dg-title,
+.dg-footer {
+  padding: var(--dg-cell-padding-block) var(--dg-cell-padding-inline);
+}
+
+.dg-title {
+  /* 与 antd 一致：title 无额外背景 */
+}
+
+.dg-footer {
+  color: var(--dg-footer-color);
+  background: var(--dg-footer-bg);
+}
+
+.dg-grid {
+  /* 行列模板由 GridTable inline style 注入 */
+  text-align: start;
+  /* M6 隐藏列 0fr↔原宽 过渡 + M9 行展开 0fr↔1fr 过渡：lun 同款思路。
+     `grid-template-columns` / `grid-template-rows` 都是可动画化的 grid 属性（track size 列表逐项插值）：
+       - M6 隐藏列：track 从 `0fr` 过渡到其原宽（数字 px / 0fr→1fr）即得到隐藏/显示的平滑动画。
+         注意：原宽若为 `max-content`（非可动画尺寸），该 track 不参与插值，瞬切（CSS 限制，不阻塞功能）。
+       - M9 行展开：展开内容 track 从 `0fr`（收起）过渡到 `1fr`（展开），fr 单位逐项插值，
+         得到展开/收起的平滑动画（lun `Table.RowExpand` 同款思路）。 */
+  transition:
+    grid-template-columns 0.3s ease,
+    grid-template-rows 0.3s ease;
+}
+
+.dg-cell {
+  padding: var(--dg-cell-padding-block) var(--dg-cell-padding-inline);
+  background: transparent;
+  overflow-wrap: break-word;
+  position: relative;
+  display: flex;
+  align-items: center;
+  /* 默认不拉伸子节点，让内容自然分布 */
+}
+
+.dg-cell[data-align='center'] {
+  justify-content: center;
+}
+
+.dg-cell[data-align='end'] {
+  justify-content: flex-end;
+}
+
+.dg-cell-inner {
+  /* 作为内容容器，便于后续 ellipsis 等 */
+  min-width: 0;
+}
+
+/* === M6 隐藏列（0fr track 占位 + 内容不可见）===
+ *
+ * 机制（与 antd / lun 思路一致）：
+ *   - 隐藏列在 `grid-template-columns` 中占一条 `0fr` track（track 不删除，列线号稳定）。
+ *   - 单元格 DOM 仍渲染（维持 grid item 占位），但加 `dg-cell-hidden` 类让其内容不可见
+ *     且不撑大 track：
+ *       * `visibility: hidden`：内容（含 .dg-cell-inner）隐藏，但格子本身仍参与布局。
+ *       * `overflow: hidden` + `min-width: 0` + `max-width: 0`：把格子内容裁剪到 0 宽，
+ *         保证 0fr track 真实收缩到 0（防止内容 overflow 撑大 track，导致 0fr 不生效）。
+ *       * `padding: 0`：去除 padding 占用，与 0fr track 配合彻底不可见。
+ *
+ * 与各能力的协调（关键：track 不删除，线号稳定）：
+ *   - M1 多级表头：父分组表头格 grid-column 范围不变，隐藏子叶子时父格因其中一条子 track
+ *     为 0fr 自动横向收缩（视觉上"跨列范围相应收缩"，无需改线号）。
+ *     注：父分组格本身不加 dg-cell-hidden（其 hidden=false），靠 grid track 0fr 自然收缩；
+ *     若子叶子全部隐藏，父格缩到 0，其内容被 .dg-cell-header-group 的 overflow 裁剪（见下方规则）。
+ *   - M2 固定列：ResizeObserver 测得隐藏列宽度为 0，sticky 偏移自动从累加中"消失"。
+ *   - M3 合并：合并格仍跨原叶子区间，区间内隐藏列 track 为 0，合并格视觉宽度相应收缩。
+ *   - M4 虚拟：列 track 与行 track 正交，不受影响。
+ *   - M5 选择列：作为普通叶子列参与，同样可被 hidden。
+ */
+.dg-cell.dg-cell-hidden {
+  visibility: hidden;
+  overflow: hidden;
+  min-width: 0;
+  max-width: 0;
+  padding: 0 !important;
+  /* 边框也隐藏（避免隐藏列残留 1px 边框线）。 */
+  border: 0 !important;
+}
+
+/* 隐藏列不应参与整行 hover 高亮（visibility:hidden 已盖住，但兜底防 dg-row-hover 背景透出）。
+   hover 状态 class 仍可能加在隐藏列单元格上（GridTable 按 index 标记整行）；这里强制透明。 */
+.dg-cell.dg-cell-hidden.dg-row-hover {
+  background: transparent;
+}
+
+/* 表头格 */
+.dg-cell-header {
+  background: var(--dg-header-bg);
+  color: var(--dg-header-color);
+  font-weight: 600;
+  border-bottom: var(--dg-border);
+  transition: background-color 0.2s ease;
+}
+
+/* 多级表头分组格（M1）：跨多列的父表头格。
+   底部分割线由 .dg-cell-header 自带（每行表头都有）。
+   竖向分割：分组格不画分割竖线（与 antd 一致：分组表头左右无竖线，仅底部）；
+   分割竖线只存在于叶子表头格（见下方 .dg-cell-header[data-leaf='1']::before）。
+   分组格通常居中（由 JS 内联 textAlign=center 实现）。
+   M6：overflow:hidden 作为防御性裁剪——当分组格的子叶子全部隐藏（track 全为 0fr）时，
+   父格内容需被裁剪，避免溢出到邻格。正常分组格内容不会超过自身 track 宽度，不受影响。 */
+.dg-cell-header-group {
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* 表头分割竖线（仅叶子表头格），对齐 antd 6.4.4 的 ::before 实现。
+   antd 源码（components/table/style/index.ts）的规则是：
+     thead th:not(:last-child):not(...):not([colspan])::before
+   —— 即只有"无 colspan 的表头格"（等价于本引擎的叶子表头格 data-leaf='1'）
+   才画右侧分割竖线；分组表头格（带 colspan / data-leaf='0'）不画，
+   与 antd 默认视觉一致（分组表头左右无竖线，仅底部）。
+
+   注：多级表头路径下表头格为显式定位、DOM 非按列连续，:last-child 不可靠，
+   但最右叶子格右侧是否有线对视觉无影响（紧贴容器右边缘/滚动区），
+   故沿用 :not(:last-child) 退化为"除最后一个 DOM 节点外都画线"。 */
+.dg-cell-header[data-leaf='1']:not(:last-child)::before {
+  content: '';
+  position: absolute;
+  inset-inline-end: 0;
+  top: 50%;
+  width: 1px;
+  height: 1.6em;
+  background-color: var(--dg-header-split-color);
+  transform: translateY(-50%);
+  transition: background-color 0.2s;
+}
+
+/* 表体格 */
+.dg-cell-body {
+  border-bottom: var(--dg-border);
+  transition: background-color 0.2s ease;
+}
+
+/* 行 hover：grid-auto-flow:column 下"同行"DOM 不连续，纯 CSS 无法关联整行，
+   故由 GridTable 的 hoveredRowIndex state 在命中行所有 body cell 上加 `dg-row-hover` 类。
+   保留 `.dg-cell-body:hover` 作为单格 hover fallback（未接入 JS 也能有反馈）。 */
+.dg-cell-body:hover,
+.dg-cell-body.dg-row-hover {
+  background: var(--dg-row-hover-bg);
+}
+
+/* bordered：表格外边框 + 单元格竖边框 */
+.dg-wrapper.dg-bordered {
+  border: var(--dg-border);
+}
+
+.dg-wrapper.dg-bordered .dg-cell {
+  border-inline-end: var(--dg-border);
+}
+
+/* bordered 模式下抑制表头分割竖线（::before），由上方 .dg-cell 的 border-inline-end
+   提供竖向边框，避免双重竖线。此规则与 antd 6.4.4 完全一致：
+   antd `components/table/style/bordered.ts` 第 68-71 行：
+     '> thead > tr > th::before': { backgroundColor: 'transparent !important' }
+   仅作用于叶子表头格（分组格本就无 ::before），非死代码。 */
+.dg-wrapper.dg-bordered .dg-cell-header[data-leaf='1']::before {
+  background-color: transparent !important;
+}
+
+.dg-wrapper.dg-bordered .dg-title {
+  border-bottom: var(--dg-border);
+}
+
+.dg-wrapper.dg-bordered .dg-footer {
+  border-top: var(--dg-border);
+}
+
+/* 固定列接口位（M2 落地，本阶段仅 class 占位避免视觉异常） */
+.dg-cell-fixed-start,
+.dg-cell-fixed-end {
+  position: sticky;
+  z-index: 2;
+  background: var(--dg-body-bg);
+}
+
+.dg-cell-header.dg-cell-fixed-start,
+.dg-cell-header.dg-cell-fixed-end {
+  background: var(--dg-header-bg);
+  z-index: 3;
+}
+
+/* === M2 固定列 sticky 容器与边缘阴影 ===
+ *
+ * sticky 需要一个"可滚动祖先"。GridTable 在 `scroll.x` 或存在 fixed 列时包一层
+ * `.dg-scroll`（overflow-x:auto）。`.dg-grid` 自身不滚动，sticky 子元素相对 .dg-scroll 固定。
+ *
+ * z-index 层叠（横向滚动时固定列盖住普通列）：
+ *   普通表体格：auto（默认）
+ *   固定表体格：2（见 .dg-cell-fixed-start/end；内联 style 也设 z-index:2，保持一致）
+ *   固定表头格：3
+ *   注：表头格与表体格同处一个 grid，纵向层叠只在"表头格 vs 表体格"重叠时才需要，
+ *       而本阶段表头与表体行 track 不重叠，z-index 主要服务于横向滚动遮挡。
+ *
+ * 边缘阴影：固定侧"靠内"边界格加阴影，提示其后还有可滚动内容。
+ *   - .dg-sticky-shadow-start：start 侧最右格，右侧画淡阴影（box-shadow inset 右）。
+ *   - .dg-sticky-shadow-end：end 侧最左格，左侧画淡阴影。
+ *   阴影颜色参考 antd 6.4.4 fixed 列（box-shadow: -10px 0 8px -8px rgba(0,0,0,0.08) 等，
+ *   方向取 antd `fixed-columns` demo 视觉）。
+ */
+.dg-scroll {
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: 100%;
+}
+
+/* 横向滚动时，固定列必须有不透明背景才能盖住底层滚动的内容；
+   非 hover 态下 .dg-cell 透明，故 fixed 列显式给底色。 */
+.dg-cell-fixed-start,
+.dg-cell-fixed-end {
+  background: var(--dg-body-bg);
+}
+
+.dg-cell-header.dg-cell-fixed-start,
+.dg-cell-header.dg-cell-fixed-end {
+  background: var(--dg-header-bg);
+}
+
+/* hover 时固定列也要保持不透明底色（覆盖 .dg-cell-body:hover 的 row-hover-bg） */
+.dg-cell-fixed-start.dg-row-hover,
+.dg-cell-fixed-end.dg-row-hover {
+  background: var(--dg-row-hover-bg);
+}
+
+/* 边缘阴影（start 侧最右一列的右沿，向内容方向投射）。
+   antd fixed-columns demo 视觉：右固定列右沿有一条很淡的阴影分界线。
+   这里给 start 侧边界格的右沿画 box-shadow。 */
+.dg-sticky-shadow-start {
+  box-shadow: 10px 0 8px -8px rgba(0, 0, 0, 0.08);
+}
+
+.dg-sticky-shadow-end {
+  box-shadow: -10px 0 8px -8px rgba(0, 0, 0, 0.08);
+}
+
+/* === M4 虚拟滚动 / M8 固定表头 共用的表头纵向 sticky ===
+ *
+ * `.dg-virtual-scroll`（M4）：纵向滚动容器（同时承载横向滚动）。
+ *   - height = scroll.y（由 inline style 注入）。
+ *   - overflow-y: auto（纵向虚拟滚动）；overflow-x 视 scroll.x。
+ *
+ * `.dg-fixed-header-scroll`（M8）：非虚拟固定表头的纵向滚动容器。
+ *   - max-height = scroll.y（由 inline style 注入；用 max-height 而非 height：表体不足该高度时
+ *     不强制撑满，与 antd `.ant-table-body` 的 `max-height` 一致）。
+ *   - overflow-y: auto；overflow-x 视 scroll.x / fixed。
+ *
+ * `.dg-cell-header-vsticky`（M4 + M8 共用）：表头纵向 sticky 启用时加此类。
+ *   表头格 inline style 给 `position: sticky; top: 0; z-index: 4`（由 headerStickyTop 标志
+ *   驱动，M4 虚拟与 M8 非虚拟都置此标志），使表头不随纵向滚动消失（z-index 4 高于表体 2 与
+ *   表头横向固定 3）。此类本身只补**不透明背景**，避免表体透过表头。
+ *
+ *   ★ M4 与 M8 统一：同一类、同一 inline sticky 机制、同一 z-index 体系，两路径表头行为一致。
+ *
+ * corner cell（M4/M8 × M2）：表头固定列格同时有横向 sticky（left/right, zIndex 3）与纵向 sticky
+ *   （top, zIndex 4）——单元素双 sticky 浏览器原生支持。z-index 取纵向（4）保证角单元格在双向
+ *   滚动时盖住下层（表体固定列 zIndex 2、表头固定列 zIndex 3、表头角 zIndex 4）。
+ *
+ * 占位 track（仅 M4 虚拟）：paddingTop / paddingBottom 由 grid-template-rows 的两条 track 撑起，
+ *   无需额外样式。
+ */
+.dg-virtual-scroll,
+.dg-fixed-header-scroll {
+  /* 与 .dg-scroll 一致：固定列底色由 .dg-cell-fixed-* 提供，这里只管滚动行为。 */
+  width: 100%;
+}
+
+.dg-cell-header-vsticky {
+  /* 配合 inline style 的 position/top/z-index；这里只补背景，避免表头被表体透过。 */
+  background: var(--dg-header-bg);
+}
+
+/* 表头纵向 sticky 启用时（M4/M8），固定列表头格仍需不透明背景（同 M2 表头规则，
+   但 vsticky 时 z-index 由 inline 接管）。 */
+.dg-cell-header.dg-cell-fixed-start,
+.dg-cell-header.dg-cell-fixed-end {
+  background: var(--dg-header-bg);
+}
+
+/* ellipsis 接口位（S20 落地，本阶段基本样式） */
+.dg-cell.dg-cell-ellipsis .dg-cell-inner {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* === M5 行选择 ===
+ *
+ * `.dg-selection-input`：原生 `<input type="checkbox|radio">`，重置为 antd 6.4.4 视觉。
+ *   - checkbox：14×14 圆角方块（antd checkbox-size=16，含 1px border）；选中态主色填充。
+ *   - radio：14×14 圆；选中态中心实心点主色。
+ *   - indeterminate（半选）：横线（用 background-image 画，因 :indeterminate 伪类仅 checkbox 支持）。
+ *   - disabled：灰底（对齐 antd disabled 视觉）。
+ *
+ * 选择列默认居中（.dg-cell[data-align='center'] 提供 justify-content:center）；
+ * 列宽由 rowSelection.columnWidth 或 max-content 决定（缺省 ~32px，由 padding 撑开）。
+ */
+.dg-selection-input {
+  /* 重置浏览器默认 appearance，自定义视觉。 */
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  /* 与 antd 6.4.4 一致：圆角方块（checkbox）/ 圆（radio）；1px 边框。 */
+  border: 1px solid var(--dg-border-color, #d9d9d9);
+  background: var(--dg-body-bg, #ffffff);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  /* 颜色：主色（antd colorPrimary=#1677ff）。 */
+  --dg-primary-color: #1677ff;
+  --dg-primary-hover: #4096ff;
+}
+
+.dg-selection-input[type='checkbox'] {
+  border-radius: 4px;
+}
+
+.dg-selection-input[type='radio'] {
+  border-radius: 50%;
+}
+
+/* hover：边框变主色（与 antd checkbox/radio hover 一致）。 */
+.dg-selection-input:not(:disabled):hover {
+  border-color: var(--dg-primary-color);
+}
+
+/* 选中态：checkbox 填充主色 + 白色对勾；radio 中心主色实心点。
+   用 background + 内联 SVG 画对勾（appearance:none 后 :checked 不再有原生视觉）。 */
+.dg-selection-input[type='checkbox']:checked {
+  background: var(--dg-primary-color);
+  border-color: var(--dg-primary-color);
+}
+
+.dg-selection-input[type='checkbox']:checked::after {
+  /* 白色对勾（与 antd 一致），用 border 画 L 形旋转。 */
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+.dg-selection-input[type='radio']:checked {
+  border-color: var(--dg-primary-color);
+}
+
+.dg-selection-input[type='radio']:checked::after {
+  /* radio 中心实心点（与 antd radio 选中视觉一致）。 */
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dg-primary-color);
+}
+
+/* 半选态（indeterminate，仅 checkbox）：横线（与 antd 一致）。
+   :indeterminate 是 DOM 属性伪类（SelectionInput 通过 ref 设置 el.indeterminate）。 */
+.dg-selection-input[type='checkbox']:indeterminate {
+  background: var(--dg-primary-color);
+  border-color: var(--dg-primary-color);
+}
+
+.dg-selection-input[type='checkbox']:indeterminate::after {
+  content: '';
+  position: absolute;
+  left: 2.5px;
+  top: 6px;
+  width: 9px;
+  height: 2px;
+  background: #fff;
+  border-radius: 1px;
+}
+
+/* disabled：灰底 + 灰边（与 antd disabled 视觉一致）。 */
+.dg-selection-input:disabled {
+  background: #f5f5f5;
+  border-color: #d9d9d9;
+  cursor: not-allowed;
+}
+
+.dg-selection-input[type='checkbox']:disabled:checked {
+  background: #d9d9d9;
+  border-color: #d9d9d9;
+}
+
+.dg-selection-input[type='checkbox']:disabled:checked::after {
+  border-color: #fff;
+}
+
+.dg-selection-input[type='radio']:disabled:checked {
+  border-color: #d9d9d9;
+}
+
+.dg-selection-input[type='radio']:disabled:checked::after {
+  background: #d9d9d9;
+}
+
+/* === M3 合并单元格 ===
+ *
+ * grid 布局下合并用 `grid-column` / `grid-row` 的 span（非 HTML colspan/rowspan 属性）。
+ * 合并区域左上角格设 span N，被覆盖格**不渲染 DOM**（由 GridTable 跳过），避免空洞/重叠。
+ *
+ * rowScope（antd column.rowScope='row'）：行标题列语义。antd 中该列单元格渲染为 <th scope="row">
+ * 并加粗（参考 antd colspan-rowspan demo 第一列视觉）。这里用 class 标记，视觉加粗对齐。
+ */
+.dg-cell.dg-cell-rowscope {
+  font-weight: 600;
+}
+
+/* === M7 列宽拖拽调整 resizable ===
+ *
+ * `.dg-resizer`：叶子表头格**右侧边缘**的拖拽手柄。
+ *   - 默认透明 + pointer-events:none（不阻挡表头 hover/click、不参与布局）。
+ *   - 表头格 hover 时显形（变淡蓝竖条）+ pointer-events:auto（可点击拖拽）。
+ *   - 绝对定位 `inset-inline-end:0; top:0; bottom:0`，宽度 5px（足够点击但不遮挡内容），
+ *     水平居中在列边界（用 transform 微调，使视觉对齐列分割线）。
+ *   - cursor: col-resize（列宽调整光标，与 antd rc-table/resizable 一致）。
+ *
+ * `.dg-resizer-active`：正在拖拽该列时加此类，手柄高亮（主色），给用户明确反馈。
+ *
+ * `.dg-grid-resizing`：拖拽进行中加到 `.dg-grid`，禁用 M6 的 grid-template-columns 过渡
+ *   （否则 0.3s 过渡与实时 width 更新叠加产生抖动/延迟）。
+ *
+ * 仅叶子表头格渲染 resizer（GridTable 按 cell.isLeaf && !hidden 决定）；分组表头格无手柄。
+ */
+.dg-cell-header {
+  /* resizer 用 absolute 定位，表头格需 position:relative 作定位上下文。
+     .dg-cell 已有 position:relative，这里兜底声明避免后续重构丢失。 */
+  position: relative;
+}
+
+.dg-resizer {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: -3px;
+  width: 6px;
+  /* 默认不阻挡表头交互；hover 表头格时才启用。 */
+  pointer-events: none;
+  cursor: col-resize;
+  z-index: 1;
+  /* 默认透明；hover 时显形（下方 :hover 规则）。 */
+  background: transparent;
+  /* 居中在列右边界（视觉对齐 antd 表头分割竖线）。 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  /* 用内部伪元素画细竖条，便于 hover 放大不撑大 hit 区。 */
+}
+
+.dg-resizer::after {
+  content: '';
+  display: block;
+  width: 1px;
+  height: 60%;
+  background: transparent;
+  transition: background-color 0.2s;
+}
+
+/* 表头格 hover（或 resizer 自身 hover）时显形 + 启用 pointer 事件。 */
+.dg-cell-header:hover .dg-resizer,
+.dg-resizer:hover {
+  pointer-events: auto;
+}
+
+.dg-cell-header:hover .dg-resizer::after,
+.dg-resizer:hover::after {
+  background: var(--dg-resizer-color, #1677ff);
+}
+
+/* 拖拽中：手柄高亮（主色加粗），无论是否 hover。 */
+.dg-resizer-active::after,
+.dg-resizer-active:hover::after {
+  background: var(--dg-resizer-color, #1677ff);
+  width: 2px;
+  height: 80%;
+}
+
+.dg-resizer-active {
+  pointer-events: auto;
+}
+
+/* 拖拽进行中：禁用 grid-template-columns/rows 过渡，避免与实时更新叠加抖动。 */
+.dg-grid.dg-grid-resizing {
+  transition: none;
+}
+
+/* 隐藏列的表头格不应显示 resizer（GridTable 已按 !hidden 渲染，这里兜底）。 */
+.dg-cell-header.dg-cell-hidden .dg-resizer {
+  display: none;
+}
+
+/* === M9 行展开 ===
+ *
+ * `.dg-expand-icon`：默认展开/收起图标（antd 6.4.4 同款视觉，自研）。
+ *   - 16×16 圆角方块边框（与 dg-selection-input 视觉系列一致）。
+ *   - 内部三角（▶/▼）用 CSS border 画；展开态 transform: rotate(90deg) 平滑过渡（0.3s），
+ *     与 grid-template-rows 的 0fr↔1fr 过渡同步——图标旋转 + 内容展开同时发生。
+ *   - disabled：rowExpandable=false 行的图标灰、不响应点击（与 antd disabled 展开图标一致）。
+ *
+ * `.dg-row-expanded`：展开内容容器（grid item，跨整行 grid-column:1/-1）。
+ *   - overflow:hidden + min-height:0：配合展开内容 track 的 0fr（收起裁剪到 0）/1fr（展开自然高）。
+ *   - 背景：antd 展开行有淡灰底（rowExpandedBg），这里消费 --ant-row-expanded-bg token。
+ *   - 内边距：antd 展开内容默认带 padding（与单元格 padding 一致 + 缩进）。
+ */
+.dg-expand-icon {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--dg-border-color, #d9d9d9);
+  background: var(--dg-body-bg, #ffffff);
+  border-radius: 4px;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  --dg-primary-color: #1677ff;
+}
+
+.dg-expand-icon:not(:disabled):hover {
+  border-color: var(--dg-primary-color);
+}
+
+/* 内部三角（▶）：用 border 三角形画，宽高 0 + 4 个 border 中的左边形成三角。
+   展开态旋转 90deg（▶ → ▼）。 */
+.dg-expand-icon-arrow {
+  display: block;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 4px 0 4px 5px;
+  border-color: transparent transparent transparent var(--dg-border-color, #bfbfbf);
+  /* 三角向右偏移一点，视觉居中在方块内（▶ 的尖向右）。 */
+  margin-left: 1px;
+  transition: transform 0.3s ease;
+}
+
+.dg-expand-icon:not(:disabled):hover .dg-expand-icon-arrow {
+  border-left-color: var(--dg-primary-color);
+}
+
+.dg-expand-icon-expanded .dg-expand-icon-arrow {
+  transform: rotate(90deg);
+}
+
+.dg-expand-icon-expanded:not(:disabled) .dg-expand-icon-arrow {
+  border-left-color: var(--dg-primary-color);
+}
+
+.dg-expand-icon:disabled {
+  background: #f5f5f5;
+  border-color: #d9d9d9;
+  cursor: not-allowed;
+}
+
+.dg-expand-icon:disabled .dg-expand-icon-arrow {
+  border-left-color: #d9d9d9;
+}
+
+/* 展开内容容器（grid item，grid-column:1/-1 跨整行）。
+   overflow:hidden + min-height:0 配合 track 0fr/1fr 过渡；
+   背景 + 内边距对齐 antd 展开行视觉。 */
+.dg-row-expanded {
+  background: var(--ant-row-expanded-bg, #fafafa);
+  padding: calc(var(--dg-cell-padding-block) * 1px) calc(var(--dg-cell-padding-inline) * 1px);
+  box-sizing: border-box;
+}
+
+/* 展开列单元格（与选择列类似，居中）。dg-cell[data-align='center'] 已提供 justify-content。 */
+
+/* === S1 单列排序 ===
+ *
+ * 视觉对齐 antd 6.4.4（`components/table/style/sorter.ts`）：
+ *   - `.dg-column-has-sorters`：可排序列的表头格——cursor:pointer + hover 背景（tableHeaderSortHoverBg）。
+ *   - `.dg-column-sort`：当前排序列——表头背景 tableHeaderSortBg + 表体背景 tableBodySortBg（淡灰）。
+ *   - `.dg-column-sorters`：表头格内部 flex 容器（title + 排序图标 space-between）。
+ *   - `.dg-column-title`：标题文字，flex:1 占据剩余空间。
+ *   - `.dg-column-sorter`：排序图标容器（caret-up + caret-down 垂直堆叠）。
+ *   - `.dg-column-sorter-up/down`：两个 caret（border 三角形画）。
+ *   - `.dg-column-sorter-active`：当前激活 caret（主色高亮）。
+ *
+ * caret 用 CSS border 三角形（width:0;height:0;border:solid transparent）画，
+ * 与 antd CaretUpOutlined/CaretDownOutlined 视觉一致（实心小三角）。
+ * 默认两 caret 灰（headerIconColor）；激活主色（colorPrimary=#1677ff）。
+ */
+.dg-cell-header.dg-column-has-sorters {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+/* hover 整表头格时背景变淡灰（对齐 antd tableHeaderSortHoverBg）。
+   注意：dg-column-sort（已排序）的 hover 用更深的 tableHeaderSortActiveBg。 */
+.dg-cell-header.dg-column-has-sorters:hover {
+  background: var(--dg-header-sort-hover-bg, #f5f5f5);
+}
+
+/* 当前排序列的表头格背景（对齐 antd tableHeaderSortBg）。 */
+.dg-cell-header.dg-column-sort {
+  background: var(--dg-header-sort-active-bg, #fafafa);
+}
+
+/* 当前排序列的表体格背景（对齐 antd tableBodySortBg，淡灰）。 */
+.dg-cell-body.dg-column-sort {
+  background: var(--dg-body-sort-bg, #fafafa);
+}
+
+/* 排序列 hover 时表体仍保持 sort 底色（覆盖 dg-row-hover 的 hover 底色不必要——antd 行为：
+   排序列 hover 走 rowHoverBg；这里让排序列在 hover 时维持 sort 底色更视觉一致）。
+   注：dg-row-hover 优先级与 dg-column-sort 相同（单类），按 CSS 顺序后者覆盖；此处让 sort 优先。 */
+.dg-cell-body.dg-column-sort.dg-row-hover {
+  background: var(--dg-body-sort-bg, #fafafa);
+}
+
+/* 表头格内部 flex 容器：title + 排序图标 space-between。
+   对齐 antd `.ant-table-column-sorters`（display:flex; flex:auto; align-items:center;
+   justify-content:space-between）。 */
+.dg-column-sorters {
+  display: flex;
+  flex: auto;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+/* 标题文字：flex:1 占据剩余空间，min-width:0 允许 ellipsis（S20 落地后生效）。 */
+.dg-column-title {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+
+/* 排序图标容器：caret-up + caret-down 垂直堆叠（对齐 antd column-sorter-inner）。
+   color 默认灰（headerIconColor），hover 表头时变深（headerIconHoverColor）。
+   font-size:0 消除 caret 之间空隙（caret 用 border 三角，自身 width/height=0）。 */
+.dg-column-sorter {
+  margin-inline-start: 4px;
+  color: var(--dg-header-icon-color, #bfbfbf);
+  font-size: 0;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  transition: color 0.2s ease;
+}
+
+.dg-column-sorter-inner {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* caret 三角：用 border 画（与 antd CaretUp/Down 视觉一致）。
+   up：尖朝上的三角（下边实色，其余透明）。
+   down：尖朝下的三角（上边实色，其余透明）。 */
+.dg-column-sorter-up,
+.dg-column-sorter-down {
+  display: block;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 3.5px 4px;
+  border-color: transparent transparent currentColor;
+  /* 默认 currentColor = 灰；active 时通过 .dg-column-sorter-active 的 color 覆盖为主色。 */
+}
+
+/* up caret（尖朝上）：翻转 border 方向——下边 transparent、上边实色。
+   注：上面默认规则画的是"尖朝下"，这里 up 覆盖为"尖朝上"。 */
+.dg-column-sorter-up {
+  border-width: 4px 3.5px 0;
+  border-color: currentColor transparent transparent;
+}
+
+/* down caret 与 down（默认规则已是尖朝下），无需额外覆盖，仅保留类名占位便于 active 切换。 */
+.dg-column-sorter-down {
+  margin-top: -1px;
+}
+
+/* 激活 caret（当前排序方向）：主色高亮。
+   对齐 antd `.ant-table-column-sorter-up/down.active { color: colorPrimary }`。 */
+.dg-column-sorter-up.dg-column-sorter-active,
+.dg-column-sorter-down.dg-column-sorter-active {
+  color: var(--dg-primary-color, #1677ff);
+}
+
+/* hover 表头格时排序图标整体变深（对齐 antd column-sorters:hover column-sorter）。
+   注：active 的主色优先级更高（单类 .dg-column-sorter-active 在 hover 规则之后声明，覆盖之）。 */
+.dg-cell-header.dg-column-has-sorters:hover .dg-column-sorter {
+  color: var(--dg-header-icon-hover-color, #8c8c8c);
+}
+.dg-cell-header.dg-column-has-sorters:hover .dg-column-sorter-up.dg-column-sorter-active,
+.dg-cell-header.dg-column-has-sorters:hover .dg-column-sorter-down.dg-column-sorter-active {
+  color: var(--dg-primary-color, #1677ff);
+}
+
+/* 排序列表头格已有 cursor:pointer（dg-column-has-sorters）；排序图标容器不阻挡 click（事件冒泡到表头格）。 */
+.dg-column-sorter {
+  pointer-events: none;
+}
+
+/* === S2 多列排序优先级序号 ===
+ *
+ * 多列模式下激活的排序列表头 caret 旁显示一个优先级数字（1/2/3…，按 multiple 升序），
+ * 对齐 antd multiple-sorter demo。仅当该列激活（order 非 null）且处于多列模式时渲染。
+ * 视觉：小字号、淡色（headerIconColor），与 caret 内联；hover 表头时变深（与 caret 同步）。
+ */
+.dg-column-sorter-priority {
+  margin-inline-start: 2px;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--dg-header-icon-color, #bfbfbf);
+  font-variant-numeric: tabular-nums;
+  transition: color 0.2s ease;
+}
+
+/* hover 表头格 / 激活态时优先级数字也跟随变深/主色（与 caret-active 同步）。 */
+.dg-cell-header.dg-column-has-sorters:hover .dg-column-sorter-priority {
+  color: var(--dg-header-icon-hover-color, #8c8c8c);
+}
+.dg-cell-header.dg-column-sort .dg-column-sorter-priority {
+  color: var(--dg-primary-color, #1677ff);
+}
+
+/* === S3 基础列筛选 ===
+ *
+ * 视觉对齐 antd 6.4.4（`components/table/style/filter.ts`）：
+ *   - `.dg-column-actions`：表头格右侧操作区容器（sorter caret + filter 漏斗 并排）。
+ *     对齐 antd `.ant-table-column-sorter` 与 filter trigger 同处右侧的布局。
+ *   - `.dg-filter-trigger`：漏斗触发器（FilterOutlined/FilterFilled）。color 默认 headerIconColor；
+ *     激活（dg-filter-trigger-active）时主色高亮（对齐 antd `.ant-table-filter-trigger.active`）。
+ *   - `.dg-filter-dropdown`：下拉面板（antd Dropdown overlay 内容）。内含 Checkbox.Group/Radio.Group
+ *     + 确定/重置 Button。视觉对齐 antd `.ant-table-filter-dropdown`。
+ *
+ * 注：Dropdown 弹出层本身（定位、阴影、动画）由 antd Dropdown 提供（决策 6：非核心部位用 antd），
+ *   这里只定制面板内部布局与 dg-filter-trigger 的视觉。
+ */
+
+/* 表头格右侧操作区：sorter caret + filter 漏斗 并排（对齐 antd 同时有 sorter+filter 的列表头）。
+   flex-shrink:0 防止被 title 挤压；gap 与 antd column-sorter/filter 间距一致。 */
+.dg-column-actions {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 4px;
+  margin-inline-start: 4px;
+}
+
+/* dg-column-actions 内的 sorter 不再需要自身 margin-inline-start（由父 actions 的 gap 统一控制间距）。
+   覆盖 .dg-column-sorter 默认的 margin-inline-start:4px，避免与 gap 叠加导致间距偏大。 */
+.dg-column-actions .dg-column-sorter {
+  margin-inline-start: 0;
+}
+
+/* 漏斗触发器：默认灰（headerIconColor）；hover 表头时变深；激活（有筛选值）主色高亮。
+   对齐 antd `.ant-table-filter-trigger`（color: headerIconColor；active: colorPrimary）。
+   pointer cursor 提示可点击；padding 增大点击区。 */
+.dg-filter-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--dg-header-icon-color, #bfbfbf);
+  cursor: pointer;
+  padding: 2px;
+  font-size: 12px;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+
+/* hover 表头格时漏斗变深（与 sorter caret 同步；对齐 antd filter-trigger:hover）。 */
+.dg-cell-header.dg-column-has-sorters:hover .dg-filter-trigger,
+.dg-cell-header.dg-column-has-filter:hover .dg-filter-trigger {
+  color: var(--dg-header-icon-hover-color, #8c8c8c);
+}
+
+/* 激活态：有筛选值时漏斗主色高亮（对齐 antd filter-trigger.active）。
+   优先级高于 hover 灰（声明在后）。 */
+.dg-filter-trigger.dg-filter-trigger-active {
+  color: var(--dg-primary-color, #1677ff);
+}
+
+/* 筛选下拉面板（antd Dropdown overlay 内容容器）。
+   对齐 antd `.ant-table-filter-dropdown`：min-width、背景、圆角、内边距。 */
+.dg-filter-dropdown {
+  min-width: 120px;
+  background: var(--ant-filter-dropdown-bg, #ffffff);
+  border-radius: 8;
+  box-sizing: border-box;
+  /* antd Dropdown 默认会包一层 popup 容器（带阴影/边框）；这里只管面板内部布局。 */
+}
+
+/* 筛选项列表区：每项一行（对齐 antd filter-dropdown-menu）。 */
+.dg-filter-dropdown-menu {
+  padding: 8px;
+  max-height: 264px;
+  overflow-y: auto;
+}
+
+.dg-filter-menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* 单个筛选项（Checkbox/Radio 容器）：对齐 antd filter-dropdown-menu-item。 */
+.dg-filter-menu-item {
+  display: flex;
+  align-items: center;
+  min-height: 28px;
+}
+
+/* antd Checkbox.Group/Radio.Group 默认 inline；这里强制列布局（每项一行）。 */
+.dg-filter-checkbox-group,
+.dg-filter-radio-group {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* 底部按钮区：确定/重置 右对齐（对齐 antd filter-dropdown-btns）。 */
+.dg-filter-dropdown-btns {
+  display: flex;
+  justify-content: space-between;
+  padding: 7px 8px;
+  border-top: 1px solid var(--dg-border-color, #f0f0f0);
+}
+
+/* 可筛选列表头格 hover 背景（对齐 antd tableHeaderFilterHoverBg；
+   token 与 sort hover 共用 header-sort-hover-bg，视觉一致）。 */
+.dg-cell-header.dg-column-has-filter:hover {
+  background: var(--dg-header-sort-hover-bg, #f5f5f5);
+}
+

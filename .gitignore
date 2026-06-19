@@ -88,3 +88,4 @@ $tf/
 *.bak
 *.cache
 *.tmp
+/docs/verify
