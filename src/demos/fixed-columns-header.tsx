@@ -6,25 +6,23 @@
  *   (a) 固定列（横向 sticky）—— M2 ✅
  *   (b) 固定表头（纵向 sticky，y 控制表体高度）—— M8 ✅
  *
- * === M8 补全（本 demo 完整版）===
+ * === data-grid 对应（决策 7 scroll.y:true + 决策 8 横向悬浮滚动条）===
  *
- * M2 阶段本 demo 简化了表头纵向固定（注释"留 M8"，数据缩至 8 行）。M8 完成后：
- *   - 数据恢复为 antd 原版规模（100 行）。
- *   - `scroll.y` 由 M8 消费：表体容器 `max-height: y` 纵向滚动，表头 `position: sticky; top: 0`
- *     钉顶（纵向滚动时表头不消失）。
- *   - 去掉"留 M8"注释。
+ * - **决策 7**：`scroll={{ x: 'max-content', y: true }}` → 数据区域模式（表头固定 + 表体滚动 +
+ *   纵向悬浮滚动条）+ 横向滚动（决策 8 横向悬浮滚动条）。
+ * - **高度 CSS 自动适应**：表体区 flex:1 填满父容器剩余空间（不用 JS 算数字）。
+ * - ★ 父容器需有明确 height：本 demo 外层 div 设 `height: 300`。
  *
  * === corner cell 双 sticky（M8 × M2）===
  *
  * 左上角（Name/Age fixed start 的表头格）与右上角（Action fixed end 的表头格）同时：
  *   - 横向 sticky（left/right，M2，zIndex 3）
  *   - 纵向 sticky（top:0，M8，zIndex 4）
- * 单元素双 sticky 浏览器原生支持（与 antd rc-table corner cell 一致）。横向+纵向滚动时
- * 角单元格都钉住，盖住下层（zIndex 4 > 表头固定列 3 > 表体固定列 2）。
+ * 单元素双 sticky 浏览器原生支持（与 antd rc-table corner cell 一致）。角单元格 z-index 取
+ * **最高（5）**（仅纵向 4 的中间表头格、仅横向 3 的固定列表头格都低于它），保证横向滚动时
+ * 中间表头格不会盖住 corner cell，纵向滚动时固定列表头格也不被普通表头盖住。
  *
  * 列定义与 antd demo 一致（Name/Age fixed start，Action fixed end）。
- * 与官方 demo 差异：antd 用 `createStyles` 加细滚动条样式，data-grid 暂不消费 className，故略去
- * （视觉上浏览器默认滚动条）。
  */
 
 import { Table } from '../table'
@@ -126,10 +124,13 @@ const dataSource = Array.from({ length: 100 }).map<DataType>((_, i) => ({
 
 export default function FixedColumnsHeaderDemo() {
   return (
-    <Table<DataType>
-      columns={columns}
-      dataSource={dataSource}
-      scroll={{ x: 'max-content', y: 55 * 5 }}
-    />
+    // ★ 决策 7：父容器需有明确 height（这里固定 300px）。
+    <div style={{ height: 300 }}>
+      <Table<DataType>
+        columns={columns}
+        dataSource={dataSource}
+        scroll={{ x: 'max-content', y: true }}
+      />
+    </div>
   )
 }

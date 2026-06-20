@@ -2,54 +2,74 @@
  * 复刻 antd `virtual-list` demo（M4 验收）：
  *   `G:\Projects\ant-design\components\table\demo\virtual-list.tsx`
  *
- * 重点：万行数据虚拟滚动 + 固定列 + scrollTo API + 合并单元格 × 虚拟。
+ * === 决策 9（demo 左右对比框架）试点改造 ===
  *
- * === 与 antd demo 的差异（M5/M9 未实现的部分）===
+ * 本 demo 是决策 9「demo 左右对比框架」的首个试点：
+ *   - **左栏（data-grid Table）** + **右栏（antd Table）** 并排（50/50，见 SplitDemo）。
+ *   - **顶部共享控制条**：同一个状态同时驱动两侧表格（Bordered / Fixed / Expandable /
+ *     Count / Empty 等任一控件变化，左右两栏同时变化），才能对照 diff。
+ *   - 提取共享 `RecordType` + `getData`（见 `_compare/virtual-list.shared.ts`）供两侧复用；
+ *     列定义因两侧类型/render 不同各自保留，但引用同一 `RecordType`。
  *
- * - **选择（rowSelection radio）**：antd demo 默认开启 rowSelection={type:'radio'}。
- *   data-grid 行选择状态机（M5）尚未实现，本 demo **去掉** rowSelection。
- *   待 M5 完成后回归：补 `rowSelection={{ type: 'radio', columnWidth: 48 }}`。
+ * **本次试点选取 virtual-list 的目的**（用户指定）：评估 50/50 左右并排在「宽 + 高 + 双向滚动」
+ * 的 demanding demo（scroll.x:2000 + scroll.y:400 + 万行虚拟）上是否好用。布局质量是核心评估目标。
  *
- * - **展开（expandable）**：antd demo 有 Expandable 开关，开启时去掉 onCell（合并）并加
- *   expandedRowRender。data-grid 行展开（M9）尚未实现，本 demo **去掉** expandable 开关
- *   与展开相关逻辑。待 M9 完成后回归：补 Expandable 开关 + expandable props（并验证决策 2：
- *   展开后滚动位置/窗口稳定、不跳动）。
+ * === 两侧保留并如实呈现的差异（对照修 bug 的意义所在）===
  *
- * - **合并（onCell rowSpan/colSpan）**：**保留**（验证合并 × 虚拟）。但需注意 ★ 已知简化
- *   （见 GridTable M4 注释）：若合并格的左上角在可视区**外**（start 之前），其延伸到可视区
- *   内的覆盖部分不渲染，视觉上会出现"缺一块"。在 scrollTo 到 999 等场景下，恰好把合并区
- *   拉到边界时可能触发。完整实现需补 rc-table BodyGrid 的 extraRender 机制——留作 M4 增强。
- *   通过 `Merge` 开关可关闭合并，便于对照。
+ * 1. **rowSelection**：
+ *    - 右栏 antd：展开关闭时 `rowSelection={{ type: 'radio', columnWidth: 48 }}`（忠实 antd demo）。
+ *    - 左栏 data-grid：**不加 rowSelection**（与改造前一致——data-grid virtual-list 历来不演示
+ *      radio 选择列，保留这一简化作为对照点）。两者切换 Expandable 时左栏不受影响。
  *
- * === 保留的 antd demo 要素 ===
+ * 2. **Merged（合并）开关**：
+ *    - 右栏 antd：merged 行为由 `fixed + !expanded` 推导（fixed 时展开关闭即合并、展开即清 onCell）。
+ *    - 左栏 data-grid：保留独立的 `Merged` 开关（用户可直接对照「有合并 vs 无合并」下的虚拟渲染差异）。
  *
- * - 万行数据（count: 0 / 4 / 10000）→ 验证 DOM 行数远小于总数（只渲染可视区 + overscan）。
- * - fixedColumns（ID/FirstName/LastName 固定 start，Action 固定 end）→ 验证虚拟下固定列仍 sticky。
- * - bordered / fixed 切换开关。
- * - scrollTo({ index: 999 }) 按钮 → 验证 ref.scrollTo API。
- * - scroll={{ x: 2000, y: 400 }} + virtual → 启用虚拟滚动。
+ * 3. **合并 × 虚拟的已知简化**（见 §9 M4 行）：
+ *    - 左栏 data-grid：合并组左上角滚出可视区上边界后，其延伸到可视区的覆盖部分不补画
+ *      （视觉「缺一块」），尤其 Scroll To index 999 把合并区拉到边界时。完整实现需补
+ *      rc-table 的 extraRender 机制——留作 M4 增强。右栏 antd 无此问题。
+ *
+ * 4. **展开行高度 × 虚拟**（决策 2）：
+ *    - 左栏 data-grid：展开内容直接渲染但**不计入虚拟窗口**（窗口按收起态 rowHeight=40 算）。
+ *    - 右栏 antd：展开内容也参与测量，但 antd 官方 demo 行为参考即可。
+ *
+ * 5. **Expandable rowExpandable**：
+ *    - 右栏 antd：`rowExpandable: r => r.id % 2 === 0`（奇数行无展开图标）。
+ *    - 左栏 data-grid：保留同样的 rowExpandable（验证决策 2 + 与右栏对照「哪些行可展开」一致）。
+ *
+ * 6. **scrollTo 双 ref**：
+ *    - 「Scroll To index 999」/「Scroll To Top」按钮同时调用两侧 ref.scrollTo（data-grid ref +
+ *      antd ref），对照两侧滚动行为是否一致。data-grid 原「Scroll To key 50」保留为左栏专属。
+ *
+ * === data-grid 侧行为与改造前一致（回归不破）===
+ *
+ * - virtual + scroll={{ x: 2000, y: true }}（决策 7：CSS 自适应高度，父容器 height:400）。
+ * - rowKey="id"、rowHeight={40} headerHeight={40}、mergedColumns/plainColumns 切换。
+ * - Expandable 开关（验证决策 2 虚拟 × 展开），展开时强制 plainColumns（合并与展开互斥）。
  */
 
 import { useMemo, useRef, useState } from 'react'
+import { Button, Segmented, Space, Switch, Table as AntdTable, Typography } from 'antd'
+import type { GetRef, TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType, TableRef } from '../table'
+import { SplitDemo } from './_compare/SplitDemo'
+import { getData, type RecordType } from './_compare/virtual-list.shared'
 
-interface RecordType {
-  id: number
-  firstName: string
-  lastName: string
-  age: number
-  address1: string
-  address2: string
-  address3: string
-}
+/** antd Table 的 ref 实例类型（含 scrollTo）。antd 顶层未导出 TableRef，用 GetRef 取得。 */
+type AntdTableRef = GetRef<typeof AntdTable>
+
+// ---------------------------------------------------------------------------
+// 左栏（data-grid）列定义
+// ---------------------------------------------------------------------------
 
 // 含固定列 + 合并的列定义（对齐 antd virtual-list demo 的 fixedColumns）。
 // 合并语义：
 //   - Group 列：id % 4 === 0 的行 rowSpan=4（向下合并 4 行），其余 rowSpan=0（被覆盖）。
 //   - Age 列：id % 4 === 0 的行 colSpan=2（向右合并 2 列，吃掉 Address 1）。
 //   - Address 1 列：id % 4 === 0 的行 colSpan=0（被 Age 的 colSpan=2 覆盖）。
-const mergedColumns: ColumnType<RecordType>[] = [
+const dgMergedColumns: ColumnType<RecordType>[] = [
   {
     title: 'ID',
     dataIndex: 'id',
@@ -113,7 +133,7 @@ const mergedColumns: ColumnType<RecordType>[] = [
 ]
 
 // 关闭合并后的列定义（对齐 antd demo "expanded 时清掉 onCell" 的等价路径）。
-const plainColumns: ColumnType<RecordType>[] = [
+const dgPlainColumns: ColumnType<RecordType>[] = [
   { title: 'ID', dataIndex: 'id', width: 100, fixed: 'start' },
   { title: 'FirstName', dataIndex: 'firstName', width: 120, fixed: 'start' },
   { title: 'LastName', dataIndex: 'lastName', width: 120, fixed: 'start' },
@@ -135,108 +155,312 @@ const plainColumns: ColumnType<RecordType>[] = [
   },
 ]
 
-const getData = (length: number): RecordType[] =>
-  Array.from({ length }).map<RecordType>((_, index) => ({
-    id: index,
-    firstName: `First_${index.toString(16)}`,
-    lastName: `Last_${index.toString(16)}`,
-    age: 25 + (index % 10),
-    address1: `New York No. ${index} Lake Park`,
-    address2: `London No. ${index} Lake Park`,
-    address3: `Sydney No. ${index} Lake Park`,
-  }))
+// 非固定列（3 列，对齐 antd demo 的 columns 变体）。
+const dgShortColumns: ColumnType<RecordType>[] = [
+  { title: 'ID', dataIndex: 'id', width: 100 },
+  { title: 'FirstName', dataIndex: 'firstName', width: 120 },
+  { title: 'LastName', dataIndex: 'lastName', width: 120 },
+]
+
+// ---------------------------------------------------------------------------
+// 右栏（antd）列定义 —— 忠实复刻 antd 官方 virtual-list demo
+// ---------------------------------------------------------------------------
+
+const antdFixedColumns: NonNullable<TableProps<RecordType>['columns']> = [
+  {
+    title: 'ID',
+    dataIndex: 'id',
+    width: 100,
+    fixed: 'start',
+  },
+  {
+    title: 'FistName',
+    dataIndex: 'firstName',
+    width: 120,
+    fixed: 'start',
+  },
+  {
+    title: 'LastName',
+    dataIndex: 'lastName',
+    width: 120,
+    fixed: 'start',
+  },
+  {
+    title: 'Group',
+    width: 120,
+    render: (_, record) => `Group ${Math.floor(record.id / 4)}`,
+    onCell: (record) => ({
+      rowSpan: record.id % 4 === 0 ? 4 : 0,
+    }),
+  },
+  {
+    title: 'Age',
+    dataIndex: 'age',
+    width: 100,
+    onCell: (record) => ({
+      colSpan: record.id % 4 === 0 ? 2 : 1,
+    }),
+  },
+  {
+    title: 'Address 1',
+    dataIndex: 'address1',
+    onCell: (record) => ({
+      colSpan: record.id % 4 === 0 ? 0 : 1,
+    }),
+  },
+  {
+    title: 'Address 2',
+    dataIndex: 'address2',
+  },
+  {
+    title: 'Address 3',
+    dataIndex: 'address3',
+  },
+  {
+    title: 'Action',
+    width: 150,
+    fixed: 'end',
+    render: () => (
+      <Space>
+        <Typography.Link>Action1</Typography.Link>
+        <Typography.Link>Action2</Typography.Link>
+      </Space>
+    ),
+  },
+]
+
+const antdShortColumns: NonNullable<TableProps<RecordType>['columns']> = [
+  {
+    title: 'ID',
+    dataIndex: 'id',
+    width: 100,
+  },
+  {
+    title: 'FistName',
+    dataIndex: 'firstName',
+    width: 120,
+  },
+  {
+    title: 'LastName',
+    dataIndex: 'lastName',
+    width: 120,
+  },
+]
+
+// ---------------------------------------------------------------------------
+// Demo 根组件
+// ---------------------------------------------------------------------------
 
 export default function VirtualListDemo() {
+  // ★ 共享状态：同一个状态同时驱动两侧表格。
   const [fixed, setFixed] = useState(true)
   const [bordered, setBordered] = useState(true)
-  // M9（展开）已实现：补 Expandable 开关，验证决策 2（虚拟 × 展开不崩、滚动稳定）。
-  // 合并 × 展开互斥（antd demo 同款：展开时清掉 onCell），故 expand 开启时强制 plainColumns。
-  const [merged, setMerged] = useState(true)
   const [expanded, setExpanded] = useState(false)
-  const [count, setCount] = useState(10000)
+  const [empty, setEmpty] = useState(false)
+  const [count, setCount] = useState<number>(10000)
+  // data-grid 专属：保留独立的 Merged 开关（对照点）。
+  const [merged, setMerged] = useState(true)
 
-  const tblRef = useRef<TableRef>(null)
+  const dgRef = useRef<TableRef>(null)
+  const antdRef = useRef<AntdTableRef | null>(null)
 
   const data = useMemo<RecordType[]>(() => getData(count), [count])
 
-  const columns = useMemo<ColumnType<RecordType>[]>(() => {
-    if (!fixed) return plainColumns.slice(0, 3) // 与 antd 一致：非 fixed 时只显示前 3 列。
+  // ----- 左栏（data-grid）列选择逻辑（与改造前一致）-----
+  const dgColumns = useMemo<ColumnType<RecordType>[]>(() => {
+    if (!fixed) return dgShortColumns // 与 antd 一致：非 fixed 时只显示前 3 列。
     // 展开启用时强制 plainColumns（与 antd demo "Expandable 开关切到展开时清 onCell" 一致）。
-    return merged && !expanded ? mergedColumns : plainColumns
+    return merged && !expanded ? dgMergedColumns : dgPlainColumns
   }, [fixed, merged, expanded])
 
-  // M9：展开内容渲染（展开后行实际更高，但虚拟窗口仍按收起态 rowHeight=40 算——决策 2）。
-  const expandable = expanded
-    ? {
-        expandedRowRender: (record: RecordType) => (
-          <div style={{ padding: 8 }}>
-            Expanded content for id={record.id}: {record.address1} / {record.address2}
-          </div>
-        ),
-      }
-    : undefined
+  // ----- 右栏（antd）列选择逻辑（对齐 antd demo mergedColumns useMemo）-----
+  const antdColumns = useMemo<NonNullable<TableProps<RecordType>['columns']>>(() => {
+    if (!fixed) return antdShortColumns
+    if (!expanded) return antdFixedColumns
+    return antdFixedColumns.map((col) => ({ ...col, onCell: undefined }))
+  }, [expanded, fixed])
+
+  // ----- 左栏（data-grid）expandable（决策 2：展开内容不计入虚拟窗口）-----
+  const dgExpandable = useMemo(() => {
+    if (!expanded) return undefined
+    return {
+      expandedRowRender: (record: RecordType) => (
+        <div style={{ padding: 8 }}>
+          Expanded content for id={record.id}: {record.address1} / {record.address2}
+        </div>
+      ),
+      rowExpandable: (record: RecordType) => record.id % 2 === 0,
+    }
+  }, [expanded])
+
+  // ----- 右栏（antd）expandable（忠实 antd demo expandableProps）-----
+  const antdExpandable = useMemo<TableProps<RecordType>['expandable']>(() => {
+    if (!expanded) return undefined
+    return {
+      columnWidth: 48,
+      expandedRowRender: (record: RecordType) => (
+        <p style={{ margin: 0 }}>🎉 Expanded {record.address1}</p>
+      ),
+      rowExpandable: (record: RecordType) => record.id % 2 === 0,
+    }
+  }, [expanded])
+
+  // ----- 双侧 scrollTo（同时滚动两侧）-----
+  const scrollToBoth = (opts: { index?: number; key?: import('react').Key }) => {
+    dgRef.current?.scrollTo(opts)
+    antdRef.current?.scrollTo(opts)
+  }
+
+  const showScroll = data.length >= 999
 
   return (
     <div style={{ padding: 24 }}>
-      <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center' }}>
-        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          <input type="checkbox" checked={bordered} onChange={() => setBordered(!bordered)} />
-          Bordered
-        </label>
-        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          <input type="checkbox" checked={fixed} onChange={() => setFixed(!fixed)} />
-          Fixed
-        </label>
-        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          <input type="checkbox" checked={merged} onChange={() => setMerged(!merged)} />
-          Merged
-        </label>
-        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          <input type="checkbox" checked={expanded} onChange={() => setExpanded(!expanded)} />
-          Expandable
-        </label>
-        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-          Count:
-          <select value={count} onChange={(e) => setCount(Number(e.target.value))}>
-            <option value={0}>None (0)</option>
-            <option value={4}>Less (4)</option>
-            <option value={10000}>Lot (10000)</option>
-          </select>
-        </label>
-        {data.length >= 1000 ? (
-          <>
-            <button type="button" onClick={() => tblRef.current?.scrollTo({ index: 999 })}>
-              Scroll To index 999
-            </button>
-            <button type="button" onClick={() => tblRef.current?.scrollTo({ key: 50 })}>
-              Scroll To key 50
-            </button>
-            <button type="button" onClick={() => tblRef.current?.scrollTo({ index: 0 })}>
-              Scroll To Top
-            </button>
-          </>
-        ) : null}
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。 */}
+      <div
+        style={{
+          marginBottom: 16,
+          padding: 12,
+          border: '1px solid #f0f0f0',
+          borderRadius: 8,
+          background: '#fff',
+        }}
+      >
+        <Space wrap>
+          <Switch
+            checked={bordered}
+            onChange={() => setBordered(!bordered)}
+            checkedChildren="Bordered"
+            unCheckedChildren="Bordered"
+          />
+          <Switch
+            checked={fixed}
+            onChange={() => setFixed(!fixed)}
+            checkedChildren="Fixed"
+            unCheckedChildren="Fixed"
+          />
+          <Switch
+            checked={expanded}
+            onChange={() => setExpanded(!expanded)}
+            checkedChildren="Expandable"
+            unCheckedChildren="Expandable"
+          />
+          <Switch
+            checked={empty}
+            onChange={() => setEmpty(!empty)}
+            checkedChildren="Empty"
+            unCheckedChildren="Empty"
+          />
+          {/* data-grid 专属：独立 Merged 开关（对照点）。antd 侧 merged 行为由 fixed+expanded 推导。 */}
+          <Switch
+            checked={merged}
+            onChange={() => setMerged(!merged)}
+            checkedChildren="Merged (data-grid only)"
+            unCheckedChildren="Merged (data-grid only)"
+          />
+          <Segmented
+            value={count}
+            onChange={(val) => setCount(val as number)}
+            options={[
+              { label: 'None', value: 0 },
+              { label: 'Less', value: 4 },
+              { label: 'Lot', value: 10000 },
+            ]}
+          />
+          {showScroll ? (
+            <>
+              <Button onClick={() => scrollToBoth({ index: 999 })}>
+                Scroll To index 999 (both)
+              </Button>
+              <Button onClick={() => scrollToBoth({ index: 0 })}>
+                Scroll To Top (both)
+              </Button>
+              {/* data-grid 专属：保留原 key 50 滚动（左栏专属）。 */}
+              <Button onClick={() => dgRef.current?.scrollTo({ key: 50 })}>
+                Scroll To key 50 (data-grid)
+              </Button>
+            </>
+          ) : null}
+        </Space>
       </div>
 
-      <p style={{ margin: '0 0 8px', color: 'rgba(0,0,0,0.65)', fontSize: 12 }}>
-        ★ 决策 2（虚拟 × 展开）：展开行后该行实际 DOM 更高（多了展开内容 track），但虚拟窗口仍按
-        收起态 rowHeight=40 算（不感知展开态）。展开后滚动位置/窗口稳定不崩。展开开启时强制关闭合并
-        （与 antd demo 一致）。合并 × 虚拟存在已知简化（跨可视区边界的合并左上角不补画）。
-      </p>
-
-      <Table<RecordType>
-        ref={tblRef}
-        bordered={bordered}
-        virtual
-        columns={columns}
-        scroll={{ x: 2000, y: 400 }}
-        rowKey="id"
-        dataSource={data}
-        expandable={expandable}
-        // 行高约定：每行 40px（决策 2：虚拟窗口按此约定算，不测量真实 DOM 高）。
-        rowHeight={40}
-        headerHeight={40}
-      />
+      {/*
+        minPaneWidth=1000 → 写入 CSS 变量 --pane-min:1000px，横排阈值 ≈ 1000×2 + 16 = 2016px。
+        纯 CSS flex-wrap 自适应（无 JS）：容器 ≥ 2016 → 横排；< 2016 → 自动换行竖排。
+        原因：本 demo 是 scroll.x:2000 的宽表，半宽（~960px at 1920 视口）下每栏仅 ~354px
+        太挤、横滚严重；取大阈值使常规笔记本视口（1440–1920）下 **竖排**（每栏全宽，对 2000px
+        表更友好），仅在超宽屏（≥2560）才横排。这正是用户要的「放不下就竖排，每个 demo 阈值不同」。
+      */}
+      <SplitDemo
+        minPaneWidth={1000}
+        left={
+          /* ★ 决策 7：父容器需有明确 height（400px，约等价 antd y:400）。
+             虚拟滚动窗口高度由容器 clientHeight 实时测量（ResizeObserver），CSS 自动适应。 */
+          <div style={{ height: 400 }}>
+            <Table<RecordType>
+              ref={dgRef}
+              bordered={bordered}
+              virtual
+              columns={dgColumns}
+              scroll={{ x: 2000, y: true }}
+              rowKey="id"
+              dataSource={empty ? [] : data}
+              expandable={dgExpandable}
+              // 行高约定：每行 40px（决策 2：虚拟窗口按此约定算，不测量真实 DOM 高）。
+              rowHeight={40}
+              headerHeight={40}
+            />
+          </div>
+        }
+        right={
+          /* antd 官方 virtual-list demo 忠实复刻：
+             virtual + scroll={{ x:2000, y:400 }} + pagination={false} +
+             rowSelection（展开关闭时 radio）+ expandable + fixedColumns。 */
+          <AntdTable<RecordType>
+            ref={antdRef}
+            bordered={bordered}
+            virtual
+            columns={antdColumns}
+            scroll={{ x: 2000, y: 400 }}
+            rowKey="id"
+            dataSource={empty ? [] : data}
+            pagination={false}
+            rowSelection={expanded ? undefined : { type: 'radio', columnWidth: 48 }}
+            expandable={antdExpandable}
+          />
+        }
+      >
+        <div>
+          <strong>对照说明（决策 9 试点）：</strong>本 demo 左右并排呈现 data-grid 与 antd
+          virtual-list，方便对照修 bug。
+          <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+            <li>
+              <strong>rowSelection</strong>：右栏 antd 展开关闭时显示 radio 选择列（忠实 antd
+              demo）；左栏 data-grid 不加（与改造前一致，作为对照点）。
+            </li>
+            <li>
+              <strong>Merged 开关</strong>：左栏 data-grid 专属（直接对照有/无合并的虚拟渲染）；
+              右栏 antd 的 merged 由 Fixed + Expandable 推导。
+            </li>
+            <li>
+              <strong>合并 × 虚拟已知简化</strong>（§9 M4）：左栏 data-grid 合并组左上角滚出可视区
+              上边界后，其延伸到可视区的覆盖部分不补画（「Scroll To index 999」拉到边界时可见）；
+              右栏 antd 无此问题。
+            </li>
+            <li>
+              <strong>展开行高 × 虚拟</strong>（决策 2）：左栏 data-grid 展开内容直接渲染但
+              <strong>不计入虚拟窗口</strong>（窗口按收起态 rowHeight=40 算，展开后滚动稳定）。
+            </li>
+            <li>
+              <strong>scrollTo 双 ref</strong>：「Scroll To index 999 / Top」同时滚动两侧对照；
+              「Scroll To key 50」仅左栏 data-grid（原 demo 保留）。
+            </li>
+            <li>
+              <strong>本试点核心评估</strong>（用户指定）：50/50 左右并排在「宽 + 高 + 双向滚动」
+              的 demanding demo 上是否好用——视口是否够放得下 2000px 宽表 + 400px 高表体 + 两栏并排。
+            </li>
+          </ul>
+        </div>
+      </SplitDemo>
     </div>
   )
 }

@@ -14,7 +14,7 @@
  *     * Balance 行：Name=Balance，Borrow colSpan=2 = <Text type="danger">{totalBorrow - totalRepayment}</Text>。
  *
  * 示例 2（fixed sticky bottom）：
- * - bordered + scroll:{x:2000, y:500} + pagination:false。
+ * - bordered + scroll:{x:2000, y:true}（决策 7 CSS 自动适应高度）+ pagination:false。
  * - 2 列：Name（fixed, width:100）/ Description。
  * - 20 行数据（Light/Bamboo/Little 循环 + 固定 description）。
  * - `summary={() => <Table.Summary fixed>...}`：fixed sticky bottom，单行 Summary。
@@ -123,22 +123,25 @@ export default function SummaryDemo() {
         }}
       />
 
-      {/* 示例 2：fixed sticky bottom + scroll（横向 2000 + 纵向 500） */}
-      <Table<FixedDataType>
-        columns={fixedColumns}
-        dataSource={fixedDataSource}
-        pagination={false}
-        scroll={{ x: 2000, y: 500 }}
-        bordered
-        summary={() => (
-          <Table.Summary fixed>
-            <Table.Summary.Row>
-              <Table.Summary.Cell index={0}>Summary</Table.Summary.Cell>
-              <Table.Summary.Cell index={1}>This is a summary content</Table.Summary.Cell>
-            </Table.Summary.Row>
-          </Table.Summary>
-        )}
-      />
+      {/* 示例 2：fixed sticky bottom + scroll（决策 7：横向 2000 + 纵向 true CSS 自动适应）。
+          ★ 父容器需有明确 height（这里固定 300px，约等价 antd y:500 视觉）。 */}
+      <div style={{ height: 300 }}>
+        <Table<FixedDataType>
+          columns={fixedColumns}
+          dataSource={fixedDataSource}
+          pagination={false}
+          scroll={{ x: 2000, y: true }}
+          bordered
+          summary={() => (
+            <Table.Summary fixed>
+              <Table.Summary.Row>
+                <Table.Summary.Cell index={0}>Summary</Table.Summary.Cell>
+                <Table.Summary.Cell index={1}>This is a summary content</Table.Summary.Cell>
+              </Table.Summary.Row>
+            </Table.Summary>
+          )}
+        />
+      </div>
 
       {/* 说明区（外壳仿现有 demo） */}
       <div
@@ -161,7 +164,7 @@ export default function SummaryDemo() {
         </p>
         <p style={{ margin: 0 }}>
           - 示例 2：<code>&lt;Table.Summary fixed&gt;</code> sticky bottom——表体纵向滚动时 summary
-          固定底部；<code>scroll=&#123;&#123; x: 2000, y: 500 &#125;&#125;</code> 横纵向滚动。
+          固定底部；<code>scroll=&#123;&#123; x: 2000, y: true &#125;&#125;</code> 横纵向滚动（决策 7 CSS 自动适应高度）。
         </p>
         <p style={{ margin: 0 }}>
           - <code>Table.Summary.Cell</code>：<code>index</code>（列索引 0-based）+ <code>colSpan</code>（跨列）。

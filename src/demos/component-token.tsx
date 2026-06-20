@@ -213,9 +213,10 @@ export default function App() {
     setHasData(newHasData)
   }
 
-  const scroll: { x?: number | string; y?: number | string } = {}
+  // 决策 7：scroll.y 仅 true/undefined（不支持数字）。yScroll 开关 → y:true（CSS 自动适应高度）。
+  const scroll: { x?: number | string; y?: true } = {}
   if (yScroll) {
-    scroll.y = 240
+    scroll.y = true
   }
   if (xScroll !== 'unset') {
     scroll.x = '100vw'
@@ -340,21 +341,25 @@ export default function App() {
           },
         }}
       >
-        <Table<DataType>
-          bordered={bordered}
-          loading={loading}
-          size={size}
-          expandable={expandable}
-          title={showTitle ? defaultTitle : undefined}
-          showHeader={showHeader}
-          footer={showFooter ? defaultFooter : undefined}
-          rowSelection={rowSelection}
-          scroll={scroll}
-          tableLayout={resolvedTableLayout}
-          pagination={{ placement: [top, bottom] }}
-          columns={tableColumns}
-          dataSource={hasData ? dataSource : []}
-        />
+        {/* 决策 7：scroll.y:true 数据区域模式需父容器有明确 height。
+            yScroll 开启时包一层固定高度容器（240px）；关闭时不包（零回归）。 */}
+        <div style={yScroll ? { height: 240 } : undefined}>
+          <Table<DataType>
+            bordered={bordered}
+            loading={loading}
+            size={size}
+            expandable={expandable}
+            title={showTitle ? defaultTitle : undefined}
+            showHeader={showHeader}
+            footer={showFooter ? defaultFooter : undefined}
+            rowSelection={rowSelection}
+            scroll={scroll}
+            tableLayout={resolvedTableLayout}
+            pagination={{ placement: [top, bottom] }}
+            columns={tableColumns}
+            dataSource={hasData ? dataSource : []}
+          />
+        </div>
       </ConfigProvider>
     </>
   )

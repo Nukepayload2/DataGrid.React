@@ -1043,6 +1043,8 @@ function TableInner<RecordType = any>(
     showSorterTooltip,
     components,
     summary,
+    // ★ §9 列宽策略 tableLayout（对齐 antd `TableProps.tableLayout`）。详见下方 derivedTableLayout 注释。
+    tableLayout: tableLayoutProp,
     locale,
     classNames,
     styles,
@@ -1511,11 +1513,16 @@ function TableInner<RecordType = any>(
   //   width:auto 不约束宽度让 grid 撑宽页面横向滚动。
   //   圆角降级：sticky 模式下 .dg-wrapper 不裁剪，圆角视觉降级（优先 sticky 功能正确）。
   const stickyClassEnabled = sticky !== undefined && sticky !== false
+  // 决策 7：scroll.y===true 数据区域模式 → .dg-wrapper 加 dg-data-area 修饰类
+  //   （display:flex; flex-direction:column; height:100%），让表体区（.dg-scroll-wrap）
+  //   flex:1 填满父容器剩余空间（CSS 自动适应高度，不用 JS 算数字）。父容器需有明确 height。
+  const dataAreaClassEnabled = scroll?.y === true
   const wrapperClass = [
     'dg-wrapper',
     sizeToClass(size),
     bordered ? 'dg-bordered' : '',
     stickyClassEnabled ? 'dg-sticky' : '',
+    dataAreaClassEnabled ? 'dg-data-area' : '',
     className ?? '',
     // S29：语义化 root 部位 className（合并到根容器）。
     classNamesResolved?.root ?? '',
@@ -1560,6 +1567,37 @@ function TableInner<RecordType = any>(
     }
     return merged
   }, [style, stylesResolved?.root, tableTokenVars])
+
+  /**
+   * ★ §9 列宽策略 tableLayout 派生（对齐 antd `Table.tsx:613-627` 简化版）。
+   *
+   * data-grid `grid-template-columns` 默认 `max-content`（列宽=内容宽），且 `.dg-grid` 无
+   * `width:100%` 容器约束 → ① ellipsis 列 track=content 宽，cell-inner 不溢出 → 视觉无 `...`
+   * （S20 gap）；② 表格总宽=内容宽溢出视口（S27 narrow gap）。antd 用 `<table>{width:100%}`
+   * + `table-layout:fixed` 让无 width 列均分剩余（被压缩 < content → ellipsis 生效）。
+   *
+   * **派生规则**（对齐 antd 简化版，仅 ellipsis 触发；不派生 scroll.x/sticky → fixed）：
+   *   - 用户显式传 `tableLayout`（`'fixed'` / `'auto'`）→ 用之。
+   *   - 未显式 + **有 ellipsis 列**（columns 任一叶子列 `ellipsis` truthy）→ 隐式 `'fixed'`
+   *     （让 ellipsis 视觉自动生效，修 S20 gap）。
+   *   - 否则 → `'auto'`（默认，维持 max-content 零回归）。
+   *
+   * ★ 仅 ellipsis 触发：不动 scroll.x/sticky 派生（避免破坏固定列 M2 偏移计算 / 虚拟 M4 /
+   *   sticky S34——这些场景列宽依赖 max-content 测量）。若需在 narrow/无 ellipsis 场景强制
+   *   fixed，调用方显式传 `tableLayout: 'fixed'`。
+   *
+   * ★ ellipsis 判定：基于已过滤哨兵的 visibleColumns（与渲染一致）。哨兵（SELECTION/EXPAND）
+   *   不是 ColumnType，不带 ellipsis，跳过。
+   */
+  const derivedTableLayout: 'auto' | 'fixed' = useMemo(() => {
+    if (tableLayoutProp === 'fixed' || tableLayoutProp === 'auto') return tableLayoutProp
+    // 隐式派生：任一叶子列 ellipsis truthy → fixed。
+    for (const c of visibleColumns as Array<ColumnOrSentinel<RecordType>>) {
+      if (c === SELECTION_COLUMN || c === EXPAND_COLUMN) continue
+      if ((c as ColumnType<RecordType>).ellipsis) return 'fixed'
+    }
+    return 'auto'
+  }, [tableLayoutProp, visibleColumns])
 
   // 引擎层 ref（暴露 scrollTo 等）。本组件的 forwardRef ref 桥接到它。
   const engineRef = useRef<TableEngineHandle | null>(null)
@@ -1888,6 +1926,7 @@ function TableInner<RecordType = any>(
         resizableMaxWidth={resizableMaxWidth}
         expandState={engineExpandState}
         treeState={engineTreeState}
+        tableLayout={derivedTableLayout}
         onSorterClick={onSorterClick}
         onFilterApply={setFilterValue}
         components={components}

@@ -44,6 +44,43 @@
   width: auto;
 }
 
+/* === 决策 7：scroll.y===true 数据区域模式（CSS 自动适应高度）===
+ *
+ * `.dg-wrapper.dg-data-area`：把表格容器转为 flex column + height:100%，
+ * 让内部 `.dg-scroll-wrap`（FloatingScrollBar 包装）flex:1 填满父容器剩余空间——
+ * **不用 JS 算数字高度**（核心：CSS flex/grid 1fr 表体）。
+ *
+ * 父容器需有明确 height（固定 height / flex / 100vh 等），否则表体高度退化为内容自然高
+ * （视觉等价 undefined，但表头仍 sticky 钉顶——functional 但非满高）。
+ *
+ * 子元素布局（flex column）：
+ *   - topPagination / title：auto（内容自然高）。
+ *   - `.dg-scroll-wrap`（GridTable 渲染）：flex:1; min-height:0（填满剩余空间）。
+ *     其内部 `.dg-scroll`（滚动容器）也 flex:1; min-height:0 + overflow-y:auto（表体限高滚动）。
+ *   - footer / bottomPagination：auto。
+ *
+ * ★ 与 dg-sticky 互斥：sticky 是页面级（grid 不包 overflow 容器），data-area 是容器内（包 overflow）。
+ *   同时存在时 dg-sticky 优先（sticky 不消费 scroll.y:true 的容器内固定语义）。
+ *
+ * ★ loading（Spin 包裹）的影响：loading 启用时 tableContent 被 antd Spin 包裹（.ant-spin-nested-loading），
+ *   该包裹层不是 flex item，会破坏 .dg-data-area 的 flex 链。当前简化：loading 模式下 data-area
+ *   高度自适应可能不完美（用户可自行处理 Spin 包裹层高度）；scroll.y:true + loading 共存场景较少。
+ */
+.dg-wrapper.dg-data-area {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+/* data-area 下 GridTable 渲染的 .dg-scroll-wrap（FloatingScrollBar 包装）填满剩余空间。
+   wrap 内部 .dg-scroll 由 GridTable inline style 设 flex:1 + overflow-y:auto。
+   min-height:0 允许 flex item 收缩 < content（触发表体滚动）。 */
+.dg-wrapper.dg-data-area .dg-scroll-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .dg-title,
 .dg-footer {
   padding: var(--dg-cell-padding-block) var(--dg-cell-padding-inline);
@@ -314,15 +351,18 @@
  *
  *   ★ M4 与 M8 统一：同一类、同一 inline sticky 机制、同一 z-index 体系，两路径表头行为一致。
  *
- * corner cell（M4/M8 × M2）：表头固定列格同时有横向 sticky（left/right, zIndex 3）与纵向 sticky
- *   （top, zIndex 4）——单元素双 sticky 浏览器原生支持。z-index 取纵向（4）保证角单元格在双向
- *   滚动时盖住下层（表体固定列 zIndex 2、表头固定列 zIndex 3、表头角 zIndex 4）。
+ * corner cell（M4/M8 × M2）：表头固定列格同时有横向 sticky（left/right）与纵向 sticky（top）
+ *   ——单元素双 sticky 浏览器原生支持。角单元格 z-index 取**最高（5）**，保证横向+纵向滚动时
+ *   始终盖住下层（表体固定列 zIndex 2、表头固定列 zIndex 3、普通表头顶 zIndex 4、corner 双 sticky 5）。
+ *   仅纵向 sticky 的中间表头格（zIndex 4）与仅横向 sticky 的固定列表头格（zIndex 3）都低于 corner，
+ *   横向滚动时中间表头格不会盖住 corner cell（修 corner cell 被盖 bug）。
  *
  * 占位 track（仅 M4 虚拟）：paddingTop / paddingBottom 由 grid-template-rows 的两条 track 撑起，
  *   无需额外样式。
  */
 .dg-virtual-scroll,
-.dg-fixed-header-scroll {
+.dg-fixed-header-scroll,
+.dg-x-scroll {
   /* 与 .dg-scroll 一致：固定列底色由 .dg-cell-fixed-* 提供，这里只管滚动行为。 */
   width: 100%;
 }
@@ -978,6 +1018,123 @@
 }
 .dg-cell-summary[data-align='end'] {
   justify-content: flex-end;
+}
+
+/* === scroll.y 悬浮自定义滚动条（macOS 风格：细线默认 + hover 变粗）===
+ *
+ * 触发：scroll.y 启用（M8 固定表头 / M4 虚拟滚动）时，GridTable 用 FloatingScrollBar 组件
+ * 包装滚动容器，外层加 `.dg-scroll-wrap.dg-scroll-floating` 类。
+ *
+ * 1. **隐藏原生滚动条**（仅 scroll.y 启用时）：
+ *    `.dg-scroll-floating .dg-scroll`（即包装层内的滚动容器）隐藏原生纵向滚动条：
+ *      - `scrollbar-width: none`（Firefox）。
+ *      - `::-webkit-scrollbar { width: 0; height: 0 }`（Chrome/Safari/Edge）。
+ *    滚动行为保留（容器仍 overflow-y:auto，滚轮/程序 scrollTop/scroll 事件照常）——只隐藏视觉。
+ *
+ * 2. **包装层定位上下文**：`.dg-scroll-wrap` 设 `position: relative`（悬浮条 absolute 锚定到此）。
+ *    overflow 默认 visible（不拦截 grid 内部任何 sticky 上下文，与 .dg-scroll 的 overflow 解耦）。
+ *
+ * 3. **悬浮条 hit 容器** `.dg-floating-scrollbar`：
+ *    - 绝对定位：top/bottom 由 JS 注入（=表头高/summary 高，限制在数据区），right:0，width:24px。
+ *    - width = thumb 最大宽(hover 8px) + 左 8px + 右 8px = 24px（thumb 周围各 8px hit 区）。
+ *      thumb 在 hit 容器内水平居中（left:50% + translateX(-50%)），故 thumb 任何状态（默认 2px /
+ *      hover 8px）左右两侧均至少 8px hit 区——鼠标进入 thumb 周围 8px 即视为 hover thumb。
+ *    - z-index 高于单元格（盖在内容上但不阻挡——pointer-events 由 thumb 控制）。
+ *    - 自身 pointer-events:auto 且 background 透明（仅作 hover 触发器，不阻挡视觉）。
+ *      ★ 注意：hit 容器 pointer-events:auto 会阻挡其下方 24px 区域的表格交互（右边缘 24px 列内容
+ *        点击被拦截）。权衡：24px（thumb 居中 + 周围各 8px）是 macOS 风格宽 hit 区的常规代价，
+ *        可接受。若需更窄 hit，可减小周围 hit 区（如左右各 4px → 总宽 16px）。
+ *
+ * 4. **thumb** `.dg-floating-scrollbar-thumb`：
+ *    - 默认：width 2px，半透明灰 rgba(0,0,0,0.25)，水平居中在 hit 容器（left:50% + translateX(-50%)）。
+ *    - hit 容器 :hover 或 thumb :hover / 拖动时：width 8px，实色 rgba(0,0,0,0.45)（仍居中）。
+ *    - transition: width/background 0.2s。
+ *    - 高度/垂直位置由 JS 注入（height + transform: translateX(-50%) translateY(...)）。
+ *    - cursor: pointer（提示可拖动）；border-radius 圆角（macOS 同款胶囊）。
+ */
+.dg-scroll-wrap {
+  position: relative;
+}
+
+/* 隐藏原生纵/横滚动条（scroll.y/scroll.x 启用时，由 .dg-scroll-floating 修饰类限定）。
+   横向滚动仍由 overflow-x:auto 处理，纵向由 overflow-y:auto，仅视觉隐藏（悬浮条接管）。 */
+.dg-scroll-floating .dg-scroll {
+  scrollbar-width: none;
+}
+.dg-scroll-floating .dg-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* 悬浮条 hit 容器基类：绝对定位（top/bottom/left/right 由 JS 注入），
+   z-index 高于单元格，pointer-events:auto 接收 hover，背景透明不阻挡视觉。 */
+.dg-floating-scrollbar {
+  position: absolute;
+  z-index: 10;
+  pointer-events: auto;
+  background: transparent;
+}
+
+/* === 纵向悬浮条（scroll.y）===
+   hit 容器：右侧，width = thumb 最大宽(hover 8px) + 左 8px + 右 8px = 24px（thumb 周围各 8px hit 区）。 */
+.dg-floating-scrollbar-v {
+  right: 0;
+  width: 24px;
+}
+
+/* 纵向 thumb：默认细线（2px 宽），hover/拖动时变粗（8px 宽）。水平居中在 hit 容器（left:50% +
+   translateX(-50%)），故 thumb 任何状态左右两侧均至少 8px hit 区。 */
+.dg-floating-scrollbar-thumb {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 100px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    width 0.2s ease,
+    background-color 0.2s ease;
+  will-change: transform, height;
+}
+
+/* 纵向 hit 容器 hover（鼠标进入 thumb 周围 8px hit 区）→ thumb 变粗变实色（仍居中）。 */
+.dg-floating-scrollbar-v:hover .dg-floating-scrollbar-thumb,
+.dg-floating-scrollbar-thumb:hover {
+  width: 8px;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+/* === 横向悬浮条（决策 8，scroll.x）===
+   hit 容器：底部（summary 上方），height = thumb 最大高(hover 8px) + 上 8px + 下 8px = 24px
+   （thumb 周围各 8px hit 区）。left/right 由 JS 注入（默认 0/0，撑满数据区宽）。 */
+.dg-floating-scrollbar-h {
+  height: 24px;
+}
+
+/* 横向 thumb：默认细线（2px 高），hover/拖动时变粗（8px 高）。垂直居中在 hit 容器（top:50% +
+   translateY(-50%)），故 thumb 任何状态上下两侧均至少 8px hit 区。 */
+.dg-floating-scrollbar-thumb-h {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  height: 2px;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 100px;
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    height 0.2s ease,
+    background-color 0.2s ease;
+  will-change: transform, width;
+}
+
+/* 横向 hit 容器 hover（鼠标进入 thumb 周围 8px hit 区）→ thumb 变粗变实色（仍居中）。 */
+.dg-floating-scrollbar-h:hover .dg-floating-scrollbar-thumb-h,
+.dg-floating-scrollbar-thumb-h:hover {
+  height: 8px;
+  background: rgba(0, 0, 0, 0.45);
 }
 
 

@@ -176,17 +176,20 @@ export default function StyleClassDemo() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
+      {/* ★ 决策 7：父容器需有明确 height（这里固定 300px）。true 模式下表体 flex:1 填满。 */}
       <div>
         <h3 style={{ marginBottom: 12 }}>对象 styles（root/pagination/body.row/body.cell）</h3>
-        <Table<DataType>
-          {...sharedProps}
-          styles={styles}
-          title={() => 'Table Object Styles'}
-          footer={() => 'Table Object Footer'}
-          size="small"
-          virtual
-          scroll={{ y: 300 }}
-        />
+        <div style={{ height: 300 }}>
+          <Table<DataType>
+            {...sharedProps}
+            styles={styles}
+            title={() => 'Table Object Styles'}
+            footer={() => 'Table Object Footer'}
+            size="small"
+            virtual
+            scroll={{ y: true }}
+          />
+        </div>
       </div>
       <div>
         <h3 style={{ marginBottom: 12 }}>函数 styles（size=medium 时自定义 root/title/footer/header.cell/pagination）</h3>

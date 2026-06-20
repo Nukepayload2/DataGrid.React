@@ -20,6 +20,11 @@ export interface DemoMeta {
   description?: string
   /** 懒加载组件。 */
   element: () => Promise<{ default: ComponentType }>
+  /**
+   * 决策 9：是否为左右对比 demo（左 data-grid / 右 antd 同名 demo）。
+   * opt-in：未声明时当作 false（其它 demo 不受影响）。列表页会显示「对比」徽章。
+   */
+  compare?: boolean
 }
 
 /** 解析当前 hash 为路径段数组。 */

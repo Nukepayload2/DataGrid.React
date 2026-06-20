@@ -587,16 +587,19 @@ export interface EngineTableProps<RecordType = any> {
   /** 是否显示表头。 */
   showHeader?: boolean
   /**
-   * 滚动配置。
+   * 滚动配置（决策 7 + 决策 8 改造）。
    * - `x`：横向滚动（M2）。number → 内容最小宽度（px）；string → 原样作 min-width。
    *   不传时表格自适应容器宽度，无横向滚动（M0/M1 行为）。
-   * - `y`：纵向可视高度。
-   *     - 配合 `virtual=true`（M4）：开启纵向虚拟滚动（number→px 表体可视区高度）。
-   *     - 不配合 `virtual`（M8）：表头纵向固定（表体容器 max-height=y 纵向滚动，表头 sticky top）。
+   *   启用时额外渲染横向悬浮滚动条（决策 8，定位数据区域底部）。
+   * - `y`：纵向滚动（**决策 7，仅 `true`**）。
+   *     - `true`：数据区域模式——表头固定 + 表体滚动 + #35 纵向悬浮滚动条，
+   *       **CSS 自动适应高度**（flex 1fr 表体填满 `.dg-wrapper` 可用高度，不用 JS 算数字）。
+   *     - 配合 `virtual=true`（M4）：开启纵向虚拟滚动（虚拟窗口高度=CSS 自适应可视高）。
+   *     - `undefined`：无表体滚动区（零回归）。
    */
-  scroll?: { x?: number | string; y?: number | string }
+  scroll?: { x?: number | string; y?: true }
   /**
-   * 虚拟滚动开关（M4）。`virtual=true` 且 `scroll.y` 为 number 时启用纵向虚拟滚动。
+   * 虚拟滚动开关（M4）。`virtual=true` 且 `scroll.y === true` 时启用纵向虚拟滚动（决策 7）。
    * 详见对外 types.ts TableProps.virtual 注释。
    */
   virtual?: boolean
@@ -669,6 +672,27 @@ export interface EngineTableProps<RecordType = any> {
    * （antd 行为：tree-data 优先于 expandedRowRender）。
    */
   treeState?: EngineTreeState
+  /**
+   * ★ §9 列宽策略 tableLayout（对齐 antd `TableProps.tableLayout`，简化版）。
+   *
+   * **语义**：
+   *   - `'auto'`（默认）：维持现状——grid 列 track 走 `max-content`（无 width 列 = 内容宽），
+   *     `.dg-grid` 无额外 width 约束。零回归（所有无 ellipsis 的 demo 视觉不变）。
+   *   - `'fixed'`：约束模式——
+   *       * `.dg-grid` 加 `width:100%`（约束=容器宽，修表格溢出 S27 narrow gap）；
+   *       * 无 width 列 track 改为 `minmax(0, 1fr)`（均分剩余，`min:0` 允许收缩 < content →
+   *         触发 ellipsis 视觉生效，修 S20 gap）。
+   *       * hidden 列仍 `0fr`（M6 不变）；resized 列仍 px（M7 不变）；有 width 列仍 `toTrack(width)`。
+   *
+   * **派生位置**：由适配层 Table.tsx 派生（显式 tableLayout > ellipsis 列隐式 fixed > auto）后传入。
+   *   引擎层只消费、不派生（保持单一真理源）。
+   *
+   * **与 scroll.x/M2 固定列/M4 虚拟/S34 sticky 的关系**：
+   *   - 这些场景列宽依赖 max-content 测量（固定列 sticky 偏移累加、虚拟列 track）；
+   *     派生策略**仅 ellipsis 触发 fixed**，避免在这些场景误切 fixed 破坏测量（详见 Table.tsx 注释）。
+   *   - 若用户显式传 `tableLayout:'fixed'`，则覆盖这些场景的列宽策略（用户自负）。
+   */
+  tableLayout?: 'auto' | 'fixed'
   /**
    * 排序点击回调（S1）。
    * 用户点击可排序叶子表头格（含排序图标区域）时触发。参数为该列的稳定 key（来自 columnTree，

@@ -987,7 +987,7 @@ export interface TableSemanticInfo<RecordType = any> {
     size?: SizeType
     bordered?: boolean
     virtual?: boolean
-    scroll?: { x?: number | string; y?: number | string }
+    scroll?: { x?: number | string; y?: true }
     pagination?: false | TablePaginationConfig
   }
   /**
@@ -1289,14 +1289,28 @@ export interface TableProps<RecordType = any> {
   title?: (currentPageData: Array<RecordType>) => ReactNode
   footer?: (currentPageData: Array<RecordType>) => ReactNode
   /**
-   * 滚动配置。
+   * 滚动配置（决策 7 + 决策 8 改造）。
+   *
    * - `x`：横向滚动内容最小宽度（M2 消费；number→px，string→原样作 min-width）。
-   * - `y`：纵向可视高度。
-   *     - 配合 `virtual` 开启虚拟滚动（M4）：number→px 表体可视区高度，只渲染可视区 + overscan 行。
-   *     - 不配合 `virtual`：表头纵向固定（M8 消费）——表体容器 max-height=y 纵向滚动，
-   *       表头 `position: sticky; top: 0` 钉顶。
+   *   启用横向滚动时额外渲染**横向悬浮滚动条**（决策 8，见下方 y 说明同位置——
+   *   `HorizontalFloatingScrollBar`：细线 2px + hit 上下各 8px + hover 变粗 8px + 拖动/同步），
+   *   定位在数据区域底部（summary 上方）。隐藏原生横向滚动条。
+   * - `y`：纵向滚动语义（**决策 7**，**仅 `true | undefined`，不支持数字**）。
+   *     - `true`：**数据区域模式**——表头固定 + 表体滚动 + 纵向悬浮滚动条（#35 FloatingScrollBar），
+   *       **高度 CSS 自动适应**（flex/grid 让表体填满表格可用高度，**不用 JS 算数字**）：
+   *         * `.dg-wrapper` 加 `dg-data-area` 类 → `display:flex; flex-direction:column; height:100%`
+   *           （父容器需有明确 height，文档说明）。
+   *         * 内部 `.dg-scroll-wrap`（FloatingScrollBar 包装）`flex:1; min-height:0` 填满剩余空间，
+   *           `.dg-scroll` `flex:1; min-height:0; overflow-y:auto` 表体限高滚动；表头 sticky top 钉顶。
+   *     - `undefined`（缺省）：表格整体（无固定表头，内容全展开，无表体滚动区，零回归）。
+   *     - **不支持数字**：旧 demo 用 `scroll={{ y: <number> }}` 的语义（max-height=number）已废弃，
+   *       迁移到 `true`（CSS 自动适应高度）。
+   *
+   * ★ 决策 7 核心点：纯 CSS（flex/grid）让表体填满父容器可用高度，**不用 JS 算数字高度**。
+   *   调用方需确保 `.dg-wrapper` 的父容器有明确高度（固定 height / flex / 100vh 等），
+   *   否则表体高度退化为内容自然高（视觉等价 undefined，但表头仍按 sticky 定位）。
    */
-  scroll?: { x?: number | string; y?: number | string }
+  scroll?: { x?: number | string; y?: true }
   /**
    * 虚拟滚动开关（M4）。
    * 与 `scroll={{ y: <number> }}` 组合启用纵向虚拟滚动：只渲染可视区 + overscan 的行，

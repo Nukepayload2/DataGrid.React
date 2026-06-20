@@ -47,7 +47,7 @@
  *
  * === M4 虚拟滚动 virtual ===
  *
- * 触发条件：`virtual === true && typeof scroll.y === 'number'`（与 antd virtual-list 一致）。
+ * 触发条件：`virtual === true && scroll.y === true`（决策 7：scroll.y 仅 true/undefined）。
  *
  * 实现：
  * 1. **强制 multi 路径**：虚拟滚动下表头表体行号必须精确可控，flat 路径（grid-auto-flow:column）
@@ -80,7 +80,7 @@
  *
  * === M8 固定表头（容器内纵向滚动，非 virtual）===
  *
- * 触发条件：`!virtual && scroll.y` 存在（number 或字符串）。区别于 M4：表体**全量渲染**（不做虚拟
+ * 触发条件：`!virtual && scroll.y === true`（决策 7）。区别于 M4：表体**全量渲染**（不做虚拟
  * 窗口裁剪），只把整体放进一个**限高纵向滚动容器**，表头 `position: sticky; top: 0` 钉在该容器顶部。
  * 适用 antd `fixed-header` / `fixed-columns-header` demo（百行级、表头固定）。
  *
@@ -91,20 +91,23 @@
  *    透过）。**M4 与 M8 走同一套机制**，行为一致。
  *    （历史 prop 名 `virtualStickyTop` 已泛化为 `headerStickyTop`，含义=表头纵向 sticky 启用。）
  *
- * 2. **滚动容器**：M8 下 `.dg-scroll` 同时承载横向（scroll.x / fixed）与纵向（scroll.y）滚动：
- *      - `max-height: scrollY`（number→px，string→原样）——表体超过该高度时纵向滚动。
- *        用 max-height 而非 height：表体不足该高度时不强制撑满（与 antd `.ant-table-body`
- *        `max-height` 一致；antd fixed-header demo 视觉同款）。
+ * 2. **滚动容器**（决策 7 CSS 自动适应高度）：M8 下 `.dg-scroll` 同时承载横向（scroll.x / fixed）
+ *    与纵向（scroll.y===true）滚动：
+ *      - `flex:1; min-height:0`（CSS 自动适应高度——填满 `.dg-wrapper.dg-data-area` 的剩余空间，
+ *        父容器需有明确 height；**不用 JS 算数字**）。
  *      - `overflow-y: auto`（启用纵向滚动）。
- *      - `overflow-x`：由 scroll.x / fixed 决定（与 M2 一致）。
- *    `.dg-grid` 仍由 grid-template-rows 自适应表头 + 全量数据行总高，浏览器原生滚动条正确。
+ *      - `overflow-x`：由 scroll.x 决定（与 M2 一致）。
+ *    `.dg-grid` 仍由 grid-template-rows 自适应表头 + 全量数据行总高，浏览器原生滚动条正确
+ *    （视觉由 #35 FloatingScrollBar 替代）。
  *
- * 3. **corner cell（双 sticky）**：M8 × M2 组合（表头 sticky top + 列 sticky left/right）时，
- *    左上/右上角的表头格**同时** sticky left（M2）+ sticky top（M8）。本引擎天然支持——
+ * 3. **corner cell（双 sticky + 最高 z-index）**：M8 × M2 组合（表头 sticky top + 列 sticky left/right）
+ *    时，左上/右上角的表头格**同时** sticky left（M2）+ sticky top（M8）。本引擎天然支持——
  *    HeaderCell 内 `horizontalSticky`（来自 headerSticky，left/right + zIndex 3）与
  *    `verticalSticky`（top + zIndex 4）合并到同一元素的 style；浏览器对单元素 sticky left+top
- *    原生支持（与 antd rc-table corner cell 同款）。zIndex 取纵向（4）> 横向（3），保证角单元格
- *    在双向滚动时都盖住下层（表体固定列 zIndex 2、表头固定列 zIndex 3、表头角 zIndex 4）。
+ *    原生支持（与 antd rc-table corner cell 同款）。**角单元格 z-index 取最高（5）**——当横向+纵向
+ *    sticky 同时存在时，覆盖纵向的 4 为 5，保证角单元格在双向滚动时都盖住下层：
+ *    表体固定列 zIndex 2、表头固定列 zIndex 3、普通表头顶 zIndex 4、corner 双 sticky zIndex 5。
+ *    修复 bug：仅取纵向（4）会与中间表头格（4）同级，横向滚动时中间表头格盖住 corner cell。
  *
  * === M6 隐藏列 hidden columns（grid track `0fr` 占位 + 过渡）===
  *
@@ -256,6 +259,7 @@ import type {
 //   用 ColumnType 表达（与对外 types.ts 一致），仅 type-only。
 import type { ColumnType } from '../types'
 import { ExpandIcon } from './ExpandIcon'
+import { FloatingScrollBar } from './FloatingScrollBar'
 
 /**
  * === S15 自定义组件（components.body.cell / components.body.row）渲染辅助 ===
@@ -685,6 +689,7 @@ function GridTableInner<RecordType = any>(
     resizableMaxWidth,
     expandState,
     treeState,
+    tableLayout,
     onSorterClick,
     onFilterApply,
     className,
@@ -716,18 +721,17 @@ function GridTableInner<RecordType = any>(
     sticky && typeof sticky === 'object' && sticky.getContainer ? sticky.getContainer : undefined
 
   // === 虚拟滚动判定（M4）===
-  // virtual=true 且 scroll.y 为 number 时启用纵向虚拟滚动（与 antd virtual-list 一致）。
+  // virtual=true 且 scroll.y === true 时启用纵向虚拟滚动（决策 7：scroll.y 仅 true/undefined）。
+  // 虚拟窗口高度由 CSS 自动适应（容器 clientHeight，ResizeObserver 实时测量——见 useVirtualList）。
   // ★ S34：sticky 启用时禁用虚拟（页面级与容器内虚拟互斥；sticky 下页面滚动，虚拟窗口失去意义）。
   const scrollY = scroll?.y
-  const virtualEnabled =
-    !stickyEnabled && virtual === true && typeof scrollY === 'number' && scrollY > 0
+  const scrollYEnabled = scrollY === true
+  const virtualEnabled = !stickyEnabled && virtual === true && scrollYEnabled
 
   // === M8 固定表头（非 virtual）判定 ===
-  // 非 virtual 且 scroll.y 存在（number>0 或非空 string）时启用：表体限高纵向滚动、表头 sticky top。
-  // 与 M4 互斥（M4 优先；virtual=true 时走虚拟路径，scroll.y 用于虚拟窗口高度，不再做 M8）。
-  // ★ S34：sticky 启用时禁用 M8 容器内固定（页面级优先；两者不共存）。
-  const scrollYNonVirtual =
-    !stickyEnabled && !virtualEnabled && scrollY !== undefined && scrollY !== null && scrollY !== ''
+  // 非 virtual 且 scroll.y === true 时启用：表头 sticky top + 表体限高纵向滚动（CSS 自动适应高度）。
+  // 与 M4 互斥（M4 优先）。★ S34：sticky 启用时禁用 M8（页面级优先）。
+  const scrollYNonVirtual = !stickyEnabled && !virtualEnabled && scrollYEnabled
 
   // === 表头纵向 sticky 统一标志（M4 + M8 共用）===
   // 无论虚拟（M4）还是非虚拟 scroll.y（M8），表头都需要 `position: sticky; top: 0` 钉在滚动容器顶部。
@@ -1041,12 +1045,17 @@ function GridTableInner<RecordType = any>(
       // 注意：不删除 track（保持线号稳定 → M1/M2/M3 线号均不受隐藏影响）。
       if (col.hidden) return '0fr'
       // M7 列宽拖拽：用户拖拽过的列优先用 resizedWidths（具体 px），覆盖 column.width。
-      // 未拖拽过的列保持原逻辑（column.width → max-content）。
+      // 未拖拽过的列保持原逻辑（column.width → max-content / fixed 下 minmax(0,1fr)）。
       // 这样首次拖拽 max-content 列时，第一次 move 即把该列从 max-content 转为受控 px。
       const resized = resizedWidths.get(col.key)
       if (resized !== undefined) return `${resized}px`
       const w = toTrack(col.width)
-      return w ?? 'max-content'
+      if (w !== undefined) return w
+      // ★ §9 tableLayout:'fixed'：无 width 列 → `minmax(0, 1fr)`（均分剩余，min:0 允许收缩
+      //   < content → 触发 ellipsis 视觉生效，修 S20 gap）。配合 `.dg-grid{width:100%}` 约束
+      //   （见下方 gridFinalStyle），让表格总宽=容器宽，不溢出视口（修 S27 narrow gap）。
+      //   auto 模式（默认）：维持 `max-content`（零回归）。
+      return tableLayout === 'fixed' ? 'minmax(0, 1fr)' : 'max-content'
     })
 
     // S22：summary 区 tracks（grid-template-rows 末尾追加，每行一条 'auto' track）。
@@ -1089,6 +1098,7 @@ function GridTableInner<RecordType = any>(
     rowKey,
     summaryParsed,
     summaryEnabled,
+    tableLayout,
   ])
 
   // 整行 hover：记录当前 hover 的数据行 index（null 表示未 hover）。
@@ -1099,6 +1109,12 @@ function GridTableInner<RecordType = any>(
     gridTemplateRows,
     gridTemplateColumns,
     ...(gridAutoFlow ? { gridAutoFlow } : null),
+    // ★ §9 tableLayout:'fixed'：约束模式给 .dg-grid 加 width:100%（约束=容器宽，
+    //   修表格溢出 S27 narrow gap）；配合无 width 列 `minmax(0, 1fr)`（见 colTracks）均分剩余，
+    //   触发 ellipsis 视觉生效（修 S20 gap）。auto 模式不加（零回归）。
+    //   注：与 scrollMinWidth（M2 横向滚动 min-width）正交——min-width 仍生效（表格至少 scrollX 宽），
+    //   width:100% 让表格在容器更宽时撑满容器（fixed 列宽策略在容器约束下均分）。
+    ...(tableLayout === 'fixed' ? { width: '100%' } : null),
   }
 
   // === M2 滚动容器 ===
@@ -1351,41 +1367,66 @@ function GridTableInner<RecordType = any>(
     )
   }
 
-  // M4 虚拟滚动：必须包滚动容器（高度=scroll.y，overflow-y:auto；overflow-x 视 scroll.x）。
-  if (virtualEnabled) {
-    return (
-      <div
-        className={mergeSectionClass('dg-scroll', 'dg-virtual-scroll')}
-        ref={virtualScrollRef}
-        style={mergeSectionStyle({
-          height: typeof scrollY === 'number' ? `${scrollY}px` : undefined,
-          overflowY: 'auto',
-          overflowX: scrollMinWidth ? 'auto' : 'hidden',
-        })}
-      >
-        {renderGrid()}
-      </div>
-    )
-  }
+  // === 决策 7 + 决策 8：scroll.y === true 数据区域模式 + scroll.x 横向悬浮滚动条 ===
+  //
+  // **数据区域模式**（scroll.y === true，virtual 或 M8）：
+  //   - 高度 CSS 自动适应：`.dg-scroll-wrap`（FloatingScrollBar 包装）`flex:1; min-height:0`，
+  //     `.dg-scroll`（滚动容器）`flex:1; min-height:0; overflow-y:auto`。
+  //     外层 `.dg-wrapper.dg-data-area`（Table.tsx 注入）`display:flex; flex-direction:column; height:100%`，
+  //     让 wrap 填满父容器剩余空间——**不用 JS 算数字**。
+  //   - 表头 sticky top（HeaderCell 的 headerStickyTop 标志驱动）钉顶，表体限高滚动。
+  //   - #35 纵向悬浮滚动条（FloatingScrollBar 组件）。
+  //
+  // **横向悬浮滚动条**（scroll.x 启用，决策 8）：
+  //   - 隐藏原生横向滚动条（`.dg-scroll-floating` 修饰类已覆盖 width/height:0）。
+  //   - HorizontalFloatingScrollBar 定位数据区域底部（summary 上方）：细线 2px + hit 上下各 8px
+  //     + hover 变粗 8px + 拖动/同步（translateX）。
+  //
+  // **统一分支**：scroll.y===true 与 scroll.x 二者任一启用 → 都需要 FloatingScrollBar 包装。
+  //   - 仅 scroll.x（无 scroll.y）：容器只 overflow-x:auto（无纵向悬浮条），仅横向悬浮条。
+  //   - 仅 scroll.y（无 scroll.x）：容器 overflow-y:auto（纵向悬浮条），无横向悬浮条。
+  //   - 两者：容器 overflow:auto 双向，纵向 + 横向悬浮条并存。
+  //
+  // ★ M4 虚拟滚动分支：scrollContainerRef 必须传入（virtualScrollRef）。
 
-  // === M8 固定表头（非 virtual）：表体限高纵向滚动 + 表头 sticky top ===
-  // 包一层 .dg-scroll，max-height = scroll.y（number→px，string→原样），overflow-y:auto。
-  // overflow-x 由 scroll.x / hasFixed 决定（与 M2 一致）。
-  // 表头 sticky 由 headerStickyTop 标志驱动（见上方派生），与本容器配合实现"表头钉顶"。
-  if (scrollYNonVirtual) {
-    const maxHeight =
-      typeof scrollY === 'number' ? `${scrollY}px` : (scrollY as string)
+  // 横向滚动是否启用（scroll.x 或 hasFixed）。注意：scroll.x 触发横向悬浮条；hasFixed 不一定触发
+  // 横向悬浮条（fixed 列在没有 scroll.x 时容器是 overflow-x:auto 兜底，原生条仍可见——为了简化，
+  // 仅 scroll.x 启用时启用横向悬浮条；纯 hasFixed 无 scroll.x 走老路径，零回归）。
+  const scrollXEnabled = scrollX !== undefined
+
+  // 仅当 scroll.y===true 或 scroll.x 启用时进入"悬浮条"分支（其他路径零回归）。
+  if (scrollYEnabled || scrollXEnabled) {
+    // wrapStyle：数据区域模式下 wrap 填满（flex:1; min-height:0）；横向滚动模式下 wrap 默认布局。
+    const wrapBaseStyle: CSSProperties = scrollYEnabled
+      ? { flex: '1', minHeight: '0', display: 'flex', flexDirection: 'column' }
+      : {}
+    // 滚动容器 style：纵向滚动 + 横向滚动开关。
+    const containerStyle: CSSProperties = {
+      // 数据区域模式：滚动容器 flex 填满 wrap；横向滚动模式：自适应内容高。
+      ...(scrollYEnabled ? { flex: '1', minHeight: '0' } : null),
+      overflowY: scrollYEnabled ? 'auto' : 'hidden',
+      overflowX: scrollXEnabled ? 'auto' : 'hidden',
+    }
+    const containerClasses = [
+      'dg-scroll',
+      virtualEnabled ? 'dg-virtual-scroll' : null,
+      scrollYNonVirtual ? 'dg-fixed-header-scroll' : null,
+      scrollXEnabled && !scrollYEnabled ? 'dg-x-scroll' : null,
+    ]
+      .filter(Boolean)
+      .join(' ')
     return (
-      <div
-        className={mergeSectionClass('dg-scroll', 'dg-fixed-header-scroll')}
-        style={mergeSectionStyle({
-          maxHeight,
-          overflowY: 'auto',
-          overflowX: scrollMinWidth || hasFixed ? 'auto' : 'hidden',
-        })}
+      <FloatingScrollBar
+        wrapClassName={mergeSectionClass('dg-scroll-wrap')}
+        wrapStyle={mergeSectionStyle(wrapBaseStyle)}
+        scrollContainerClassName={containerClasses}
+        scrollContainerStyle={containerStyle}
+        scrollContainerRef={virtualEnabled ? virtualScrollRef : undefined}
+        // 决策 8：横向悬浮滚动条（scroll.x 启用）。
+        horizontal={scrollXEnabled}
       >
         {renderGrid()}
-      </div>
+      </FloatingScrollBar>
     )
   }
 
@@ -1394,8 +1435,7 @@ function GridTableInner<RecordType = any>(
     return renderGrid()
   }
 
-  // 否则包一层滚动容器（scrollX 决定是否横向滚动；hasFixed 时也包一层便于 sticky 生效——
-  // sticky 需要一个可滚动祖先；当未给 scroll.x 但有 fixed 列时，给一个 overflow-x:auto 兜底，
+  // 否则包一层滚动容器（hasFixed 但无 scroll.x：sticky 需要一个可滚动祖先；给 overflow-x:auto 兜底，
   // 与 antd "未指定 scroll.x 时 fixed 列不生效"行为略有差异（antd 在无 scroll.x 时 fixed 列
   // 会被渲染为普通列）。这里选择更宽容的行为：有 fixed 列即允许横向滚动。）
   return (
@@ -1964,11 +2004,12 @@ function HeaderCell<RecordType>({
    * 滚动消失）。z-index 提高到 4，高于表体（2）与表头横向固定（3）。
    *
    * 触发场景：
-   *   - M4 虚拟滚动（virtual=true && scroll.y 为 number）：`.dg-virtual-scroll` 承载纵向滚动。
-   *   - M8 固定表头（非 virtual && scroll.y 存在）：`.dg-scroll` 承载纵向滚动（max-height=scroll.y）。
+   *   - M4 虚拟滚动（virtual=true && scroll.y===true）：`.dg-virtual-scroll` 承载纵向滚动。
+   *   - M8 固定表头（非 virtual && scroll.y===true）：`.dg-scroll` 承载纵向滚动（CSS 自动适应高度）。
    *
    * 与 M2 横向 sticky 共存（corner cell）：单个元素可同时 sticky left + top（浏览器原生支持；
-   * antd rc-table corner cell 同款实现）。zIndex 取纵向（4）> 横向（3）。
+   * antd rc-table corner cell 同款实现）。双 sticky 同时存在时 zIndex 取最高（5）> 仅纵向（4）>
+   * 仅横向（3）。
    *
    * ★ S34：sticky prop 启用时本字段恒为 false（页面级与容器内互斥）；改由 `stickyHeaderOffset`
    *   驱动表头相对 viewport 固定（top: offsetHeader）。
@@ -1978,9 +2019,9 @@ function HeaderCell<RecordType>({
    * S34 表头页面级 sticky 偏移（px）。仅 `sticky` prop 启用时传入（否则 undefined）。
    *
    * `undefined`：不启用页面级 sticky（走 M4/M8 容器内或默认无固定）。
-   * `number`（含 0）：表头格 inline style 加 `position: sticky; top: <offset>px; zIndex: 4`，
-   * 相对**页面 viewport** 固定（grid 不包 overflow 容器，无 overflow 祖先拦截 sticky 上下文）。
-   * 页面纵向滚动时表头钉在视口顶部 `<offset>px` 处。
+   * `number`（含 0）：表头格 inline style 加 `position: sticky; top: <offset>px; zIndex: 4`
+   * （或 corner 双 sticky 时 5），相对**页面 viewport** 固定（grid 不包 overflow 容器，无 overflow
+   * 祖先拦截 sticky 上下文）。页面纵向滚动时表头钉在视口顶部 `<offset>px` 处。
    *
    * 与 `headerStickyTop` 互斥（同时启用时 sticky 优先，headerStickyTop 恒 false）。
    * 与 M2 横向 sticky 共存（corner cell 双 sticky，与 M4/M8 同款）。
@@ -2079,6 +2120,7 @@ function HeaderCell<RecordType>({
     : 'center'
   // 合并 sticky 样式：M2 横向（左/右）+ 纵向 top:0（M4/M8）或 top:offsetHeader（S34 页面级）。
   const horizontalSticky = stickyHeaderCellStyle(sticky)
+  const hasHorizontalSticky = !!sticky?.side // M2 固定列（左/右）
   // S34：stickyHeaderOffset（页面级，相对 viewport）优先于 headerStickyTop（容器内，top:0）。
   //   两者互斥（sticky 启用时 headerStickyTop 恒 false），这里防御性取优先级。
   const verticalSticky: CSSProperties = stickyHeaderOffset !== undefined
@@ -2086,9 +2128,21 @@ function HeaderCell<RecordType>({
     : headerStickyTop
       ? { position: 'sticky', top: 0, zIndex: 4 }
       : {}
-  // 同元素同时有横向 sticky 与纵向 sticky 时，position/left/zIndex 由横向样式给出，
-  // 这里再 merge 纵向 top/zIndex（纵向 z-index 优先级更高，覆盖横向 z-index）。
-  const mergedSticky: CSSProperties = { ...horizontalSticky, ...verticalSticky }
+  const hasVerticalSticky = stickyHeaderOffset !== undefined || !!headerStickyTop
+  // ★ corner cell（表头 × 固定列交叉格，双 sticky）：横向+纵向同时存在时，该格需要
+  //   **最高 z-index**（5），保证横向滚动时始终盖住"只纵向 sticky 的中间表头格"（z-index 4）
+  //   与"只横向 sticky 的固定列表头格"（z-index 3）。
+  //   修复 bug：原实现 corner cell 取纵向 z-index（4），与中间表头格（4）相同，
+  //   DOM 后渲染的中间表头格横向滚动时会盖住 corner cell。
+  //   z-index 层级：普通(auto) < 表体固定列(2) < 表头固定列(3) < 表头顶部(4) < corner 双 sticky(5)。
+  const cornerZIndex = 5
+  const mergedSticky: CSSProperties = (() => {
+    const merged: CSSProperties = { ...horizontalSticky, ...verticalSticky }
+    if (hasHorizontalSticky && hasVerticalSticky) {
+      merged.zIndex = cornerZIndex
+    }
+    return merged
+  })()
   // S1：该表头格是否可排序（仅叶子表头格；分组格无排序）。
   const sortable = cell.isLeaf && cell.sortable === true && !cell.hidden
   // S1：当前排序态（null/ascend/descend）；仅可排序格有意义。
@@ -2396,13 +2450,24 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
 
   // 合并 sticky 样式：M2 横向（左/右）+ 纵向（M8/M4 top:0 或 S34 top:offsetHeader）。与 HeaderCell 同款。
   const horizontalSticky = stickyHeaderCellStyle(sticky)
+  const hasHorizontalSticky = !!sticky?.side // M2 固定列（左/右）
   // S34：stickyHeaderOffset（页面级）优先于 headerStickyTop（容器内 top:0）。
   const verticalSticky: CSSProperties = stickyHeaderOffset !== undefined
     ? { position: 'sticky', top: `${stickyHeaderOffset}px`, zIndex: 4 }
     : headerStickyTop
       ? { position: 'sticky', top: 0, zIndex: 4 }
       : {}
-  const mergedHeaderSticky: CSSProperties = { ...horizontalSticky, ...verticalSticky }
+  const hasVerticalSticky = stickyHeaderOffset !== undefined || !!headerStickyTop
+  // ★ corner cell（表头 × 固定列交叉格，双 sticky）：与 HeaderCell 同款——
+  //   横向+纵向同时存在时取最高 z-index（5），盖住中间表头格（4）与固定列表头格（3）。
+  //   修复 corner cell 横向滚动被中间表头格盖住的 bug。
+  const mergedHeaderSticky: CSSProperties = (() => {
+    const merged: CSSProperties = { ...horizontalSticky, ...verticalSticky }
+    if (hasHorizontalSticky && hasVerticalSticky) {
+      merged.zIndex = 5
+    }
+    return merged
+  })()
 
   // S1：该列是否可排序 + 当前排序态（与 HeaderCell 同款逻辑）。
   const sortable =

@@ -65,6 +65,35 @@
 
 **🎉 data-grid 主体交付完成**：F1-F4 基础设施 + M1-M9 移植类（9）+ S1-S34 自研类（34）+ D1 边缘 + 接口全兼容 + 全量回归 全部完成。CSS Grid 重做 antd Table，兼容 antd v6 CSS variables + React 接口。
 
+**tableLayout:fixed 列宽策略收尾记录**（§9 gap 修复，验证通过）：tableLayout 派生（显式 > ellipsis 列隐式 fixed > auto 默认）+ fixed 模式（`.dg-grid{width:100%}` + 无 width 列 `minmax(0,1fr)`，min:0 允许收缩触发 ellipsis）+ auto 零回归（max-content）。修复 §9 ellipsis 视觉 gap（S20/S21/S25/S32 ellipsis 列 `...` 生效，scrollWidth>clientWidth）。**grid 等效 antd `<table>{width:100%}`+tableLayout:fixed**（measure row / 滚动条列在 grid 下不需要：max-content 原生测量 + 不拆表无错位）。**剩余**：narrow gap（无 ellipsis + auto → max-content 溢出容器，需显式 tableLayout:fixed）。
+
+**scroll.y 悬浮滚动条收尾记录**（验证通过；macOS 风格自定义滚动条，WPF 数据区域模式）：隐藏原生（`scrollbar-width:none` + `::-webkit-scrollbar{width:0}`，容器仍 `overflow-y:auto` 保留滚轮）+ **FloatingScrollBar 组件**：hit 容器 **24px**（thumb 8 + 左右各 8）+ thumb 居中（`translateX(-50%)`）/ 默认 **2px 细线**半透明 `rgba(0,0,0,0.25)` / **hover hit 区变粗 8px** 实色 `rgba(0,0,0,0.45)` transition / 拖动（pointer capture）/ 滚轮（原生）/ scroll 同步（thumb translateY）/ ResizeObserver 重算 / 不溢出隐藏。**数据区域定位**（top=表头高，bottom=summary高，right=0，绝对定位不占 grid track）。scroll.y 数字触发（M8/M4）。无 scroll.y 零回归。
+
+**corner cell 双 sticky + z-index 修复**（验证通过；M2×M8 组合 bug，用户报告）：表头 × 固定列交叉 corner cell 已双 sticky（top+left/right），但 z-index 与中间表头格同级（4）→ 横向滚动中间表头格盖 corner。修复：corner cell（双 sticky 时）z-index 提到 **5**（最高）。层级：普通 < 表体固定列(2) < 表头固定列(3) < 普通表头顶(4) < corner(5)。横向滚动 corner 固定左上/右上不被盖。仅 M2/仅 M8/非固定零回归。
+
+**scroll 改造收尾记录**（实施完成；lint 0 error + build 成功；未做 UI 验证——交验证者）：决策 7 + 决策 8 落地。
+- **决策 7 scroll.y:true 语义**：类型改 `true | undefined`（types.ts + engine/types.ts，移除 number）。
+  - 数据区域模式（`scroll.y===true`）：表头固定 + 表体滚动 + #35 纵向悬浮滚动条。
+  - **CSS 自动适应高度**（核心）：`.dg-wrapper.dg-data-area`（display:flex; flex-direction:column; height:100%）→ `.dg-scroll-wrap`（flex:1; min-height:0）→ `.dg-scroll`（flex:1; min-height:0; overflow-y:auto）。纯 CSS，不用 JS 算数字。
+  - **父容器需有明确 height**（文档说明）：demo 外层 div 固定 height（fixed-header:300 / fixed-columns-header:300 / virtual-list:400 / summary:300 / dynamic-settings+component-token:yScroll 时 240）。
+- **决策 8 横向悬浮滚动条**：扩展 #35 FloatingScrollBar 支持 `horizontal` prop → 横向悬浮条（细线 2px + hit 上下各 8px + hover 变粗 8px + 拖动/同步 translateX），定位数据区域底部（summary 上方，bottom=summary 高）。隐藏原生横/纵滚动条（`.dg-scroll-floating .dg-scroll::-webkit-scrollbar{width:0;height:0}`）。scroll.x 启用即渲染。
+- **demo 迁移**（scroll.y 数字 → true）：fixed-header（y:55*5→true）/ fixed-columns-header（y:55*5→true）/ virtual-list（y:400→true）/ summary（y:500→true）/ style-class（y:300→true）/ dynamic-settings（yScroll 开关 y:240→true）/ component-token（yScroll 开关 y:240→true）。sticky demo（页面级，scroll.x only，不消费 scroll.y）不变。nested-table 无 scroll 不变。
+- **回归确认**：无 scroll demo（basic/head/...）不变（无悬浮条，无布局改，走原 renderGrid 直接渲染路径）。M4 虚拟（virtual-list scroll.y:true）——虚拟窗口高度由容器 clientHeight 实时测量（ResizeObserver），CSS 自动适应高度兼容。
+- **lint**：0 error。**build**：成功（tsc -b + vite build）。
+- **已知简化**：scroll.y:true + loading（Spin 包裹）共存时，Spin 包裹层破坏 .dg-data-area flex 链（高度自适应可能不完美，用户自行处理 Spin 高度；该组合场景少）。S34 sticky + scroll.x 走页面级 StickyScrollBar（不消费横向悬浮条，S34 原设计）。
+
+**进行中**：—。所有主体（F1-F4 + M1-M9 + S1-S34 + D1 + 接口全兼容 + 全量回归）+ 架构改进（tableLayout:fixed 列宽策略 + scroll.y:true CSS 自适应 + 纵/横悬浮滚动条）+ bug 修复（corner cell z-index）+ **task #38 demo 左右对比框架（决策 9，框架 + virtual-list 试点）**全部完成。
+
+**task #38（决策 9）demo 左右对比框架 收尾记录**（验证通过；本轮 = 框架 + virtual-list 试点，其余 demo 后续分批迁移）：
+- **SplitDemo 外壳**（`src/demos/_compare/SplitDemo.tsx`）+ `compare.css`：左右两栏卡片（各带标题）+ 全宽底部说明区（`children` 为 `.dg-compare` 兄弟节点 `.dg-compare__note`，横竖排恒居底）。
+- **自适应横竖排（纯 CSS，flex-wrap）**：`.dg-compare{display:flex;flex-wrap:wrap;gap:16px}` + `.dg-compare__pane{flex:1 1 0;min-width:var(--pane-min,480px)}`。`minPaneWidth` prop → 容器 inline `--pane-min` CSS 变量；**容器 ≥ minPaneWidth×2+16 → 同行横排（各 50%），放不下 → flex-wrap 换行竖排（各全宽）**；每 demo 阈值不同（窄表传小值、宽表传大值）。曾评估 ResizeObserver（精确但有 JS 测量开销）与媒体查询（断点不能用 var()、无法 per-demo），**最终选纯 CSS flex-wrap**（最轻、零 JS、无闪烁）。实测翻转点精确：virtual-list minPaneWidth=1000 → 阈值 2016，容器 2016→横排/1995→竖排，与公式完全吻合。
+- **virtual-list 试点**：共享控制条（Bordered/Fixed/Expandable/Count/Empty + data-grid 专属 Merged）同时驱动两侧；左=data-grid（行为不变：scroll.y:true+父容器 height:400、无 rowSelection）、右=忠实 antd 官方 virtual-list（`<Table virtual>`+y:400+pagination=false+radio rowSelection+rowExpandable id%2===0）；scrollTo 双 ref（Scroll To index 999/Top 两侧同滚）。`RecordType`+`getData` 提取到 `_compare/virtual-list.shared.ts` 两侧复用。minPaneWidth=1000 → 常规视口（1440–1920）竖排（每栏全宽，2000px 表不再挤成 ~354px——**用户原痛点修复**）、超宽屏（≥2560）横排。
+- **registry/徽章**：`DemoMeta.compare?` 标志 + 列表页蓝色「对比」徽章（仅 virtual-list）。
+- **对照暴露的 §9 问题**（非本轮回归，引擎未改）：virtual-list 横滚到最右时 data-grid 右固定列 Action 脱离右边缘（根因 §9 narrow gap：无 width 列 max-content vs antd width+flex fill）——已登记 §9。另：§9 记的「合并×虚拟缺一块」本轮**未复现**（scroll 改造后边界渲染改善），§9 已标注。
+- **lint** 0 error / **build** 成功。
+
+**后续（决策 9 续）**：其余 46 个 demo 分批迁移为左右双栏（复用 SplitDemo + 提取共享 data/columns + antd 侧忠实复刻官方同名 demo）。每个 demo 传合适 `minPaneWidth`：窄表（basic/head/size 等）~480-600 多数横排、宽表（scroll.x 大如 fixed-columns/ellipsis/virtual-list）传大值竖排为主。
+
 **后续可选**（非阻塞）：
 - §9 已知限制修复：① 列宽策略 gap（grid max-content → ellipsis 视觉 + 表格容器适应，建议优先）；② checkStrictly 默认 true（antd false）；③ cellFontSize token 未消费；④ title/footer 全量 vs currentPageData；⑤ preserve=false 树形语义；⑥ conduction disabled 简化；⑦ rowClassName/editable-row 等 polish。
 - antd 默认分页对齐（接口全兼容阶段评估）。
@@ -734,6 +763,9 @@ Agent({
 | 4 | CSS variables 范围 | **完整 antd v6 token**；拿不准的 token 名以浏览器运行参考项目（6.4.4）实测为准 |
 | 5 | 发布形态 | **暂按项目内组件 + dev demo**；npm 打包/导出后置（待后续确认） |
 | 6 | 非表格核心部位 | **用 antd 实现**。data-grid 只取代 antd Table / rc-table（表格核心：grid 渲染、列树、固定列、合并、虚拟、排序/筛选/选择/展开状态机等），**不自研通用组件**——loading/spin、tooltip、pagination、筛选下拉菜单、dropdown、empty 等非核心部位直接用 antd（已引入 antd@6.4.4）。表格特有交互元素（勾选框、展开/排序图标）暂保留自绘，可选后续统一化。引入 antd 后 demo 框架用 `<ConfigProvider>` 包裹（antd 组件正常 + token 生效）。 |
+| 7 | scroll.y 语义 | **`true` / `undefined`（不支持数字）**：`true`=数据区域模式（表头固定 + 表体滚动 + 悬浮滚动条，**高度 CSS 自动适应**——grid/flex 让表体填满表格可用高度，不用 JS 算数字）；`undefined`=表格整体。移除 number。 |
+| 8 | 横滚动条悬浮 | scroll.x 横向**悬浮自定义滚动条**（细线 2px + hit 上下各 8px + hover 变粗 8px + 拖动/同步），定位**数据区域底部**（summary 上方）。隐藏原生横向滚动条（容器仍 overflow-x:auto）。 |
+| 9 | demo 左右对比框架 | 每个 demo 改造为左右双栏（左 data-grid / 右 antd 同名 demo）对照修 bug（视觉/行为差异可视化）。**自适应横竖排用纯 CSS flex-wrap + 每 pane min-width**：`.dg-compare{flex-wrap:wrap}` + pane `min-width:var(--pane-min)`，`minPaneWidth` prop → 容器 `--pane-min` 变量；容器 ≥ `minPaneWidth×2+gap` → 同行横排，否则换行竖排；**每 demo 阈值不同**（窄表传小值、宽表传大值）。**不用 ResizeObserver**（有 JS 测量开销），**也不用媒体查询**（`@media`/container query 断点不能用 var()，无法 per-demo）。说明区恒居底部（`.dg-compare` 兄弟节点）。antd 侧忠实复刻官方同名 demo，需额外依赖（如 dnd-kit）则装。 |
 
 ---
 
@@ -743,7 +775,7 @@ Agent({
 
 | 来源任务 | 限制 | 影响 | 建议处理 |
 |----------|------|------|----------|
-| M4 虚拟滚动 | 合并单元格 × 虚拟滚动：合并组左上角滚出可视区上边界后，该组下半部分在可视区出现空白格（未用 extraRender 机制补画跨边界合并格） | 虚拟 + 跨边界合并的视觉缺块，不崩 | 后续增强：绝对定位补画跨边界合并格 |
+| M4 虚拟滚动 | 合并单元格 × 虚拟滚动：合并组左上角滚出可视区上边界后，该组下半部分在可视区出现空白格（未用 extraRender 机制补画跨边界合并格） | 虚拟 + 跨边界合并的视觉缺块，不崩 | 后续增强：绝对定位补画跨边界合并格。★ task #38 对照验证（scroll 到 999 + 合并组左上角滚出可视区）**未复现**——scroll 改造后边界渲染改善，暂标注待极端场景再观察 |
 | M4 虚拟滚动 | `scrollTo({ align: 'nearest' })` 目标行已完全可见时仍滚动 1 行（退化为 start） | nearest 边界语义轻微偏差，目标行仍可见 | 后续修正 nearest 的"已可见则不动"判定 |
 | M3 合并单元格 | 合并格 × 固定列：合并格整体 sticky（偏移按左上角列），合并跨越固定/非固定边界时未做部分裁剪 | 跨边界合并固定格视觉可能不精确，不崩 | 后续视实际需求完善（当前 demo 无此组合） |
 | M5 行选择 | disabled 行（`getCheckboxProps.disabled`）无整行灰底视觉提示，仅 checkbox 自身灰 | 与 antd 默认 disabled 行淡灰背景不一致，功能正确 | 视觉打磨：disabled 行加 `dg-row-disabled` 类 + 背景色 |
@@ -755,6 +787,9 @@ Agent({
 | S13 树形 | `checkStrictly=false` conduction 简化：disabled 子行仍参与父全选判定，未对齐 antd（antd 在 conductCheck 过滤 disabled 子） | disabled 行 × 树形联动的父全选边界与 antd 不一致；当前 demo 无此组合 | 后续对齐 antd：conduction 时过滤 disabled 子行 |
 | S14 树形选择 | `preserveSelectedRowKeys=false` 树形语义与 antd 略异：data-grid 因 fireSelectionChange 走**全树存在性判定**（S13 引入），合法父行（仅被分页切到别页/折叠）的 key 仍保留；antd preserve=false 翻页后丢不可见 key | preserve=false 下跨页/折叠 key 保留行为比 antd 宽松（对树形更友好）；demo 注释已说明为有意设计 | 若需严格对齐 antd preserve=false（翻页丢不可见），后续评估；当前不阻塞 |
 | S15 编辑 | `rowClassName`（Table 级 + 行级函数）未实现——antd edit-cell demo 用 `rowClassName='editable-row'`，data-grid 暂未声明（决策 3 第二步补齐） | edit-cell demo 缺 editable-row class（视觉略简，功能正常） | 接口全兼容阶段实现 rowClassName（含 `(record,index)=>string` 函数式） |
-| S20 ellipsis | **ellipsis 列视觉省略号不生效**：data-grid `grid-template-columns` 默认 `max-content`（列宽=内容宽度），ellipsis 列 track=content 宽 → cell-inner 不溢出 → 无 `...`。CSS ellipsis 类（`dg-cell-ellipsis`+`text-overflow:ellipsis`）+ title API 已正确，但视觉截断依赖列宽<内容（antd 用 `width:100%`+`table-layout:fixed` 均分，data-grid 无 width 列走 max-content） | ellipsis demo 看不到省略号；表格总宽=内容宽溢出视口。**非 S20 API 问题，是列宽策略 gap**（影响 ellipsis 视觉 + 表格容器适应） | **重要 gap**：列宽策略任务——grid 容器 `width:100%` + 无 width 列 `minmax(0,1fr)` 或 `table-layout:fixed` 等效，使 ellipsis 列收缩<content 触发省略号。建议优先（独立任务或并入接口全兼容/列宽策略） |
+| S20 ellipsis | ~~ellipsis 列视觉省略号不生效~~ **已修复**（#34 tableLayout:fixed）：派生（ellipsis 列隐式 fixed）+ `.dg-grid{width:100%}` + 无 width 列 `minmax(0,1fr)`（min:0 收缩）→ ellipsis 列 track<content → `...` 生效（S20/S21/S25/S32 验证 scrollWidth>clientWidth）。**剩余 narrow gap**：无 ellipsis + auto → max-content 仍溢出容器，需显式 `tableLayout:'fixed'`（narrow demo 未传故仍溢出，属 auto 语义预期） |
 | S25 树形 | M5 `rowSelection.checkStrictly` 默认 **true**（父子独立），antd 默认 **false**（父子联动） | 树形选择默认不联动（需显式 checkStrictly:false 才联动）；types.ts 已记录此默认 | 接口全兼容阶段评估：是否对齐 antd 默认 false（可能破坏现有默认 true 的 demo 行为），或保留 data-grid 默认 true |
 | S30 token | `cellFontSize`/`cellFontSizeMD`/`cellFontSizeSM` 等 token 已通过 useToken 注入 `.dg-wrapper` inline `--ant-cell-font-size` 变量，但表头/表体字号样式**未消费该变量**（computed fontSize 14px 非 token 16） | ConfigProvider theme cellFontSize token 视觉不生效（变量在，子样式未读） | 后续：表头/表体字号 CSS 挂接 `--ant-cell-font-size` 变量（与 cellPadding 同款消费） |
+| scroll 改造 | 纯 scroll.x（无 scroll.y）场景，纵向悬浮条 hit 容器（24px）仍渲染（thumb display:none），拦截表体右侧点击 | 纯横向场景右侧 24px 透明 click-catch | FloatingScrollBar 无 scroll.y 时不渲染纵向 hit 容器 |
+| scroll 改造 | scroll.y:true + loading（Spin 包裹）共存，Spin 破坏 flex 链（data-area 高度自适应可能不完美） | loading + 数据区域共存场景 | 已知简化，后续修复 Spin 高度链 |
+| task #38 对照暴露 | virtual-list（fixed + 无 width 列 Address 1/2/3 走 max-content + 声明 scroll.x:2000）横滚到最右时，**data-grid 右固定列 Action 脱离容器右边缘**（sticky right:0 失效：gridTemplateColumns 实际列总宽 < 声明 width，scrollLeft 接近 max 时已越过内容右沿）；antd 无此问题 | 对照修 bug 时左栏可见，右栏正常；非决策 9 回归（引擎未改） | 与 §9 narrow gap 同源（无 width 列 max-content vs antd width+flex fill）；后续 scroll.x 场景无 width 列改 `width + 1fr` 填充或末列填满 |

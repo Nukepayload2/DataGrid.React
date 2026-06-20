@@ -1,0 +1,83 @@
+/**
+ * 决策 9：demo 左右对比框架样式（SplitDemo）。
+ *
+ * 横竖排改由 **纯 CSS flex-wrap + 每 pane min-width** 自动决定（无 JS、无媒体查询）：
+ *   - `.dg-compare` 是 flex-wrap 容器（`display:flex; flex-wrap:wrap; gap:16px`）。
+ *   - 每个 pane `flex:1 1 0; min-width: var(--pane-min, 480px)`。
+ *   - 容器放得下两个 ≥ min-width 的 pane（≥ `--pane-min` × 2 + gap）→ 同行横排
+ *     （flex-grow 各 50%）；放不下 → flex-wrap 自动换行 → 每栏全宽竖排。
+ *
+ * `--pane-min` 由 SplitDemo 通过 inline style 写入（取自 `minPaneWidth` prop，
+ * 每 demo 阈值不同）。横竖切换完全由 flex-wrap + min-width 表达，无 inline
+ * flexDirection、无 @media、无 JS。
+ *
+ * `.dg-compare__note`（说明区）位于 `.dg-compare` 容器之外（SplitDemo 中渲染为
+ * 兄弟节点），恒居底部，横竖排都不变。
+ */
+
+.dg-compare {
+  display: flex;
+  flex-wrap: wrap; /* 放不下两个 min-width pane 即自动换行 → 竖排 */
+  gap: 16px;
+  width: 100%;
+}
+
+.dg-compare__pane {
+  flex: 1 1 0; /* 横排时两栏均分（flex-grow:1），竖排时全宽（wrap 后单 pane 占满一行） */
+  /* 纯 CSS 自适应横竖的关键：pane 最小宽度由 --pane-min（inline style 注入）决定。
+     放不下第二个 pane 时 flex-wrap 自动换行。默认 480（与 SplitDemo minPaneWidth 默认一致）。*/
+  min-width: var(--pane-min, 480px);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  background: #fff;
+  overflow: hidden; /* 圆角裁剪标题栏 */
+  min-height: 460px; /* 竖排时也能看到表头 + 若干行 */
+}
+
+.dg-compare__title {
+  flex: 0 0 auto;
+  padding: 8px 16px;
+  font-weight: 600;
+  font-size: 14px;
+  background: #fafafa;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dg-compare__body {
+  flex: 1 1 auto;
+  min-height: 0; /* flex item 内 overflow:auto 生效关键 */
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+}
+
+.dg-compare__note {
+  /* 说明区：在 .dg-compare 容器之外（兄弟节点），全宽居底部，横竖排都不变。 */
+  margin-top: 16px;
+  padding: 12px 16px;
+  background: #fafafa;
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  font-size: 12px;
+  color: rgba(0, 0, 0, 0.65);
+  line-height: 1.7;
+}
+
+.dg-compare__badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  color: #fff;
+  background: #1677ff;
+  border-radius: 3px;
+  vertical-align: middle;
+}

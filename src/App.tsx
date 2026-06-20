@@ -45,7 +45,26 @@ function App() {
                 onClick={() => navigate(`/demos/${meta.name}`)}
                 style={{ display: 'block', padding: 12, border: '1px solid #f0f0f0', borderRadius: 8, background: '#fff', textDecoration: 'none', color: '#1677ff' }}
               >
-                <strong>{meta.title}</strong>
+                <strong>
+                  {meta.title}
+                  {meta.compare ? (
+                    <span
+                      style={{
+                        marginLeft: 8,
+                        padding: '0 6px',
+                        fontSize: 11,
+                        fontWeight: 600,
+                        lineHeight: '18px',
+                        color: '#fff',
+                        background: '#1677ff',
+                        borderRadius: 3,
+                        verticalAlign: 'middle',
+                      }}
+                    >
+                      对比
+                    </span>
+                  ) : null}
+                </strong>
                 {meta.description ? (
                   <span style={{ display: 'block', color: 'rgba(0,0,0,0.65)', marginTop: 4, fontSize: 13 }}>
                     {meta.description}

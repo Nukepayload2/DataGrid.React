@@ -49,8 +49,10 @@ export const demos: DemoMeta[] = [
   {
     name: 'virtual-list',
     title: 'Virtual List',
-    description: '万行虚拟滚动 + 固定列 + scrollTo + 合并（M4 移植任务）。',
+    description:
+      '万行虚拟滚动 + 固定列 + scrollTo + 合并（M4 移植任务）+ 决策 9 左右对比试点（data-grid / antd 并排）。',
     element: () => import('./virtual-list'),
+    compare: true,
   },
   {
     name: 'row-selection',
