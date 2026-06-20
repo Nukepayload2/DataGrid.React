@@ -85,6 +85,22 @@ import {
   unitless as antdTokenUnitless,
 } from 'antd/es/theme/useToken'
 import { transformToken } from '@ant-design/cssinjs/es/util/css-variables'
+// ★ 主题注入 Round 2：直接 import antd 的 prepareComponentToken（Table 组件 token 默认派生函数）。
+//   来自 antd Table style 模块（`antd/es/table/style/index` 导出 `prepareComponentToken`）。
+//   它从 alias token 派生 Table 组件 token 默认值（如 colorFillAlter→headerBg/rowHoverBg、
+//   colorFillSecondary→headerSortActiveBg、fontSize→expandIconScale 等 30+ 条）。
+//   复用 antd 真实实现，零猜测（避免在 data-grid 内手维护派生表）。
+//   副作用：该模块顶层执行 `genStyleHooks('Table', ...)`（仅生成 hook，不立即注入样式），
+//   并引入 `@ant-design/fast-color`（antd 已有依赖，零新增体积）。
+import { prepareComponentToken as antdTablePrepareComponentToken } from 'antd/es/table/style/index'
+// prepareComponentToken 的公开类型是 union（`null | ComponentToken | GetDefaultTokenFn`），
+// 但运行时它始终是函数（antd 源码 `export const prepareComponentToken = (token) => {...}`）。
+// tsgo 不允许直接 invoke union 类型，这里 cast 为确定性函数签名以便调用。
+type AntdTablePrepareComponentTokenFn = (
+  token: Record<string, unknown>,
+) => Record<string, unknown>
+const prepareTableComponentToken: AntdTablePrepareComponentTokenFn =
+  antdTablePrepareComponentToken as unknown as AntdTablePrepareComponentTokenFn
 import { GridTable, getRowKey } from './engine/GridTable'
 import { SelectionInput } from './engine/SelectionInput'
 import { ExpandIcon } from './engine/ExpandIcon'
@@ -168,26 +184,32 @@ import './style/table.css'
  * 用 `^_` 前缀过滤。antd `useCacheToken` 调 transformToken 时用的是 `mergedDerivativeToken`
  * （未含 _tokenKey），我们用 realToken（含 _tokenKey），故需手动过滤。
  *
- * === 超集说明 + 已知差异 ===
+ * === 超集说明 + Round 2 派生机制 ===
  *
  * **realToken.Table 的内容**：经深读 antd 源码（`antd/es/theme/useToken.js` getComputedToken），
  * `realToken.Table` 只含**用户在 ConfigProvider theme.components.Table 显式声明的覆盖项**
  * （prepareComponentToken 派生的默认值不在此——antd 是在 `genCSSVarRegister` 的 fn 回调里
  * 通过 getDefaultComponentToken + getComponentToken 在渲染时单独合并 + 删除与 alias 同值键）。
  *
- * **data-grid 的简化**：本实现直接喂 `realToken.Table` 给 transformToken（按任务规格），
- * 不调 prepareComponentToken（避免引入 antd/es/table/style/index 整包 + FastColor）。
- * 后果：
- *   - 默认主题（无 components.Table 覆盖）：realToken.Table 为空 → tableTokenVars 为空 →
- *     完全走 tokens.css fallback（已提供与 antd prepareComponentToken 默认等价的值）。视觉等价。
- *   - 用户覆盖若干 token（如 component-token demo 27 个）：被覆盖的 27 个 token 注入为
- *     `--ant-table-*` inline var 覆盖 fallback；其余 token 走 fallback。与 antd DOM 一致
- *     （antd DOM 也只产"与 alias 不同的子集"，本实现是此子集的精确实现）。
+ * **data-grid Round 2（task #27）**：注入时完全复刻 antd `genCSSVarRegister('Table', ...)` 的
+ * fn 回调流程（详见 `tableTokenToCssVars` 注释），即：
+ *   1. `defaultToken = prepareComponentToken(merge(realToken, realToken.Table))`
+ *      （从 alias 派生 Table 组件 token 默认值，如 colorFillAlter→headerBg）。
+ *   2. `componentToken = { ...defaultToken, ...userOverride }`，删除"与 alias 同名同值"键
+ *      （与 antd getComponentToken 一致——最小化输出，剔除 alias 已有同值键）。
+ *   3. **prefixToken 重命名**：仅对在 `defaultToken` 中出现的 key 加 `Table` 前缀
+ *      （`headerBg`→`TableHeaderBg`→`--ant-table-header-bg`）。
+ *      **★ 写回规则**：不在 `defaultToken` 的 key（即用户单独覆盖的 alias 同名 token，
+ *      如 `colorBgContainer`）**不加前缀**，直接产出 `--ant-color-bg-container`——在
+ *      dg-wrapper 作用域覆盖 alias 默认值。这与 antd DOM 完全一致（用户覆 `Table.colorBgContainer`
+ *      → antd DOM 的 `.ant-table-wrapper` 上 `--ant-color-bg-container` = 用户值，不是新增
+ *      `--ant-table-color-bg-container`）。
+ *   4. transformToken 转换（unitless 仅 Table 特有 expandIconScale，已重命名为 TableExpandIconScale）。
  *
- * **已知差异**：若用户覆盖某个 alias token（如 colorFillAlter）→ antd prepareComponentToken
- * 会重新派生 headerBg/rowHoverBg/...（值随 colorFillAlter 变），但 data-grid 不重派生
- * （tokens.css fallback 是静态值）→ 这部分 token 视觉不同步。若验证者发现此差异阻断，
- * 后续可 import prepareComponentToken 重派生（代价：包大小增加）。
+ * **默认主题（无 components.Table 覆盖）**：defaultToken 全部经 prefixToken 重命名为 `--ant-table-*`，
+ *   componentToken = defaultToken（无用户覆盖，删 alias 同值键后剩 defaultToken 全集）。与 antd DOM 一致：
+ *   `--ant-table-header-sort-active-bg:#f0f0f0`（dg 旧 fallback 是 `#fafafa`——本次修复）等 5 条偏差
+ *   修正 + 新增 `--ant-table-expand-icon-scale`（dg 旧版未注入）。
  */
 function parseCssVarsString(cssVarsStr: string): Record<string, string> {
   // cssVarsStr 格式：`${selector}{--k1:v1;--k2:v2;...}`（selector 内部可能含 :where(...)）。
@@ -248,28 +270,73 @@ function tablePrefixToken(key: string): string {
 }
 
 /**
- * 把 Table 组件 token（realToken.Table）通过 antd 同款流程转为 `--ant-table-*` CSS vars。
+ * 把 Table 组件 token 通过 antd 同款流程转为 `--ant-table-*`（+ 写回 alias 同名 var） CSS vars。
  *
- * 1. 复制 antd `genCSSVarRegister('Table', ...)` 的 prefixToken 重命名循环：
- *    `{headerBg:...}` → `{TableHeaderBg:...}`（原 key delete）。
- * 2. transformToken 转换（prefix='ant', key='css-var-root', unitless={TableExpandIconScale:true}）。
- *    unitless 仅追加 Table 特有的 `expandIconScale`（genStyleHooks('Table', ..., {unitless:{expandIconScale:true}})）。
- *    alias unitless 字段（lineHeight/fontSize/...）在 Table 组件 token 中无对应键（Table
- *    不派生这些），无需追加。
+ * **完全复刻 antd `genCSSVarRegister('Table', ...)` 的 fn 回调**（cssinjs-utils/es/util/genStyleUtils.js）：
+ *
+ * 1. **defaultToken = prepareComponentToken(merge(realToken, realToken.Table))**
+ *    （= antd `getDefaultComponentToken`：把 `realToken` 与 `realToken.Table` 合并后喂
+ *    `prepareComponentToken`，得到 Table 组件 token 默认值——从 alias 派生 headerBg/rowHoverBg/
+ *    headerSortActiveBg/expandIconScale/... 等 30+ 条）。
+ *
+ * 2. **componentToken = getComponentToken(realToken, defaultToken)**：
+ *    `mergedToken = { ...defaultToken, ...realToken.Table }`（用户覆盖优先），
+ *    然后遍历删"mergedToken[key] === realToken[key]"的键（与 alias 同名同值——antd 为最小化输出
+ *    剔除这类键，如默认主题 prepareComponentToken 不产出与 alias 同值键，故通常 noop；但用户覆盖
+ *    alias 同名 token 为同值时会被剔除）。
+ *
+ * 3. **prefixToken 重命名**：仅遍历 `Object.keys(defaultToken)`（注意是 defaultToken，非 mergedToken），
+ *    把每个 key 改写为 `Table${Key}`（首字母大写），原 key delete：
+ *      `componentToken[prefixToken(key)] = componentToken[key]; delete componentToken[key]`
+ *    **★ 写回规则核心**：只重命名"在 defaultToken 中出现"的 key。用户单独覆盖的 alias 同名 token
+ *    （不在 prepareComponentToken 默认输出，如 `colorBgContainer`）**不加前缀**，保持原 key
+ *    → transformToken 产出 `--ant-color-bg-container`（与 alias 同名，在 dg-wrapper 作用域覆盖 alias 默认）。
+ *    这是 antd 把 Table 组件 token 的 `colorBgContainer` 写回 alias var 的真实机制
+ *    （不是新增 `--ant-table-color-bg-container`）。
+ *
+ * 4. **transformToken**（prefix='ant', key='css-var-root', unitless={TableExpandIconScale:true}）：
+ *    把重命名 + 未重命名的混合 token 一次性转换。unitless 仅 Table 特有的 `expandIconScale`
+ *    （genStyleHooks('Table', ..., {unitless:{expandIconScale:true}}) → 已重命名为 TableExpandIconScale）。
+ *    alias unitless 字段（lineHeight/fontSize/...）在 Table 组件 token 中无对应键（Table 不派生这些），无需追加。
+ *
+ * **输入**：完整 `realToken`（含 `.Table` 子对象）+ cssVar。输出：`--k:v` 字典（含 `--ant-table-*` 与
+ *   写回的 `--ant-color-bg-container` 等 alias 同名 var）。
+ *
+ * **过滤内部字段**：realToken.Table 的 `_tokenKey` 等 `_` 前缀字段在用户覆盖合并阶段已自然排除
+ *   （getComponentToken 的 customToken 来自 token[component]，antd 源同款）；但 prepareComponentToken
+ *   的输入 realToken 含 `_tokenKey`，可能被它透传——故在第 2 步合并后显式过滤 `_` 前缀键（防御性）。
  */
 function tableTokenToCssVars(
-  tableToken: Record<string, unknown> | undefined,
+  realToken: Record<string, unknown>,
   cssVar: { prefix: string; key: string },
 ): Record<string, string> {
-  if (!tableToken) return {}
-  // (a) prefixToken 重命名（与 antd genCSSVarRegister 一致）。
-  const renamed: Record<string, unknown> = {}
-  for (const [key, value] of Object.entries(tableToken)) {
-    if (key.startsWith('_')) continue
-    renamed[tablePrefixToken(key)] = value
+  const userOverride = (realToken.Table ?? {}) as Record<string, unknown>
+  // (1) defaultToken = prepareComponentToken(merge(realToken, userOverride))（与 antd getDefaultComponentToken 一致）。
+  const mergedAlias = { ...realToken, ...userOverride }
+  const defaultToken = prepareTableComponentToken(mergedAlias)
+  // (2) componentToken = getComponentToken(realToken, defaultToken)：合并默认 + 用户覆盖 + 删 alias 同值键。
+  const componentToken: Record<string, unknown> = { ...defaultToken, ...userOverride }
+  for (const key of Object.keys(componentToken)) {
+    if (key.startsWith('_')) {
+      delete componentToken[key]
+      continue
+    }
+    // 与 antd getComponentToken 一致：删除与 alias token 同名同值的键（最小化输出）。
+    if (componentToken[key] === realToken[key]) {
+      delete componentToken[key]
+    }
   }
-  // (b) transformToken：unitless 仅 Table 特有 expandIconScale（已重命名为 TableExpandIconScale）。
-  const [, cssVarsStr] = transformToken(renamed, cssVar.key, {
+  // (3) prefixToken 重命名：仅遍历 defaultToken 的 key（非 componentToken 全部）。
+  //   在 defaultToken 中 → 加 Table 前缀（→ --ant-table-*）；不在 → 保持原 key（→ --ant-* 写回 alias）。
+  for (const key of Object.keys(defaultToken)) {
+    if (key.startsWith('_')) continue
+    if (!(key in componentToken)) continue // 已被删（alias 同值）则跳过
+    const renamedKey = tablePrefixToken(key)
+    componentToken[renamedKey] = componentToken[key]
+    delete componentToken[key]
+  }
+  // (4) transformToken：unitless 仅 Table 特有 expandIconScale（已重命名为 TableExpandIconScale）。
+  const [, cssVarsStr] = transformToken(componentToken, cssVar.key, {
     prefix: cssVar.prefix,
     unitless: { TableExpandIconScale: true },
   })
@@ -1636,8 +1703,10 @@ function TableInner<RecordType = any>(
   //   旧映射表只读键名不读值（直接写入 token 字段值如 '#1677ff'），凑巧没踩 var 自引用坑。
   //   新实现必须用 realToken（原值），与 antd transformToken 同输入同输出。
   //
-  // ★ realToken.Table 是 getComputedToken 合并后的 Table component token（含 prepareComponentToken
-  //   默认派生 + ConfigProvider theme.components.Table 覆盖）。
+  // ★ realToken.Table 仅含**用户在 ConfigProvider theme.components.Table 显式声明的覆盖项**
+  //   （不含 prepareComponentToken 派生的默认值——antd 是在 genCSSVarRegister 的 fn 回调里
+  //   通过 getDefaultComponentToken + getComponentToken 在渲染时单独合并 + 删除与 alias 同值键）。
+  //   data-grid 在注入时（tableTokenToCssVars）复刻此合并流程：prepareComponentToken 默认 + 用户覆盖。
   //
   // ★ useMemo 依赖 realToken：useCacheToken 内部用 tokenStr 缓存，realToken 引用在 theme/override
   //   变化时更新（新对象）→ useMemo 重算 vars → 视觉同步。
@@ -1672,15 +1741,15 @@ function TableInner<RecordType = any>(
     [realToken, cssVar],
   )
 
-  // Table component var：prefixToken 重命名 + transformToken（unitless 仅 expandIconScale）。
-  //   详见 tableTokenToCssVars 注释。
+  // Table component var：完全复刻 antd genCSSVarRegister fn 回调（详见 tableTokenToCssVars 注释）。
+  //   传入完整 realToken（含 .Table 子对象），内部调 prepareComponentToken 派生默认 + 合并用户覆盖
+  //   + 删 alias 同值键 + prefixToken 重命名（仅 defaultToken 的 key）→ 产出 --ant-table-*（默认派生）
+  //   与写回 alias 同名的 --ant-* （如 colorBgContainer）混合 CSS vars。
+  //   realToken 为 undefined（首次渲染前）时输出空对象（零回归）。
   const tableTokenVars = useMemo(
     () =>
-      realToken?.Table
-        ? tableTokenToCssVars(
-            realToken.Table as Record<string, unknown>,
-            cssVar,
-          )
+      realToken
+        ? tableTokenToCssVars(realToken, cssVar)
         : {},
     [realToken, cssVar],
   )
@@ -1696,10 +1765,12 @@ function TableInner<RecordType = any>(
   //   = `--ant-color-primary`），Table 用 `--ant-table-*`（prefixToken 加 `Table` 前缀后再 token2CSSVar：
   //   `token2CSSVar('TableHeaderBg','ant')` = `--ant-table-header-bg`）。
   //
-  //   ★ colorBgContainer 特殊情况：alias 路径产出 `--ant-color-bg-container`（alias token），
-  //   Table 路径若用户在 components.Table.colorBgContainer 覆盖则产出 `--ant-table-color-bg-container`
-  //   （Table prefixToken 后）。data-grid 表体底色消费 `--ant-color-bg-container`（tokens.css）；
-  //   验证者需对照 antd .ant-table-wrapper 实际 computed var 确认 data-grid 消费的键与 antd 一致。
+  //   ★ colorBgContainer 写回机制（Round 2，task #27）：用户覆 `Table.colorBgContainer` 时，
+  //   tableTokenVars 直接产出 `--ant-color-bg-container`（写回 alias 同名 var，非新增
+  //   `--ant-table-color-bg-container`）——与 antd DOM 一致。aliasTokenVars 也产出
+  //   `--ant-color-bg-container`（alias 默认 #ffffff），但 tableTokenVars 在合并中后置覆盖之
+  //   （`{...aliasTokenVars, ...tableTokenVars}`），最终 .dg-wrapper 的 `--ant-color-bg-container`
+  //   = 用户值（如 component-token demo 的 #e6f4ff）。data-grid 表体底色消费此 var（tokens.css）。
   //
   //   CSS variable 由 inline style 提供优先级高于 class（tokens.css fallback）。用户 style 与 token
   //   vars 的 key 空间不同（用户用标准 CSS 属性，token vars 用 `--ant-*`），实际不冲突。

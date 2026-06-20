@@ -101,6 +101,16 @@
 - **遗留 polish（非阻断，demo 层，后续统一处理）**：① B2 narrow Page Segmented 用非受控 `defaultCurrent` 切换不翻页；② B4 bordered 示例1 注释称 antd 有 `.column-money` 高亮（实测两栏都无该 CSS）；③ B5 multiple-sorter 注释「最小 multiple=最高优先级」与引擎「大=高」相反（引擎正确，仅注释反了）；④ B18 drag-column-sorting DragOverlay `<th>` console 警告（忠实复刻 antd 官方，官方源码同款）。
 - **lint** 0 error / **build** 成功（全量）。
 
+**🎉 主题注入 + 外观统一收尾（决策 6「后续统一化」落地，全验证通过）**：
+- **勾选框/排序/展开图标统一 antd**（task #21）：`SelectionInput`→antd `<Checkbox>`/`<Radio>`（indeterminate 原生，去 ref hack）；`SortIndicator`→`@ant-design/icons` `CaretUpOutlined/CaretDownOutlined`；`ExpandIcon`→复刻 antd `.ant-table-row-expand-icon` CSS（+/-/spaced 三态）。装 `@ant-design/icons`（pnpm add，之前 pnpm 严格隔离 TS2307）。验证：checkbox/sort/expand 全态与 antd 逐像素一致（半选 8×8 蓝方块、descend -3.6px 上提、expand spaced 禁用态等）。
+- **★主题注入抄 antd Table**（Round 1 + 保真度修复 + Round 2，task #26/#27）：删 S30 + task#21 两张**手维护映射表**（72 条），改用 antd 真实工具 `transformToken`/`token2CSSVar`（from `@ant-design/cssinjs`，装为直接依赖）+ 内部 `useToken`（`antd/es/theme/internal`）拿 **realToken**（公开 useToken 返回的是 var 化 token，索引 1 才是原值——.d.ts 标签误导、.js 运行时为准）。注入全套 alias token + Table 组件 token 到 `.dg-wrapper`，**与 antd `.ant-table-wrapper` DOM 逐键逐值一致**（devtools dump 0 不一致）。关键机制复刻（**全读源码 + 浏览器验证，零猜测**——用户警告 token 继承写法易猜错）：① `prepareComponentToken` 派生默认（colorFillAlter→headerBg/rowHoverBg 等，import from `antd/es/table/style/index`）；② **colorBgContainer 写回规则**（prefixToken 只重命名 prepareComponentToken 默认输出里的 key→`--ant-table-*`；用户单独覆的 alias 同名 token 如 colorBgContainer 不在默认输出→保持原名 `--ant-color-bg-container` 写回覆盖 alias）；③ number→px（unitless 白名单除外）。
+- **CSS 消费迁移 `var(--ant-*)`**（Round 2）：`tokens.css`/`table.css` 全面 `--dg-*`→`--ant-*` 桥接 + 硬编码→token。**ConfigProvider 改主题（dark algorithm / colorPrimary / components.Table）现在真正驱动 data-grid 全表外观**（devtools 验：dark 表头#1d1d1d/边框#303030/文字亮；colorPrimary=#ff4d4f 激活 caret 跟随）。
+- **表头分隔线复刻**（用户 item 1）：非 bordered 列间竖线（`[data-leaf-index]::before` 1px×1.6em `--ant-table-header-split-color` #f0f0f0）+ bordered 抑制（透明，竖线改 cell border-inline-end）+ 多级表头分组格排除（无竖线 + 无底边框）+ 选择/展开列排除。与 antd 逐格一致。
+- **pagination demo 重做**（用户 item 3）：双翻页器（top+bottom 数组，antd 官方 demo 忠实复刻）→**单翻页器 6 位置互斥选一**（单 Radio.Group：topStart/Center/End/bottomStart/Center/End + none，默认 bottomEnd=antd 真实默认），`pagination={{placement:[selected]}}` 共享驱动两侧。
+- **radio 确认**（用户 item 2）：已是 antd Radio（#21 改 SelectionInput 时一并），复验选中态外圈#1677ff+6×6白点左右一致，无需额外改动。
+- 新增依赖：`@ant-design/icons`、`@ant-design/cssinjs`（直接依赖）。lint 0 / build 成功。
+- **教训**：实施者 prompt 别写「不做 UI 验证」与「必须 devtools 验证」自相矛盾——Round 2 实施者因此 spawn 了验证者子 agent（孤儿化，违反工作模式）。后续实施者边界写清：只做 lint/build，**不 spawn 子 agent、不开浏览器**，验证由 main 另派独立验证者；只读的 antd 对照（防猜测）可由实施者用 devtools 读，但须明确「只读、不 spawn」。
+
 **后续可选**（非阻塞）：
 - §9 已知限制修复：① 列宽策略 gap（grid max-content → ellipsis 视觉 + 表格容器适应，建议优先）；② checkStrictly 默认 true（antd false）；③ cellFontSize token 未消费；④ title/footer 全量 vs currentPageData；⑤ preserve=false 树形语义；⑥ conduction disabled 简化；⑦ rowClassName/editable-row 等 polish。
 - antd 默认分页对齐（接口全兼容阶段评估）。
@@ -769,7 +779,7 @@ Agent({
 | 3 | antd 接口兼容程度 | **全兼容，分两步**：先覆盖 demo 用到的 props 子集，再补齐全部公共 API |
 | 4 | CSS variables 范围 | **完整 antd v6 token**；拿不准的 token 名以浏览器运行参考项目（6.4.4）实测为准 |
 | 5 | 发布形态 | **暂按项目内组件 + dev demo**；npm 打包/导出后置（待后续确认） |
-| 6 | 非表格核心部位 | **用 antd 实现**。data-grid 只取代 antd Table / rc-table（表格核心：grid 渲染、列树、固定列、合并、虚拟、排序/筛选/选择/展开状态机等），**不自研通用组件**——loading/spin、tooltip、pagination、筛选下拉菜单、dropdown、empty 等非核心部位直接用 antd（已引入 antd@6.4.4）。表格特有交互元素（勾选框、展开/排序图标）暂保留自绘，可选后续统一化。引入 antd 后 demo 框架用 `<ConfigProvider>` 包裹（antd 组件正常 + token 生效）。 |
+| 6 | 非表格核心部位 | **用 antd 实现**。data-grid 只取代 antd Table / rc-table（表格核心：grid 渲染、列树、固定列、合并、虚拟、排序/筛选/选择/展开状态机等），**不自研通用组件**——loading/spin、tooltip、pagination、筛选下拉菜单、dropdown、empty 等非核心部位直接用 antd（已引入 antd@6.4.4）。表格特有交互元素（勾选框、展开/排序图标）~~暂保留自绘，可选后续统一化~~ **已统一 antd**（勾选框→antd Checkbox/Radio、排序→@ant-design/icons CaretUp/Down、展开→复刻 antd CSS）。**主题注入抄 antd Table**：用 antd `transformToken`/`token2CSSVar`（@ant-design/cssinjs）+ 内部 useToken realToken 注入全套 `--ant-*` 到 `.dg-wrapper`，与 antd DOM 逐键一致；CSS 消费 `var(--ant-*)`，ConfigProvider 主题（dark/colorPrimary/components.Table）驱动全表外观。引入 antd 后 demo 框架用 `<ConfigProvider>` 包裹（antd 组件正常 + token 生效）。 |
 | 7 | scroll.y 语义 | **`true` / `undefined`（不支持数字）**：`true`=数据区域模式（表头固定 + 表体滚动 + 悬浮滚动条，**高度 CSS 自动适应**——grid/flex 让表体填满表格可用高度，不用 JS 算数字）；`undefined`=表格整体。移除 number。 |
 | 8 | 横滚动条悬浮 | scroll.x 横向**悬浮自定义滚动条**（细线 2px + hit 上下各 8px + hover 变粗 8px + 拖动/同步），定位**数据区域底部**（summary 上方）。隐藏原生横向滚动条（容器仍 overflow-x:auto）。 |
 | 9 | demo 左右对比框架 | 每个 demo 改造为左右双栏（左 data-grid / 右 antd 同名 demo）对照修 bug（视觉/行为差异可视化）。**自适应横竖排用纯 CSS flex-wrap + 每 pane min-width**：`.dg-compare{flex-wrap:wrap}` + pane `min-width:var(--pane-min)`，`minPaneWidth` prop → 容器 `--pane-min` 变量；容器 ≥ `minPaneWidth×2+gap` → 同行横排，否则换行竖排；**每 demo 阈值不同**（窄表传小值、宽表传大值）。**不用 ResizeObserver**（有 JS 测量开销），**也不用媒体查询**（`@media`/container query 断点不能用 var()，无法 per-demo）。说明区恒居底部（`.dg-compare` 兄弟节点）。antd 侧忠实复刻官方同名 demo，需额外依赖（如 dnd-kit）则装。 |
@@ -849,3 +859,48 @@ Agent({
 | B20 | resizable · nest-table-border-debug · row-selection-custom-debug (~480) | resizable 无 antd→右栏说明；renderCell+rowSpan | ☐ |
 
 **执行顺序**：B1 → B20（由简到繁；B18 拖拽需装依赖，B20 含 resizable 无 antd 对应）。每完成一 batch，TaskCreate 标 ☑ + §当前进度补一行。**★ B1-B20 全部完成（2026-06-20，49 demo 全量迁移收尾，详见 §当前进度）**。
+
+---
+
+## 11. 外观/行为对齐大型任务（下个会话执行）★ 新会话必读
+
+> **目标**：核对**每个 demo** 与 antd 6.4.4 的颜色细节（含 hover/selected/disabled/focus/active/展开态/排序三态等**所有状态**）+ 行为对齐，在**保持 CSS Grid 布局、不依赖脚本监听**的范围内修复；实在修不了、或已决策故意不同（如 antd 因用 `<table>` 元素才那样设计）的地方**不强制修，在该 demo 页面写备注**说明原因。
+>
+> **背景**：主题注入已抄 antd（§当前进度「主题注入+外观统一收尾」+ memory [[theme-injection-antd]]）——data-grid 消费 `var(--ant-*)`，`.dg-wrapper` 全套 `--ant-*` 与 antd DOM 逐键一致。故**大部分颜色本应自动一致**，剩余色差多为 data-grid 某状态**没用对 token**（如选中行该用 `--ant-table-row-selected-bg` 却用了别的/硬编码）。本任务核心：逐 demo 逐状态核对，确保每个视觉状态用正确的 antd token + 修布局/行为差异。
+>
+> **工具**：对照框架（SplitDemo 左 data-grid / 右 antd）就是 ground truth——每个 demo 左右对比即可定位差异（devtools 读两侧 computed style + antd 用的 `--ant-*` token）。
+
+### 已发现的种子问题（用户实测，优先修）
+
+1. **basic（`#/demos/basic`）**：Action 列没显示全，**该出的横向滚动条没出**。根因＝列宽策略（见下「列宽策略」）。data-grid 默认 max-content 列撑开，但未正确产生容器溢出→无滚动条、Action 被截。
+2. **tree-data（`#/demos/tree-data`）**：
+   - 展开按钮**边框 hover 颜色**与 antd 不一致（该消费 `--ant-table-header-icon-hover-color`/对应 hover token，devtools 查 antd 实际值）。
+   - 展开按钮**上下位置歪**（垂直居中方式问题——grid cell 内 button 居中可能与 antd `<td>` 垂直居中不同）。
+   - **选中行颜色**与 antd 不一致（该用 `--ant-table-row-selected-bg`/`--ant-table-row-selected-hover-bg` 等 selected token）。
+3. **列宽策略（§9 列宽 gap 的完整实现，影响 basic 滚动条 + 所有宽表）**：
+   - **需求**：每列若设了绝对 `width`，自动转换为「**最小绝对宽度（min-width = width）+ 实际比例宽度（proportional）**」——列至少占其 width，剩余空间按比例分（grid `minmax(width, 1fr)` 或 `flex:1 1 width` 同款语义）；总 min 超过容器→出横向滚动条；总 min < 容器→列撑满（不留空、不溢出）。
+   - 这是 grid 等效 antd `<table width:100%> + table-layout:fixed` 的列宽行为（§9 #34 已为 ellipsis 列做 fixed 派生，本任务做**完整策略**：auto/fixed 两态 + 无 width 列处理 + 绝对 width 列的 min+proportional）。修后 basic（内容溢出）该出滚动条、narrow（容器窄）列均分不溢出、fixed-columns（scroll.x）保持。
+   - 约束：**纯 CSS Grid**（grid-template-columns minmax/1fr/auto），**不脚本监听**测量列宽。
+
+### 执行方法（每 demo）
+
+1. **逐状态核对**（用对照框架左右比）：normal / hover（行 hover、表头 hover、图标 hover、按钮 hover、单元格 hover）/ selected（选中行）/ disabled / focus / active（排序激活、筛选激活、当前页）/ expand（展开态/收起态/spaced 禁用）/ drag（拖拽态）等——按该 demo 涉及的状态。
+2. **色差定位**：devtools 读 antd 侧该元素的 computed color/bg/border + 它消费的 `--ant-*` token；data-grid 侧应消费同款 token。差了→改 table.css/tokens.css 让该状态用正确 token（主题注入已保证 token 值对，只需把 data-grid 的 CSS 指向正确 token）。
+3. **布局/行为差异**：CSS Grid 范围内修（垂直居中、sticky、padding、border、分隔线、圆角、行高、列宽等）。
+4. **不修的写备注**：修不了（需脚本/改引擎核心破坏 grid）或故意不同（antd 用 `<table>` 的特性，如 `<colgroup>` 列宽、`<th scope>` 语义、`<tbody>` 分割等 grid 无对应）→ 在该 demo 底部说明区写备注，不强制对齐。
+
+### 建议批次（每批实施者→验证者循环，控制 token）
+
+- **C1 列宽策略**（基础，影响所有宽表）：absolute width→min+proportional（grid minmax(width,1fr)）+ 无 width 列处理 + basic 滚动条修。★ 先做，其它批次依赖。
+- **C2 选中/hover 行色**：row-selected-bg/row-selected-hover-bg/row-hover-bg token 消费（row-selection/tree-data/nested-table/order-column/row-selection-custom 系列）。
+- **C3 展开图标细节**：hover 边框色/垂直居中/spaced 禁用态（expand/expand-sticky/nested-table/tree-data/tree-table-* /grouping-columns）。
+- **C4 排序/筛选激活态 + 表头交互色**：sorter active/filter active/header hover/icon hover（head/multiple-sorter/reset-filter/custom-filter-panel/filter-search/filter-in-tree）。
+- **C5 边框/分隔/圆角/padding 细节**：bordered/colspan-rowspan/fixed-*/size/narrow/summary/sticky。
+- **C6 其余逐个扫**：basic/jsx/column-defaults/ellipsis/ellipsis-custom-tooltip/resizable/virtual-list/ajax/pagination/dynamic-settings/style-class/component-token/custom-empty/hidden-columns/responsive + debug（nest-table-border-debug/row-selection-custom-debug）。
+- 每批：实施者（CSS Grid 范围内修 + lint/build，**不 spawn 子 agent、不开浏览器**）→ 验证者（chrome-devtools 逐状态对照 antd，**不 spawn 子 agent**）→ unfixable 写页面备注。
+
+### 约束
+- **CSS Grid 布局，不依赖脚本监听**（外观对齐不改用脚本测色/测布局；ResizeObserver 用于虚拟窗口等核心可接受）。
+- 主题注入机制已稳定（§当前进度），本任务只改 table.css/tokens.css/各组件 CSS + 列宽策略，**不动主题注入**（Table.tsx 注入）。
+- **不强制修 unfixable/故意差异**，在该 demo 页面写备注（说明 antd 为何那样 + data-grid 为何不同/为何不修）。
+- 沿用工作模式：实施↔验证交替，main 调度；实施者 prompt 边界写清（只 lint/build，不 spawn 子 agent、不开浏览器；只读 antd 对照可由实施者 devtools 读但须明确「只读、不 spawn」——避免重蹈 Round 2 实施者 spawn 孤儿子 agent 的覆辙）。

@@ -1,9 +1,15 @@
 /**
- * 决策 9：pagination 左右对比 demo 的共享配置（S11 分页集成与位置）。
+ * 决策 9：pagination 左右对比 demo 的共享配置（S11 分页集成与位置 / task #28 重做）。
  *
  * 提取两侧都复用的类型与数据。列定义因两侧类型不同（data-grid `ColumnType`
  * vs antd `TableProps['columns']`）保留在各自 demo 文件，但均引用本文件的
  * `RecordType` 与 `data`。
+ *
+ * === task #28 改动 ===
+ *
+ * 原 B14 双翻页器版本导出的 `topOptions` / `bottomOptions`（两个 Radio.Group 分别选
+ * top / bottom）已废弃。重做后 demo 用**单翻页器 + 6 位置互斥选一**，选项直接定义在
+ * `pagination.tsx` 内（`placementOptions`），本文件仅保留共享的 `RecordType` + `data`。
  */
 
 /** antd pagination demo 的记录类型。两侧共用。 */
@@ -42,22 +48,3 @@ export const data: RecordType[] = [
     tags: ['cool', 'teacher'],
   },
 ]
-
-/**
- * 顶部 / 底部 placement 单选选项（对齐 antd pagination demo 的 topOptions/bottomOptions）。
- * data-grid 的 `TablePaginationPlacement` 与 antd v6 `TablePaginationPlacement`
- * 同名同值集，两侧共用同一份选项。
- */
-export const topOptions = [
-  { label: 'topStart', value: 'topStart' },
-  { label: 'topCenter', value: 'topCenter' },
-  { label: 'topEnd', value: 'topEnd' },
-  { label: 'none', value: 'none' },
-] as const
-
-export const bottomOptions = [
-  { label: 'bottomStart', value: 'bottomStart' },
-  { label: 'bottomCenter', value: 'bottomCenter' },
-  { label: 'bottomEnd', value: 'bottomEnd' },
-  { label: 'none', value: 'none' },
-] as const

@@ -94,6 +94,16 @@
   /* 全局线宽/线型（alias token） */
   --ant-line-width: 1px;
   --ant-line-type: solid;
+  /* —— Round 2 新增 alias fallback：table.css 消费侧迁到 var(--ant-*) 后，独立运行（未接 antd 主题）
+     也需 fallback。接入 antd 主题后被 Table.tsx aliasTokenVars 注入的同名 var 覆盖。 —— */
+  /* 主色（alias token；sorter 激活 caret / filter 激活漏斗 / resizer 手柄 消费） */
+  --ant-color-primary: #1677ff;
+  /* 分割线色（alias token；fixed 列阴影 消费；antd fixed.ts getShadowStyle 用 colorSplit） */
+  --ant-color-split: rgba(5, 5, 5, 0.06);
+  /* 标题/正文文字色（alias token；悬浮滚动条 hover 态 消费；antd tableScrollThumbBgHover 用 colorTextHeading） */
+  --ant-color-text-heading: rgba(0, 0, 0, 0.88);
+  /* 全局圆角（alias token；expand 图标 / filter 下拉圆角 消费） */
+  --ant-border-radius: 6px;
 
   /* —— data-grid 自身布局变量（非 antd token）——
      直接消费 antd 带单位值（去掉旧 calc(*1px) 换算，与 antd 注入格式一致）。
@@ -114,6 +124,21 @@
   --dg-cell-padding-inline: var(--ant-table-cell-padding-inline);
   --dg-radius: var(--ant-table-header-border-radius);
   --dg-border: var(--ant-line-width) var(--ant-line-type) var(--ant-table-border-color);
+
+  /* —— Round 2 新增桥接：排序 / 图标 / 主色（之前 table.css 直接 fallback 硬编码，dark theme 不跟随）——
+     这些 Table component token（headerSortHoverBg/headerSortActiveBg/bodySortBg/headerIconColor/
+     headerIconHoverColor）由 prepareComponentToken 派生 + Round 1 tableTokenToCssVars 注入为
+     --ant-table-*（headerIconColor → --ant-table-header-icon-color 等），已落在 .dg-wrapper。
+     primary-color / resizer-color 无 Table 专属 token，走 alias --ant-color-primary（ConfigProvider
+     theme.token.colorPrimary 控制，dark/自定义主色统一跟随）。 */
+  --dg-header-sort-hover-bg: var(--ant-table-header-sort-hover-bg);
+  --dg-header-sort-active-bg: var(--ant-table-header-sort-active-bg);
+  --dg-body-sort-bg: var(--ant-table-body-sort-bg);
+  --dg-header-icon-color: var(--ant-table-header-icon-color);
+  --dg-header-icon-hover-color: var(--ant-table-header-icon-hover-color);
+  --dg-primary-color: var(--ant-color-primary);
+  /* resizer 无 antd 对应（data-grid 自研拖拽手柄），视觉用主色，随主题主色变化。 */
+  --dg-resizer-color: var(--ant-color-primary);
 }
 
 /* size 变量切换：通过 dg-size-* 类覆写 padding / 字号 token（S27）。
