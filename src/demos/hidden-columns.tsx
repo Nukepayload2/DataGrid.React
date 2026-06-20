@@ -6,130 +6,128 @@
  *
  * === antd demo 要素 ===
  *
- * - 8 列（Column 1..8），dataIndex 全为 `address`（同 antd demo），title 各异。
- * - 顶部 `Checkbox.Group` 列出所有列 title，`checkedList` 控制哪些列显示。
- *   默认全选（所有列可见）。
+ * - 8 列（Column 1..8），dataIndex 全为 `address`，title 各异。
+ * - 顶部 `Checkbox.Group` 列出所有列 title，`checkedList` 控制哪些列显示。默认全选。
  * - `newColumns = columns.map((c) => ({ ...c, hidden: !checkedList.includes(c.key) }))`：
  *   不在 checkedList 中的列标记为 hidden。
- * - 取消勾选某列 → 该列 `column.hidden = true` → 引擎把其 grid track 置为 `0fr`（track 仍占位），
- *   单元格/表头格内容 `visibility:hidden + overflow:hidden`，配合 `.dg-grid` 的
- *   `transition: grid-template-columns 0.3s` 实现 `0fr↔原宽` 平滑过渡。
  *
- * === 与 antd demo 的差异 ===
+ * === 决策 9 双栏对照 ===
  *
- * - antd 用 `Checkbox.Group`（antd 组件）；data-grid 不依赖 antd 本体，用原生 `<input type="checkbox">`
- *   最小实现等价的 Checkbox.Group（视觉对齐 antd：方块勾选框 + label 横排）。
- * - 数据 / 列定义与 antd demo 一致（8 列、2 行；dataIndex 全为 address）。
+ * - **左栏（data-grid Table）**：行为与改造前一致（`column.hidden` → 引擎 grid track `0fr` 过渡，
+ *   单元格/表头格 `visibility:hidden`，`.dg-grid` `transition: grid-template-columns 0.3s` 平滑）。
+ * - **右栏（antd Table）**：忠实复刻 antd hidden-columns demo（antd 原生 `column.hidden`）。
+ * - **共享控制条**：antd `<Checkbox.Group>`（两侧共用一个 checkedList 状态，同步驱动两侧）。
+ *   改造前 data-grid demo 用原生 `<input type="checkbox">` 最小实现；决策 9 双栏下统一用 antd
+ *   `<Checkbox.Group>`（对齐 antd demo 风格，决策 6：非表格核心控件用 antd）。
+ * - **共享数据/列**：见 `_compare/hidden-columns.shared.ts`。
  *
  * === 验证点（M6）===
  *
  * 1. 初始：8 列全显，Checkbox.Group 全选。
- * 2. 取消勾选 "Column 3" → 第 3 列平滑收起（0fr 过渡）消失；其它列不动（线号稳定，无跳变）。
- * 3. 再勾选 "Column 3" → 第 3 列平滑展开恢复。
- * 4. 同时取消多列 → 多列同时收起/展开。
- * 5. 全部取消 → 表格内容区缩到极窄（仅剩 padding）；表头各格 0fr track。
- * 6. 表头线号稳定：取消/恢复勾选不会导致其它列的标题/数据错位。
+ * 2. 取消勾选 "Column 3" → 第 3 列平滑收起消失；其它列不动。
+ * 3. 同时取消多列 → 多列同时收起/展开。
+ * 4. 表头线号稳定：取消/恢复勾选不会导致其它列的标题/数据错位。
+ * 5. 两侧同步：同一 checkedList 驱动两侧，列显隐应一致。
  */
+
 import { useState } from 'react'
-import { Table } from '../table'
+import { Checkbox, Divider, Table as AntdTable } from 'antd'
+import type { CheckboxOptionType, TableProps } from 'antd'
 import type { ColumnType } from '../table'
+import { Table } from '../table'
+import { SplitDemo } from './_compare/SplitDemo'
+import {
+  data,
+  defaultCheckedList,
+  rawColumns,
+  type RecordType,
+} from './_compare/hidden-columns.shared'
 
-interface DataType {
-  key: React.Key
-  name: string
-  age: number
-  address: string
-}
+// 左栏 data-grid 列定义。
+const dgColumns: ColumnType<RecordType>[] = rawColumns.map((c) => ({ ...c }))
+// 右栏 antd 列定义。
+const antdColumns: NonNullable<TableProps<RecordType>['columns']> = rawColumns.map((c) => ({
+  ...c,
+}))
 
-const columns: ColumnType<DataType>[] = [
-  { title: 'Column 1', dataIndex: 'address', key: '1' },
-  { title: 'Column 2', dataIndex: 'address', key: '2' },
-  { title: 'Column 3', dataIndex: 'address', key: '3' },
-  { title: 'Column 4', dataIndex: 'address', key: '4' },
-  { title: 'Column 5', dataIndex: 'address', key: '5' },
-  { title: 'Column 6', dataIndex: 'address', key: '6' },
-  { title: 'Column 7', dataIndex: 'address', key: '7' },
-  { title: 'Column 8', dataIndex: 'address', key: '8' },
-]
+// Checkbox.Group 选项（列 title + key）。
+const options = rawColumns.map(({ key, title }) => ({
+  label: title,
+  value: key,
+}))
 
-const data: DataType[] = [
-  { key: '1', name: 'John Brown', age: 32, address: 'New York Park' },
-  { key: '2', name: 'Jim Green', age: 40, address: 'London Park' },
-]
-
-/** 默认全选（所有列可见）。 */
-const defaultCheckedList = columns.map((item) => item.key as string)
-
-/**
- * 最小 Checkbox.Group（原生 input[type='checkbox']，视觉对齐 antd）。
- * - value：当前选中的 value 数组（受控）。
- * - options：选项列表（label + value）。
- * - onChange：勾选变化时回调，返回新的选中 value 数组。
- */
-function CheckboxGroup({
-  value,
-  options,
-  onChange,
-}: {
-  value: Array<string>
-  options: Array<{ label: React.ReactNode; value: string }>
-  onChange: (next: Array<string>) => void
-}) {
-  // 单项勾选：把 value 加入/移出数组（保持原 options 顺序，与 antd Checkbox.Group 一致）。
-  const toggle = (v: string, checked: boolean) => {
-    const next = options.map((o) => o.value).filter((id) => {
-      if (id === v) return checked
-      return value.includes(id)
-    })
-    onChange(next)
-  }
-  return (
-    <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: '8px 16px' }}>
-      {options.map((opt) => (
-        <label
-          key={opt.value}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
-        >
-          <input
-            type="checkbox"
-            checked={value.includes(opt.value)}
-            onChange={(e) => toggle(opt.value, e.target.checked)}
-            style={{ margin: 0 }}
-          />
-          {opt.label}
-        </label>
-      ))}
-    </span>
-  )
-}
+// ---------------------------------------------------------------------------
+// Demo 根组件
+// ---------------------------------------------------------------------------
 
 export default function HiddenColumnsDemo() {
-  const [checkedList, setCheckedList] = useState<Array<string>>(defaultCheckedList)
-
-  const options = columns.map(({ key, title }) => ({
-    label: title,
-    value: key as string,
-  }))
+  // ★ 共享状态：同一个 checkedList 同时驱动两侧表格。
+  const [checkedList, setCheckedList] = useState<Array<string>>([...defaultCheckedList])
 
   // 不在 checkedList 的列标记为 hidden（对齐 antd demo 写法）。
-  const newColumns = columns.map((item) => ({
+  const dgNewColumns = dgColumns.map((item) => ({
+    ...item,
+    hidden: !checkedList.includes(item.key as string),
+  }))
+  const antdNewColumns = antdColumns.map((item) => ({
     ...item,
     hidden: !checkedList.includes(item.key as string),
   }))
 
   return (
     <div style={{ padding: 24 }}>
-      {/* 分割线（antd demo 用 <Divider>，这里用 border-top 替代）。 */}
-      <div style={{ fontWeight: 600, marginBottom: 8 }}>Columns displayed</div>
-      <div style={{ borderTop: '1px solid #f0f0f0', margin: '0 0 16px' }} />
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。antd Checkbox.Group（决策 6）。 */}
+      <div
+        style={{
+          marginBottom: 16,
+          padding: 12,
+          border: '1px solid #f0f0f0',
+          borderRadius: 8,
+          background: '#fff',
+        }}
+      >
+        <Divider style={{ margin: '0 0 12px' }}>Columns displayed</Divider>
+        <Checkbox.Group
+          value={checkedList}
+          options={options as CheckboxOptionType[]}
+          onChange={(value) => {
+            setCheckedList(value as string[])
+          }}
+        />
+      </div>
 
-      <CheckboxGroup value={checkedList} options={options} onChange={setCheckedList} />
-
-      <Table<DataType>
-        columns={newColumns}
-        dataSource={data}
-        style={{ marginTop: 24 }}
-      />
+      {/*
+        minPaneWidth=480（8 列窄列，每列内容短，无 scroll.x）→ 横排阈值 ≈ 976。
+        常规笔记本视口（≥1024）即可横排。
+      */}
+      <SplitDemo
+        minPaneWidth={480}
+        left={
+          <Table<RecordType> columns={dgNewColumns} dataSource={data} />
+        }
+        right={
+          <AntdTable<RecordType> columns={antdNewColumns} dataSource={data} />
+        }
+      >
+        <div>
+          <strong>对照说明（决策 9 T1）：</strong>左右并排呈现 data-grid 与 antd hidden-columns demo，
+          共享 Checkbox.Group 同步驱动两侧 8 列显隐。
+          <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+            <li>
+              <strong>column.hidden</strong>：不在 checkedList 的列标记 hidden。左栏 data-grid 走
+              grid track <code>0fr</code> 过渡（<code>transition: grid-template-columns 0.3s</code>）；
+              右栏 antd 走原生 hidden。
+            </li>
+            <li>
+              <strong>过渡动画</strong>：左栏 data-grid 有 0.3s 平滑收起/展开动画；右栏 antd 即时切换。
+              对照两侧动画差异。
+            </li>
+            <li>
+              <strong>表头线号稳定</strong>：取消/恢复勾选不应导致其它列标题/数据错位（两侧均应稳定）。
+            </li>
+          </ul>
+        </div>
+      </SplitDemo>
     </div>
   )
 }

@@ -1,0 +1,62 @@
+/**
+ * 决策 9：nest-table-border-debug 左右对比 demo 的共享配置（D1 边缘任务）。
+ *
+ * 提取两侧都复用的类型与数据（主表 + 子表 + Dropdown items）。
+ * 列定义因类型不同（data-grid `ColumnType` / antd `TableColumnsType`）由各自 demo 声明，
+ * 本文件只共享类型 + 数据 + items。
+ *
+ * antd demo 要素：
+ *   - 主表 7 列：Name / Platform / Version / Upgraded / Creator / Date / Action。
+ *   - `expandable.expandedRowRender`：返回嵌套子 `<Table>`（5 列：Date / Name /
+ *     Status(Badge "Finished") / Upgrade Status / Action），`pagination={false}`，
+ *     子 Table 的 `bordered` 由共享 `childTableBordered` state 驱动。
+ *   - 顶部 Form（inline）：Root Table Bordered / Child Table Bordered 两个 Switch，
+ *     **同一组 state 同时驱动两侧主表与子表**（决策 9 双驱动）。
+ *   - 3 行主表数据 + 3 行子表数据。
+ */
+
+/** 子表记录类型（expandedRowRender 内嵌套 Table 的数据）。两侧共用。 */
+export interface ExpandedDataType {
+  key: React.Key
+  date: string
+  name: string
+  upgradeNum: string
+}
+
+/** 主表记录类型。两侧共用。 */
+export interface RecordType {
+  key: React.Key
+  name: string
+  platform: string
+  version: string
+  upgradeNum: number
+  creator: string
+  createdAt: string
+}
+
+/** Dropdown items（Action 列 More 下拉）。两侧共用。 */
+export const items = [
+  { key: '1', label: 'Action 1' },
+  { key: '2', label: 'Action 2' },
+]
+
+/** 子表数据（3 行）。两侧共用。 */
+export const expandedDataSource: ExpandedDataType[] = Array.from({
+  length: 3,
+}).map((_, i) => ({
+  key: i,
+  date: '2014-12-24 23:12:00',
+  name: 'This is production name',
+  upgradeNum: 'Upgraded: 56',
+}))
+
+/** 主表数据（3 行）。两侧共用。与 antd demo 逐字一致（name 'Screem'）。 */
+export const dataSource: RecordType[] = Array.from({ length: 3 }).map((_, i) => ({
+  key: i,
+  name: 'Screem',
+  platform: 'iOS',
+  version: '10.3.4.5654',
+  upgradeNum: 500,
+  creator: 'Jack',
+  createdAt: '2014-12-24 23:12:00',
+}))

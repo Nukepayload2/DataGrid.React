@@ -92,12 +92,19 @@
 - **对照暴露的 §9 问题**（非本轮回归，引擎未改）：virtual-list 横滚到最右时 data-grid 右固定列 Action 脱离右边缘（根因 §9 narrow gap：无 width 列 max-content vs antd width+flex fill）——已登记 §9。另：§9 记的「合并×虚拟缺一块」本轮**未复现**（scroll 改造后边界渲染改善），§9 已标注。
 - **lint** 0 error / **build** 成功。
 
-**后续（决策 9 续）**：其余 46 个 demo 分批迁移为左右双栏（复用 SplitDemo + 提取共享 data/columns + antd 侧忠实复刻官方同名 demo）。每个 demo 传合适 `minPaneWidth`：窄表（basic/head/size 等）~480-600 多数横排、宽表（scroll.x 大如 fixed-columns/ellipsis/virtual-list）传大值竖排为主。
+**🎉 决策 9 demo 双栏迁移 全量完成（B1-B20，48 demo + virtual-list 试点 = 49 demo 全部 `compare:true`）**：
+- **SplitDemo 框架**（`src/demos/_compare/`）：外壳 + `compare.css`（flex-wrap 纯 CSS 自适应横竖 + `minPaneWidth` per-demo 阈值，决策 9）；**`stickyMode` prop**（B13 引入，页面级 sticky demo 专用，放开 pane/body overflow 让 S34 钉顶）。
+- **迁移覆盖**：B1-B20 共 48 demo 全部改造为左 data-grid / 右 antd 同名官方 demo 双栏，提取共享 `RecordType`/`data`/`getData` 到 `_compare/<demo>.shared.ts`。registry 全部 `compare:true`（measure-row-render/row-selection-debug/selections-debug 按决策 1 不存在/跳过）。
+- **antd 侧策略**：忠实复刻官方同名 demo；**装 `@dnd-kit/{core,sortable,modifiers,utilities}`**（B18 拖拽，决策 9 不惜装依赖）；**`@ant-design/icons` 因 pnpm 严格隔离不可直接 import**（TS2307）→ 两栏图标统一内联 SVG；**antd-style 未装** → style-class 用 antd v6 原生 classNames/styles。
+- **验证**：B1-B20 全部通过（每批实施者 lint+build → 验证者 chrome-devtools 逐 demo 对照 antd 官方）。**唯一真实修复循环**：B13 sticky（SplitDemo pane/body overflow 拦截页面级 sticky → 加 `stickyMode`）；**折入修复**：B8 row-selection-and-operation 右栏漏 `pagination={false}`（折入 B9）。
+- **对照暴露/确认的 §9**（多为既有，双栏更直观）：① 右固定列脱离（数字 scroll.x + 无 width 列总和<声明宽：virtual-list/grouping-columns 复现；max-content scroll.x 的 fixed-columns/fixed-gapped-columns/fixed-columns-header 未复现）；② ellipsis 视觉 gap（auto 模式；#34 tableLayout:fixed 后 ellipsis demo 基本消除，column-defaults/tree-table-ellipsis 仍可见）；③ cellFontSize token 未消费（component-token 左 14/右 16）；④ narrow gap；⑤ checkStrictly 默认 true；⑥ data-grid 默认不分页。
+- **遗留 polish（非阻断，demo 层，后续统一处理）**：① B2 narrow Page Segmented 用非受控 `defaultCurrent` 切换不翻页；② B4 bordered 示例1 注释称 antd 有 `.column-money` 高亮（实测两栏都无该 CSS）；③ B5 multiple-sorter 注释「最小 multiple=最高优先级」与引擎「大=高」相反（引擎正确，仅注释反了）；④ B18 drag-column-sorting DragOverlay `<th>` console 警告（忠实复刻 antd 官方，官方源码同款）。
+- **lint** 0 error / **build** 成功（全量）。
 
 **后续可选**（非阻塞）：
 - §9 已知限制修复：① 列宽策略 gap（grid max-content → ellipsis 视觉 + 表格容器适应，建议优先）；② checkStrictly 默认 true（antd false）；③ cellFontSize token 未消费；④ title/footer 全量 vs currentPageData；⑤ preserve=false 树形语义；⑥ conduction disabled 简化；⑦ rowClassName/editable-row 等 polish。
 - antd 默认分页对齐（接口全兼容阶段评估）。
-- demo 视觉 polish（S8 Reload 原生 button→antd Button、S13 demo checkStrictly Switch 初值等，全量回归前统一）。
+- demo polish（S8 Reload 已在 B8 改 antd Button；剩余非阻断项见上「决策 9 全量完成」遗留 polish 清单：narrow Segmented/bordered 注释/multiple-sorter 注释/DragOverlay 警告等）。
 
 **接口全兼容 收尾记录**（实施完成；lint 0 error + build 成功；未做 UI 验证——交验证者）：
 对照 antd `interface.ts` / `InternalTable.tsx` / `index.en-US.md` 公共 API 全表，补齐未实现的核心公共 API：
@@ -793,3 +800,52 @@ Agent({
 | scroll 改造 | 纯 scroll.x（无 scroll.y）场景，纵向悬浮条 hit 容器（24px）仍渲染（thumb display:none），拦截表体右侧点击 | 纯横向场景右侧 24px 透明 click-catch | FloatingScrollBar 无 scroll.y 时不渲染纵向 hit 容器 |
 | scroll 改造 | scroll.y:true + loading（Spin 包裹）共存，Spin 破坏 flex 链（data-area 高度自适应可能不完美） | loading + 数据区域共存场景 | 已知简化，后续修复 Spin 高度链 |
 | task #38 对照暴露 | virtual-list（fixed + 无 width 列 Address 1/2/3 走 max-content + 声明 scroll.x:2000）横滚到最右时，**data-grid 右固定列 Action 脱离容器右边缘**（sticky right:0 失效：gridTemplateColumns 实际列总宽 < 声明 width，scrollLeft 接近 max 时已越过内容右沿）；antd 无此问题 | 对照修 bug 时左栏可见，右栏正常；非决策 9 回归（引擎未改） | 与 §9 narrow gap 同源（无 width 列 max-content vs antd width+flex fill）；后续 scroll.x 场景无 width 列改 `width + 1fr` 填充或末列填满 |
+
+---
+
+## 10. demo 双栏迁移任务清单（决策 9 续）
+
+> 目标：剩余 48 个 demo 按 task #38 标准（[[demo-compare-framework]]）迁移为左右双栏（左 data-grid / 右 antd 同名官方 demo），对照修 bug。virtual-list 已完成（参考实现）。
+>
+> **每个任务的工作流程**（实施者按此实现 → 验证者按此验证，main 串行调度）：
+> 1. **提取共享配置**：`RecordType`/`data`/`getData`（及可复用 columns 形状）→ `src/demos/_compare/<demo>.shared.ts`，两侧 import。
+> 2. **共享状态 + 控制条**：demo 根组件提一套共享状态 + 顶部全宽控制条（antd Switch/Segmented/Button/Checkbox），**同一状态同时驱动两侧**（切换一次、左右同步 diff）。控件对齐 antd 官方 demo 风格。
+> 3. **左栏 data-grid**：保持原 demo 行为不变（仅放进左栏 + 接共享状态）。
+> 4. **右栏 antd**：忠实复刻 `G:\Projects\ant-design\components\table\demo\<demo>.tsx`（真实 antd `<Table>` + antd 控件）。两侧如实保留差异（对照价值）。需额外依赖（如 @dnd-kit/*）则装 devDependencies。
+> 5. **`<SplitDemo>`**：传 `left`/`right`/`minPaneWidth`/`children`(底部说明)。
+> 6. **`minPaneWidth`**：窄表（无 scroll.x / 列少）~480-600（多数横排）；宽表（scroll.x 大）~900-1000（常规视口竖排、超宽屏横排）。各 demo 取值见下表「minPaneWidth」列。
+> 7. **registry**：`src/demos/index.ts` 给该 demo 加 `compare: true`（列表页自动显「对比」徽章）。
+> 8. **lint 0 error + build 成功**（实施者）；**浏览器 UI 验证**（验证者）：两栏渲染 + 共享控制条双驱动 + 横竖排阈值正确 + 说明恒底部 + console 无 error + 对照差异点可见。
+>
+> **参考实现**：`src/demos/virtual-list.tsx`（试点）+ `src/demos/_compare/{SplitDemo.tsx,compare.css,virtual-list.shared.ts}`。
+>
+> **约束**：实施者串行（共用 registry.ts/index.ts/SplitDemo，禁止并行改同一文件）；不改 data-grid 引擎；发现的 §9 问题登记 §9 不在本任务修。
+
+### 任务表（细粒度，20 个 batch，每批 2-3 demo；实时进度见 TaskCreate 代办 B1–B20）
+
+> ★ 用户决策：用 Claude **TaskCreate** 代办跟踪（非本表）；浏览器自测耗 token，故**每批 2-3 demo**，验证者单轮只测一批。本表为参考。状态：☐ 待办 / ◐ 进行中 / ☑ 完成。
+
+| Batch | demo（minPaneWidth） | antd 侧注意 | 状态 |
+|-------|----------------------|-------------|------|
+| B1 | basic · jsx · column-defaults (~480) | antd Tag/Column/ColumnGroup；最简先验证模式 | ◐ |
+| B2 | size · narrow · responsive (~480/320/480) | size 切换；narrow 300 容器；responsive Grid.useBreakpoint | ◐ |
+| B3 | hidden-columns · custom-empty (~480) | Checkbox 联动；renderEmpty 'Table'/'Table.filter' | ◐ |
+| B4 | ellipsis · ellipsis-custom-tooltip · bordered (~600) | ellipsis+title/Tooltip；bordered 示例2 fixed | ☐ |
+| B5 | head · multiple-sorter (~480) | 排序+筛选共存；multiple 优先级 | ☐ |
+| B6 | reset-filter · custom-filter-panel (~480) | 受控重置；filterDropdown+react-highlight-words | ☐ |
+| B7 | filter-search · filter-in-tree (~480) | filterSearch；filterMode=tree (antd Tree) | ☐ |
+| B8 | row-selection · row-selection-and-operation (~480) | type 切换；受控+批量操作 | ☐ |
+| B9 | row-selection-custom · order-column (~480) | selections 菜单；EXPAND/SELECTION 哨兵 | ☐ |
+| B10 | expand · expand-sticky · nested-table (~480) | expandable+rowExpandable；嵌套子 Table | ☐ |
+| B11 | grouping-columns · colspan-rowspan (~900/480) | 多级表头+scroll；onCell 合并 | ☐ |
+| B12 | fixed-columns · fixed-gapped-columns (~900) | 固定列 sticky；§9 右固定列脱离对照 | ☐ |
+| B13 | fixed-columns-header · fixed-header · sticky (~600-900) | corner 双 sticky；scroll.y:true；页面级 sticky | ☐ |
+| B14 | pagination · ajax (~480-600) | placement；loading+服务端模式 | ☐ |
+| B15 | tree-data · tree-table-preserveSelectedRowKeys (~480) | 树形+checkStrictly；issue #50621 | ☐ |
+| B16 | tree-table-ellipsis · summary (~600-900) | issue #36583；summary fixed sticky | ☐ |
+| B17 | edit-cell · edit-row (~480) | components.body.cell/row + Form | ☐ |
+| B18 | drag-sorting · drag-sorting-handler · drag-column-sorting (~480) | ★ 装 @dnd-kit/*；右栏 dnd-kit vs 左自研 pointer | ☐ |
+| B19 | style-class · component-token · dynamic-settings (~600) | classNames/styles；ConfigProvider theme；综合验收 | ☐ |
+| B20 | resizable · nest-table-border-debug · row-selection-custom-debug (~480) | resizable 无 antd→右栏说明；renderCell+rowSpan | ☐ |
+
+**执行顺序**：B1 → B20（由简到繁；B18 拖拽需装依赖，B20 含 resizable 无 antd 对应）。每完成一 batch，TaskCreate 标 ☑ + §当前进度补一行。**★ B1-B20 全部完成（2026-06-20，49 demo 全量迁移收尾，详见 §当前进度）**。

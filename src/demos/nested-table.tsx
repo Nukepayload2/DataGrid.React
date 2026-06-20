@@ -1,14 +1,28 @@
 /**
- * 复刻 antd `nested-table` demo：
+ * 复刻 antd `nested-table` demo（S24 嵌套子表格）：
  *   `G:\Projects\ant-design\components\table\demo\nested-table.tsx`
+ *
+ * === 决策 9 双栏对照 ===
+ *
+ * - **左栏（data-grid Table）**：行为与改造前一致（`expandable.expandedRowRender`
+ *   返回嵌套子 `<Table>` —— 独立 grid 上下文，与主表正交 + `defaultExpandedRowKeys: ['0']`）。
+ *   子表也是 data-grid `<Table>`（独立 grid 上下文）。
+ * - **右栏（antd Table）**：忠实复刻 antd nested-table demo（antd `<Table>` 主表 +
+ *   `expandedRowRender` 返回真实 antd `<Table>` 子表 + `defaultExpandedRowKeys: ['0']`）。
+ * - **共享状态 + 控制条**：`Segmented` size（large/medium/small）同时驱动两侧主表
+ *   —— 决策 9 要求「同一状态同时驱动两侧」，故将 antd demo 原本的「三张主表静态展示
+ *   （large/medium/small）」改为「单主表 + size 切换」，对照同一档 size 下两侧嵌套子表
+ *   行为更直观（三表结构在双栏下会变成 6 张表，对照反而不便）。
+ * - **共享数据**：`RecordType` + `ExpandedDataType` + `dataSource` + `expandDataSource`
+ *   + Dropdown items 见 `_compare/nested-table.shared.ts`。
  *
  * === antd demo 要素（S24 嵌套子表格）===
  *
  * - 主表 7 列：Name / Platform / Version / Upgraded / Creator / Date / Action。
  * - `expandable.expandedRowRender`：返回一个**嵌套子 `<Table>`**（子表格，5 列：
- *   Date / Name / Status(Badge) / UpgradeNum / Action(Dropdown)），`pagination={false}`。
+ *   Date / Name / Status(Badge) / Upgrade Status / Action(Dropdown)），`pagination={false}`。
  * - `expandable.defaultExpandedRowKeys: ['0']`：初始展开 key='0' 的行。
- * - **三张主表**演示 size：默认（large）/ `size="medium"` / `size="small"`。
+ * - 三张主表演示 size：默认（large）/ `size="medium"` / `size="small"`。
  *
  * === data-grid 实现（S24）要点 ===
  *
@@ -18,73 +32,46 @@
  *   它是独立的 `<Table>` 实例（自己的 columns/dataSource/size），与主表正交，
  *   能正常渲染（grid 布局嵌套：子 Table 自己的 dg-grid 容器，独立 grid 上下文）。
  *
- * - **size 类型**：antd v6 size 签名 `'large' | 'medium' | 'small' | 'compact'`。
- *   data-grid 既有 `'middle'`（v5 别名），S24 补 `'medium'`/`'compact'`（types.ts SizeType 扩展 +
- *   Table.tsx sizeToClass 把 medium 映射到 dg-size-middle、compact 映射到 dg-size-small，
- *   视觉等价；完整行高 padding 微调属 S27 任务）。
+ * - **antd 组件复用**（决策 6）：子表 Status 用 antd `<Badge>`、Action 用 antd `<Space>`
+ *   + `<Dropdown>`（表格非核心部位用 antd）。`DownOutlined` 内联 SVG
+ *   （**不 import @ant-design/icons**——与 custom-filter-panel / drag-sorting-handler 约定一致）。
  *
- * - **antd 组件复用**（决策 6）：子表 Status 用 antd `<Badge>`、Action 用 antd `<Space>` + `<Dropdown>`
- *   （表格非核心部位用 antd）。`DownOutlined` 内联 SVG（**不 import @ant-design/icons**——
- *   与 custom-filter-panel / drag-sorting-handler 约定一致，@ant-design/icons 仅 antd 间接依赖）。
+ * === 两侧保留的差异 ===
  *
- * === 验证点（S24）===
+ * - 嵌套子表实现：左栏子表是 data-grid `<Table>`（独立 grid 上下文）；右栏子表是真实 antd `<Table>`。
+ * - size 类型：data-grid `medium` = antd `middle`（antd v6 也接受 `medium` 别名，视觉一致）。
+ * - DownOutlined：左栏内联 SVG（不依赖 @ant-design/icons）；右栏 antd demo 用
+ *   `@ant-design/icons` 的 `DownOutlined`（antd 间接依赖，本就可用）。
  *
- * 1. 三张主表上下排列，分别 large / medium / small（size 不同——S27 完整后行高 padding 差异可见；
- *    S24 阶段 medium 与 middle 视觉等价、small 与 compact 等价，不崩即可）。
- * 2. 每张主表第一列为展开图标列；key='0' 的行初始展开（defaultExpandedRowKeys）。
- * 3. 展开内容为一个**嵌套子 Table**（5 列）：Date / Name / Status(Badge "Finished") /
+ * === 验证点（S24 + 决策 9）===
+ *
+ * 1. 主表第一列为展开图标列；key='0' 的行初始展开（defaultExpandedRowKeys）。
+ * 2. 展开内容为一个**嵌套子 Table**（5 列）：Date / Name / Status(Badge "Finished") /
  *    Upgrade Status / Action(Pause/Stop 链接 + More 下拉)。
- * 4. 子表 `pagination={false}`（不渲染分页器，3 行全显）。
- * 5. 点击其它行展开图标可展开/收起（M9 0fr↔1fr 过渡）。
- * 6. 回归：expand / expand-sticky / order-column 等 M9 demo 不受影响（expandedRowRender 非 Table 内容仍正常）。
+ * 3. 子表 `pagination={false}`（不渲染分页器，3 行全显）。
+ * 4. 点击其它行展开图标可展开/收起。
+ * 5. 顶部 Segmented size（large/medium/small）同时驱动两侧主表 —— 两侧同步。
  */
 
-import { Badge, Dropdown, Space } from 'antd'
+import { useState } from 'react'
+import { Badge, Dropdown, Segmented, Space, Table as AntdTable } from 'antd'
+import type { TableColumnsType, TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType, Expandable } from '../table'
+import { SplitDemo } from './_compare/SplitDemo'
+import {
+  dataSource,
+  expandDataSource,
+  items,
+  type ExpandedDataType,
+  type RecordType,
+} from './_compare/nested-table.shared'
 
-interface ExpandedDataType {
-  key: React.Key
-  date: string
-  name: string
-  upgradeNum: string
-}
+// ---------------------------------------------------------------------------
+// 左栏（data-grid）列定义 —— 行为与改造前一致
+// ---------------------------------------------------------------------------
 
-interface DataType {
-  key: React.Key
-  name: string
-  platform: string
-  version: string
-  upgradeNum: number
-  creator: string
-  createdAt: string
-}
-
-const items = [
-  { key: '1', label: 'Action 1' },
-  { key: '2', label: 'Action 2' },
-]
-
-const expandDataSource: ExpandedDataType[] = Array.from({ length: 3 }).map(
-  (_, i) => ({
-    key: i.toString(),
-    date: '2014-12-24 23:12:00',
-    name: 'This is production name',
-    upgradeNum: 'Upgraded: 56',
-  }),
-)
-
-const dataSource: DataType[] = Array.from({ length: 3 }).map((_, i) => ({
-  key: i.toString(),
-  name: 'Screen',
-  platform: 'iOS',
-  version: '10.3.4.5654',
-  upgradeNum: 500,
-  creator: 'Jack',
-  createdAt: '2014-12-24 23:12:00',
-}))
-
-const expandColumns: ColumnType<ExpandedDataType>[] = [
+const dgExpandColumns: ColumnType<ExpandedDataType>[] = [
   { title: 'Date', dataIndex: 'date', key: 'date' },
   { title: 'Name', dataIndex: 'name', key: 'name' },
   {
@@ -110,7 +97,7 @@ const expandColumns: ColumnType<ExpandedDataType>[] = [
   },
 ]
 
-const columns: ColumnType<DataType>[] = [
+const dgColumns: ColumnType<RecordType>[] = [
   { title: 'Name', dataIndex: 'name', key: 'name' },
   { title: 'Platform', dataIndex: 'platform', key: 'platform' },
   { title: 'Version', dataIndex: 'version', key: 'version' },
@@ -120,20 +107,71 @@ const columns: ColumnType<DataType>[] = [
   { title: 'Action', key: 'operation', render: () => <a>Publish</a> },
 ]
 
-/**
- * 展开行渲染：返回嵌套子 `<Table>`（S24 核心）。
- * M9 的 expandedRowRender 渲染任意 ReactNode，嵌套 Table 作为独立实例正常工作。
- */
-const expandedRowRender = () => (
-  <Table<ExpandedDataType>
-    columns={expandColumns}
-    dataSource={expandDataSource}
-    pagination={false}
-  />
-)
+// ---------------------------------------------------------------------------
+// 右栏（antd）列定义 —— 忠实复刻 antd nested-table demo
+// ---------------------------------------------------------------------------
 
-const expandable: Expandable<DataType> = {
-  expandedRowRender,
+const antdExpandColumns: TableColumnsType<ExpandedDataType> = [
+  { title: 'Date', dataIndex: 'date', key: 'date' },
+  { title: 'Name', dataIndex: 'name', key: 'name' },
+  {
+    title: 'Status',
+    key: 'state',
+    render: () => <Badge status="success" text="Finished" />,
+  },
+  { title: 'Upgrade Status', dataIndex: 'upgradeNum', key: 'upgradeNum' },
+  {
+    title: 'Action',
+    key: 'operation',
+    render: () => (
+      <Space size="medium">
+        <a>Pause</a>
+        <a>Stop</a>
+        <Dropdown menu={{ items }}>
+          <a>
+            More <DownOutlined />
+          </a>
+        </Dropdown>
+      </Space>
+    ),
+  },
+]
+
+const antdColumns: TableColumnsType<RecordType> = [
+  { title: 'Name', dataIndex: 'name', key: 'name' },
+  { title: 'Platform', dataIndex: 'platform', key: 'platform' },
+  { title: 'Version', dataIndex: 'version', key: 'version' },
+  { title: 'Upgraded', dataIndex: 'upgradeNum', key: 'upgradeNum' },
+  { title: 'Creator', dataIndex: 'creator', key: 'creator' },
+  { title: 'Date', dataIndex: 'createdAt', key: 'createdAt' },
+  { title: 'Action', key: 'operation', render: () => <a>Publish</a> },
+]
+
+// ---------------------------------------------------------------------------
+// expandable（两侧同款：defaultExpandedRowKeys + 嵌套子 Table）
+// ---------------------------------------------------------------------------
+
+const dgExpandable: Expandable<RecordType> = {
+  // 嵌套子 Table 是 data-grid <Table>（独立 grid 上下文）。
+  expandedRowRender: () => (
+    <Table<ExpandedDataType>
+      columns={dgExpandColumns}
+      dataSource={expandDataSource}
+      pagination={false}
+    />
+  ),
+  defaultExpandedRowKeys: ['0'],
+}
+
+const antdExpandable: NonNullable<TableProps<RecordType>['expandable']> = {
+  // 嵌套子 Table 是真实 antd <Table>（与 antd demo 逐字一致）。
+  expandedRowRender: () => (
+    <AntdTable<ExpandedDataType>
+      columns={antdExpandColumns}
+      dataSource={expandDataSource}
+      pagination={false}
+    />
+  ),
   defaultExpandedRowKeys: ['0'],
 }
 
@@ -157,52 +195,96 @@ function DownOutlined() {
   )
 }
 
+// ---------------------------------------------------------------------------
+// Demo 根组件
+// ---------------------------------------------------------------------------
+
+// 共享 size 类型：'large'/'medium'/'small' 在两侧都被接受
+// （data-grid 用 'medium'（= 'middle'）；antd v6 也接受 'medium' 别名（= 'middle'））。
+type SharedSize = 'large' | 'medium' | 'small'
+
 export default function NestedTableDemo() {
+  // ★ 共享状态：同一个 size 同时驱动两侧主表。
+  const [size, setSize] = useState<SharedSize>('large')
+
   return (
     <div style={{ padding: 24 }}>
-      {/* 默认 size（large） */}
-      <Table<DataType>
-        columns={columns}
-        expandable={expandable}
-        dataSource={dataSource}
-      />
-
-      {/* size="medium"（antd v6；data-grid 视觉等价 'middle'，S27 完整实现行高 padding） */}
-      <div style={{ marginTop: 16 }}>
-        <Table<DataType>
-          columns={columns}
-          expandable={expandable}
-          dataSource={dataSource}
-          size="medium"
-        />
-      </div>
-
-      {/* size="small" */}
-      <div style={{ marginTop: 16 }}>
-        <Table<DataType>
-          columns={columns}
-          expandable={expandable}
-          dataSource={dataSource}
-          size="small"
-        />
-      </div>
-
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。 */}
       <div
         style={{
-          marginTop: 16,
+          marginBottom: 16,
           padding: 12,
-          background: '#fafafa',
+          border: '1px solid #f0f0f0',
           borderRadius: 8,
-          color: 'rgba(0,0,0,0.65)',
-          fontSize: 12,
+          background: '#fff',
         }}
       >
-        <strong>S24 嵌套子表格</strong>：展开行内嵌套子 <code>&lt;Table&gt;</code>（
-        <code>expandable.expandedRowRender</code> 返回子 Table）+
-        <code> defaultExpandedRowKeys: ['0']</code>（初始展开）+ 三 size 演示（large / medium / small）。
-        引擎零改动（M9 expandedRowRender 渲染任意 ReactNode，嵌套 Table 是其中之一）。子表 Status 用 antd Badge、
-        Action 用 antd Dropdown/Space（决策 6）。
+        <Space>
+          <Segmented
+            value={size}
+            onChange={(val) => setSize(val as SharedSize)}
+            options={[
+              { label: 'large', value: 'large' },
+              { label: 'medium', value: 'medium' },
+              { label: 'small', value: 'small' },
+            ]}
+          />
+          <span style={{ color: 'rgba(0,0,0,0.45)', fontSize: 12 }}>
+            size 同时驱动两侧主表（antd demo 原本三表静态展示，决策 9 下改为单表 + size 切换）
+          </span>
+        </Space>
       </div>
+
+      {/*
+        minPaneWidth=480（嵌套子表内容稍宽，主表 7 列 + 子表 5 列无 scroll.x）→
+        横排阈值 ≈ 976。常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。
+      */}
+      <SplitDemo
+        minPaneWidth={480}
+        left={
+          <Table<RecordType>
+            columns={dgColumns}
+            expandable={dgExpandable}
+            dataSource={dataSource}
+            size={size}
+          />
+        }
+        right={
+          <AntdTable<RecordType>
+            columns={antdColumns}
+            expandable={antdExpandable}
+            dataSource={dataSource}
+            size={size}
+          />
+        }
+      >
+        <div>
+          <strong>对照说明（决策 9 B10 / S24 嵌套子表格）：</strong>
+          左右并排呈现 data-grid 与 antd nested-table demo（expandedRowRender 返回嵌套子 Table +
+          defaultExpandedRowKeys: ['0'] + size 切换）。
+          <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+            <li>
+              <strong>嵌套子表实现</strong>：左栏子表是 data-grid <code>&lt;Table&gt;</code>
+              （独立 grid 上下文，与主表正交）；右栏子表是真实 antd <code>&lt;Table&gt;</code>。
+            </li>
+            <li>
+              <strong>初始展开</strong>：key='0' 的行初始展开（<code>defaultExpandedRowKeys: ['0']</code>）；
+              展开内容为 5 列子表（Date / Name / Status(Badge "Finished") / Upgrade Status / Action），
+              <code> pagination={'{false}'}</code> 不分页。
+            </li>
+            <li>
+              <strong>size 三档</strong>：顶部 Segmented 切换 large/medium/small，
+              <strong> 同一档 size 同时驱动两侧主表</strong>（antd demo 原本三表静态展示，
+              决策 9 下改为单表 + size 切换，对照更直观）。
+            </li>
+            <li>
+              <strong>DownOutlined 差异</strong>：左栏内联 SVG（不依赖 @ant-design/icons）；
+              右栏 antd demo 用 <code>@ant-design/icons</code> 的 <code>DownOutlined</code>
+              （antd 间接依赖）。视觉等价。
+            </li>
+          </ul>
+        </div>
+      </SplitDemo>
     </div>
   )
 }

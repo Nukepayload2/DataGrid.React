@@ -2,20 +2,22 @@
  * 复刻 antd ellipsis-custom-tooltip demo：
  *   `G:\Projects\ant-design\components\table\demo\ellipsis-custom-tooltip.tsx`。
  *
- * === antd demo 要素 ===
+ * === 决策 9 双栏对照 ===
  *
- * - Name 列：`render: (text) => <a>{text}</a>`，`width: 150`，无 ellipsis（链接正常显示）。
- * - Age 列：`width: 80`，无 ellipsis。
- * - Address ×4 列：均 `ellipsis: { showTitle: false }`（S21 对象形式），title 长度递减——
- *     * address 1：title 'Address'（短）。
- *     * address 2：title 'Long Column Long Column Long Column'（超长）。
- *     * address 3：title 'Long Column Long Column'（中长）。
- *     * address 4：title 'Long Column'（中）。
- *   每列 `render: (address) => <Tooltip placement="topLeft" title={address}>{address}</Tooltip>`
- *   ——用 antd `<Tooltip>`（决策 6：tooltip 非表格核心控件，用 antd）接管 hover 提示。
- * - 数据 3 行：address 均为超长文本（'New York No. 1 Lake Park, New York No. 1 Lake Park' 等）。
+ * - **左栏（data-grid Table）**：行为与改造前一致（`column.ellipsis: { showTitle: false }` S21
+ *   关闭默认 native title + render 内 antd `<Tooltip placement="topLeft">` 接管 hover）。
+ * - **右栏（antd Table）**：忠实复刻 antd ellipsis-custom-tooltip demo（antd 原生
+ *   `ellipsis: { showTitle: false }` + antd `<Tooltip>` render）。
+ * - **共享控制条**：`Bordered` 开关（antd demo 原本无控制条，此处加最小开关便于对照）。
+ * - **共享数据**：`RecordType` + `data` 见 `_compare/ellipsis-custom-tooltip.shared.ts`。
  *
- * === S21 自研任务验证点 ===
+ * === 两侧保留并如实呈现的差异（同 §9 ellipsis 视觉 gap，登记不修）===
+ *
+ * 同 S20 ellipsis demo：两侧列宽策略不同（data-grid #34 tableLayout:fixed + minmax 收缩
+ * vs antd width+flex fill），省略号视觉生效程度在边界宽度下可能不同。S21 核心验证 showTitle
+ * 开关 + Tooltip hover，不依赖省略号视觉 100% 生效——如实保留，对照价值。
+ *
+ * === S21 验证点（回归）===
  *
  * 1. **showTitle:false 关闭默认 native title**：`ellipsis: { showTitle: false }` 列的 cell-inner
  *    **不加** native `title` 属性（S20 的 toEllipsisTitle 门被 showTitle !== false 判定挡住）。
@@ -23,25 +25,21 @@
  *    悬浮单元格显示 antd Tooltip（placement topLeft）。
  * 3. **回归不破**：`ellipsis: true`（S20 默认 showTitle=true）列仍加 native title；
  *    非 ellipsis 列（Name render `<a>`、Age 数值）正常显示。
- *
- * === 视觉 gap（已知，非 S21 范围）===
- *
- * 与 S20 同款：grid 列宽默认 max-content 使 ellipsis 列 track=content 宽，cell-inner 不溢出 →
- * 视觉无 `...`（登记 §9）。S21 核心验证 showTitle 开关 + Tooltip hover，不依赖省略号视觉生效。
  */
 
-import { Tooltip } from 'antd'
+import { useState } from 'react'
+import { Space, Switch, Table as AntdTable, Tooltip } from 'antd'
+import type { TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
+import { SplitDemo } from './_compare/SplitDemo'
+import { data, type RecordType } from './_compare/ellipsis-custom-tooltip.shared'
 
-interface DataType {
-  key: React.Key
-  name: string
-  age: number
-  address: string
-}
+// ---------------------------------------------------------------------------
+// 左栏（data-grid）列定义 —— 行为与改造前一致
+// ---------------------------------------------------------------------------
 
-const columns: ColumnType<DataType>[] = [
+const dgColumns: ColumnType<RecordType>[] = [
   {
     title: 'Name',
     dataIndex: 'name',
@@ -102,62 +100,145 @@ const columns: ColumnType<DataType>[] = [
   },
 ]
 
-const data: DataType[] = [
+// ---------------------------------------------------------------------------
+// 右栏（antd）列定义 —— 忠实复刻 antd ellipsis-custom-tooltip demo
+// ---------------------------------------------------------------------------
+
+const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
   {
-    key: '1',
-    name: 'John Brown',
-    age: 32,
-    address: 'New York No. 1 Lake Park, New York No. 1 Lake Park',
+    title: 'Name',
+    dataIndex: 'name',
+    key: 'name',
+    render: (text) => <a>{text}</a>,
+    width: 150,
   },
   {
-    key: '2',
-    name: 'Jim Green',
-    age: 42,
-    address: 'London No. 2 Lake Park, London No. 2 Lake Park',
+    title: 'Age',
+    dataIndex: 'age',
+    key: 'age',
+    width: 80,
   },
   {
-    key: '3',
-    name: 'Joe Black',
-    age: 32,
-    address: 'Sydney No. 1 Lake Park, Sydney No. 1 Lake Park',
+    title: 'Address',
+    dataIndex: 'address',
+    key: 'address 1',
+    ellipsis: {
+      showTitle: false,
+    },
+    render: (address) => (
+      <Tooltip placement="topLeft" title={address}>
+        {address}
+      </Tooltip>
+    ),
+  },
+  {
+    title: 'Long Column Long Column Long Column',
+    dataIndex: 'address',
+    key: 'address 2',
+    ellipsis: {
+      showTitle: false,
+    },
+    render: (address) => (
+      <Tooltip placement="topLeft" title={address}>
+        {address}
+      </Tooltip>
+    ),
+  },
+  {
+    title: 'Long Column Long Column',
+    dataIndex: 'address',
+    key: 'address 3',
+    ellipsis: {
+      showTitle: false,
+    },
+    render: (address) => (
+      <Tooltip placement="topLeft" title={address}>
+        {address}
+      </Tooltip>
+    ),
+  },
+  {
+    title: 'Long Column',
+    dataIndex: 'address',
+    key: 'address 4',
+    ellipsis: {
+      showTitle: false,
+    },
+    render: (address) => (
+      <Tooltip placement="topLeft" title={address}>
+        {address}
+      </Tooltip>
+    ),
   },
 ]
 
+// ---------------------------------------------------------------------------
+// Demo 根组件
+// ---------------------------------------------------------------------------
+
 export default function EllipsisCustomTooltipDemo() {
+  // ★ 共享状态：同一个状态同时驱动两侧表格。
+  const [bordered, setBordered] = useState(false)
+
   return (
     <div style={{ padding: 24 }}>
-      <Table<DataType> columns={columns} dataSource={data} />
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。 */}
       <div
         style={{
-          marginTop: 16,
+          marginBottom: 16,
           padding: 12,
-          background: '#fafafa',
+          border: '1px solid #f0f0f0',
           borderRadius: 8,
-          color: 'rgba(0,0,0,0.65)',
-          fontSize: 12,
-          lineHeight: 1.8,
+          background: '#fff',
         }}
       >
-        <p style={{ margin: '0 0 4px' }}>
-          <b>S21 省略号 + 自定义 Tooltip</b>（对齐 antd ellipsis-custom-tooltip demo）：
-        </p>
-        <p style={{ margin: 0 }}>
-          - <code>Name</code>（width 150，render <code>&lt;a&gt;</code>）+ <code>Age</code>（width 80）
-          正常显示（无 ellipsis）。
-        </p>
-        <p style={{ margin: 0 }}>
-          - <code>Address ×4</code> 列均 <code>ellipsis: {'{ showTitle: false }'}</code>：
-          关闭默认 native title，<code>render</code> 内 antd <code>&lt;Tooltip placement="topLeft"&gt;</code>
-          接管 hover 提示（决策 6：tooltip 用 antd）。
-        </p>
-        <p style={{ margin: 0 }}>
-          - 表头 title 长度递减（'Address' → 'Long Column Long Column Long Column' → … → 'Long Column'）。
-        </p>
-        <p style={{ margin: 0 }}>
-          - 回归：S20 <code>ellipsis: true</code>（默认 showTitle=true 加 native title）不变；
-          非 ellipsis 列不变。
-        </p>
+        <Space>
+          <Switch
+            checked={bordered}
+            onChange={setBordered}
+            checkedChildren="Bordered"
+            unCheckedChildren="Bordered"
+          />
+        </Space>
       </div>
+
+      {/*
+        minPaneWidth=600（同 ellipsis demo：Address×4 长文本列，略宽于 480）→ 横排阈值 ≈ 1216。
+        常规笔记本视口（≥1280）横排；窄视口自动换行竖排。
+      */}
+      <SplitDemo
+        minPaneWidth={600}
+        left={<Table<RecordType> columns={dgColumns} dataSource={data} bordered={bordered} />}
+        right={
+          <AntdTable<RecordType> columns={antdColumns} dataSource={data} bordered={bordered} />
+        }
+      >
+        <div>
+          <strong>对照说明（决策 9 T1）：</strong>
+          左右并排呈现 data-grid 与 antd ellipsis-custom-tooltip demo。
+          <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+            <li>
+              <strong>ellipsis: {'{ showTitle: false }'}</strong>：Address ×4 列均关闭默认 native title。
+              左栏 data-grid S21 实现（toEllipsisTitle 门被 showTitle !== false 挡住，cell-inner 不加
+              title 属性）；右栏 antd 原生 showTitle:false。
+            </li>
+            <li>
+              <strong>antd Tooltip 接管 hover</strong>：两侧 render 内均用
+              <code>&lt;Tooltip placement="topLeft" title={'{address}'}&gt;</code>（决策 6：tooltip 用 antd）。
+              hover 单元格显示 antd Tooltip（placement topLeft）。
+            </li>
+            <li>
+              <strong>§9 ellipsis 视觉 gap（登记不修）</strong>：同 ellipsis demo，两侧列宽策略不同
+              （data-grid minmax 收缩 vs antd width+flex fill），省略号视觉在边界宽度下可能不同。
+              S21 核心验证 showTitle 开关 + Tooltip hover，不依赖省略号 100% 生效。
+            </li>
+            <li>
+              <strong>非 ellipsis 列</strong>：Name（render <code>&lt;a&gt;</code>，width 150）+ Age
+              （width 80）正常显示。
+            </li>
+          </ul>
+        </div>
+      </SplitDemo>
     </div>
   )
 }

@@ -35,6 +35,20 @@
  * 阈值由 `minPaneWidth` 纯 CSS 表达。
  *
  * 通用、可复用、opt-in：不影响未迁移的 demo（它们不 import 本组件）。
+ *
+ * === stickyMode（页面级 sticky demo 专用，默认 false）===
+ *
+ * CSS sticky 经典陷阱：**非 visible overflow 祖先会拦截 sticky 上下文**。默认 `.dg-compare__pane`
+ * `overflow:hidden`（圆角裁剪）+ `.dg-compare__body` `overflow:auto`（独立滚动）使 pane/body 成为
+ * sticky 的滚动祖先，导致子组件 `position:sticky; top:Npx` 相对 pane/body 而非 viewport 固定 →
+ * 表头被 pane/body 滚动容器吃掉、不跟随**页面**滚动。
+ *
+ * `stickyMode=true` 时给容器加修饰类 `.dg-compare--sticky`，pane/body 均设 `overflow:visible`
+ * （放开 sticky 滚动祖先，不裁剪、不自滚），让**页面**滚动驱动 sticky。表格自身 `scroll.x` 横向
+ * 滚动是 Table 内部容器，不受 pane overflow 影响（仍正常）。
+ *
+ * 仅页面级 sticky demo（如 sticky.tsx 的 S34 `sticky.offsetHeader`）需要传 true；其余 demo
+ * 默认 false，行为完全不变（pane 圆角裁剪 + body 独立滚动）。
  */
 
 import type { CSSProperties, ReactNode } from 'react'
@@ -58,8 +72,25 @@ export interface SplitDemoProps {
    * - 宽表（scroll.x 大，如 2000）应传更大值（如 1000，阈值 2016），使常规视口竖排。
    */
   minPaneWidth?: number
-  /** 可选：全宽说明区，渲染在两栏下方（`.dg-compare` 容器之外，横竖排恒居底部）。 */
+  /**
+   * 可选：全宽说明区，渲染在两栏下方（`.dg-compare` 容器之外，横竖排恒居底部）。
+   */
   children?: ReactNode
+  /**
+   * 页面级 sticky 模式（默认 false）。
+   *
+   * - **false（默认）**：pane `overflow:hidden`（圆角裁剪）+ body `overflow:auto`（独立滚动），
+   *   pane/body 是子组件 sticky 的滚动祖先 → 子组件 `position:sticky` 相对 pane/body 固定。
+   *   适用于绝大多数 demo（容器内滚动）。
+   * - **true**：pane + body 均 `overflow:visible`（不裁剪、不自滚），放开 sticky 上下文，
+   *   让**页面**滚动驱动子组件 sticky（表头钉视口顶 `offsetHeader`）。仅页面级 sticky demo
+   *   （如 sticky.tsx 的 S34 `sticky.offsetHeader:64`）需要传 true。
+   *
+   * 表格自身 `scroll.x` 横向滚动是 Table 内部容器，不受 pane overflow 影响（两种模式都正常）。
+   * 实现机制：true 时给 `.dg-compare` 容器加修饰类 `.dg-compare--sticky`，compare.css 内该类
+   * 设 pane/body overflow:visible（不修改默认规则，只新增修饰类）。
+   */
+  stickyMode?: boolean
 }
 
 export function SplitDemo({
@@ -68,6 +99,7 @@ export function SplitDemo({
   leftTitle = 'data-grid',
   rightTitle = 'antd 6.4.4',
   minPaneWidth = 480,
+  stickyMode = false,
   children,
 }: SplitDemoProps) {
   // 把 minPaneWidth 作为 CSS 变量 --pane-min 写到容器，驱动纯 CSS flex-wrap 自适应。
@@ -76,9 +108,12 @@ export function SplitDemo({
     '--pane-min': `${minPaneWidth}px`,
   } as CSSProperties
 
+  // stickyMode=true 时加修饰类 .dg-compare--sticky，pane/body overflow:visible（放开 sticky 上下文）。
+  const containerClassName = stickyMode ? 'dg-compare dg-compare--sticky' : 'dg-compare'
+
   return (
     <>
-      <div className="dg-compare" style={containerStyle}>
+      <div className={containerClassName} style={containerStyle}>
         <section className="dg-compare__pane">
           <div className="dg-compare__title">{leftTitle}</div>
           <div className="dg-compare__body">{left}</div>

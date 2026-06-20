@@ -2,72 +2,115 @@
  * 复刻 antd drag-column-sorting demo：
  *   `G:\Projects\ant-design\components\table\demo\drag-column-sorting.tsx`
  *
- * === antd demo 要素 ===
+ * === 决策 9 双栏对照 ===
  *
- * - 5 列：Name / Gender / Age / Email / Address（单层表头）。
- * - 4 行数据（John Brown male 32 / Jim Green female 42 / Joe Black female 32 / George Hcc male 20）。
- * - `DndContext`（PointerSensor distance:1 + restrictToHorizontalAxis）+ `SortableContext`
- *   （items = 列 key 数组，horizontalListSortingStrategy）+ `components.header.cell = TableHeaderCell`
- *   （useSortable）+ `components.body.cell = TableBodyCell`（DragIndexContext borderInline 虚线指示）。
- * - HeaderCell：useSortable，setNodeRef 挂 `<th>` + listeners + cursor:move + isDragging zIndex 9999。
- * - `onDragEnd`：arrayMove(prev, activeIndex, overIndex) → setColumns（重排列顺序）。
- * - `onDragOver`：setDragIndex（active/over/direction）→ body cell borderInlineStart/End 虚线指示。
- * - DragOverlay：拖拽预览（表头内容灰底）。
+ * - **左栏（data-grid Table）**：行为与改造前一致——方案 B 自研 pointer 列方向拖拽
+ *   （`useColumnDragSort` 命中叶子表头格 `data-leaf-index` + 垂直指示线 + arrayMoveColumns 重排 columns）。
+ *   **不依赖 @dnd-kit/***（grid 渲染无"列 DOM"，transform 平移会破坏 grid 布局）。
+ * - **右栏（antd Table）**：忠实复刻 antd 官方 `drag-column-sorting.tsx`——
+ *   `@dnd-kit/*` + restrictToHorizontalAxis + SortableContext horizontalListSortingStrategy +
+ *   closestCenter + PointerSensor（distance:1）+ `components.header.cell = TableHeaderCell` useSortable +
+ *   `components.body.cell = TableBodyCell` + DragIndexContext borderInline 虚线指示 +
+ *   DragOverlay 预览（拖拽表头灰底）+ onDragEnd arrayMove + onDragOver setDragIndex。
+ * - **共享控制条**：`Bordered` 开关同时驱动两侧（原 antd demo 无控制条，此处加最小开关便于对照）。
+ *   拖拽是局部交互，两栏各自独立维护 columns（各自列重排便于对照）。
+ * - **共享数据**：`RecordType` + `data` 见 `_compare/drag-column-sorting.shared.ts`。
  *
- * === ★ data-grid 适配：方案 B 自研 pointer 列拖拽（不依赖 @dnd-kit/*）===
+ * === 两侧保留的差异（对照价值）===
  *
- * data-grid 用 CSS Grid 渲染，"列"不是 DOM 元素（单元格直接是 grid item）。antd 方案（dnd-kit
- * 挂 `<th>` + transform 平移整列）在 data-grid 下无"列 DOM"可挂，且 transform 平移会破坏 grid 布局
- * （与 grid-column 定位冲突）。详见 `useColumnDragSort.ts` 文件头方案选择说明。
- *
- * 故本 demo 用 data-grid 自研的 `useColumnDragSort` hook（S19 列方向，与 S17/S18 行方向同族）：
- *
- * - **拖拽手势（事件委托）**：Table 外层包一个 `position:relative` 容器，挂 hook 返回的
- *   `containerProps.onPointerDown`。hook 内部判定 pointerdown 的 target 是否命中**叶子表头格**
- *   （`closest('[data-leaf-index]')`——data-grid 引擎给每个叶子表头格打 `data-leaf-index` 属性，
- *   flat/multi 两路径都有；分组表头格 `data-leaf='0'` 无该属性，故天然不触发列拖拽），命中则启动。
- *   **无需修改引擎**、**无需 components 机制**、**无需 onHeaderCell 透传**。
- *
- * - **垂直指示线**：`useColumnDragSort.indicator` 驱动一条绝对定位蓝色竖线（left = 目标列间隙 X，
- *   top/height 跨表头+表体），作为外层容器子元素渲染。指示线**不是 grid item**（是 container 子元素），
- *   不影响 grid-template-columns 计算（零回归）。
- *
- * - **列重排**：松手且 over≠from 时 hook 调 `onSort(arrayMove(...))` → setColumns → Table 重渲染，
- *   列瞬间到新位置。
- *
- * === 与 antd 的差异 ===
- *
- * - antd 拖拽中：被拖列表头 `<th>` 跟随指针平移（transform）+ body cell borderInline 虚线指示；
- *   data-grid 拖拽中：显示**垂直指示线**（被拖列原位不动，指示线提示列插入位置），松手后重排。
- *   功能等价（列重排），视觉略异。
- * - antd 用 `@dnd-kit/*` + DragOverlay 预览；data-grid 自研 pointer（方案 B，理由见 useColumnDragSort.ts）。
- * - antd HeaderCell 挂 listeners 在 `<th>`；data-grid 通过事件委托命中任意叶子表头格。
- *
- * === 验证点（S19）===
- *
- * 1. 叶子表头格（任意列）cursor 默认；按住表头格左右拖拽即可启动（事件委托命中 data-leaf-index）。
- * 2. 按住表头格左右拖拽 → 蓝色垂直指示线跟随指针，显示"松手后该列插入位置"（仅水平方向有效，
- *    restrictToHorizontalAxis 等效——纵向上指针位置不影响 over 计算）。
- * 3. 松手 → 列重排（columns 按指示线位置 arrayMove，表头与表体列同步重排）。
- * 4. 在首列之左 / 末列之右拖拽 → 指示线显示在最左/最右，松手后列移到最前/最后。
- * 5. 回归：S17/S18 行拖拽（命中 data-row-index，不与 data-leaf-index 冲突）不变；非拖拽 demo 不破。
+ * 1. **拖拽视觉**：左栏拖拽中显示**蓝色垂直指示线**（被拖列原位不动，指示线提示列插入位置），
+ *    松手后重排；右栏拖拽中被拖列表头 `<th>` **跟随指针平移**（transform）+ body cell borderInline
+ *    虚线指示 + DragOverlay 预览（拖拽表头灰底）。功能等价（列重排），视觉略异。
+ * 2. **拖拽手势**：左栏通过外层容器**事件委托**命中任意叶子表头格（`data-leaf-index` 定位）；
+ *    右栏 dnd-kit listeners 挂 `<th>`（components.header.cell）。
+ * 3. **依赖**：左栏自研 pointer（不装 @dnd-kit）；右栏 @dnd-kit/core+sortable+modifiers+utilities
+ *    （决策 9：右栏 antd 忠实复刻官方 dnd-kit 实现，不惜装依赖）。
  */
 
-import { useRef, useState } from 'react'
+import { createContext, useContext, useRef, useState } from 'react'
+import type { DragEndEvent, DragOverEvent, UniqueIdentifier } from '@dnd-kit/core'
+import {
+  closestCenter,
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import { restrictToHorizontalAxis } from '@dnd-kit/modifiers'
+import {
+  arrayMove,
+  horizontalListSortingStrategy,
+  SortableContext,
+  useSortable,
+} from '@dnd-kit/sortable'
+import { Space, Switch, Table as AntdTable } from 'antd'
+import type { TableColumnsType } from 'antd'
+import type { CSSProperties, HTMLAttributes } from 'react'
+import type { FC, ReactNode } from 'react'
 import { Table } from '../table'
 import { useColumnDragSort } from '../table'
 import type { ColumnType } from '../table'
+import { SplitDemo } from './_compare/SplitDemo'
+import { data, type RecordType } from './_compare/drag-column-sorting.shared'
 
-interface DataType {
-  key: string
-  name: string
-  gender: string
-  age: number
-  email: string
-  address: string
+// ---------------------------------------------------------------------------
+// 右栏（antd）列拖拽组件 —— 忠实复刻 antd 官方 drag-column-sorting.tsx
+// ---------------------------------------------------------------------------
+
+interface HeaderCellProps extends HTMLAttributes<HTMLTableCellElement> {
+  id: string
 }
 
-const baseColumns: ColumnType<DataType>[] = [
+interface BodyCellProps extends HTMLAttributes<HTMLTableCellElement> {
+  id: string
+}
+
+interface DragIndexState {
+  active: UniqueIdentifier
+  over: UniqueIdentifier | undefined
+  direction?: 'left' | 'right'
+}
+
+const DragIndexContext = createContext<DragIndexState>({ active: -1, over: -1 })
+
+/** 官方 dragActiveStyle：active 列灰底半透明、over 列 borderInline 虚线指示方向。 */
+function dragActiveStyle(dragState: DragIndexState, id: string): CSSProperties {
+  const { active, over, direction } = dragState
+  let style: CSSProperties = {}
+  if (active && active === id) {
+    style = { backgroundColor: 'gray', opacity: 0.5 }
+  } else if (over && id === over && active !== over) {
+    style =
+      direction === 'right'
+        ? { borderInlineEnd: '1px dashed gray' }
+        : { borderInlineStart: '1px dashed gray' }
+  }
+  return style
+}
+
+const TableBodyCell: FC<BodyCellProps> = (props) => {
+  const dragState = useContext<DragIndexState>(DragIndexContext)
+  return <td {...props} style={{ ...props.style, ...dragActiveStyle(dragState, props.id) }} />
+}
+
+const TableHeaderCell: FC<HeaderCellProps> = (props) => {
+  const dragState = useContext(DragIndexContext)
+  const { attributes, listeners, setNodeRef, isDragging } = useSortable({ id: props.id })
+  const style: CSSProperties = {
+    ...props.style,
+    cursor: 'move',
+    ...(isDragging ? { position: 'relative', zIndex: 9999, userSelect: 'none' } : {}),
+    ...dragActiveStyle(dragState, props.id),
+  }
+  return <th {...props} ref={setNodeRef} style={style} {...attributes} {...listeners} />
+}
+
+// ---------------------------------------------------------------------------
+// 左栏（data-grid）baseColumns —— Name/Gender/Age/Email/Address（对齐 antd demo）
+// ---------------------------------------------------------------------------
+
+const dgBaseColumns: ColumnType<RecordType>[] = [
   { title: 'Name', dataIndex: 'name', key: 'name' },
   { title: 'Gender', dataIndex: 'gender', key: 'gender' },
   { title: 'Age', dataIndex: 'age', key: 'age' },
@@ -75,121 +118,218 @@ const baseColumns: ColumnType<DataType>[] = [
   { title: 'Address', dataIndex: 'address', key: 'address' },
 ]
 
-export default function DragColumnSortingDemo() {
-  const [columns, setColumns] = useState<ColumnType<DataType>[]>(() =>
-    baseColumns.map((column, i) => ({
+// ---------------------------------------------------------------------------
+// 右栏（antd）baseColumns —— 忠实复刻 antd demo
+// ---------------------------------------------------------------------------
+
+const antdBaseColumns: TableColumnsType<RecordType> = [
+  { title: 'Name', dataIndex: 'name' },
+  { title: 'Gender', dataIndex: 'gender' },
+  { title: 'Age', dataIndex: 'age' },
+  { title: 'Email', dataIndex: 'email' },
+  { title: 'Address', dataIndex: 'address' },
+]
+
+// ---------------------------------------------------------------------------
+// 左栏（data-grid）—— 方案 B 自研 pointer 列方向拖拽
+// ---------------------------------------------------------------------------
+
+function DataGridPane({ bordered }: { bordered: boolean }) {
+  const [columns, setColumns] = useState<ColumnType<RecordType>[]>(() =>
+    dgBaseColumns.map((column, i) => ({
       ...column,
-      // 稳定 key（列重排时 React diff 用），与 antd demo `${i}` 索引作 key 同款（重排后仍按现位置匹配）。
+      // 稳定 key（列重排时 React diff 用），与 antd demo `${i}` 索引作 key 同款。
       key: `${i}`,
     })),
   )
 
-  const [dataSource] = useState<DataType[]>([
-    {
-      key: '1',
-      name: 'John Brown',
-      gender: 'male',
-      age: 32,
-      email: 'John Brown@example.com',
-      address: 'London No. 1 Lake Park',
-    },
-    {
-      key: '2',
-      name: 'Jim Green',
-      gender: 'female',
-      age: 42,
-      email: 'jimGreen@example.com',
-      address: 'London No. 1 Lake Park',
-    },
-    {
-      key: '3',
-      name: 'Joe Black',
-      gender: 'female',
-      age: 32,
-      email: 'JoeBlack@example.com',
-      address: 'Sidney No. 1 Lake Park',
-    },
-    {
-      key: '4',
-      name: 'George Hcc',
-      gender: 'male',
-      age: 20,
-      email: 'george@example.com',
-      address: 'Sidney No. 1 Lake Park',
-    },
-  ])
-
-  // 外层容器 ref（指示线相对此容器绝对定位；hit-test 遍历容器内 [data-leaf-index] 表头格）。
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const { dragState, indicator, containerProps } = useColumnDragSort<ColumnType<DataType>>({
+  const { dragState, indicator, containerProps } = useColumnDragSort<ColumnType<RecordType>>({
     columns,
     onSort: setColumns,
     containerRef,
   })
 
   return (
-    <div style={{ padding: 24 }}>
-      {/* 外层相对定位容器：挂 containerProps.onPointerDown（事件委托命中叶子表头格启动列拖拽）；
-          指示线（绝对定位）相对此容器；Table 正常渲染。 */}
-      <div ref={containerRef} style={{ position: 'relative' }} {...containerProps}>
-        <Table<DataType> rowKey="key" columns={columns} dataSource={dataSource} />
-        {/* 垂直拖拽指示线：绝对定位蓝色竖线，跨表头+表体高度（top/height 相对 container）。
-            非 grid item（是 container 子元素，Table 内部 dg-grid 的直接子元素仍是单元格），
-            不影响 grid-template-columns 计算。 */}
-        {indicator.visible ? (
-          <div
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              left: indicator.left,
-              top: indicator.top,
-              height: indicator.height,
-              width: 2,
-              background: '#1677ff',
-              zIndex: 9999,
-              pointerEvents: 'none',
-              borderRadius: 1,
+    <div ref={containerRef} style={{ position: 'relative' }} {...containerProps}>
+      <Table<RecordType>
+        rowKey="key"
+        columns={columns}
+        dataSource={data}
+        bordered={bordered}
+      />
+      {/* 垂直拖拽指示线：绝对定位蓝色竖线，跨表头+表体高度。
+          非 grid item（是 container 子元素），不影响 grid-template-columns 计算。 */}
+      {indicator.visible ? (
+        <div
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            left: indicator.left,
+            top: indicator.top,
+            height: indicator.height,
+            width: 2,
+            background: '#1677ff',
+            zIndex: 9999,
+            pointerEvents: 'none',
+            borderRadius: 1,
+          }}
+        />
+      ) : null}
+      <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>
+        当前拖拽：
+        {dragState ? `from #${dragState.fromIndex + 1} → 目标 #${dragState.overIndex + 1}` : '无'}
+        ；当前列顺序：{columns.map((c) => c.title).join(' / ')}
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// 右栏（antd）—— 忠实复刻官方 drag-column-sorting.tsx
+// ---------------------------------------------------------------------------
+
+function AntdPane({ bordered }: { bordered: boolean }) {
+  const [dragIndex, setDragIndex] = useState<DragIndexState>({ active: -1, over: -1 })
+
+  const [columns, setColumns] = useState(() =>
+    antdBaseColumns.map((column, i) => ({
+      ...column,
+      key: `${i}`,
+      onHeaderCell: (): { id: string } => ({ id: `${i}` }),
+      onCell: (): { id: string } => ({ id: `${i}` }),
+    })),
+  )
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        // https://docs.dndkit.com/api-documentation/sensors/pointer#activation-constraints
+        distance: 1,
+      },
+    }),
+  )
+
+  const onDragEnd = ({ active, over }: DragEndEvent) => {
+    if (active.id !== over?.id) {
+      setColumns((prevState) => {
+        const activeIndex = prevState.findIndex((i) => i.key === active?.id)
+        const overIndex = prevState.findIndex((i) => i.key === over?.id)
+        return arrayMove(prevState, activeIndex, overIndex)
+      })
+    }
+    setDragIndex({ active: -1, over: -1 })
+  }
+
+  const onDragOver = ({ active, over }: DragOverEvent) => {
+    const activeIndex = columns.findIndex((i) => i.key === active.id)
+    const overIndex = columns.findIndex((i) => i.key === over?.id)
+    setDragIndex({
+      active: active.id,
+      over: over?.id,
+      direction: overIndex > activeIndex ? 'right' : 'left',
+    })
+  }
+
+  return (
+    <DndContext
+      sensors={sensors}
+      modifiers={[restrictToHorizontalAxis]}
+      onDragEnd={onDragEnd}
+      onDragOver={onDragOver}
+      collisionDetection={closestCenter}
+    >
+      <SortableContext items={columns.map((i) => i.key)} strategy={horizontalListSortingStrategy}>
+        <DragIndexContext.Provider value={dragIndex}>
+          <AntdTable<RecordType>
+            rowKey="key"
+            columns={columns}
+            dataSource={data}
+            bordered={bordered}
+            components={{
+              header: { cell: TableHeaderCell },
+              body: { cell: TableBodyCell },
             }}
           />
-        ) : null}
-      </div>
+        </DragIndexContext.Provider>
+      </SortableContext>
+      <DragOverlay>
+        <th style={{ backgroundColor: 'gray', padding: 16 }}>
+          {columns[columns.findIndex((i) => i.key === dragIndex.active)]?.title as ReactNode}
+        </th>
+      </DragOverlay>
+    </DndContext>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Demo 根组件
+// ---------------------------------------------------------------------------
+
+export default function DragColumnSortingDemo() {
+  // ★ 共享状态：同一个状态同时驱动两侧表格。
+  const [bordered, setBordered] = useState(false)
+
+  return (
+    <div style={{ padding: 24 }}>
       <div
         style={{
-          marginTop: 16,
+          marginBottom: 16,
           padding: 12,
-          background: '#fafafa',
+          border: '1px solid #f0f0f0',
           borderRadius: 8,
-          color: 'rgba(0,0,0,0.65)',
-          fontSize: 12,
-          lineHeight: 1.8,
+          background: '#fff',
         }}
       >
-        <p style={{ margin: '0 0 4px' }}>
-          <b>S19 列拖拽排序</b>（对齐 antd drag-column-sorting demo）：
-        </p>
-        <p style={{ margin: 0 }}>
-          - 按住表头格左右拖拽 → 蓝色垂直指示线显示列插入位置；松手后列重排（表头与表体列同步）。
-        </p>
-        <p style={{ margin: 0 }}>
-          - ★ <strong>方案 B（自研 pointer 列方向）</strong>：data-grid 用 CSS Grid 渲染，"列"非 DOM 元素，
-          antd 的 dnd-kit（挂 <code>&lt;th&gt;</code> + transform 平移）方案在 data-grid 下破坏 grid 布局，
-          且与 S17/S18 行拖拽同族理由不引入 @dnd-kit/*。故自研 pointer 列拖拽（参考 S17 useRowDragSort 列方向），
-          <strong>restrictToHorizontalAxis 等效</strong>（仅水平 hit-test，纵向不影响 over）。
-        </p>
-        <p style={{ margin: 0 }}>
-          - 与 antd 差异：antd 拖拽中表头跟随指针平移（transform）+ body cell borderInline 虚线指示 +
-          DragOverlay 预览；data-grid 拖拽中显示垂直指示线（被拖列原位不动），松手后重排（功能等价）。
-          拖拽手势通过外层容器<strong>事件委托</strong>命中叶子表头格（引擎给叶子表头格打
-          <code>data-leaf-index</code>，hook 据此定位列，无需改引擎）。
-        </p>
-        <p style={{ margin: 0 }}>
-          - 当前拖拽：{dragState ? `from #${dragState.fromIndex + 1} → 目标 #${dragState.overIndex + 1}` : '无'}
-        </p>
-        <p style={{ margin: 0 }}>
-          - 当前列顺序：{columns.map((c) => c.title).join(' / ')}
-        </p>
+        <Space>
+          <Switch
+            checked={bordered}
+            onChange={setBordered}
+            checkedChildren="Bordered"
+            unCheckedChildren="Bordered"
+          />
+        </Space>
       </div>
+
+      {/*
+        minPaneWidth=480（5 列无 scroll.x，列窄但总宽不大）→ 横排阈值 ≈ 480×2 + 16 = 976。
+        常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。
+      */}
+      <SplitDemo
+        minPaneWidth={480}
+        left={<DataGridPane bordered={bordered} />}
+        right={<AntdPane bordered={bordered} />}
+      >
+        <div>
+          <strong>对照说明（决策 9 B18）：</strong>左右并排呈现 data-grid（自研 pointer 列方向拖拽）
+          与 antd 官方 drag-column-sorting（dnd-kit 列拖拽），方便对照修 bug。
+          <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+            <li>
+              <strong>拖拽视觉差异</strong>：左栏拖拽中显示<strong>蓝色垂直指示线</strong>
+              （被拖列原位不动，指示线提示列插入位置，松手后重排）；右栏拖拽中被拖列表头
+              <strong>跟随指针平移</strong>（transform）+ body cell borderInline 虚线指示 +
+              DragOverlay 预览（拖拽表头灰底），松手后重排。功能等价。
+            </li>
+            <li>
+              <strong>拖拽手势</strong>：左栏通过外层容器<strong>事件委托</strong>命中叶子表头格
+              （<code>data-leaf-index</code> 定位，restrictToHorizontalAxis 等效——仅水平 hit-test）；
+              右栏 dnd-kit listeners 挂 <code>&lt;th&gt;</code>（components.header.cell）。
+            </li>
+            <li>
+              <strong>实现差异</strong>：左栏<strong>不依赖 @dnd-kit/*</strong>（方案 B 自研 pointer 列方向——
+              grid 渲染无"列 DOM"，transform 平移会破坏 grid 布局）；右栏忠实复刻官方
+              <code>@dnd-kit/{'{core,sortable,modifiers,utilities}'}</code> + DragOverlay。
+            </li>
+            <li>
+              <strong>Bordered 开关</strong>：同时切换两侧表格边框，对照两侧行为是否一致。
+            </li>
+            <li>
+              <strong>两栏独立</strong>：拖拽是局部交互，左右各自维护 columns（各自列重排便于对照）。
+            </li>
+          </ul>
+        </div>
+      </SplitDemo>
     </div>
   )
 }

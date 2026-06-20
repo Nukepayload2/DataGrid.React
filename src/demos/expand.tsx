@@ -1,96 +1,179 @@
 /**
- * 复刻 antd `expand` demo（M9 验收）：
+ * 复刻 antd `expand` demo（M9 行展开）：
  *   `G:\Projects\ant-design\components\table\demo\expand.tsx`
+ *
+ * === 决策 9 双栏对照 ===
+ *
+ * - **左栏（data-grid Table）**：行为与改造前一致（`expandable.expandedRowRender`
+ *   渲染 description + `rowExpandable` 禁用 "Not Expandable" 行 + grid 0fr↔1fr 过渡）。
+ * - **右栏（antd Table）**：忠实复刻 antd expand demo（antd `<Table>` + antd expandable）。
+ * - **共享状态 + 控制条**：`expandedRowKeys` 受控（同一份 state 同时驱动两侧）+
+ *   顶部全宽按钮组「Expand All / Collapse All」一键展开/收起可展开行（同步驱动两侧）。
+ *   antd demo 原本非受控展开，决策 9 下改为受控 + 按钮组，便于对照两侧展开行为同步。
+ * - **共享数据**：`RecordType` + `data`（4 行，第 3 行 "Not Expandable"）见
+ *   `_compare/expand.shared.ts`。
  *
  * === antd demo 要素 ===
  *
  * - `expandable.expandedRowRender(record)`：展开内容渲染 description。
  * - `expandable.rowExpandable(record)`：record.name === 'Not Expandable' 的行不可展开
  *   → 图标禁用（与 antd 一致）。
- * - 默认非受控展开态（未传 expandedRowKeys / defaultExpandedRowKeys）。
  *
- * === 验证点（M9）===
+ * === 两侧保留的差异 ===
  *
- * 1. 每行第一列（默认展开列位置）渲染展开图标。
- * 2. 点击图标：▶ → ▼ 平滑旋转（0.3s），同时展开内容 track `0fr → 1fr` 平滑展开。
- *    再点击收起，对称动画。
- * 3. "Not Expandable" 行的图标为禁用态（灰、cursor not-allowed、点击无反应）。
- * 4. 展开内容：description 文本，带淡灰底（rowExpandedBg token）+ 内边距。
- * 5. 展开行与表头 / 其它行 / border 视觉正确（不崩）。
+ * - 基本逐字复刻（columns / expandable 一致）。
+ * - 展开过渡实现差异：左栏 data-grid grid track `0fr↔1fr`（lun 思路，纯 React 重写）；
+ *   右栏 antd 内置展开动画。
+ *
+ * === 验证点（M9 + 决策 9）===
+ *
+ * 1. 每行第一列渲染展开图标；点击展开/收起。
+ * 2. "Not Expandable" 行图标禁用（灰、cursor not-allowed、点击无反应）——两侧一致。
+ * 3. 顶部「Expand All」按钮一键展开两侧所有可展开行（3 行，"Not Expandable" 不展开）。
+ * 4. 「Collapse All」一键收起两侧所有行。
+ * 5. 同一行展开/收起两侧同步（共享 expandedRowKeys 受控）。
  */
 
+import { useState } from 'react'
+import { Button, Space, Table as AntdTable } from 'antd'
+import type { TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType, Expandable } from '../table'
+import { SplitDemo } from './_compare/SplitDemo'
+import { data, type RecordType } from './_compare/expand.shared'
 
-interface DataType {
-  key: React.Key
-  name: string
-  age: number
-  address: string
-  description: string
-}
+// ---------------------------------------------------------------------------
+// 左栏（data-grid）列定义 —— 行为与改造前一致
+// ---------------------------------------------------------------------------
 
-const columns: ColumnType<DataType>[] = [
-  { title: 'Name', dataIndex: 'name' },
-  { title: 'Age', dataIndex: 'age' },
-  { title: 'Address', dataIndex: 'address' },
+const dgColumns: ColumnType<RecordType>[] = [
+  { title: 'Name', dataIndex: 'name', key: 'name' },
+  { title: 'Age', dataIndex: 'age', key: 'age' },
+  { title: 'Address', dataIndex: 'address', key: 'address' },
   {
     title: 'Action',
     dataIndex: '',
+    key: 'x',
     render: () => <a>Delete</a>,
   },
 ]
 
-const data: DataType[] = [
+// ---------------------------------------------------------------------------
+// 右栏（antd）列定义 —— 忠实复刻 antd expand demo
+// ---------------------------------------------------------------------------
+
+const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
+  { title: 'Name', dataIndex: 'name', key: 'name' },
+  { title: 'Age', dataIndex: 'age', key: 'age' },
+  { title: 'Address', dataIndex: 'address', key: 'address' },
   {
-    key: 1,
-    name: 'John Brown',
-    age: 32,
-    address: 'New York No. 1 Lake Park',
-    description: 'My name is John Brown, I am 32 years old, living in New York No. 1 Lake Park.',
-  },
-  {
-    key: 2,
-    name: 'Jim Green',
-    age: 42,
-    address: 'London No. 1 Lake Park',
-    description: 'My name is Jim Green, I am 42 years old, living in London No. 1 Lake Park.',
-  },
-  {
-    key: 3,
-    name: 'Not Expandable',
-    age: 29,
-    address: 'Jiangsu No. 1 Lake Park',
-    description: 'This not expandable',
-  },
-  {
-    key: 4,
-    name: 'Joe Black',
-    age: 32,
-    address: 'Sydney No. 1 Lake Park',
-    description: 'My name is Joe Black, I am 32 years old, living in Sydney No. 1 Lake Park.',
+    title: 'Action',
+    dataIndex: '',
+    key: 'x',
+    render: () => <a>Delete</a>,
   },
 ]
 
-const expandable: Expandable<DataType> = {
-  expandedRowRender: (record) => <p style={{ margin: 0 }}>{record.description}</p>,
-  // "Not Expandable" 行不可展开（图标禁用）。
-  rowExpandable: (record) => record.name !== 'Not Expandable',
-}
+// ---------------------------------------------------------------------------
+// Demo 根组件
+// ---------------------------------------------------------------------------
 
 export default function ExpandDemo() {
+  // ★ 共享状态：同一份 expandedRowKeys 同时驱动两侧表格（受控）。
+  // 可展开行 = 除 "Not Expandable" 外的 3 行（rowExpandable 过滤）。
+  const [expandedRowKeys, setExpandedRowKeys] = useState<Array<React.Key>>([])
+
+  // 一键展开所有可展开行（"Not Expandable" 被排除）。
+  const expandAll = () => {
+    setExpandedRowKeys(
+      data.filter((r) => r.name !== 'Not Expandable').map((r) => r.key),
+    )
+  }
+  // 一键收起所有行。
+  const collapseAll = () => setExpandedRowKeys([])
+
+  // expandable 两侧同款（expandedRowRender + rowExpandable）。
+  const dgExpandable: Expandable<RecordType> = {
+    expandedRowRender: (record) => <p style={{ margin: 0 }}>{record.description}</p>,
+    rowExpandable: (record) => record.name !== 'Not Expandable',
+    expandedRowKeys,
+    onExpandedRowsChange: (keys) => setExpandedRowKeys([...keys]),
+  }
+
+  const antdExpandable: NonNullable<TableProps<RecordType>['expandable']> = {
+    expandedRowRender: (record) => <p style={{ margin: 0 }}>{record.description}</p>,
+    rowExpandable: (record) => record.name !== 'Not Expandable',
+    expandedRowKeys,
+    onExpandedRowsChange: (keys) => setExpandedRowKeys([...keys]),
+  }
+
   return (
     <div style={{ padding: 24 }}>
-      <Table<DataType>
-        columns={columns}
-        expandable={expandable}
-        dataSource={data}
-      />
-
-      <div style={{ marginTop: 16, padding: 12, background: '#fafafa', borderRadius: 8, color: 'rgba(0,0,0,0.65)', fontSize: 12 }}>
-        点击每行第一列的展开图标展开/收起。展开内容 grid track 用 <code>0fr↔1fr</code> 过渡
-        （lun 思路，纯 React 重写）；"Not Expandable" 行图标禁用。
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一状态同时驱动两侧表格。 */}
+      <div
+        style={{
+          marginBottom: 16,
+          padding: 12,
+          border: '1px solid #f0f0f0',
+          borderRadius: 8,
+          background: '#fff',
+        }}
+      >
+        <Space>
+          <Button onClick={expandAll}>Expand All</Button>
+          <Button onClick={collapseAll}>Collapse All</Button>
+          <span style={{ color: 'rgba(0,0,0,0.45)', fontSize: 12 }}>
+            expandedRowKeys: [
+            {expandedRowKeys.map((k) => `"${k}"`).join(', ')}]（同时驱动两侧）
+          </span>
+        </Space>
       </div>
+
+      {/*
+        minPaneWidth=480（窄表，4 列无 scroll.x）→ 横排阈值 ≈ 976。
+        常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。
+      */}
+      <SplitDemo
+        minPaneWidth={480}
+        left={
+          <Table<RecordType>
+            columns={dgColumns}
+            expandable={dgExpandable}
+            dataSource={data}
+          />
+        }
+        right={
+          <AntdTable<RecordType>
+            columns={antdColumns}
+            expandable={antdExpandable}
+            dataSource={data}
+          />
+        }
+      >
+        <div>
+          <strong>对照说明（决策 9 B10 / M9 行展开）：</strong>
+          左右并排呈现 data-grid 与 antd expand demo（expandable.expandedRowRender +
+          rowExpandable 禁用 "Not Expandable" 行）。
+          <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+            <li>
+              <strong>共享展开状态</strong>：顶部「Expand All / Collapse All」一键展开/收起
+              可展开行，<strong>同一份 expandedRowKeys 同时驱动两侧</strong>（受控，切换一次、左右同步 diff）。
+            </li>
+            <li>
+              <strong>rowExpandable</strong>：第 3 行 "Not Expandable" 图标禁用
+              （灰、cursor not-allowed、点击无反应），Expand All 也不会展开它——两侧一致。
+            </li>
+            <li>
+              <strong>展开过渡差异</strong>：左栏 data-grid grid track <code>0fr↔1fr</code>
+              过渡（lun 思路，纯 React 重写）；右栏 antd 内置展开动画。
+            </li>
+            <li>
+              <strong>与 antd demo 差异</strong>：antd demo 原本非受控展开；决策 9 下改为受控 +
+              按钮组，便于对照两侧展开行为同步。
+            </li>
+          </ul>
+        </div>
+      </SplitDemo>
     </div>
   )
 }

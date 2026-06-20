@@ -2,110 +2,106 @@
  * 复刻 antd `edit-row` demo（S16 验收）：
  *   `G:\Projects\ant-design\components\table\demo\edit-row.tsx`
  *
- * === antd demo 要素（行级编辑，区别 S15 单格编辑）===
+ * === 决策 9 双栏对照 ===
  *
- * - `editingKey` state：当前正在编辑的行 key（'' 表示无编辑行，同时只允许一行编辑）。
- * - `isEditing(record) = record.key === editingKey`。
- * - operation 列 render：
- *     * 编辑态：`Save`（Typography.Link → save）+ `Cancel`（Popconfirm → cancel）。
- *     * 展示态：`Edit`（Typography.Link，`disabled = editingKey !== ''`，即已有行在编辑时禁用其他 Edit）。
- * - `edit(record)`：`form.setFieldsValue({ name, age, address, ...record })` + `setEditingKey(record.key)`。
- * - `save(key)`：`form.validateFields()` + 更新 data + `setEditingKey('')`。
- * - `cancel()`：`setEditingKey('')`。
- * - EditableCell：`editing ? Form.Item+inputNode : children`；
- *   `inputNode = inputType==='number' ? <InputNumber/> : <Input/>`。
- * - **Form 在 Table 外层**（`<Form form component={false}><Table components={{body:{cell:EditableCell}}}/>...`），
- *   **无 body.row**（区别 S15 的 EditableRow——S15 每行独立 Form；S16 整表共享一个 Form，靠 editingKey 区分当前编辑行）。
- * - `onCell(record)` 返回 `{ record, inputType, dataIndex, title, editing: isEditing(record) }`。
- * - columns：name/age/address editable + operation。
- * - `pagination={{ onChange: cancel }}`（翻页取消编辑）。
- * - bordered + rowClassName='editable-row'。
+ * - **左栏（data-grid Table）**：行为与改造前一致 —— 行级 editingKey + Edit/Save/Cancel +
+ *   InputNumber(age)/Input + 100 行分页 + Form 外层。★ data-grid div 渲染适配：EditableCell 返回
+ *   **内容 ReactNode（不包 td）**，引擎渲染在 `.dg-cell-inner`。
+ * - **右栏（antd Table）**：忠实复刻 antd edit-row demo —— antd `components.body.cell` 返回 `<td>` +
+ *   onCell + Form 外层 + `rowClassName='editable-row'` + CSS（.editable-row .ant-form-item-explain 定位）。
+ * - **共享控制条**：无（按 antd demo 原结构——无控制条，operation 列内 Edit/Save/Cancel）。
+ *   编辑是局部交互（行级 editingKey + Form），两栏各自编辑便于对照（共用 form/data/editingKey 会
+ *   互相干扰——两栏同时只能编辑一行、Form 共享会冲突）。故两侧各自维护 `form`/`data`/`editingKey`
+ *   state，初始数据相同（_compare/edit-row.shared.ts）。
+ * - **共享数据**：`RecordType` + `originData`（100 行）见 `_compare/edit-row.shared.ts`。
  *
- * === ★ data-grid div 渲染适配（同 S15）===
+ * === 两侧保留的差异（如实呈现）===
  *
- * data-grid 用 div 渲染单元格（`.dg-cell`，非 antd 的 `<td>`）。antd demo 的 EditableCell 返回
- * `<td>` 在 data-grid 下需适配：
+ * 1. **EditableCell 返回值**：左栏 data-grid 返回内容 ReactNode（不包 td）；右栏 antd 返回
+ *    `<td {...restProps}>`（原生 td）。
+ * 2. **Form 位置**：两侧均 Form 在 Table 外层（`Form component={false}` 不产生 DOM），Form.Item 在
+ *    EditableCell 内，通过 React FormContext（不依赖 DOM 层级）访问 Form 实例。
+ * 3. **无 components.body.row**：两侧均无（区别 S15 的 EditableRow——S16 整表共享一个 Form，靠
+ *    editingKey 区分当前编辑行）。
+ * 4. **rowClassName**：左栏 data-grid 支持 rowClassName（透传到该行所有数据单元格 className），
+ *    传 `'editable-row'`；右栏 antd 原生 rowClassName，同款。
+ * 5. **CSS**：注入 antd demo 配套 CSS（`.editable-row .ant-form-item-explain` 定位）到 document.head
+ *    （仅注入一次），两侧共享。
  *
- * - **EditableCell**：返回**内容 ReactNode（不包 td）**。data-grid 引擎把 EditableCell 渲染在
- *   `.dg-cell-inner` 处（dg-cell div 内），dg-cell div 本身（grid 定位 / sticky / hover / align）
- *   由引擎维持。其余逻辑（editing 态 / Form.Item / InputNumber / Input）与 antd demo 照搬。
+ * === ★ Form context 透传（关键，与 S15 同）===
  *
- * - **Form 在 Table 外层**（`<Form component={false}>` 包 Table）——data-grid 的 components.body.row
- *   未提供（S16 不用 body.row）。Form 在外层包裹整个 Table，Form.Item（在 EditableCell 内）通过
- *   **React FormContext** 工作：antd Form context 是 React context，**不依赖 DOM 层级**（跨组件树
- *   传递），故 data-grid 的 div 渲染层级（dg-row/dg-cell）不影响 Form context 透传到 body.cell 内的
- *   Form.Item。这是 React context 的基本机制，data-grid 渲染不改变 React 组件树层级。
+ * antd Form context 是 React context，**不依赖 DOM 层级**（跨组件树传递）。data-grid 的 div 渲染
+ * 层级（dg-row/dg-cell）不改变 React 组件树层级，故 Form（在 Table 外层）的 context 正常透传到
+ * EditableCell 内的 Form.Item。S16 已验证 save(validateFields) 成功。
  *
- * - **onCell 透传**：data-grid 把 `onCell(record, index)` 返回值的**全部字段**（除 colSpan/rowSpan
- *   由 M3 合并消费）透传给 EditableCell props（与 antd additionalProps 一致，S15 已实现）。故
- *   EditableCell 能收到 `{ record, inputType, dataIndex, title, editing }`（来自 onCell）+
- *   `{ children, index }`（引擎注入）。
+ * === 验证点（S16 + 决策 9）===
  *
- * - **rowClassName**：data-grid 未实现 rowClassName（S15 已登记 §9，决策 3 第二步补齐）。
- *   antd demo 用 `rowClassName='editable-row'`，data-grid **省略**（注释说明），不影响功能。
- *
- * === 验证点（S16）===
- *
- * 1. 100 行数据分页（默认 10 行/页），bordered 表格。
+ * 1. 两侧 100 行数据分页（默认 10 行/页），bordered 表格。
  * 2. 点击某行 operation 列 `Edit` → 该行 name/age/address 三列进入编辑态（Input/InputNumber），
- *    同时 operation 列变为 `Save` + `Cancel`；其他行 `Edit` 禁用（disabled）。
- * 3. `Save`：校验通过则保存（表格更新）+ 退出编辑；空值校验失败（控制台打印 Validate Failed）。
+ *    operation 列变 Save+Cancel；其他行 Edit 禁用。
+ * 3. `Save`：校验通过则保存（表格更新）+ 退出编辑；空值校验失败 console.log Validate Failed。
  * 4. `Cancel`（Popconfirm 确认）：退出编辑不保存。
  * 5. 翻页（pagination.onChange）→ 自动 cancel 退出编辑。
  * 6. age 列编辑用 InputNumber（number 类型），name/address 用 Input（text 类型）。
- * 7. 回归：S15 edit-cell + 非编辑 demo（basic/head/colspan-rowspan）+ M3 合并不破。
  */
-import React, { useState } from 'react'
-import type { TableProps } from '../table'
-import { Table } from '../table'
-import { Form, Input, InputNumber, Popconfirm, Typography } from 'antd'
 
-interface DataType {
-  key: string
-  name: string
-  age: number
-  address: string
+import React, { useEffect, useState } from 'react'
+import type { TableProps as AntdTableProps } from 'antd'
+import { Form, Input, InputNumber, Popconfirm, Table as AntdTable, Typography } from 'antd'
+import { Table } from '../table'
+import type { TableProps } from '../table'
+import { SplitDemo } from './_compare/SplitDemo'
+import { originData, type RecordType } from './_compare/edit-row.shared'
+
+// ---------------------------------------------------------------------------
+// antd demo 配套 CSS（注入 document.head，仅注入一次）
+// 对齐 antd edit-row demo 的 .editable-row .ant-form-item-explain 定位（校验错误信息悬浮）。
+// 两侧共享。
+// ---------------------------------------------------------------------------
+
+let cssInjected = false
+function injectEditRowCss() {
+  if (cssInjected) return
+  cssInjected = true
+  const style = document.createElement('style')
+  style.setAttribute('data-edit-row-css', '')
+  style.textContent = `
+.editable-row .ant-form-item-explain {
+  position: absolute;
+  top: 100%;
+  font-size: 12px;
+}
+`
+  document.head.appendChild(style)
 }
 
-const originData: DataType[] = Array.from({ length: 100 }).map<DataType>((_, i) => ({
-  key: i.toString(),
-  name: `Edward ${i}`,
-  age: 32,
-  address: `London Park no. ${i}`,
-}))
+// ===========================================================================
+// 左栏（data-grid）—— 行级编辑（components.body.cell + onCell + Form 外层）
+// ===========================================================================
 
-interface EditableCellProps {
+interface DgEditableCellProps {
   editing: boolean
-  dataIndex: keyof DataType
+  dataIndex: keyof RecordType
   title: React.ReactNode
   inputType: 'number' | 'text'
-  record: DataType
+  record: RecordType
   index: number
 }
 
 /**
- * 自定义单元格组件（对齐 antd demo EditableCell）。
+ * data-grid 适配：返回**内容 ReactNode（不包 td）**。引擎把本组件渲染在 `.dg-cell-inner` 处。
+ * editing 态 Form.Item + inputNode（InputNumber for number / Input for text）；
+ * 展示态直接渲染 children。
  *
- * ★ data-grid 适配：返回**内容 ReactNode（不包 td）**。引擎把本组件渲染在 `.dg-cell-inner` 处
- * （dg-cell div 内），dg-cell div（grid 定位 / hover / align）由引擎维持。
- *
- * editing 态：Form.Item + inputNode（InputNumber for number / Input for text）。
- * 展示态：直接渲染 children（引擎注入的单元格默认内容）。
- *
- * props 来源：children/index 由引擎注入；editing/inputType/dataIndex/title/record 来自
- * column.onCell 返回值（引擎透传 onCell 的全部字段，与 antd additionalProps 一致，S15 已实现）。
- *
- * ★ Form.Item 此处无需 useContext 取 Form——外层 `<Form form>` 通过 React FormContext
- * 自动透传到此处（Form context 不依赖 DOM 层级）。
+ * ★ Form.Item 此处无需 useContext 取 Form——外层 `<Form form>` 通过 React FormContext 自动透传
+ * （Form context 不依赖 DOM 层级）。
  */
-const EditableCell: React.FC<React.PropsWithChildren<EditableCellProps>> = ({
+const DgEditableCell: React.FC<React.PropsWithChildren<DgEditableCellProps>> = ({
   editing,
   dataIndex,
   title,
   inputType,
   children,
-  // record / index 来自 onCell 透传，本 demo 未直接消费（与 antd demo 一致，保留 prop 声明）。
-  // restProps（antd demo 用于透传给 td）在 data-grid 下无需消费（dg-cell div 由引擎管理）。
 }) => {
   const inputNode = inputType === 'number' ? <InputNumber /> : <Input />
 
@@ -116,12 +112,7 @@ const EditableCell: React.FC<React.PropsWithChildren<EditableCellProps>> = ({
         <Form.Item
           name={dataIndex as string}
           style={{ margin: 0 }}
-          rules={[
-            {
-              required: true,
-              message: `Please Input ${title}!`,
-            },
-          ]}
+          rules={[{ required: true, message: `Please Input ${title}!` }]}
         >
           {inputNode}
         </Form.Item>
@@ -132,16 +123,17 @@ const EditableCell: React.FC<React.PropsWithChildren<EditableCellProps>> = ({
   )
 }
 
-type ColumnTypes = Exclude<TableProps<DataType>['columns'], undefined>
+type DgColumnTypes = Exclude<TableProps<RecordType>['columns'], undefined>
 
-export default function EditRowDemo() {
+function DgEditRowPane() {
+  // ★ 编辑各自独立 state（两栏对照时互不干扰——共用 form/data/editingKey 会冲突）。
   const [form] = Form.useForm()
-  const [data, setData] = useState<DataType[]>(originData)
+  const [data, setData] = useState<RecordType[]>(originData)
   const [editingKey, setEditingKey] = useState('')
 
-  const isEditing = (record: DataType) => record.key === editingKey
+  const isEditing = (record: RecordType) => record.key === editingKey
 
-  const edit = (record: Partial<DataType> & { key: React.Key }) => {
+  const edit = (record: Partial<RecordType> & { key: React.Key }) => {
     form.setFieldsValue({ name: '', age: '', address: '', ...record })
     setEditingKey(record.key as string)
   }
@@ -152,51 +144,32 @@ export default function EditRowDemo() {
 
   const save = async (key: React.Key) => {
     try {
-      const row = (await form.validateFields()) as DataType
-
-      const newData = [...data]
-      const index = newData.findIndex((item) => key === item.key)
-      if (index > -1) {
-        const item = newData[index]
-        newData.splice(index, 1, {
-          ...item,
-          ...row,
-        })
-        setData(newData)
-        setEditingKey('')
-      } else {
-        newData.push(row)
-        setData(newData)
-        setEditingKey('')
-      }
+      const row = (await form.validateFields()) as RecordType
+      setData((d) => {
+        const newData = [...d]
+        const index = newData.findIndex((item) => key === item.key)
+        if (index > -1) {
+          const item = newData[index]
+          newData.splice(index, 1, { ...item, ...row })
+        } else {
+          newData.push(row)
+        }
+        return newData
+      })
+      setEditingKey('')
     } catch (errInfo) {
       console.log('Validate Failed:', errInfo)
     }
   }
 
   const columns = [
-    {
-      title: 'name',
-      dataIndex: 'name',
-      width: '25%',
-      editable: true,
-    },
-    {
-      title: 'age',
-      dataIndex: 'age',
-      width: '15%',
-      editable: true,
-    },
-    {
-      title: 'address',
-      dataIndex: 'address',
-      width: '40%',
-      editable: true,
-    },
+    { title: 'name', dataIndex: 'name', width: '25%', editable: true },
+    { title: 'age', dataIndex: 'age', width: '15%', editable: true },
+    { title: 'address', dataIndex: 'address', width: '40%', editable: true },
     {
       title: 'operation',
       dataIndex: 'operation',
-      render: (_: unknown, record: DataType) => {
+      render: (_: unknown, record: RecordType) => {
         const editable = isEditing(record)
         return editable ? (
           <span>
@@ -216,13 +189,13 @@ export default function EditRowDemo() {
     },
   ]
 
-  const mergedColumns: ColumnTypes = columns.map((col) => {
+  const mergedColumns: DgColumnTypes = columns.map((col) => {
     if (!col.editable) {
-      return col as ColumnTypes[number]
+      return col as DgColumnTypes[number]
     }
     return {
       ...col,
-      onCell: (record: DataType) => ({
+      onCell: (record: RecordType) => ({
         record,
         inputType: col.dataIndex === 'age' ? 'number' : 'text',
         dataIndex: col.dataIndex,
@@ -230,46 +203,208 @@ export default function EditRowDemo() {
         editing: isEditing(record),
       }),
     }
-  }) as ColumnTypes
+  }) as DgColumnTypes
+
+  return (
+    // ★ Form 在 Table 外层（component={false} 不产生 DOM）。Form.Item 在 EditableCell 内，
+    //   通过 React FormContext（不依赖 DOM 层级）访问此 Form 实例——data-grid 的 div 渲染层级
+    //   不影响 context 透传。无 components.body.row（区别 S15 的 EditableRow）。
+    <Form form={form} component={false}>
+      <Table<RecordType>
+        components={{ body: { cell: DgEditableCell } }}
+        rowClassName="editable-row"
+        bordered
+        dataSource={data}
+        columns={mergedColumns}
+        pagination={{ onChange: cancel }}
+      />
+    </Form>
+  )
+}
+
+// ===========================================================================
+// 右栏（antd）—— 忠实复刻 antd edit-row demo（components.body.cell + onCell + Form 外层）
+// ===========================================================================
+
+interface AntdEditableCellProps {
+  editing: boolean
+  dataIndex: string
+  title: React.ReactNode
+  inputType: 'number' | 'text'
+  record: RecordType
+  index: number
+}
+
+/** antd 原生：返回 <td {...restProps}>...</td>。 */
+const AntdEditableCell: React.FC<
+  React.PropsWithChildren<AntdEditableCellProps> & React.HTMLAttributes<HTMLElement>
+> = ({ editing, dataIndex, title, inputType, children, ...restProps }) => {
+  const inputNode = inputType === 'number' ? <InputNumber /> : <Input />
+
+  return (
+    <td {...restProps}>
+      {editing ? (
+        <Form.Item
+          name={dataIndex}
+          style={{ margin: 0 }}
+          rules={[{ required: true, message: `Please Input ${title}!` }]}
+        >
+          {inputNode}
+        </Form.Item>
+      ) : (
+        children
+      )}
+    </td>
+  )
+}
+
+type AntdColumnTypes = Exclude<AntdTableProps<RecordType>['columns'], undefined>
+
+function AntdEditRowPane() {
+  // ★ 编辑各自独立 state（两栏对照时互不干扰）。
+  const [form] = Form.useForm()
+  const [data, setData] = useState<RecordType[]>(originData)
+  const [editingKey, setEditingKey] = useState('')
+
+  const isEditing = (record: RecordType) => record.key === editingKey
+
+  const edit = (record: Partial<RecordType> & { key: React.Key }) => {
+    form.setFieldsValue({ name: '', age: '', address: '', ...record })
+    setEditingKey(record.key)
+  }
+
+  const cancel = () => {
+    setEditingKey('')
+  }
+
+  const save = async (key: React.Key) => {
+    try {
+      const row = (await form.validateFields()) as RecordType
+      setData((d) => {
+        const newData = [...d]
+        const index = newData.findIndex((item) => key === item.key)
+        if (index > -1) {
+          const item = newData[index]
+          newData.splice(index, 1, { ...item, ...row })
+        } else {
+          newData.push(row)
+        }
+        return newData
+      })
+      setEditingKey('')
+    } catch (errInfo) {
+      console.log('Validate Failed:', errInfo)
+    }
+  }
+
+  const columns = [
+    { title: 'name', dataIndex: 'name', width: '25%', editable: true },
+    { title: 'age', dataIndex: 'age', width: '15%', editable: true },
+    { title: 'address', dataIndex: 'address', width: '40%', editable: true },
+    {
+      title: 'operation',
+      dataIndex: 'operation',
+      render: (_: unknown, record: RecordType) => {
+        const editable = isEditing(record)
+        return editable ? (
+          <span>
+            <Typography.Link onClick={() => save(record.key)} style={{ marginInlineEnd: 8 }}>
+              Save
+            </Typography.Link>
+            <Popconfirm title="Sure to cancel?" onConfirm={cancel}>
+              <a>Cancel</a>
+            </Popconfirm>
+          </span>
+        ) : (
+          <Typography.Link disabled={editingKey !== ''} onClick={() => edit(record)}>
+            Edit
+          </Typography.Link>
+        )
+      },
+    },
+  ]
+
+  const mergedColumns: AntdColumnTypes = columns.map((col) => {
+    if (!col.editable) {
+      return col as AntdColumnTypes[number]
+    }
+    return {
+      ...col,
+      onCell: (record: RecordType) => ({
+        record,
+        inputType: col.dataIndex === 'age' ? 'number' : 'text',
+        dataIndex: col.dataIndex,
+        title: col.title,
+        editing: isEditing(record),
+      }),
+    }
+  }) as AntdColumnTypes
+
+  return (
+    <Form form={form} component={false}>
+      <AntdTable<RecordType>
+        components={{ body: { cell: AntdEditableCell } }}
+        bordered
+        dataSource={data}
+        columns={mergedColumns}
+        rowClassName="editable-row"
+        pagination={{ onChange: cancel }}
+      />
+    </Form>
+  )
+}
+
+// ===========================================================================
+// Demo 根组件
+// ===========================================================================
+
+export default function EditRowDemo() {
+  // 注入 antd demo 配套 CSS（仅注入一次）。
+  useEffect(() => {
+    injectEditRowCss()
+  }, [])
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ Form 在 Table 外层（component={false} 不产生 DOM）。Form.Item 在 EditableCell 内，
-          通过 React FormContext（不依赖 DOM 层级）访问此 Form 实例——data-grid 的 div 渲染层级
-          不影响 context 透传。无 components.body.row（区别 S15 的 EditableRow）。 */}
-      <Form form={form} component={false}>
-        {/* antd demo 额外用 rowClassName='editable-row' 加行样式；data-grid 暂未实现 rowClassName
-            （决策 3 第二步补齐，S15 已登记 §9），此处省略。editable-row 无对应 data-grid CSS，省略不影响功能。 */}
-        <Table<DataType>
-          components={{
-            body: { cell: EditableCell },
-          }}
-          bordered
-          dataSource={data}
-          columns={mergedColumns}
-          pagination={{ onChange: cancel }}
-        />
-      </Form>
-
-      <div
-        style={{
-          marginTop: 16,
-          padding: 12,
-          background: '#fafafa',
-          borderRadius: 8,
-          color: 'rgba(0,0,0,0.65)',
-          fontSize: 12,
-        }}
-      >
-        行级编辑：点击某行 operation 列 <strong>Edit</strong> → 整行进入编辑（age 用
-        <strong> InputNumber</strong>，name/address 用 <strong>Input</strong>），同时其他行 Edit 禁用。
-        <strong> Save</strong> 保存，<strong>Cancel</strong>（Popconfirm）放弃；翻页自动取消编辑。
-        <br />
-        ★ data-grid 适配：EditableCell 返回<strong>内容 ReactNode（不包 td）</strong>；
-        <strong> Form 在 Table 外层</strong>（<code>component=&#123;false&#125;</code> 不产生 DOM），
-        Form.Item 通过 React FormContext（不依赖 DOM 层级）访问 Form 实例。
-        <strong>无 components.body.row</strong>（区别 S15）。rowClassName 暂未实现（省略，不影响功能）。
-      </div>
+      {/*
+        minPaneWidth=480（窄表，4 列无 scroll.x + 分页）→ 横排阈值 ≈ 480×2 + 16 = 976。
+        常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。
+      */}
+      <SplitDemo minPaneWidth={480} left={<DgEditRowPane />} right={<AntdEditRowPane />}>
+        <div>
+          <strong>对照说明（决策 9 B17 / S16）：</strong>
+          左右并排呈现 data-grid 与 antd edit-row（行级 editingKey + Edit/Save/Cancel +
+          InputNumber(age)/Input + 100 行分页 + Form 外层）。
+          <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+            <li>
+              <strong>Edit/Save/Cancel</strong>：operation 列内（按 antd demo 原结构）。点击 Edit →
+              整行进入编辑（age 用 <strong>InputNumber</strong>，name/address 用 <strong>Input</strong>），
+              同时其他行 Edit 禁用。<strong>Save</strong> 保存，<strong>Cancel</strong>（Popconfirm）放弃；
+              翻页自动取消编辑。
+            </li>
+            <li>
+              <strong>编辑各自独立</strong>：两侧各自维护 <code>form</code>/<code>data</code>/
+              <code>editingKey</code> state（共用会冲突——两栏同时只能编辑一行、Form 共享串台）。
+              初始数据相同（<code>_compare/edit-row.shared.ts</code>，100 行）。
+            </li>
+            <li>
+              <strong>★ data-grid 适配</strong>：左栏 EditableCell 返回
+              <strong> 内容 ReactNode（不包 td）</strong>；右栏 antd 原生 <code>&lt;td&gt;</code>。
+              两侧均 <strong>Form 在 Table 外层</strong>（<code>component=&#123;false&#125;</code> 不产生 DOM），
+              <strong>无 components.body.row</strong>（区别 S15）。
+            </li>
+            <li>
+              <strong>Form context 透传</strong>：React FormContext 不依赖 DOM 层级，data-grid div 渲染
+              不影响 Form context（在 Table 外层）透传到 EditableCell 内的 Form.Item（S16 已验证
+              save(validateFields) 成功）。
+            </li>
+            <li>
+              <strong>rowClassName + CSS</strong>：两侧 <code>rowClassName="editable-row"</code> + 同款
+              <code> .editable-row .ant-form-item-explain</code> 校验错误定位 CSS（注入 document.head）。
+            </li>
+          </ul>
+        </div>
+      </SplitDemo>
     </div>
   )
 }

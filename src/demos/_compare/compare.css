@@ -81,3 +81,24 @@
   border-radius: 3px;
   vertical-align: middle;
 }
+
+/* === stickyMode（页面级 sticky demo 专用，默认不生效）===
+ *
+ * CSS sticky 经典陷阱：非 visible overflow 祖先会拦截 sticky 上下文。默认 pane overflow:hidden
+ * + body overflow:auto 使 pane/body 成为 sticky 滚动祖先，子组件 position:sticky 相对 pane/body
+ * 固定、不跟随页面滚动。本修饰类把 pane/body 都改成 overflow:visible，放开 sticky 上下文，让
+ * 页面滚动驱动 sticky（表头钉视口顶 offsetHeader）。
+ *
+ * 仅当 SplitDemo stickyMode=true 时容器加 .dg-compare--sticky；默认 false 时不生效（默认规则不动）。
+ * 表格自身 scroll.x 横向滚动是 Table 内部容器，不受 pane overflow 影响（两模式都正常）。
+ *
+ * 注意：圆角裁剪随之失效（overflow:visible 不裁剪）——页面级 sticky demo 不需要 pane 圆角裁剪，
+ * 可接受。
+ */
+.dg-compare--sticky .dg-compare__pane {
+  overflow: visible; /* 放开 sticky 滚动祖先（默认 overflow:hidden 会拦截 sticky） */
+}
+
+.dg-compare--sticky .dg-compare__body {
+  overflow: visible; /* 放开 sticky 滚动祖先（默认 overflow:auto 会拦截 sticky）；不自滚，交页面滚动 */
+}

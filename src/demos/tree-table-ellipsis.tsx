@@ -1,18 +1,16 @@
 /**
- * 复刻 antd `tree-table-ellipsis` demo（S25 验收，issue #36583 复现）：
+ * 复刻 antd `tree-table-ellipsis` demo（S25 issue #36583 复现）：
  *   `G:\Projects\ant-design\components\table\demo\tree-table-ellipsis.tsx`
  *
- * === antd demo 要素 ===
+ * === 决策 9 双栏对照（S25 树形首列 ellipsis + fixed 组合）===
  *
- * - 树形 data（children 嵌套）：John Brown sr. 多层嵌套（子→孙），name 超长（重复 6 次）；
- *   Joe Black 无 children（顶层独立行）。
- * - columns：
- *   * Name：`ellipsis: true` + `width: '30%'` + `fixed`（顶部 Switch 受控切换）。
- *   * Age：`width: '12%'`。
- *   * Address：无 width。
- * - `rowSelection={{ columnWidth: 100 }}`：选择列前置（哨兵列）。
- * - `expandable={{ defaultExpandAllRows: true }}`：默认全展开。
- * - 顶部 Switch：`Fixed first column` 切换 Name 列 `fixed`（true/false）。
+ * - **左栏（data-grid Table）**：行为与改造前一致——树形 data（children 嵌套）+
+ *   Name 列 `ellipsis:true + width:'30%' + fixed`（Switch 受控）+ rowSelection 前置 +
+ *   defaultExpandAllRows 全展开。
+ * - **右栏（antd Table）**：忠实复刻 antd tree-table-ellipsis demo（antd 原生 `<Table>` +
+ *   同列结构 + 同 rowSelection + 同 expandable）。
+ * - **共享控制条**：`Fixed first column` 开关同时驱动两侧（默认 true，对齐 antd demo）。
+ * - **共享数据**：`RecordType` + `data` 见 `_compare/tree-table-ellipsis.shared.ts`。
  *
  * === S25 核心验证点（issue #36583 组合）===
  *
@@ -27,164 +25,167 @@
  *    横向滚动时固定；表头格同侧固定。
  * 4. **rowSelection**（M5）：选择列作为前置哨兵列（columnWidth 100），在 Name 之前。
  *
- * 四机制在引擎 BodyCell 渲染时**正交组合**（GridTable.tsx BodyCell）：
- *   - `info={leafSticky[colIdx]}` 提供 fixed sticky 偏移；
- *   - `column.ellipsis === true` 加 `dg-cell-ellipsis` 类 + title；
- *   - `treeEnabled && colIdx === treeFirstDataColumnIdx` 渲染树形缩进 + 图标（在 .dg-cell-inner 内、
- *     ellipsis 内容之前）。
- * 三者作用于同一单元格的不同层面（定位 / CSS 类 / 内容），不冲突——组合正确工作。
+ * 四机制在引擎 BodyCell 渲染时**正交组合**（不同层面：fixed sticky 定位 / ellipsis CSS 类 /
+ * 树形内容前缀 / rowSelection），不冲突——组合正确工作。
  *
- * === 已知 gap（§9，非本任务范围）===
+ * === 两侧保留的差异（对照价值）===
  *
- * - **S20 ellipsis 视觉省略号不生效**：data-grid `grid-template-columns` 默认 `max-content`
- *   （列宽=内容宽），Name 列 track=content 宽 → cell-inner 不溢出 → 无 `...`。本 demo 同样存在
- *   （Name name 超长撑开列）。ellipsis 类（`dg-cell-ellipsis`）+ title API 已正确，视觉省略号
- *   依赖列宽策略任务（§9）。**不阻塞组合验证**（四机制组合是 S25 核心）。
- * - **width:'30%' 相对值**：data-grid 列宽默认 max-content，`width:'30%'` 可能不识别（相对值）。
- *   若不识别，Name 列走 max-content（name 超长撑开）。这不阻塞组合验证。
+ * 1. **checkStrictly 默认值（§9 S13/S25）**：data-grid 引擎层 `rowSelection.checkStrictly`
+ *    默认 **true**（父子独立），antd 默认 **false**（父子联动）。本 demo 未传 checkStrictly
+ *    （antd demo 也未传），故**两侧行为不同**——左 data-grid 父子独立勾选、右 antd 父子联动。
+ *    如实保留对照（这正是决策 9 的意义，登记 §9 不修）。
+ * 2. **§9 ellipsis 视觉 gap**：data-grid grid 列宽策略 + width:'30%' 相对值在 auto 模式下
+ *    可能使 ellipsis 列 track 不收缩 → 无 `...`；antd `<table>{width:100%}` + tableLayout:fixed
+ *    ellipsis 稳定 `...`。不阻塞组合验证，登记 §9。
  */
 
 import { useState } from 'react'
-import { Space, Switch } from 'antd'
+import { Space, Switch, Table as AntdTable } from 'antd'
+import type { TableColumnsType } from 'antd'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
+import { SplitDemo } from './_compare/SplitDemo'
+import { data, type RecordType } from './_compare/tree-table-ellipsis.shared'
 
-interface DataType {
-  key: React.ReactNode
-  name: string
-  age: number
-  address: string
-  children?: DataType[]
-}
+// ---------------------------------------------------------------------------
+// 列定义 —— 两侧字段（title/dataIndex/key/width/ellipsis）逐字一致；
+// `fixed` 由顶部 Switch 共享驱动（columns 在渲染时动态拼装 fixed）。
+// ---------------------------------------------------------------------------
 
-const data: DataType[] = [
+const dgColumnsBase: ColumnType<RecordType>[] = [
   {
-    key: 1,
-    name: 'John Brown sr. John Brown sr. John Brown sr. John Brown sr. John Brown sr. John Brown sr.',
-    age: 60,
-    address: 'New York No. 1 Lake Park',
-    children: [
-      {
-        key: 11,
-        name: 'John Brown sr. John Brown sr. John Brown sr. John Brown sr. John Brown sr. John Brown sr.',
-        age: 42,
-        address: 'New York No. 2 Lake Park',
-      },
-      {
-        key: 12,
-        name: 'John Brown sr. John Brown sr. John Brown sr. John Brown sr. John Brown sr. John Brown sr.',
-        age: 30,
-        address: 'New York No. 3 Lake Park',
-        children: [
-          {
-            key: 121,
-            name: 'John Brown sr. John Brown sr. John Brown sr. John Brown sr. John Brown sr. John Brown sr.',
-            age: 16,
-            address: 'New York No. 3 Lake Park',
-          },
-        ],
-      },
-      {
-        key: 13,
-        name: 'Jim Green sr. Jim Green sr. Jim Green sr. Jim Green sr.',
-        age: 72,
-        address: 'London No. 1 Lake Park',
-        children: [
-          {
-            key: 131,
-            name: 'Jim Green. Jim Green. Jim Green. Jim Green. Jim Green. Jim Green.',
-            age: 42,
-            address: 'London No. 2 Lake Park',
-            children: [
-              {
-                key: 1311,
-                name: 'Jim Green jr. Jim Green jr. Jim Green jr. Jim Green jr.',
-                age: 25,
-                address: 'London No. 3 Lake Park',
-              },
-              {
-                key: 1312,
-                name: 'Jimmy Green sr. Jimmy Green sr. Jimmy Green sr.',
-                age: 18,
-                address: 'London No. 4 Lake Park',
-              },
-            ],
-          },
-        ],
-      },
-    ],
+    title: 'Name',
+    dataIndex: 'name',
+    key: 'name',
+    width: '30%',
+    ellipsis: true,
   },
   {
-    key: 2,
-    name: 'Joe Black',
-    age: 32,
-    address: 'Sydney No. 1 Lake Park',
+    title: 'Age',
+    dataIndex: 'age',
+    key: 'age',
+    width: '12%',
+  },
+  {
+    title: 'Address',
+    dataIndex: 'address',
+    key: 'address',
   },
 ]
 
+const antdColumnsBase: TableColumnsType<RecordType> = [
+  {
+    title: 'Name',
+    dataIndex: 'name',
+    key: 'name',
+    width: '30%',
+    ellipsis: true,
+  },
+  {
+    title: 'Age',
+    dataIndex: 'age',
+    key: 'age',
+    width: '12%',
+  },
+  {
+    title: 'Address',
+    dataIndex: 'address',
+    key: 'address',
+  },
+]
+
+// ---------------------------------------------------------------------------
+// Demo 根组件
+// ---------------------------------------------------------------------------
+
 export default function TreeTableEllipsisDemo() {
-  // 默认 fixed=true（对齐 antd demo：首列默认固定，Switch 可切换）。
+  // ★ 共享状态：同一个 fixed state 同时驱动两侧表格。
+  // 默认 true（对齐 antd demo：首列默认固定，Switch 可切换）。
   const [fixed, setFixed] = useState(true)
 
-  const columns: ColumnType<DataType>[] = [
-    {
-      title: 'Name',
-      dataIndex: 'name',
-      key: 'name',
-      width: '30%',
-      ellipsis: true,
-      fixed,
-    },
-    {
-      title: 'Age',
-      dataIndex: 'age',
-      key: 'age',
-      width: '12%',
-    },
-    {
-      title: 'Address',
-      dataIndex: 'address',
-      key: 'address',
-    },
-  ]
+  const dgColumns: ColumnType<RecordType>[] = dgColumnsBase.map((col) => ({
+    ...col,
+    fixed,
+  }))
+  const antdColumns: TableColumnsType<RecordType> = antdColumnsBase.map(
+    (col) => ({ ...col, fixed }),
+  )
 
   return (
     <div style={{ padding: 24 }}>
-      <Space align="center" style={{ marginBottom: 16 }}>
-        Fixed first column: <Switch checked={fixed} onChange={setFixed} />
-      </Space>
-      <Table<DataType>
-        columns={columns}
-        rowSelection={{ columnWidth: 100 }}
-        expandable={{ defaultExpandAllRows: true }}
-        dataSource={data}
-      />
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个 fixed state 同时驱动两侧。 */}
       <div
         style={{
-          marginTop: 16,
+          marginBottom: 16,
           padding: 12,
-          background: '#fafafa',
+          border: '1px solid #f0f0f0',
           borderRadius: 8,
-          color: 'rgba(0,0,0,0.65)',
-          fontSize: 12,
-          lineHeight: 1.8,
+          background: '#fff',
         }}
       >
-        <p style={{ margin: '0 0 4px' }}>
-          <b>S25 树形首列 ellipsis + fixed 组合</b>（issue #36583 复现，对齐 antd tree-table-ellipsis）：
-        </p>
-        <p style={{ margin: 0 }}>
-          - <code>Name</code> 列 = 树形首列（缩进 + 展开图标，S13）+ <code>ellipsis: true</code>（S20 类 + title）+
-          <code>fixed</code>（M2 sticky，Switch 切换）+ <code>width: '30%'</code>。
-        </p>
-        <p style={{ margin: 0 }}>
-          - <code>rowSelection.columnWidth: 100</code>（M5 选择列前置）+ <code>defaultExpandAllRows: true</code>（全展开）。
-        </p>
-        <p style={{ margin: 0 }}>
-          - 四机制在引擎 BodyCell 正交组合（fixed sticky 偏移 + ellipsis CSS 类 + 树形缩进渲染），
-          不冲突。已知 gap（§9）：ellipsis 视觉省略号 + 列宽 '30%' 相对值依赖列宽策略任务，不阻塞组合验证。
-        </p>
+        <Space align="center">
+          <span>Fixed first column:</span>
+          <Switch checked={fixed} onChange={setFixed} />
+        </Space>
       </div>
+
+      {/*
+        minPaneWidth=900（scroll.x 隐式宽表，Name name 超长撑开 + 固定列 + 选择列）→
+        横排阈值 ≈ 900×2+16 = 1816px。常规笔记本视口（1440–1920）下竖排
+        （每栏全宽，宽表内容更友好），仅超宽屏（≥2200）才横排。
+      */}
+      <SplitDemo
+        minPaneWidth={900}
+        left={
+          <Table<RecordType>
+            columns={dgColumns}
+            rowSelection={{ columnWidth: 100 }}
+            expandable={{ defaultExpandAllRows: true }}
+            dataSource={data}
+          />
+        }
+        right={
+          <AntdTable<RecordType>
+            columns={antdColumns}
+            rowSelection={{ columnWidth: 100 }}
+            expandable={{ defaultExpandAllRows: true }}
+            dataSource={data}
+          />
+        }
+      >
+        <div>
+          <strong>对照说明（决策 9 B16 / S25 树形首列 ellipsis + fixed 组合，issue #36583）：</strong>
+          左右并排呈现 data-grid 与 antd tree-table-ellipsis demo（树形 name 超长 +
+          Name ellipsis+fixed(Switch) + defaultExpandAllRows + rowSelection）。
+          <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+            <li>
+              <strong>四机制正交</strong>（data-grid 引擎 BodyCell 组合验证）：
+              ① <strong>fixed sticky</strong>（M2，Switch 切到 fixed 时 Name 列横向 sticky 定位）；
+              ② <strong>ellipsis CSS 类</strong>（S20，Name 列 <code>dg-cell-ellipsis</code> + native title）；
+              ③ <strong>树形内容前缀</strong>（S13，首列缩进 <code>level × indentSize</code> + 展开图标 ▶/▼）；
+              ④ <strong>rowSelection</strong>（M5，前置哨兵列 columnWidth:100）。
+              四者作用于不同层面（定位 / CSS 类 / 内容 / 列），不冲突。
+            </li>
+            <li>
+              <strong>Fixed 开关（核心）</strong>：共享 state 同时驱动两侧——切换 Name 列 fixed
+              true/false，横向滚动时观察两侧固定行为是否一致。
+            </li>
+            <li>
+              <strong>checkStrictly 默认差异（§9 S13/S25）</strong>：本 demo 未传 checkStrictly
+              （antd demo 也未传）→ 左 data-grid 默认 <strong>true</strong>（父子独立勾选）、
+              右 antd 默认 <strong>false</strong>（父子联动）。如实保留对照，登记 §9 不修。
+            </li>
+            <li>
+              <strong>§9 ellipsis 视觉 gap</strong>：data-grid auto 模式下 <code>width:'30%'</code>
+              相对值 + grid 列宽策略可能使 ellipsis 列无 <code>...</code>；antd width+flex fill 稳定
+              <code> ...</code>。登记 §9 不修，不阻塞组合验证。
+            </li>
+            <li>
+              <strong>决策 2</strong>：树形展开行视为普通表格行，遵循行高约定（不动态测量）。
+            </li>
+          </ul>
+        </div>
+      </SplitDemo>
     </div>
   )
 }

@@ -1,6 +1,20 @@
 /**
- * 复刻 antd `tree-table-preserveSelectedRowKeys` demo（S14 验收）：
- *   `G:\Projects\ant-design\components\table\demo\tree-table-preserveSelectedRowKeys.tsx`
+ * 复刻 antd tree-table-preserveSelectedRowKeys demo：
+ * `G:\Projects\ant-design\components\table\demo\tree-table-preserveSelectedRowKeys.tsx`。
+ *
+ * === 决策 9 双栏对照（S14 树形 × 分页 × checkStrictly × preserveSelectedRowKeys）===
+ *
+ * - **左栏（data-grid Table）**：行为与改造前一致——树形 × 分页 × checkStrictly ×
+ *   preserveSelectedRowKeys 三场景（issue #50621）。
+ * - **右栏（antd Table）**：忠实复刻 antd demo（antd 原生 `<Table>` + 树形 + 分页 + 原生
+ *   checkStrictly + preserveSelectedRowKeys）。
+ * - **共享控制条**：`CheckStrictly` + `preserveSelectedRowKeys` 两开关同时驱动两侧
+ *   （默认 checkStrictly=false 父子联动 + preserve=true 翻页/折叠保留，对齐 antd demo），
+ *   全宽置 SplitDemo 上方。
+ * - **共享状态**：`checkStrictly` + `preserveSelectedRowKeys` state，两侧共用同一组。
+ *   rowSelection 的 onChange/... console.log 各自独立（非跨栏同步选中态——本 demo 演示
+ *   preserve/checkStrictly 联动行为对照，勾选独立便于 diff 两侧行为差异）。
+ * - **共享数据**：`RecordType` + `dataSource` 见 `_compare/tree-table-preserveSelectedRowKeys.shared.ts`。
  *
  * === antd demo 要素 ===
  *
@@ -8,8 +22,7 @@
  * - 3 列 Name/Age/Address。
  * - 顶部 **CheckStrictly** Switch（默认 **false** = 父子联动）。
  * - 顶部 **preserveSelectedRowKeys** Switch（默认 **true** = 翻页/折叠保留已选 key）。
- * - `rowSelection={{ checkStrictly, preserveSelectedRowKeys, onChange }}`（onSelect 是 data-grid
- *   决策 3 第二步才补的 API；这里用 onChange 功能等价——每次勾选触发，可观察 selectedRowKeys）。
+ * - `rowSelection={{ checkStrictly, preserveSelectedRowKeys, onChange, onSelect }}`。
  * - `pagination={{ defaultPageSize: 5 }}`（15 父 → 3 页）。
  *
  * === S14 关键场景（issue #50621）===
@@ -20,19 +33,26 @@
  *   之前页选的父+子仍选中（preserve=true 保留 key）。
  * - **折叠保留**：展开父行→勾选子→折叠父行→子 key 仍在 selectedRowKeys（preserve 保留），
  *   再展开子仍是选中态。
- * - **联动跨页/折叠**：勾父→全部子（含折叠/跨页的）被勾；ant 递归 parentChildrenMap（全树，
+ * - **联动跨页/折叠**：勾父→全部子（含折叠/跨页的）被勾；antd 递归 parentChildrenMap（全树，
  *   不受展开/分页影响）。
  *
  * === 引擎组合确认（无需修复）===
  *
- * - `usePagination.dataSourceLength = flattenedDataSource.length`：分页基于扁平化后可见行数
- *   （S13 已如此，S14 确认）。
- * - `slicePage(flattenedDataSource, ...)`：切片作用于扁平化后（确认）。
+ * - `usePagination.dataSourceLength = flattenedDataSource.length`：分页基于扁平化后可见行数。
+ * - `slicePage(flattenedDataSource, ...)`：切片作用于扁平化后。
  * - `useRowSelection.dataSource = flattenedDataSource` + `parentChildrenMap = 全树`：
- *   父子联动基于全树结构，不受展开/分页影响（勾父→全部含跨页/折叠子；保留正确）。
- * - `fireSelectionChange` 存在性判定用**全树**（filteredDataSource 递归 walk children）：
- *   preserve=false 也不会误清折叠/跨页子孙 key（S13 已改，S14 确认）；preserve=true 不过滤，
- *   nextKeys 原样保留所有 key（含跨页/折叠的）。
+ *   父子联动基于全树结构，不受展开/分页影响。
+ * - `fireSelectionChange` 存在性判定用**全树**（filteredDataSource 递归 walk children）。
+ *
+ * === 两侧保留的差异 ===
+ *
+ * 1. **checkStrictly 默认值（§9 S13/S25）**：data-grid 引擎层默认 **true**，antd 默认 **false**；
+ *    本 demo 两侧均显式传共享 state（初值 false），规避差异。
+ * 2. **preserve=false 树形语义（§9 S14）**：data-grid 因 fireSelectionChange 走**全树存在性判定**
+ *    （S13 引入），合法父行（仅被分页切到别页/折叠）的 key 仍保留；antd preserve=false 翻页后
+ *    丢不可见 key。差异对树形更友好；preserve=true 时两侧行为一致（key 原样保留）。
+ * 3. **rowSelection.onSelect（决策 3 第二步未补齐）**：antd demo 含 `onSelect`；data-grid 仅
+ *    `onChange`（功能等价）。
  *
  * === 决策 2 ===
  *
@@ -40,54 +60,42 @@
  */
 
 import { useState } from 'react'
-import { Space, Switch } from 'antd'
+import { Space, Switch, Table as AntdTable } from 'antd'
+import type { TableColumnsType, TableProps as AntdTableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType, TableProps } from '../table'
+import { SplitDemo } from './_compare/SplitDemo'
+import { dataSource, type RecordType } from './_compare/tree-table-preserveSelectedRowKeys.shared'
 
 type TableRowSelection<T extends object = object> = TableProps<T>['rowSelection']
 
-interface DataType {
-  key: React.ReactNode
-  name: string
-  age: number
-  address: string
-  children?: DataType[]
-}
+// ---------------------------------------------------------------------------
+// 列定义 —— 两侧同款（Name/Age/Address 纯文本，无 render）。类型各自归位。
+// ---------------------------------------------------------------------------
 
-const columns: ColumnType<DataType>[] = [
+const dgColumns: ColumnType<RecordType>[] = [
   { title: 'Name', dataIndex: 'name', key: 'name' },
   { title: 'Age', dataIndex: 'age', key: 'age', width: '12%' },
   { title: 'Address', dataIndex: 'address', key: 'address', width: '30%' },
 ]
 
-// 15 个父行（Edward 0..14），每父含 2 个子行（Brown / Jimmy）——对齐 antd demo 数据。
-const dataSource: DataType[] = Array.from({ length: 15 }).map<DataType>((_, i) => ({
-  key: `key${i}`,
-  name: `Edward ${i}`,
-  age: 32,
-  address: `London Park no. ${i}`,
-  children: [
-    {
-      key: `subKey${i}1`,
-      name: 'Brown',
-      age: 16,
-      address: 'New York No. 3 Lake Park',
-    },
-    {
-      key: `subKey${i}2`,
-      name: 'Jimmy',
-      age: 16,
-      address: 'New York No. 3 Lake Park',
-    },
-  ],
-}))
+const antdColumns: TableColumnsType<RecordType> = [
+  { title: 'Name', dataIndex: 'name', key: 'name' },
+  { title: 'Age', dataIndex: 'age', key: 'age', width: '12%' },
+  { title: 'Address', dataIndex: 'address', key: 'address', width: '30%' },
+]
 
-// rowSelection：onChange console.log（功能等价 antd demo 的 onChange + onSelect）。
-// onSelect 属决策 3 第二步补齐的 API，这里用 onChange 观察勾选变化即可。
-const rowSelection: TableRowSelection<DataType> = {
+// ---------------------------------------------------------------------------
+// rowSelection —— 各侧独立（非跨栏同步）；checkStrictly + preserve 共享。
+// 注：antd demo 含 onSelect（单行勾选回调）console.log；data-grid TableRowSelection
+// 尚未声明 onSelect（决策 3 第二步补齐），这里仅保留 onChange（功能等价）。
+// ---------------------------------------------------------------------------
+
+const dgRowSelectionBase: TableRowSelection<RecordType> = {
   onChange: (selectedRowKeys, selectedRows, info) => {
+    // eslint-disable-next-line no-console
     console.log(
-      `selectedRowKeys: ${selectedRowKeys}`,
+      `[data-grid] selectedRowKeys: ${selectedRowKeys}`,
       'selectedRows: ',
       selectedRows,
       'info',
@@ -96,43 +104,148 @@ const rowSelection: TableRowSelection<DataType> = {
   },
 }
 
+const antdRowSelectionBase: AntdTableProps<RecordType>['rowSelection'] = {
+  onChange: (selectedRowKeys, selectedRows, info) => {
+    // eslint-disable-next-line no-console
+    console.log(
+      `[antd] selectedRowKeys: ${selectedRowKeys}`,
+      'selectedRows: ',
+      selectedRows,
+      'info',
+      info,
+    )
+  },
+  onSelect: (record, selected, selectedRows) => {
+    // eslint-disable-next-line no-console
+    console.log('[antd] onSelect:', record, selected, selectedRows)
+  },
+}
+
+// ---------------------------------------------------------------------------
+// Demo 根组件
+// ---------------------------------------------------------------------------
+
 export default function TreeTablePreserveSelectedRowKeysDemo() {
-  // 默认 checkStrictly=false（父子联动），对齐 antd demo。
+  // ★ 共享状态：同一组 state（checkStrictly + preserveSelectedRowKeys）同时驱动两侧。
+  // 默认 checkStrictly=false（父子联动）+ preserve=true（翻页/折叠保留），对齐 antd demo
+  // （§9 S13：data-grid 引擎 checkStrictly 默认 true，此处显式传 false 覆盖对齐 antd demo）。
   const [checkStrictly, setCheckStrictly] = useState(false)
-  // 默认 preserveSelectedRowKeys=true（翻页/折叠保留），对齐 antd demo。
   const [preserveSelectedRowKeys, setPreserveSelectedRowKeys] = useState(true)
 
   return (
     <div style={{ padding: 24 }}>
-      <Space align="center" style={{ marginBottom: 16 }}>
-        CheckStrictly:{' '}
-        <Switch checked={checkStrictly} onChange={setCheckStrictly} />
-        preserveSelectedRowKeys:{' '}
-        <Switch
-          checked={preserveSelectedRowKeys}
-          onChange={setPreserveSelectedRowKeys}
-        />
-      </Space>
-      <Table<DataType>
-        columns={columns}
-        rowSelection={{ ...rowSelection, checkStrictly, preserveSelectedRowKeys }}
-        dataSource={dataSource}
-        pagination={{ defaultPageSize: 5 }}
-      />
-
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。两开关同时驱动两侧表格。 */}
       <div
         style={{
-          marginTop: 16,
+          marginBottom: 16,
           padding: 12,
-          background: '#fafafa',
+          border: '1px solid #f0f0f0',
           borderRadius: 8,
-          color: 'rgba(0,0,0,0.65)',
-          fontSize: 12,
+          background: '#fff',
         }}
       >
-        树形 × 分页 × checkStrictly(false) × preserveSelectedRowKeys(true)（issue #50621）：
-        15 父 × 2 子 + 分页 5/页。勾父→联动勾全部子（含折叠/跨页）；翻页/折叠后已选 key 保留。
+        <Space>
+          <Switch
+            checked={checkStrictly}
+            onChange={setCheckStrictly}
+            checkedChildren="CheckStrictly"
+            unCheckedChildren="CheckStrictly"
+          />
+          <Switch
+            checked={preserveSelectedRowKeys}
+            onChange={setPreserveSelectedRowKeys}
+            checkedChildren="Preserve"
+            unCheckedChildren="Preserve"
+          />
+          <span style={{ color: 'rgba(0,0,0,0.65)', fontSize: 12 }}>
+            checkStrictly={String(checkStrictly)} · preserveSelectedRowKeys=
+            {String(preserveSelectedRowKeys)}
+          </span>
+        </Space>
       </div>
+
+      {/*
+        minPaneWidth=480（窄表，3 列 + 选择列 = 4 列，无 scroll.x；分页 5/页）→ 横排阈值 ≈ 976。
+        常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。
+      */}
+      <SplitDemo
+        minPaneWidth={480}
+        left={
+          <Table<RecordType>
+            columns={dgColumns}
+            rowSelection={{
+              ...dgRowSelectionBase,
+              checkStrictly,
+              preserveSelectedRowKeys,
+            }}
+            dataSource={dataSource}
+            pagination={{ defaultPageSize: 5 }}
+          />
+        }
+        right={
+          <AntdTable<RecordType>
+            columns={antdColumns}
+            rowSelection={{
+              ...antdRowSelectionBase,
+              checkStrictly,
+              preserveSelectedRowKeys,
+            }}
+            dataSource={dataSource}
+            pagination={{ defaultPageSize: 5 }}
+          />
+        }
+      >
+        <div>
+          <strong>
+            对照说明（决策 9 B15 / S14 issue #50621）：
+          </strong>
+          左右并排呈现 data-grid 与 antd tree-table-preserveSelectedRowKeys demo
+          （树形 × 分页 × checkStrictly × preserveSelectedRowKeys）。
+          <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+            <li>
+              <strong>三场景（issue #50621）</strong>：
+              <ol style={{ margin: '4px 0', paddingLeft: 20 }}>
+                <li>
+                  <strong>跨页保留</strong>：页1勾父（联动勾全部含跨页子）→ 翻页2 → 翻回页1，
+                  之前页选的父+子仍选中。
+                </li>
+                <li>
+                  <strong>折叠保留</strong>：展开父→勾子→折叠父→子 key 仍保留→再展开仍勾。
+                </li>
+                <li>
+                  <strong>联动跨页/折叠</strong>：勾父→全部子（含折叠/跨页的）被勾。
+                </li>
+              </ol>
+            </li>
+            <li>
+              <strong>共享开关（核心）</strong>：<code>CheckStrictly</code> +
+              <code> Preserve</code> 两 state 同时驱动两侧——切一次、两侧同步 diff 联动行为 +
+              保留行为。
+            </li>
+            <li>
+              <strong>分页</strong>：15 父 × 2 子 + 分页 <code>defaultPageSize:5</code> → 3 页/父
+              （data-grid S11 受控分页，切片基于扁平化后可见行数）。
+            </li>
+            <li>
+              <strong>引擎默认差异（§9 S13/S25）</strong>：data-grid <code>checkStrictly</code>
+              默认 <strong>true</strong>，antd 默认 <strong>false</strong>；本 demo 两侧均显式传
+              共享 state（初值 false），规避差异。
+            </li>
+            <li>
+              <strong>preserve=false 语义差异（§9 S14）</strong>：data-grid 走**全树存在性判定**
+              （合法父行仅被分页/折叠时 key 仍保留，比 antd 宽松）；antd preserve=false 翻页后
+              丢不可见 key。preserve=true 时两侧一致。
+            </li>
+            <li>
+              <strong>onSelect 差异</strong>：antd demo 含 <code>onSelect</code>；data-grid 仅
+              <code>onChange</code>（功能等价，决策 3 第二步补齐）。
+            </li>
+            <li>
+              <strong>决策 2</strong>：树形展开行视为普通表格行，遵循行高约定（不动态测量）。
+            </li>
+          </ul>
+        </div>
+      </SplitDemo>
     </div>
   )
 }

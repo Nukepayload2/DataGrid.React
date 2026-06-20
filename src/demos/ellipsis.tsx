@@ -1,51 +1,51 @@
 /**
  * 复刻 antd ellipsis demo：`G:\Projects\ant-design\components\table\demo\ellipsis.tsx`。
  *
- * === antd demo 要素 ===
+ * === 决策 9 双栏对照 ===
  *
- * - Name 列：`render: (text) => <a>{text}</a>`，`width: 150`，**无 ellipsis**（链接正常显示）。
- * - Age 列：`width: 80`，无 ellipsis（数值短，不省略）。
- * - Address ×4 列：均 `ellipsis: true`，title（表头文案）长度递减——
- *     * address 1：title 'Address'（短，表头不省略）。
- *     * address 2：title 'Long Column Long Column Long Column'（超长，表头省略 + hover title）。
- *     * address 3：title 'Long Column Long Column'（中长）。
- *     * address 4：title 'Long Column'（中）。
- *   四列均取同一 dataIndex 'address'（内容相同），验证 ellipsis 在不同列宽下对**同一段长文本**
- *   的省略效果（列宽由 grid max-content / 表头内容自适应，address 列未显式 width 故等宽分配）。
- * - 数据 3 行：address 均为超长文本（'New York No. 1 Lake Park, New York No. 1 Lake Park' 等），
- *   演示 ellipsis 省略号 + hover native title 显示完整文本。
+ * - **左栏（data-grid Table）**：行为与改造前一致（`column.ellipsis: true` → ellipsis CSS 类 +
+ *   默认 native title 提示；S20 实现）。
+ * - **右栏（antd Table）**：忠实复刻 antd ellipsis demo（antd 原生 `column.ellipsis: true` +
+ *   antd 默认 title 提示）。
+ * - **共享控制条**：`Bordered` 开关（antd ellipsis demo 原本无控制条，此处加最小开关便于对照
+ *   「有/无边框」下两侧行为是否一致——尤其 §9 ellipsis 视觉 gap 对照价值）。
+ * - **共享数据**：`RecordType` + `data` 见 `_compare/ellipsis.shared.ts`。
  *
- * === S20 自研任务验证点 ===
+ * === 两侧保留并如实呈现的差异（对照修 bug 的意义所在）===
  *
- * 1. `column.ellipsis: true` 列的**表体**单元格文本溢出省略号（text-overflow:ellipsis +
- *    white-space:nowrap + overflow:hidden）。
+ * - **§9 ellipsis 视觉 gap（不修，登记 §9）**：
+ *   - data-grid（左栏）：S20/#34 tableLayout:fixed 改造后，ellipsis 列隐式 fixed →
+ *     `.dg-grid{width:100%}` + 无 width 列 `minmax(0,1fr)`（min:0 收缩）→ ellipsis 列 `...`
+ *     **生效**（S20 收尾记录已验证 scrollWidth>clientWidth）。**但**若两侧容器在窄视口下宽度
+ *     不足，仍可能出现列宽策略差异（data-grid minmax 收缩 vs antd width+flex fill）。
+ *   - antd（右栏）：`<table>{width:100%}` + tableLayout:fixed，ellipsis 列稳定 `...`。
+ *   - 如实保留两侧差异，对照价值（这正是决策 9 的意义）。
+ *
+ * === S20 验证点（回归）===
+ *
+ * 1. `column.ellipsis: true` 列表体单元格文本溢出省略号（text-overflow:ellipsis + nowrap + hidden）。
  * 2. ellipsis 列 hover 单元格 → native title 显示完整文本（dataIndex 原值）。
- * 3. ellipsis 列的**表头**：长 title 也省略（如 'Long Column Long Column Long Column'）+ hover title。
+ * 3. ellipsis 列表头长 title 也省略 + hover title。
  * 4. 非 ellipsis 列（Name render `<a>`、Age 数值）正常显示，无省略号、无多余 title。
- * 5. Name 列 render 返回 JSX `<a>{text}</a>`：单元格 ellipsis 未启用（Name 无 ellipsis），
- *    但即便启用，title 取 dataIndex 原值（'John Brown'）——本 demo Name 不启用 ellipsis 故无 title。
- *
- * === 回归 ===
- *
- * 不影响其它 demo：ellipsis 类仅在 `column.ellipsis === true` 列应用，非 ellipsis 列渲染完全不变。
  */
 
+import { useState } from 'react'
+import { Space, Switch, Table as AntdTable } from 'antd'
+import type { TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
+import { SplitDemo } from './_compare/SplitDemo'
+import { data, type RecordType } from './_compare/ellipsis.shared'
 
-interface DataType {
-  key: React.Key
-  name: string
-  age: number
-  address: string
-}
+// ---------------------------------------------------------------------------
+// 左栏（data-grid）列定义 —— 行为与改造前一致
+// ---------------------------------------------------------------------------
 
-const columns: ColumnType<DataType>[] = [
+const dgColumns: ColumnType<RecordType>[] = [
   {
     title: 'Name',
     dataIndex: 'name',
     key: 'name',
-    // render 返回 JSX（链接）；无 ellipsis，正常显示。
     render: (text) => <a>{text}</a>,
     width: 150,
   },
@@ -81,61 +81,117 @@ const columns: ColumnType<DataType>[] = [
   },
 ]
 
-const data: DataType[] = [
+// ---------------------------------------------------------------------------
+// 右栏（antd）列定义 —— 忠实复刻 antd ellipsis demo
+// ---------------------------------------------------------------------------
+
+const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
   {
-    key: '1',
-    name: 'John Brown',
-    age: 32,
-    address: 'New York No. 1 Lake Park, New York No. 1 Lake Park',
+    title: 'Name',
+    dataIndex: 'name',
+    key: 'name',
+    render: (text) => <a>{text}</a>,
+    width: 150,
   },
   {
-    key: '2',
-    name: 'Jim Green',
-    age: 42,
-    address: 'London No. 2 Lake Park, London No. 2 Lake Park',
+    title: 'Age',
+    dataIndex: 'age',
+    key: 'age',
+    width: 80,
   },
   {
-    key: '3',
-    name: 'Joe Black',
-    age: 32,
-    address: 'Sydney No. 1 Lake Park, Sydney No. 1 Lake Park',
+    title: 'Address',
+    dataIndex: 'address',
+    key: 'address 1',
+    ellipsis: true,
+  },
+  {
+    title: 'Long Column Long Column Long Column',
+    dataIndex: 'address',
+    key: 'address 2',
+    ellipsis: true,
+  },
+  {
+    title: 'Long Column Long Column',
+    dataIndex: 'address',
+    key: 'address 3',
+    ellipsis: true,
+  },
+  {
+    title: 'Long Column',
+    dataIndex: 'address',
+    key: 'address 4',
+    ellipsis: true,
   },
 ]
 
+// ---------------------------------------------------------------------------
+// Demo 根组件
+// ---------------------------------------------------------------------------
+
 export default function EllipsisDemo() {
+  // ★ 共享状态：同一个状态同时驱动两侧表格。
+  const [bordered, setBordered] = useState(false)
+
   return (
     <div style={{ padding: 24 }}>
-      <Table<DataType> columns={columns} dataSource={data} />
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。 */}
       <div
         style={{
-          marginTop: 16,
+          marginBottom: 16,
           padding: 12,
-          background: '#fafafa',
+          border: '1px solid #f0f0f0',
           borderRadius: 8,
-          color: 'rgba(0,0,0,0.65)',
-          fontSize: 12,
-          lineHeight: 1.8,
+          background: '#fff',
         }}
       >
-        <p style={{ margin: '0 0 4px' }}>
-          <b>S20 省略号 ellipsis</b>（对齐 antd ellipsis demo）：
-        </p>
-        <p style={{ margin: 0 }}>
-          - <code>Name</code>（width 150，render <code>&lt;a&gt;</code>，无 ellipsis）+
-          <code>Age</code>（width 80）正常显示。
-        </p>
-        <p style={{ margin: 0 }}>
-          - <code>Address ×4</code> 列均 <code>ellipsis: true</code>：表体超长 address 省略号，
-          hover 单元格显示完整文本（native title）。
-        </p>
-        <p style={{ margin: 0 }}>
-          - 表头 title 长度递减（'Address' → 'Long Column Long Column Long Column' → … → 'Long Column'），
-          长表头省略 + hover 显示完整标题。
-        </p>
-        <p style={{ margin: 0 }}>
-          - 回归：非 ellipsis 列（Name/Age）无省略号、无多余 title。
-        </p>
+        <Space>
+          <Switch
+            checked={bordered}
+            onChange={setBordered}
+            checkedChildren="Bordered"
+            unCheckedChildren="Bordered"
+          />
+        </Space>
       </div>
+
+      {/*
+        minPaneWidth=600（ellipsis 列有长文本 Address×4，略宽于 basic 的 480）→ 横排阈值 ≈ 1216。
+        常规笔记本视口（≥1280）横排；窄视口自动换行竖排（每栏全宽，长文本更友好）。
+      */}
+      <SplitDemo
+        minPaneWidth={600}
+        left={<Table<RecordType> columns={dgColumns} dataSource={data} bordered={bordered} />}
+        right={
+          <AntdTable<RecordType> columns={antdColumns} dataSource={data} bordered={bordered} />
+        }
+      >
+        <div>
+          <strong>对照说明（决策 9 T1）：</strong>左右并排呈现 data-grid 与 antd ellipsis demo。
+          <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+            <li>
+              <strong>ellipsis: true</strong>：Address ×4 列均省略号。左栏 data-grid S20 实现
+              （<code>dg-cell-ellipsis</code> CSS 类 + 默认 native title）；右栏 antd 原生 ellipsis。
+            </li>
+            <li>
+              <strong>title 长度递减</strong>：表头 'Address' → 'Long Column Long Column Long Column'
+              → … → 'Long Column'。长表头两栏均应省略 + hover 显示完整标题。
+            </li>
+            <li>
+              <strong>§9 ellipsis 视觉 gap（登记不修）</strong>：两侧列宽策略不同（data-grid
+              #34 tableLayout:fixed + minmax(0,1fr) 收缩 vs antd width+flex fill），在边界宽度下
+              省略号生效程度可能不同。如实保留，对照价值。
+            </li>
+            <li>
+              <strong>Bordered 开关</strong>：同时切换两侧边框，对照有/无边框下省略号视觉是否一致。
+            </li>
+            <li>
+              <strong>非 ellipsis 列</strong>：Name（render <code>&lt;a&gt;</code>，width 150）+ Age
+              （width 80）正常显示，无省略号、无多余 title。
+            </li>
+          </ul>
+        </div>
+      </SplitDemo>
     </div>
   )
 }
