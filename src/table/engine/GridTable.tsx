@@ -210,8 +210,10 @@
  */
 
 import {
+  cloneElement,
   forwardRef,
   useCallback,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -239,6 +241,7 @@ import {
 import { useColumnResize } from './useColumnResize'
 import { SortIndicator } from './SortIndicator'
 import { FilterDropdown } from './FilterDropdown'
+import { parseSummaryNode } from './Summary'
 import type {
   Align,
   EngineColumnNode,
@@ -246,14 +249,156 @@ import type {
   EngineHeaderCell,
   EngineLeafColumn,
   EngineTableProps,
+  EngineTreeState,
   FixedSide,
 } from './types'
+// ★ 接口全兼容（决策 3 第二步）：onHeaderCell 签名 `(column) => HTMLAttributes` 的 column 类型。
+//   用 ColumnType 表达（与对外 types.ts 一致），仅 type-only。
+import type { ColumnType } from '../types'
+import { ExpandIcon } from './ExpandIcon'
+
+/**
+ * === S15 自定义组件（components.body.cell / components.body.row）渲染辅助 ===
+ *
+ * data-grid 用 div 渲染单元格（`.dg-cell`，非 antd 的 `<td>`）。components 机制适配如下：
+ *
+ * 1. **components.body.cell**：当提供时，dg-cell div 的**内部内容**（即 `.dg-cell-inner` 位置）
+ *    用 cell 组件渲染。cell 组件签名建议对齐 antd v6：接收 props
+ *    `{ children, record, index, dataIndex, ...onCell返回值 }`，返回 **ReactNode（单元格内容）**
+ *    （放进 dg-cell div 内，而非整个 td——因 data-grid 无 td）。
+ *    - `children`：默认渲染内容（= column.render 的结果 或 dataIndex 取值）。
+ *    - 其余字段透传：record / index / dataIndex + onCell 返回值的全部字段（除 colSpan/rowSpan）。
+ *
+ *    ★ 与 antd 差异：antd 的 EditableCell demo 返回 `<td>`；data-grid 复刻时 EditableCell 改为
+ *      返回内容 ReactNode（去掉 td 外壳），其余逻辑（editing 态 / Form.Item / Input / save）照搬。
+ *
+ * 2. **components.body.row**：当提供时，每行渲染一个包裹层组件（包裹该行所有单元格）。
+ *    - 典型用法：EditableRow（包 antd Form + Context.Provider 透传给 cell）。
+ *    - ★ 与 antd 差异：data-grid 行不由单一 `<tr>` 元素包裹（单元格是 grid item）；
+ *      实现：渲染一个透明包裹层组件（其内部渲染该行单元格）。包裹层本身不参与 grid 定位
+ *      （用 React.Fragment 或无样式 div），单元格仍按 grid 定位渲染。
+ *      注意：grid 布局下，grid item 必须是 grid 容器的**直接子元素**。若用 div 包裹会破坏
+ *      grid 定位（单元格不再是 grid 直接子元素）。故 data-grid 的 body.row 实现：
+ *      **不真正包裹 DOM**，而是把 row 组件作为"上下文提供者"——用 React.cloneElement 或
+ *      Context 包裹该行的单元格内容渲染。最简方案：row 组件以 React.Fragment 形式存在，
+ *      其内部 `<RowComponent>{children}</RowComponent>`，children 是该行所有单元格。
+ *      但 Fragment 会让单元格成为 grid 直接子元素（Fragment 不产生 DOM），满足 grid 布局。
+ *      实测：React.Fragment 作为 grid 容器子元素时，其 children 会被"穿透"为 grid 直接子元素——
+ *      这是 React 的特性（Fragment 不渲染真实 DOM）。故 body.row 组件内部用 Fragment 即可。
+ *
+ * 3. **onCell 返回值透传**：onCell(record, index) 返回值除 colSpan/rowSpan（M3 已用）外，
+ *    其余字段透传给 components.body.cell props（与 antd v6 一致：additionalProps 合并到 cell）。
+ *
+ * 4. **shouldCellUpdate**：column.shouldCellUpdate（(prev, next) => boolean）用于 cell 内容 memo。
+ *    仅当 components.body.cell 提供时消费（默认渲染路径不消费，零回归）。实现：用 React.memo
+ *    包裹 cell 内容渲染组件，比较函数用 shouldCellUpdate（比较 record 字段）。
+ *
+ * 5. **回归保证**：components 未提供时，所有渲染走默认路径（直接渲染 rendered 内容），
+ *    与 S15 之前完全一致。onCell 仍可能存在（M3 合并用），但无 components 时 onCell 的其余
+ *    字段被忽略（仅取 colSpan/rowSpan）——与 M3 行为一致。
+ */
+
+/**
+ * 单元格内容渲染（应用 components.body.cell）。
+ *
+ * 若提供 components.body.cell：用它渲染，props 含 children + record + index + dataIndex +
+ * onCell 返回值的其余字段 + shouldCellUpdate（透传，供 cell 组件按需 memo）。否则直接返回默认
+ * 内容（rendered）。
+ *
+ * `onCellProps` 为 column.onCell(record, index) 的完整返回值（GridTable 渲染时单独调用取）；
+ * 仅 colSpan/rowSpan 由 cellMerge 消费，这里把**完整返回值**透传给 cell 组件（含 colSpan/rowSpan，
+ * 与 antd additionalProps 一致——cell 组件若需要也可读，但通常不用）。
+ *
+ * shouldCellUpdate 透传说明（API 支持）：本字段作为 prop 传给 cell 组件，cell 组件可自行用
+ * React.memo + 该函数做重渲染优化（antd 的 useCellRender 在 rc-table 内部 memo，data-grid 简化为
+ * 透传——cell 组件自行决定是否 memo，保持引擎层简单）。这是决策 1 下的"有正常用例 API"实现。
+ */
+function renderCellContent({
+  components,
+  column,
+  record,
+  index,
+  rendered,
+  onCellProps,
+}: {
+  components: import('./types').EngineTableProps['components']
+  column: EngineLeafColumn<any>
+  record: any
+  index: number
+  rendered: ReactNode
+  onCellProps: Record<string, any> | undefined
+}): ReactNode {
+  const CustomCell = components?.body?.cell
+  if (!CustomCell) {
+    // 默认渲染路径：直接返回 rendered（零回归）。
+    return rendered
+  }
+  // 透传 props：children + record + index + dataIndex + shouldCellUpdate + onCell 返回值的全部字段。
+  // onCellProps 可能含 colSpan/rowSpan（cellMerge 已消费，这里仍透传，cell 组件一般不读）。
+  const cellProps: Record<string, any> = {
+    children: rendered,
+    record,
+    index,
+    dataIndex: column.dataIndex,
+    shouldCellUpdate: column.shouldCellUpdate,
+    ...onCellProps,
+  }
+  return <CustomCell {...cellProps} />
+}
 
 /** 数字 → px 字符串；字符串原样返回；null/undefined → undefined。 */
 function toTrack(value: number | string | null | undefined): string | undefined {
   if (value === null || value === undefined) return undefined
   if (typeof value === 'number') return `${value}px`
   return value
+}
+
+/**
+ * S20 ellipsis 默认 title 提示：把单元格/表头内容文本化为 string 供 native `title` 用。
+ *
+ * 对齐 antd 默认行为：ellipsis 单元格 hover 显示完整文本（native title）。
+ *   - string / number：直接转 string。
+ *   - ReactNode（含 JSX / render 返回值）：尝试递归抽取文本（string/number 拼接）；
+ *     若含非文本节点（元素/数组等无法可靠文本化）则返回 undefined（与 antd 行为一致：
+ *     自定义 render 返回 JSX 时 antd 默认也不显示 title——此时用户应自行包 Tooltip，属 S21）。
+ *   - null/undefined/boolean：返回 undefined（不设 title）。
+ *
+ * 仅 ellipsis 列调用；非 ellipsis 列不加 title（避免多余 tooltip）。
+ */
+function toEllipsisTitle(content: ReactNode): string | undefined {
+  if (content === null || content === undefined) return undefined
+  if (typeof content === 'string') return content
+  if (typeof content === 'number') return String(content)
+  if (typeof content === 'boolean') return undefined
+  // ReactNode 其它形态（element / array / fragment / portal）：
+  // 递归抽取 string/number 文本；遇到非文本（如 element with props 但无 string children 链）
+  // 保守返回 undefined（避免给出残缺 title 误导用户）。
+  const parts: Array<string> = []
+  const walk = (node: ReactNode): boolean => {
+    if (node === null || node === undefined || typeof node === 'boolean') return true
+    if (typeof node === 'string') {
+      parts.push(node)
+      return true
+    }
+    if (typeof node === 'number') {
+      parts.push(String(node))
+      return true
+    }
+    // React element：抽 props.children 递归（不抽 element 自身的字符串表示）。
+    if (typeof node === 'object' && 'props' in node) {
+      const children = (node as { props?: { children?: ReactNode } }).props?.children
+      return walk(children)
+    }
+    // 数组 / iterable：逐项 walk。
+    if (Array.isArray(node)) {
+      return node.every(walk)
+    }
+    // 其它形态（Portal / Suspense 等）：不文本化。
+    return false
+  }
+  if (!walk(content)) return undefined
+  const joined = parts.join('').trim()
+  return joined.length > 0 ? joined : undefined
 }
 
 /**
@@ -327,6 +472,193 @@ export interface GridTableHandle {
 }
 
 /**
+ * S34 页面级 sticky 的底部横向滚动条（对齐 antd `StickyScrollBar`，
+ * 见 `react-component/table/src/stickyScrollBar.tsx` + `components/table/style/sticky.ts`）。
+ *
+ * **背景**：S34 下 `.dg-grid` 不包 overflow 容器（避免拦截表头 sticky 上下文），grid 的
+ * `min-width: scrollX` 撑宽页面，**页面（document）作为横向滚动源**（原生横向滚动条）。
+ * 本组件提供"底部固定的横向滚动条"增强体验：`position: sticky; bottom: offsetScroll`，
+ * 页面纵向滚动时钉在视口底部；内部 thumb 反映页面当前横向滚动位置，拖动 thumb 驱动页面 scrollTo。
+ *
+ * **与 antd 差异**：antd 的 StickyScrollBar 是 fake scrollbar（表体滚动容器无原生横向滚动条，
+ * 完全用 fake thumb 替代）；data-grid 简化为"页面原生横向滚动条 + 增强 sticky thumb"——
+ * 页面本身已有原生横向滚动条，本组件额外提供一个钉在视口底部的同步 thumb（视觉对齐 antd
+ * "底部固定滚动条"，功能等价：长表格滚动到底部视口时仍可横向滚动）。
+ *
+ * **实现**：
+ * - 监听 `getContainer()`（默认 window）的 scroll 事件，按 `scrollLeft / (scrollWidth - clientWidth)`
+ *   计算 thumb 在 bar 内的 left 比例 + thumb 宽度比例（clientWidth / scrollWidth）。
+ * - 拖动 thumb（pointer 事件）：按 pointer 移动量换算 scrollLeft，调 `container.scrollTo`。
+ * - bar 宽度 = grid 宽度（与 grid 对齐，sticky bottom 时横向随页面滚动）。
+ *
+ * **zero regression**：仅 S34 sticky 启用时渲染（GridTable 在 sticky 分支调用）；其余路径不渲染。
+ */
+function StickyScrollBar({
+  offsetScroll,
+  getContainer,
+  gridRef,
+}: {
+  offsetScroll: number
+  getContainer?: () => HTMLElement | Window | undefined
+  gridRef: React.RefObject<HTMLDivElement | null>
+}) {
+  const barRef = useRef<HTMLDivElement | null>(null)
+  const thumbRef = useRef<HTMLDivElement | null>(null)
+  // 拖动状态 ref（避免重渲染；pointermove 直接操作 DOM）。
+  const dragStateRef = useRef<{
+    pointerId: number | null
+    startPointerX: number
+    startScrollLeft: number
+  } | null>(null)
+
+  // 解析 container（window 或 HTMLElement；undefined/null 回退 window）。
+  const resolveContainer = useCallback((): Window | HTMLElement => {
+    if (getContainer) {
+      const c = getContainer()
+      if (c instanceof Window) return c
+      if (c && 'scrollTo' in c) return c as HTMLElement
+    }
+    return typeof window !== 'undefined' ? window : (null as unknown as Window)
+  }, [getContainer])
+
+  // 更新 thumb 位置 + 宽度（按当前 scrollLeft / scrollWidth 比例）。
+  const updateThumb = useCallback(() => {
+    const container = resolveContainer()
+    const bar = barRef.current
+    const thumb = thumbRef.current
+    if (!bar || !thumb) return
+    // 容器滚动几何：window 用 scrollX/innerWidth/document.scrollWidth；
+    // HTMLElement 用 scrollLeft/clientWidth/scrollWidth。
+    let scrollLeft: number
+    let clientWidth: number
+    let scrollWidth: number
+    if (container instanceof Window) {
+      scrollLeft = container.scrollX || 0
+      clientWidth = container.innerWidth || 0
+      scrollWidth = container.document?.documentElement?.scrollWidth || 0
+    } else {
+      scrollLeft = container.scrollLeft || 0
+      clientWidth = container.clientWidth || 0
+      scrollWidth = container.scrollWidth || 0
+    }
+    const maxScroll = scrollWidth - clientWidth
+    const ratio = maxScroll > 0 ? scrollLeft / maxScroll : 0
+    const thumbRatio = scrollWidth > 0 ? clientWidth / scrollWidth : 1
+    // thumb 宽度 = bar 宽度 × (clientWidth / scrollWidth)（至少 20px，避免太窄）。
+    const barWidth = bar.clientWidth || 0
+    const thumbWidth = Math.max(20, barWidth * thumbRatio)
+    const thumbMaxLeft = Math.max(0, barWidth - thumbWidth)
+    thumb.style.width = `${thumbWidth}px`
+    thumb.style.transform = `translateX(${ratio * thumbMaxLeft}px)`
+  }, [resolveContainer])
+
+  // 监听 container scroll + resize 更新 thumb。
+  useEffect(() => {
+    const container = resolveContainer()
+    const target = container instanceof Window ? container : (container as HTMLElement)
+    target.addEventListener('scroll', updateThumb, { passive: true })
+    if (container instanceof Window) {
+      container.addEventListener('resize', updateThumb)
+    }
+    // 初始更新。
+    updateThumb()
+    return () => {
+      target.removeEventListener('scroll', updateThumb)
+      if (container instanceof Window) {
+        container.removeEventListener('resize', updateThumb)
+      }
+    }
+  }, [resolveContainer, updateThumb])
+
+  // thumb pointer 拖动：换算 pointer 移动量 → container scrollLeft。
+  const onThumbPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const container = resolveContainer()
+    const thumb = thumbRef.current
+    const bar = barRef.current
+    if (!thumb || !bar) return
+    e.preventDefault()
+    e.stopPropagation()
+    let clientWidth: number
+    let scrollWidth: number
+    let currentScrollLeft: number
+    if (container instanceof Window) {
+      clientWidth = container.innerWidth || 0
+      scrollWidth = container.document?.documentElement?.scrollWidth || 0
+      currentScrollLeft = container.scrollX || 0
+    } else {
+      clientWidth = container.clientWidth || 0
+      scrollWidth = container.scrollWidth || 0
+      currentScrollLeft = container.scrollLeft || 0
+    }
+    const barWidth = bar.clientWidth || 0
+    const thumbRatio = scrollWidth > 0 ? clientWidth / scrollWidth : 1
+    const thumbWidth = Math.max(20, barWidth * thumbRatio)
+    const thumbMaxLeft = Math.max(0, barWidth - thumbWidth)
+    const maxScroll = scrollWidth - clientWidth
+    dragStateRef.current = {
+      pointerId: e.pointerId,
+      startPointerX: e.clientX,
+      startScrollLeft: currentScrollLeft,
+    }
+    // 用闭包捕获拖动几何（拖动期间 DOM 不变，无需重读）。
+    const geometry = { thumbMaxLeft, maxScroll }
+    const onMove = (ev: PointerEvent) => {
+      const ds = dragStateRef.current
+      if (!ds || ds.pointerId !== ev.pointerId) return
+      const dx = ev.clientX - ds.startPointerX
+      const scrollDelta = geometry.thumbMaxLeft > 0 ? (dx / geometry.thumbMaxLeft) * geometry.maxScroll : 0
+      const next = ds.startScrollLeft + scrollDelta
+      if (container instanceof Window) {
+        container.scrollTo(next, container.scrollY || 0)
+      } else {
+        ;(container as HTMLElement).scrollLeft = next
+      }
+    }
+    const onUp = (ev: PointerEvent) => {
+      const ds = dragStateRef.current
+      if (!ds || ds.pointerId !== ev.pointerId) return
+      dragStateRef.current = null
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+  }
+
+  return (
+    <div
+      ref={barRef}
+      className="dg-sticky-scroll-bar"
+      style={{
+        position: 'sticky',
+        bottom: `${offsetScroll}px`,
+        height: '8px',
+        zIndex: 5,
+        background: 'var(--ant-sticky-scroll-bar-bg, rgba(0, 0, 0, 0.08))',
+        // bar 宽度与 grid 对齐：grid 多宽 bar 多宽（gridRef 提供 grid 宽度参考）。
+        // sticky 元素横向随页面滚动（默认行为），故 bar 始终覆盖"当前视口横向可见区域"对齐 grid。
+        minWidth: gridRef.current?.style.minWidth || undefined,
+      }}
+    >
+      <div
+        ref={thumbRef}
+        onPointerDown={onThumbPointerDown}
+        style={{
+          height: '8px',
+          width: '20px',
+          borderRadius: 'var(--ant-sticky-scroll-bar-border-radius, 100px)',
+          background: 'var(--ant-sticky-scroll-bar-bg, rgba(0, 0, 0, 0.25))',
+          cursor: 'pointer',
+          willChange: 'transform',
+        }}
+      />
+    </div>
+  )
+}
+
+/**
  * 渲染引擎根组件。
  * 不对外暴露；对外统一走 `src/table/Table.tsx`。
  */
@@ -352,34 +684,85 @@ function GridTableInner<RecordType = any>(
     resizableMinWidth,
     resizableMaxWidth,
     expandState,
+    treeState,
     onSorterClick,
     onFilterApply,
     className,
+    components,
+    summary,
+    emptyText,
+    semantic,
+    sticky,
+    // ★ 接口全兼容（决策 3 第二步）：onHeaderRow / onRow / rowClassName / getPopupContainer / rowHoverable。
+    onHeaderRow,
+    onRow,
+    rowClassName,
+    getPopupContainer,
+    rowHoverable,
   } = props
 
   const gridRef = useRef<HTMLDivElement | null>(null)
 
+  // === S34 页面级粘性表头（区别 M8 容器内固定）===
+  // sticky prop 启用时：表头相对**页面 viewport** 固定（position:sticky; top:offsetHeader），
+  // 而非 M8 的相对表格滚动容器固定。详见对外 types.ts StickyConfig 注释。
+  //
+  // ★ 与 M4/M8 互斥：sticky 启用时走"页面级"路径（grid 不包 overflow 容器，避免拦截 sticky 上下文），
+  //   virtual / scrollYNonVirtual 的容器内固定表头不生效（headerStickyTop 仍为 false，由 stickyHeaderOffset 驱动）。
+  const stickyEnabled = sticky !== undefined && sticky !== null
+  const stickyOffsetHeader = (sticky && typeof sticky === 'object' ? sticky.offsetHeader : undefined) ?? 0
+  const stickyOffsetScroll = (sticky && typeof sticky === 'object' ? sticky.offsetScroll : undefined) ?? 0
+  const stickyGetContainer =
+    sticky && typeof sticky === 'object' && sticky.getContainer ? sticky.getContainer : undefined
+
   // === 虚拟滚动判定（M4）===
   // virtual=true 且 scroll.y 为 number 时启用纵向虚拟滚动（与 antd virtual-list 一致）。
+  // ★ S34：sticky 启用时禁用虚拟（页面级与容器内虚拟互斥；sticky 下页面滚动，虚拟窗口失去意义）。
   const scrollY = scroll?.y
   const virtualEnabled =
-    virtual === true && typeof scrollY === 'number' && scrollY > 0
+    !stickyEnabled && virtual === true && typeof scrollY === 'number' && scrollY > 0
 
   // === M8 固定表头（非 virtual）判定 ===
   // 非 virtual 且 scroll.y 存在（number>0 或非空 string）时启用：表体限高纵向滚动、表头 sticky top。
   // 与 M4 互斥（M4 优先；virtual=true 时走虚拟路径，scroll.y 用于虚拟窗口高度，不再做 M8）。
+  // ★ S34：sticky 启用时禁用 M8 容器内固定（页面级优先；两者不共存）。
   const scrollYNonVirtual =
-    !virtualEnabled && scrollY !== undefined && scrollY !== null && scrollY !== ''
+    !stickyEnabled && !virtualEnabled && scrollY !== undefined && scrollY !== null && scrollY !== ''
 
   // === 表头纵向 sticky 统一标志（M4 + M8 共用）===
   // 无论虚拟（M4）还是非虚拟 scroll.y（M8），表头都需要 `position: sticky; top: 0` 钉在滚动容器顶部。
   // 该标志传入 HeaderCell / ColumnCells 的 `headerStickyTop` prop，统一驱动表头 sticky 行为，
   // 避免两套不一致的实现（任务要求：M4 与 M8 表头 sticky 行为一致）。
+  // ★ S34：sticky 页面级固定**不**走此标志（该标志驱动的是"容器内 top:0"）；S34 由 stickyHeaderOffset
+  //   单独驱动（表头格 inline style 用 top: offsetHeader，相对 viewport），见下方 stickyHeaderOffset。
   const headerStickyTop = virtualEnabled || scrollYNonVirtual
+
+  // === S34 表头页面级 sticky 偏移（仅 sticky 启用时有效）===
+  // 传入 HeaderCell / ColumnCells 的 `stickyHeaderOffset` prop：sticky 启用时表头格 inline style
+  // 加 `position: sticky; top: offsetHeader; zIndex`，相对 viewport 固定。与 headerStickyTop（容器内）
+  // 互斥——同时为 true 时 S34 优先（sticky 启用时 headerStickyTop 恒 false，见上）。
+  const stickyHeaderOffset: number | undefined = stickyEnabled ? stickyOffsetHeader : undefined
 
   // M9：是否启用展开（expandState.expandEnabled）。展开启用时强制 multi 路径——
   //     展开内容 track 需要精确 grid-row 定位，flat 路径（grid-auto-flow:column）无法插入。
   const expandEnabled = !!expandState?.expandEnabled
+
+  // S13：树形模式（treeState.treeEnabled）。非树形 → undefined（零回归）。
+  // 树形模式下：第一列数据单元格内按 level × indentSize 左缩进 + hasChildren 行渲染展开图标。
+  const treeEnabled = !!treeState?.treeEnabled
+
+  // === S22 汇总 summary 解析（须在 resolved 之前——summary 启用会强制 multi 路径）===
+  // 解析 summary prop：提取 fixed 标志 + Row 元素列表。
+  // summary 由适配层（Table.tsx）解析自 TableProps.summary（函数→调用、ReactNode→原样）后传入。
+  // 引擎只负责：① grid-template-rows 末尾追加 summary 行 track；② 渲染 summary 区（cloneElement
+  //   给每个 Row 注入 __rowLine + __fixed）。
+  const summaryParsed = useMemo(() => {
+    if (!summary) return null
+    const { fixed, rows } = parseSummaryNode(summary)
+    if (rows.length === 0) return null
+    return { fixed, rows, count: rows.length }
+  }, [summary])
+  const summaryEnabled = !!summaryParsed
 
   // 解析列：优先 columnTree（多级表头），否则退化到 columns（单层）。
   // M3：若任一叶子列声明了 onCell（单元格合并）或 colSpan 字段（表头横向合并），
@@ -388,7 +771,14 @@ function GridTableInner<RecordType = any>(
   // M4：虚拟滚动下也强制 multi 路径（占位 track 机制需要精确 grid-row 控制，
   //     flat 路径无法插入 paddingTop/paddingBottom 占位 track）。
   // M9：展开启用也强制 multi（同上理由：需精确 grid-row 插入展开 track）。
+  // S22：summary 启用也强制 multi——summary Cell 用显式 gridColumn/gridRow 定位，
+  //   auto-flow:column 会让表体格 DOM 按列连续填充与 summary 显式定位冲突；multi 路径下
+  //   所有 cell（表头/表体/summary）都显式定位，互不冲突。
   const resolved = useMemo(() => {
+    // S23：empty 区启用条件——emptyText 提供且 dataSource 空（无数据可显示）。
+    //   启用时强制 multi 路径（显式 grid-row/grid-column 定位 empty 区），与 summary/expand 同款
+    //   理由：flat 路径 grid-auto-flow:column 会让跨列 empty 区的显式定位与列连续填充冲突。
+    const emptyEnabled = !!emptyText && dataSource.length === 0
     if (columnTree && columnTree.length > 0) {
       const r = resolveColumnTree(columnTree)
       // M3：检测单元格合并（onCell）或表头合并（colSpan≠1 或存在 covered 表头格）。
@@ -398,9 +788,12 @@ function GridTableInner<RecordType = any>(
       )
       const forceMulti = hasOnCell || hasHeaderMerge
       // maxDepth === 1 且无合并 → 走 flat 快速路径（M0/M1 行为，零回归）。
+      // S15：components.body.row 提供时强制 multi（行优先 DOM + Provider 包裹需要显式定位）。
+      // S22：summary 启用强制 multi。
+      // S23：empty 启用强制 multi（empty 区显式定位）。
       const multi = r.maxDepth > 1 || forceMulti
       return {
-        mode: (multi || virtualEnabled || expandEnabled ? ('multi' as const) : ('flat' as const)),
+        mode: (multi || virtualEnabled || expandEnabled || treeEnabled || summaryEnabled || emptyEnabled || !!components?.body?.row ? ('multi' as const) : ('flat' as const)),
         maxDepth: r.maxDepth,
         leafColumns: r.leafColumns,
         headerCells: r.headerCells,
@@ -409,13 +802,16 @@ function GridTableInner<RecordType = any>(
     // 单层路径：columns 即叶子列。
     // M3：同样检测合并需求；若有 onCell 或 colSpan 字段，把 columns 包装成单层 columnTree
     //     走 resolveColumnTree（得到 headerCells 供 covered 处理），再强制 multi。
-    // M4/M9：虚拟滚动 / 展开启用下也包装成 multi（理由同上）。
+    // M4/M9/S13：虚拟滚动 / 展开启用 / 树形模式下也包装成 multi（理由同上）。
+    // S15：components.body.row 提供时也强制 multi（行优先 DOM + Provider 包裹需要显式定位）。
+    // S22：summary 启用时也包装成 multi（理由同 columnTree 分支）。
+    // S23：empty 启用时也包装成 multi（理由同 columnTree 分支）。
     const flatLeavesRaw: Array<EngineLeafColumn<RecordType>> = columns ?? []
     const hasOnCellFlat = flatLeavesRaw.some((c) => typeof c.onCell === 'function')
     const hasHeaderColSpanFlat = flatLeavesRaw.some(
       (c) => c.colSpan !== undefined && c.colSpan !== 1,
     )
-    if (hasOnCellFlat || hasHeaderColSpanFlat || virtualEnabled || expandEnabled) {
+    if (hasOnCellFlat || hasHeaderColSpanFlat || virtualEnabled || expandEnabled || treeEnabled || summaryEnabled || emptyEnabled || !!components?.body?.row) {
       // 包装成单层 columnTree（每个叶子列作为根节点）。
       const pseudoTree = flatLeavesRaw.map((c) => ({ ...c, children: undefined }))
       const r = resolveColumnTree(pseudoTree)
@@ -433,9 +829,36 @@ function GridTableInner<RecordType = any>(
       leafColumns: flatLeavesRaw,
       headerCells: [] as Array<EngineHeaderCell<RecordType>>,
     }
-  }, [columnTree, columns, virtualEnabled, expandEnabled])
+  }, [columnTree, columns, virtualEnabled, expandEnabled, treeEnabled, summaryEnabled, emptyText, dataSource, components])
 
   const { mode, maxDepth, leafColumns, headerCells } = resolved
+
+  // ★ 接口全兼容（决策 3 第二步）：为 onHeaderRow(columns, index) 准备 columns 参数。
+  // antd onHeaderRow 传入"当前表头行涉及的列"——单层表头即全部 columns；多级表头按层。
+  // data-grid 简化：统一传**顶层列**（columnTree.raw 或 columns.raw）作为 columns 参数（调用方
+  // 一般不读 columns 内容，仅按行返回固定 props；传顶层列已足够满足典型用例——onClick 行级交互等）。
+  // 多级表头按层传不同列集较复杂，且 antd demo 无此用例，本阶段简化为顶层列。
+  const headerColumns = useMemo(
+    () =>
+      (columnTree && columnTree.length > 0
+        ? columnTree
+        : (leafColumns as unknown as Array<{ raw?: unknown }>)
+      ).map((n) => n.raw),
+    [columnTree, leafColumns],
+  )
+
+  // S13：第一列数据列索引（树形模式下渲染缩进 + 展开图标的目标列）。
+  // 对齐 antd `expandIconColumnIndex`（nest 模式默认：有 rowSelection → 1，否则 → 0；
+  // 但数据列在哨兵之后）。data-grid 用"第一个含 dataIndex 的叶子列"判定（哨兵列 SELECTION/
+  // EXPAND 无 dataIndex）。无树形模式 → -1（不渲染缩进）。
+  const treeFirstDataColumnIdx = useMemo(() => {
+    if (!treeEnabled) return -1
+    for (let i = 0; i < leafColumns.length; i += 1) {
+      if (leafColumns[i].dataIndex !== undefined) return i
+    }
+    // 全部列无 dataIndex（罕见）→ 退化为 0。
+    return 0
+  }, [treeEnabled, leafColumns])
 
   // === M7 列宽拖拽调整 ===
   // enabled = resizable === true（默认由适配层决定；引擎层 undefined/false 不启用）。
@@ -549,7 +972,9 @@ function GridTableInner<RecordType = any>(
   // === grid 模板 ===
   // 虚拟模式：headerTracks + paddingTopTrack + [start,end) 数据行 tracks（含展开 track）+ paddingBottomTrack。
   // 非虚拟：headerTracks + 全部数据行 tracks（含展开 track）（M0/M1 行为，无展开时退化为原逻辑）。
-  const { gridTemplateRows, gridTemplateColumns, gridAutoFlow } = useMemo(() => {
+  // S22：summary 启用时末尾追加 summaryTracks（每行一条 'auto'），并返回 summaryStartLine
+  //   供渲染时给 summary Row 注入 grid-row 线号。
+  const { gridTemplateRows, gridTemplateColumns, gridAutoFlow, summaryStartLine } = useMemo(() => {
     const headerRows = showHeader ? maxDepth : 0
     const headerTrackUnit = toTrack(headerHeight) ?? 'auto'
     const headerTracks: string[] = []
@@ -624,12 +1049,28 @@ function GridTableInner<RecordType = any>(
       return w ?? 'max-content'
     })
 
+    // S22：summary 区 tracks（grid-template-rows 末尾追加，每行一条 'auto' track）。
+    // summary 行高按内容自适应（'auto'），与表体行高约定无关——summary 通常是单行文本，
+    // 不需要参与虚拟窗口/行高约定计算。
+    const summaryTracks: string[] = summaryParsed
+      ? Array.from({ length: summaryParsed.count }, () => 'auto')
+      : []
+    // summary 区起始线号 = headerTracks + bodyTracks + 1（1-based grid line）。
+    // summary 第 0 行 track 占 [summaryStartLine, summaryStartLine+1]。
+    const summaryStartLine = summaryParsed
+      ? headerTracks.length + bodyTracks.length + 1
+      : 0
+
     // 多级表头路径：关闭 auto-flow（用显式 grid-column/grid-row 定位）。
     // 单层路径：保持 grid-auto-flow:column（M0 行为）。
+    // ★ S22：summary 启用时强制关闭 auto-flow（用显式定位）——summary Cell 用 gridColumn/gridRow
+    //   显式定位，auto-flow:column 会导致表体格 DOM 按列连续填充时与 summary Cell 的显式定位冲突。
+    //   故 summary 启用 → 走 multi 路径定位语义（即使单层表头也关闭 auto-flow，保证 summary 正确）。
     return {
-      gridTemplateRows: [...headerTracks, ...bodyTracks].join(' ') || 'none',
+      gridTemplateRows: [...headerTracks, ...bodyTracks, ...summaryTracks].join(' ') || 'none',
       gridTemplateColumns: colTracks.join(' ') || 'none',
-      gridAutoFlow: mode === 'multi' ? undefined : ('column' as const),
+      gridAutoFlow: mode === 'multi' || summaryEnabled ? undefined : ('column' as const),
+      summaryStartLine,
     }
   }, [
     mode,
@@ -646,6 +1087,8 @@ function GridTableInner<RecordType = any>(
     expandEnabled,
     expandState,
     rowKey,
+    summaryParsed,
+    summaryEnabled,
   ])
 
   // 整行 hover：记录当前 hover 的数据行 index（null 表示未 hover）。
@@ -668,9 +1111,17 @@ function GridTableInner<RecordType = any>(
   const gridFinalStyle: CSSProperties = scrollMinWidth
     ? { ...gridStyle, minWidth: scrollMinWidth }
     : gridStyle
+  // S29：语义化 content 部位 style（合并到 grid 根容器 style）。
+  const semanticContentStyle = semantic?.content?.style
+  // S29：semantic content style 合并到 grid 根 style（gridFinalStyle 之后覆盖）。
+  const gridFinalStyleWithSemantic: CSSProperties = semanticContentStyle
+    ? { ...gridFinalStyle, ...semanticContentStyle }
+    : gridFinalStyle
 
   const gridClassName = [
     'dg-grid',
+    // S29：语义化 content 部位 class（合并到 grid 根容器）。
+    semantic?.content?.className,
     // M7：拖拽进行中加 dg-grid-resizing 类，禁用 grid-template-columns 过渡
     // （否则拖拽时 0.3s 过渡会与实时更新叠加产生抖动/延迟）。
     resizingKey !== null ? 'dg-grid-resizing' : undefined,
@@ -698,7 +1149,7 @@ function GridTableInner<RecordType = any>(
           : headerRowsUsed + index + 1
       }
       return (
-        <div className={gridClassName} style={gridFinalStyle} ref={gridRef}>
+        <div className={gridClassName} style={gridFinalStyleWithSemantic} ref={gridRef}>
           {/* 表头区：显式定位的表头格（sticky 信息来自 headerSticky）。
               M3：跳过 covered 表头格（被前面的 colSpan>1 表头覆盖，不渲染 DOM）。
               M4 虚拟 / M8 非 virtual scroll.y：表头格额外 position:sticky; top:0（z-index 4），
@@ -711,11 +1162,18 @@ function GridTableInner<RecordType = any>(
                     cell={cell}
                     sticky={headerSticky.get(cell.key)}
                     headerStickyTop={headerStickyTop}
+                    stickyHeaderOffset={stickyHeaderOffset}
                     resizeEnabled={resizeEnabled}
                     onResizerPointerDown={onResizerPointerDown}
                     resizingKey={resizingKey}
+                    semanticHeader={semantic?.header}
                     onSorterClick={onSorterClick}
                     onFilterApply={onFilterApply}
+                    // ★ 接口全兼容（决策 3 第二步）：onHeaderRow 行级 props 透传到表头格
+                    //   （grid 无 tr，行 props 分发到该行所有表头格）。
+                    onHeaderRow={onHeaderRow}
+                    getPopupContainer={getPopupContainer}
+                    headerColumns={headerColumns}
                   />
                 ),
               )
@@ -729,83 +1187,36 @@ function GridTableInner<RecordType = any>(
               M4 虚拟：只遍历 [virtualState.start, virtualState.end) 的数据行；其余由占位 track 撑总高。
                 ★ 已知简化：若某 rowSpan>1 的左上角在可视区**外**（start 之前），其延伸到
                 可视区内的覆盖格本就不渲染（hidden），故可视区会出现"缺一块"。详见文件头 M4 注释。 */}
-          {leafColumns.map((column, colIdx) => {
-            // 虚拟模式下只遍历可视区行；非虚拟遍历全集。
-            const lo = virtualEnabled ? virtualState.start : 0
-            const hi = virtualEnabled ? virtualState.end : dataSource.length
-            const cells: Array<ReactNode> = []
-            for (let index = lo; index < hi; index += 1) {
-              const record = dataSource[index]
-              if (record === undefined) continue
-              const merge: CellMergeInfo | undefined =
-                cellMergePlan?.[colIdx]?.[index]
-              // M3：被覆盖格跳过渲染。
-              if (merge?.hidden) continue
-              const colSpan = merge?.colSpan ?? 1
-              // M3 + M9：合并格纵向 span 需考虑合并范围内每行是否带展开内容 track。
-              //   合并格原本 rowSpan=N（跨 N 个数据行）；M9 展开启用时，合并范围内每行若可展开
-              //   会多占一条展开内容 track（0fr/1fr），合并格需相应延长 span 以正确覆盖整个矩形
-              //   （否则展开 track 会把下半部分数据行挤出合并区，合并格视觉只盖住上半部分）。
-              //   实现：rowSpanTracks = rowSpan(数据行) + 合并范围内可展开行数（每行 +1 展开 track）。
-              //   注：展开 track 始终存在（不论展开/收起），故此计算与展开态无关——span 稳定。
-              let rowSpanTracks = merge?.rowSpan ?? 1
-              if (rowSpanTracks > 1 && expandEnabled && expandState) {
-                let extraTracks = 0
-                for (let r = index; r < index + rowSpanTracks && r < dataSource.length; r += 1) {
-                  const rec = dataSource[r]
-                  if (rec === undefined) continue
-                  if (expandState.isExpandable(getRowKey(rec, rowKey))) extraTracks += 1
-                }
-                rowSpanTracks += extraTracks
-              }
-              const text = getValueByDataIndex(record, column.dataIndex)
-              const rendered: ReactNode = column.render
-                ? column.render(text, record, index)
-                : text
-              const isHovered = hoveredRowIndex === index
-              const rowLine = rowLineBase(index)
-              const info = leafSticky[colIdx]
-              // S1：当前排序列的单元格加 dg-column-sort（淡灰背景，对齐 antd tableBodySortBg）。
-              const isSortedColumn =
-                !!column.sorter && column.sortOrder !== null && column.sortOrder !== undefined
-              cells.push(
-                <div
-                  key={`b-${colIdx}-${getRowKey(record, rowKey) ?? index}`}
-                  className={[
-                    'dg-cell',
-                    'dg-cell-body',
-                    column.rowScope === 'row' ? 'dg-cell-rowscope' : undefined,
-                    fixedClass(column.fixed),
-                    shadowClass(info),
-                    // M6：隐藏列的单元格仍渲染（维持 grid track 占位以保持线号稳定），
-                    // 但内容 visibility:hidden + overflow:hidden，track 0fr 使其不可见。
-                    column.hidden ? 'dg-cell-hidden' : undefined,
-                    // S1：当前排序列的表体格加 dg-column-sort（淡灰底，对齐 antd tableBodySortBg）。
-                    isSortedColumn ? 'dg-column-sort' : undefined,
-                    isHovered ? 'dg-row-hover' : undefined,
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  data-align={column.align ?? undefined}
-                  data-row-index={index}
-                  style={{
-                    gridColumn:
-                      colSpan > 1 ? `${colIdx + 1} / span ${colSpan}` : `${colIdx + 1}`,
-                    gridRow:
-                      rowSpanTracks > 1
-                        ? `${rowLine} / span ${rowSpanTracks}`
-                        : `${rowLine}`,
-                    ...(column.align ? { textAlign: column.align } : null),
-                    ...stickyCellStyle(info),
-                  }}
-                  onMouseEnter={() => setHoveredRowIndex(index)}
-                  onMouseLeave={() => setHoveredRowIndex(null)}
-                >
-                  <div className="dg-cell-inner">{rendered}</div>
-                </div>,
-              )
-            }
-            return cells
+          {/* 数据区：按数据行 × 叶子列显式定位（sticky 来自 leafSticky[colIdx]）。
+              ★ S15：当 components.body.row 提供时，按**行**优先遍历，每行用 body.row 组件包裹
+                该行所有单元格（body.row 不产生 DOM 或产生不影响 grid 的 DOM——典型 EditableRow
+                用 antd Form + Context.Provider，Provider 不渲染真实 DOM，单元格仍是 grid 直接子元素，
+                grid 显式定位保证布局正确）。无 body.row 时按列优先遍历（历史行为，性能略优）。
+              M3：cellMergePlan 驱动——hidden 格不渲染 DOM；非隐藏格设 grid-column/grid-row span。
+              M4 虚拟：只遍历 [start, end)；其余由占位 track 撑总高。 */}
+          {renderBodyCells({
+            leafColumns,
+            dataSource,
+            virtualEnabled,
+            virtualState,
+            cellMergePlan,
+            expandEnabled,
+            expandState,
+            rowKey,
+            hoveredRowIndex,
+            setHoveredRowIndex,
+            rowLineBase,
+            leafSticky,
+            treeEnabled,
+            treeState,
+            treeFirstDataColumnIdx,
+            components,
+            semanticBody: semantic?.body,
+            // ★ 接口全兼容（决策 3 第二步）：onRow / rowClassName 透传到表体单元格
+            //   （grid 无 tr，行 props / 行 class 分发到该行所有单元格）。
+            onRow,
+            rowClassName,
+            rowHoverable,
           })}
           {/* M9 行展开内容：每个可展开 + 展开中的数据行渲染一条展开内容 grid item，
               grid-column: 1 / -1 跨整行，grid-row 指向该行下方的展开内容 track。
@@ -823,6 +1234,42 @@ function GridTableInner<RecordType = any>(
                 rowKey,
               })
             : null}
+          {/* S23 自定义空状态：pagedDataSource 空时渲染跨所有列的 empty 占位区。
+              empty grid item 显式定位到 headerTracks 之后的第一条 track（grid-row: headerRowsUsed+1），
+              grid-column: 1 / -1 跨所有列；内容居中（.dg-empty 区 padding + flex center）。
+              内容来自 emptyText（适配层已按 locale.emptyText > ConfigProvider.renderEmpty('Table') > 默认 Empty
+              优先级解析；表体 empty 不区分空数据 vs 筛选无结果——对齐 antd InternalTable.tsx:714-717）。
+              非空时不渲染（零回归）。 */}
+          {emptyText && dataSource.length === 0 ? (
+            <div
+              className="dg-empty"
+              style={{
+                gridColumn: '1 / -1',
+                gridRow: headerRowsUsed + 1,
+                padding: '32px 16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {emptyText}
+            </div>
+          ) : null}
+          {/* S22 汇总 summary 区：grid 末尾的 summary 行。
+              summaryParsed.rows 为解析得到的 Summary.Row 元素列表；引擎对每个 Row cloneElement
+              注入 __rowLine（grid-row 起始线号 = summaryStartLine + rowIndex）+ __fixed（sticky bottom）。
+              Row 内部通过 Context 把 rowLine/fixed 传给其 Cell 子节点，Cell 据此设 grid-row +
+              gridColumn + sticky bottom。 */}
+          {summaryParsed && summaryStartLine > 0
+            ? summaryParsed.rows.map((row, rowIndex) => {
+                const rowLine = summaryStartLine + rowIndex
+                return cloneElement(row, {
+                  key: `dg-summary-row-${rowIndex}`,
+                  __rowLine: rowLine,
+                  __fixed: summaryParsed.fixed,
+                } as Partial<typeof row.props>)
+              })
+            : null}
         </div>
       )
     }
@@ -830,7 +1277,7 @@ function GridTableInner<RecordType = any>(
     // 单层快速路径（M0 行为）：grid-auto-flow:column，每列 DOM 连续。
     // 注意：M4 虚拟模式下不会走到这里（虚拟强制 multi）。
     return (
-      <div className={gridClassName} style={gridFinalStyle} ref={gridRef}>
+      <div className={gridClassName} style={gridFinalStyleWithSemantic} ref={gridRef}>
         {leafColumns.map((column, colIdx) => (
           <ColumnCells<RecordType>
             key={column.key}
@@ -843,14 +1290,64 @@ function GridTableInner<RecordType = any>(
             onHoverRow={setHoveredRowIndex}
             sticky={leafSticky[colIdx]}
             headerStickyTop={headerStickyTop}
+            stickyHeaderOffset={stickyHeaderOffset}
             resizeEnabled={resizeEnabled}
             onResizerPointerDown={onResizerPointerDown}
             resizingKey={resizingKey}
             onSorterClick={onSorterClick}
             onFilterApply={onFilterApply}
+            semanticHeader={semantic?.header}
+            semanticBody={semantic?.body}
+            components={components}
+            // ★ 接口全兼容（决策 3 第二步）：onHeaderRow / onRow / rowClassName 透传到
+            //   flat 路径的表头格 + 表体单元格（与 multi 路径同款接入）。
+            onHeaderRow={onHeaderRow}
+            onRow={onRow}
+            rowClassName={rowClassName}
+            rowHoverable={rowHoverable}
+            getPopupContainer={getPopupContainer}
+            headerColumns={headerColumns}
           />
         ))}
       </div>
+    )
+  }
+
+  // S29：语义化 section 部位 class/style（注入到滚动容器；无 semantic 时 sectionClassName=undefined）。
+  const sectionClassName = semantic?.section?.className
+  const sectionStyle = semantic?.section?.style
+  const mergeSectionClass = (...base: Array<string | undefined>) =>
+    [...base, sectionClassName].filter(Boolean).join(' ') || undefined
+  const mergeSectionStyle = (base: CSSProperties | undefined): CSSProperties | undefined => {
+    if (!sectionStyle) return base
+    return { ...(base ?? null), ...sectionStyle }
+  }
+
+  // === S34 页面级粘性表头（区别 M8 容器内固定）===
+  // sticky 启用时：grid **不包** overflow 容器（避免 overflow 祖先拦截表头 sticky 上下文），
+  // grid 直接渲染 + min-width: scrollX 撑宽页面；表头 grid item 用 stickyHeaderOffset 驱动
+  // （position: sticky; top: offsetHeader，相对 viewport 固定，已在上游 HeaderCell/ColumnCells 应用）。
+  // grid 之后渲染 StickyScrollBar（position: sticky; bottom: offsetScroll）作为底部固定横向滚动条。
+  //
+  // ★ 关键：grid 不包 overflow 容器 → grid 的最近可滚动祖先是 window（页面）→ 表头 sticky 相对
+  //   viewport 固定（页面纵向滚动时表头钉在视口顶部 offsetHeader 处）。这是 S34 与 M8 的本质区别
+  //   （M8 表头相对 .dg-fixed-header-scroll 容器固定，容器内滚动）。
+  //
+  // ★ 横向滚动：依赖页面原生滚动条（页面横向滚动）。StickyScrollBar 额外提供"底部固定"的同步 thumb
+  //   （视觉对齐 antd fake scrollbar）。
+  //
+  // ★ 与 M2 固定列组合：固定列 grid item 的 position: sticky; left/right 与表头的 position: sticky; top
+  //   在同一元素上叠加（corner cell 双 sticky，浏览器原生支持，与 M4/M8 同款）。
+  if (stickyEnabled) {
+    return (
+      <>
+        {renderGrid()}
+        <StickyScrollBar
+          offsetScroll={stickyOffsetScroll}
+          getContainer={stickyGetContainer}
+          gridRef={gridRef}
+        />
+      </>
     )
   }
 
@@ -858,13 +1355,13 @@ function GridTableInner<RecordType = any>(
   if (virtualEnabled) {
     return (
       <div
-        className="dg-scroll dg-virtual-scroll"
+        className={mergeSectionClass('dg-scroll', 'dg-virtual-scroll')}
         ref={virtualScrollRef}
-        style={{
+        style={mergeSectionStyle({
           height: typeof scrollY === 'number' ? `${scrollY}px` : undefined,
           overflowY: 'auto',
           overflowX: scrollMinWidth ? 'auto' : 'hidden',
-        }}
+        })}
       >
         {renderGrid()}
       </div>
@@ -880,12 +1377,12 @@ function GridTableInner<RecordType = any>(
       typeof scrollY === 'number' ? `${scrollY}px` : (scrollY as string)
     return (
       <div
-        className="dg-scroll dg-fixed-header-scroll"
-        style={{
+        className={mergeSectionClass('dg-scroll', 'dg-fixed-header-scroll')}
+        style={mergeSectionStyle({
           maxHeight,
           overflowY: 'auto',
           overflowX: scrollMinWidth || hasFixed ? 'auto' : 'hidden',
-        }}
+        })}
       >
         {renderGrid()}
       </div>
@@ -902,7 +1399,10 @@ function GridTableInner<RecordType = any>(
   // 与 antd "未指定 scroll.x 时 fixed 列不生效"行为略有差异（antd 在无 scroll.x 时 fixed 列
   // 会被渲染为普通列）。这里选择更宽容的行为：有 fixed 列即允许横向滚动。）
   return (
-    <div className="dg-scroll" style={useScrollWrapper ? undefined : { overflowX: 'auto' }}>
+    <div
+      className={mergeSectionClass('dg-scroll')}
+      style={mergeSectionStyle(useScrollWrapper ? undefined : { overflowX: 'auto' })}
+    >
       {renderGrid()}
     </div>
   )
@@ -923,6 +1423,58 @@ function GridTableInner<RecordType = any>(
  * 即便某行收起（track 0fr），渲染内容容器也无妨（会被 overflow:hidden 裁剪到 0），但为省 DOM，
  * 仅展开的行才渲染（与 antd rc-table 行为一致：展开才 mount 内容）。
  */
+/**
+ * S13 树形缩进 + 展开/收起图标渲染（在第一列数据单元格内，内容前）。
+ *
+ * - 缩进：`paddingLeft = level × indentSize`（对齐 antd BodyRow `paddingLeft: ${indentSize * indent}px`）。
+ * - 展开图标：仅 `hasChildren` 行渲染；无 children 行渲染等宽占位（保持图标列对齐）。
+ *   - 展开：▼（ExpandIcon expanded=true）。
+ *   - 收起：▶（ExpandIcon expanded=false）。
+ *   - 点击：treeState.toggleExpand(key)。
+ *
+ * 返回 inline-flex 容器（缩进 + 图标），与原 rendered 内容横向并列。
+ */
+function renderTreeIndent<RecordType>({
+  record,
+  rowKey,
+  treeState,
+}: {
+  record: RecordType
+  rowKey: string | ((record: RecordType) => string | number)
+  treeState: EngineTreeState
+}): ReactNode {
+  const key = getRowKey(record, rowKey)
+  const info = treeState.rowInfoMap.get(key)
+  // rowInfoMap 中应有该 key（扁平化时已写入）；兜底无信息则不渲染。
+  if (!info) return null
+  const indent = info.level * treeState.indentSize
+  const expanded = treeState.isExpanded(key)
+  return (
+    <span
+      className="dg-tree-indent"
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        // 缩进：level × indentSize px（对齐 antd BodyRow paddingLeft）。
+        paddingLeft: `${indent}px`,
+        flexShrink: 0,
+      }}
+    >
+      {info.hasChildren ? (
+        <ExpandIcon
+          expanded={expanded}
+          onExpand={() => treeState.toggleExpand(key)}
+        />
+      ) : (
+        // 无 children 行：等宽占位（与展开图标同宽，保持列对齐）。
+        <span style={{ display: 'inline-block', width: 16, height: 16, flexShrink: 0 }} aria-hidden="true" />
+      )}
+      {/* 图标与内容之间的间隔（对齐 antd 默认间距）。 */}
+      <span style={{ display: 'inline-block', width: 4, flexShrink: 0 }} aria-hidden="true" />
+    </span>
+  )
+}
+
 function renderExpandedContents<RecordType>({
   dataSource,
   virtualEnabled,
@@ -969,6 +1521,414 @@ function renderExpandedContents<RecordType>({
   return out
 }
 
+/**
+ * S15 单个数据单元格渲染（multi 路径，显式 grid 定位）。
+ *
+ * 封装 dg-cell div（含 gridColumn/gridRow/sticky/hover/align）+ 内部内容渲染（含
+ * components.body.cell + 树形缩进）。multi 路径的每个数据单元格都用此组件渲染，
+ * 便于 renderBodyCells 按行/列遍历时复用。
+ */
+function BodyCell<RecordType>({
+  column,
+  colIdx,
+  record,
+  index,
+  merge,
+  rowSpanTracks,
+  rowLine,
+  info,
+  isHovered,
+  isSortedColumn,
+  treeEnabled,
+  treeState,
+  treeFirstDataColumnIdx,
+  rowKey,
+  components,
+  onHoverEnter,
+  onHoverLeave,
+  semanticBody,
+  // ★ 接口全兼容（决策 3 第二步）：onRow / rowClassName / rowHoverable 透传到单元格。
+  onRow,
+  rowClassName,
+  rowHoverable = true,
+}: {
+  column: EngineLeafColumn<RecordType>
+  colIdx: number
+  record: RecordType
+  index: number
+  merge: CellMergeInfo | undefined
+  rowSpanTracks: number
+  rowLine: number
+  info: LeafStickyInfo | undefined
+  isHovered: boolean
+  isSortedColumn: boolean
+  treeEnabled: boolean
+  treeState: EngineTreeState | undefined
+  treeFirstDataColumnIdx: number
+  rowKey: string | ((record: RecordType) => string | number)
+  components: import('./types').EngineTableProps['components']
+  onHoverEnter: () => void
+  onHoverLeave: () => void
+  /** S29：语义化 body 部位（cell/row/wrapper 的 className 与 style）。 */
+  semanticBody?: import('./types').EngineSemantic['body']
+  /** ★ 接口全兼容（决策 3 第二步）：onRow 行级 props 注入。 */
+  onRow?: (record: any, index: number) => import('react').HTMLAttributes<HTMLElement> | undefined
+  /** ★ 接口全兼容（决策 3 第二步）：rowClassName 行级 class。 */
+  rowClassName?: string | ((record: any, index: number) => string)
+  /** ★ 接口全兼容（决策 3 第二步）：rowHoverable 行 hover 开关，默认 true。 */
+  rowHoverable?: boolean
+}) {
+  const colSpan = merge?.colSpan ?? 1
+  const text = getValueByDataIndex(record, column.dataIndex)
+  const rendered: ReactNode = column.render
+    ? column.render(text, record, index)
+    : text
+  // S20：ellipsis 列默认 title 悬浮提示（对齐 antd 默认行为）。
+  //   - 仅 ellipsis 列加 title（非 ellipsis 列不加，避免多余 tooltip）。
+  //   - 取原始 dataIndex 值文本化（string/number）——对齐 antd 默认 title 来源（cellValue 文本化）。
+  //   - 自定义 render 返回 JSX 时 antd 默认行为不显示 title（用户应自行 Tooltip，属 S21）：
+  //     这里用 text（dataIndex 原值）文本化，render 列仍能显示原值 title（比 antd 略宽松但不破坏
+  //     Name render `<a>{text}</a>` 这种文本包裹的场景——hover Name 仍提示完整 name，符合直觉）。
+  //   - text 非 string/number（如对象/数组）→ 不设 title。
+  //   - 与 S21（ellipsis={ showTitle: false }）兼容：showTitle:false 时**不加** native title，
+  //     让 render 内 antd Tooltip 接管 hover 提示（antd ellipsis-custom-tooltip demo 用法）。
+  const ellipsisTitle =
+    column.ellipsis === true && column.showTitle !== false
+      ? typeof text === 'string'
+        ? text
+        : typeof text === 'number'
+          ? String(text)
+          : undefined
+      : undefined
+  // S15：调用 onCell 取完整返回值（透传给 components.body.cell）。colSpan/rowSpan 已由 cellMerge
+  //   消费；这里取完整返回值透传。无 components.body.cell 时 onCellProps 不被使用（零回归）。
+  //   注：onCell 在此与 cellMerge 内各调用一次（共两次）——antd demo 的 onCell 是纯函数，安全。
+  let onCellProps: Record<string, any> | undefined
+  if (column.onCell && components?.body?.cell) {
+    try {
+      onCellProps = column.onCell(record, index)
+    } catch {
+      onCellProps = undefined
+    }
+  }
+  // ★ 接口全兼容（决策 3 第二步）：onRow 返回值（行级 props 注入）。
+  let onRowProps: import('react').HTMLAttributes<HTMLElement> | undefined
+  if (onRow) {
+    try {
+      onRowProps = onRow(record, index)
+    } catch {
+      onRowProps = undefined
+    }
+  }
+  // ★ rowClassName（行级 class）：string 直接用；函数按行求值。
+  const rowClassNameStr =
+    rowClassName === undefined
+      ? undefined
+      : typeof rowClassName === 'string'
+        ? rowClassName
+        : (() => {
+            try {
+              return rowClassName(record, index)
+            } catch {
+              return undefined
+            }
+          })()
+  // ★ rowHoverable=false 时不加 dg-row-hover（关闭内置 hover 视觉）。
+  const hoverClass =
+    rowHoverable === false ? undefined : isHovered ? 'dg-row-hover' : undefined
+  // 合并 cell 级 + 行级 className（column.className + rowClassName + onRow.className）。
+  const mergedBodyExtraClass = [
+    column.className,
+    rowClassNameStr,
+    onRowProps?.className,
+  ]
+    .filter(Boolean)
+    .join(' ') || undefined
+  const mergedBodyExtraStyle: CSSProperties = {
+    ...(column.style ?? null),
+    ...(onRowProps?.style ?? null),
+  }
+  // 提取 onRow 事件 props（除 className/style）。
+  const bodyEventProps: Record<string, unknown> = {}
+  if (onRowProps) {
+    for (const k of Object.keys(onRowProps)) {
+      if (k === 'className' || k === 'style') continue
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      bodyEventProps[k] = (onRowProps as any)[k]
+    }
+  }
+  return (
+    <div
+      key={`b-${colIdx}-${getRowKey(record, rowKey) ?? index}`}
+      className={[
+        'dg-cell',
+        'dg-cell-body',
+        column.rowScope === 'row' ? 'dg-cell-rowscope' : undefined,
+        fixedClass(column.fixed),
+        shadowClass(info),
+        column.hidden ? 'dg-cell-hidden' : undefined,
+        // S20：ellipsis 列加 dg-cell-ellipsis 类（.dg-cell-inner 应用 ellipsis CSS）。
+        //   S21：showTitle:false 仍加类（CSS 省略号照常），只是不加 native title。
+        column.ellipsis === true ? 'dg-cell-ellipsis' : undefined,
+        isSortedColumn ? 'dg-column-sort' : undefined,
+        // ★ rowHoverable=false 时关闭内置 hover 视觉。
+        hoverClass,
+        // S29：语义化 body.row 部位 className（行级 class 透传到该行所有单元格）。
+        semanticBody?.className?.row,
+        // S29：语义化 body.cell 部位 className（单元格级）。
+        semanticBody?.className?.cell,
+        // ★ 接口全兼容（决策 3 第二步）：column.className + rowClassName + onRow.className。
+        mergedBodyExtraClass,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      data-align={column.align ?? undefined}
+      data-row-index={index}
+      style={{
+        gridColumn:
+          colSpan > 1 ? `${colIdx + 1} / span ${colSpan}` : `${colIdx + 1}`,
+        gridRow:
+          rowSpanTracks > 1
+            ? `${rowLine} / span ${rowSpanTracks}`
+            : `${rowLine}`,
+        ...(column.align ? { textAlign: column.align } : null),
+        ...stickyCellStyle(info),
+        // S29：语义化 body.row 部位 style（行级 style 透传到该行所有单元格）。
+        ...(semanticBody?.style?.row ?? null),
+        // S29：语义化 body.cell 部位 style（单元格级；后于 row 合并，覆盖 row 同名字段）。
+        ...(semanticBody?.style?.cell ?? null),
+        // ★ 接口全兼容（决策 3 第二步）：column.style + onRow.style 合并。
+        ...mergedBodyExtraStyle,
+      }}
+      onMouseEnter={
+        rowHoverable === false
+          ? (bodyEventProps.onMouseEnter as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)
+          : (e: React.MouseEvent<HTMLElement>) => {
+              onHoverEnter()
+              ;(bodyEventProps.onMouseEnter as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)?.(e)
+            }
+      }
+      onMouseLeave={
+        rowHoverable === false
+          ? (bodyEventProps.onMouseLeave as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)
+          : (e: React.MouseEvent<HTMLElement>) => {
+              onHoverLeave()
+              ;(bodyEventProps.onMouseLeave as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)?.(e)
+            }
+      }
+      // ★ 接口全兼容（决策 3 第二步）：其余 onRow 事件 props 透传（onMouseEnter/Leave 已单独合并，跳过）。
+      {...omitKey(omitKey(bodyEventProps, 'onMouseEnter'), 'onMouseLeave')}
+    >
+      <div
+        className="dg-cell-inner"
+        // S20：ellipsis 列默认 title 提示（hover 显示完整文本；非 ellipsis 列无 title）。
+        //   S21：showTitle:false 时 ellipsisTitle 已为 undefined（不加 native title，让 antd Tooltip 接管）。
+        title={ellipsisTitle}
+      >
+        {treeEnabled && treeState && colIdx === treeFirstDataColumnIdx
+          ? renderTreeIndent({ record, rowKey, treeState })
+          : null}
+        {renderCellContent({
+          components,
+          column,
+          record,
+          index,
+          rendered,
+          onCellProps,
+        })}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * S15 数据区单元格批量渲染（multi 路径）。
+ *
+ * - 当 `components.body.row` 提供时：按**行**优先遍历，每行用 body.row 组件包裹该行所有
+ *   BodyCell（body.row 不产生 grid DOM——典型 EditableRow 用 antd Form + Context.Provider，
+ *   Provider 不渲染真实 DOM 节点，BodyCell 仍是 grid 直接子元素，grid 显式定位保证布局正确）。
+ *   透传给 body.row 的 props：`{ index, children, record, rowKey }`（对齐 antd body.row 签名
+ *   `{ index, ...props }`，data-grid 额外提供 record/rowKey 便于行级逻辑）。
+ * - 否则：按**列**优先遍历（历史行为，单元格 DOM 列连续，性能略优）。
+ *
+ * 两种遍历顺序在 grid 显式定位下视觉等价（gridColumn/gridRow 决定位置，与 DOM 顺序无关）。
+ */
+function renderBodyCells<RecordType>({
+  leafColumns,
+  dataSource,
+  virtualEnabled,
+  virtualState,
+  cellMergePlan,
+  expandEnabled,
+  expandState,
+  rowKey,
+  hoveredRowIndex,
+  setHoveredRowIndex,
+  rowLineBase,
+  leafSticky,
+  treeEnabled,
+  treeState,
+  treeFirstDataColumnIdx,
+  components,
+  semanticBody,
+  // ★ 接口全兼容（决策 3 第二步）：onRow / rowClassName / rowHoverable 透传到表体单元格。
+  onRow,
+  rowClassName,
+  rowHoverable = true,
+}: {
+  leafColumns: Array<EngineLeafColumn<RecordType>>
+  dataSource: Array<RecordType>
+  virtualEnabled: boolean
+  virtualState: { start: number; end: number }
+  cellMergePlan: CellMergePlan | null
+  expandEnabled: boolean
+  expandState: EngineExpandState | undefined
+  rowKey: string | ((record: RecordType) => string | number)
+  hoveredRowIndex: number | null
+  setHoveredRowIndex: (index: number | null) => void
+  rowLineBase: (index: number) => number
+  leafSticky: Array<LeafStickyInfo | undefined>
+  treeEnabled: boolean
+  treeState: EngineTreeState | undefined
+  treeFirstDataColumnIdx: number
+  components: import('./types').EngineTableProps['components']
+  /** S29：语义化 body 部位（cell/row/wrapper）。 */
+  semanticBody?: import('./types').EngineSemantic['body']
+  /** ★ 接口全兼容（决策 3 第二步）：onRow 行级 props 注入。 */
+  onRow?: (record: any, index: number) => import('react').HTMLAttributes<HTMLElement> | undefined
+  /** ★ 接口全兼容（决策 3 第二步）：rowClassName 行级 class。 */
+  rowClassName?: string | ((record: any, index: number) => string)
+  /** ★ 接口全兼容（决策 3 第二步）：rowHoverable 行 hover 开关，默认 true。 */
+  rowHoverable?: boolean
+}): Array<ReactNode> {
+  // ★ 接口全兼容（决策 3 第二步）：按行预计算 onRow 返回值 + rowClassName（同行的每个单元格共享）。
+  //   预计算避免在 BodyCell 内重复调用（onRow 是用户函数，重复调用既浪费也可能有副作用）。
+  const lo = virtualEnabled ? virtualState.start : 0
+  const hi = virtualEnabled ? virtualState.end : dataSource.length
+  const BodyRow = components?.body?.row
+  const out: Array<ReactNode> = []
+
+  // 计算某 (colIdx, index) 的合并 span 信息（含 M9 展开 track 偏移）。
+  const computeMerge = (colIdx: number, index: number) => {
+    const merge: CellMergeInfo | undefined = cellMergePlan?.[colIdx]?.[index]
+    if (merge?.hidden) return null // 被覆盖格跳过
+    let rowSpanTracks = merge?.rowSpan ?? 1
+    if (rowSpanTracks > 1 && expandEnabled && expandState) {
+      let extraTracks = 0
+      for (let r = index; r < index + rowSpanTracks && r < dataSource.length; r += 1) {
+        const rec = dataSource[r]
+        if (rec === undefined) continue
+        if (expandState.isExpandable(getRowKey(rec, rowKey))) extraTracks += 1
+      }
+      rowSpanTracks += extraTracks
+    }
+    return { merge, rowSpanTracks }
+  }
+
+  if (BodyRow) {
+    // 行优先遍历：每行用 body.row 包裹。
+    for (let index = lo; index < hi; index += 1) {
+      const record = dataSource[index]
+      if (record === undefined) continue
+      const rowLine = rowLineBase(index)
+      const isHovered = hoveredRowIndex === index
+      const rowCells: Array<ReactNode> = []
+      for (let colIdx = 0; colIdx < leafColumns.length; colIdx += 1) {
+        const column = leafColumns[colIdx]
+        const m = computeMerge(colIdx, index)
+        if (m === null) continue
+        const isSortedColumn =
+          !!column.sorter && column.sortOrder !== null && column.sortOrder !== undefined
+        rowCells.push(
+          <BodyCell<RecordType>
+            key={`b-${colIdx}-${getRowKey(record, rowKey) ?? index}`}
+            column={column}
+            colIdx={colIdx}
+            record={record}
+            index={index}
+            merge={m.merge}
+            rowSpanTracks={m.rowSpanTracks}
+            rowLine={rowLine}
+            info={leafSticky[colIdx]}
+            isHovered={isHovered}
+            isSortedColumn={isSortedColumn}
+            treeEnabled={treeEnabled}
+            treeState={treeState}
+            treeFirstDataColumnIdx={treeFirstDataColumnIdx}
+            rowKey={rowKey}
+            components={components}
+            semanticBody={semanticBody}
+            onHoverEnter={() => setHoveredRowIndex(index)}
+            onHoverLeave={() => setHoveredRowIndex(null)}
+            // ★ 接口全兼容（决策 3 第二步）：onRow / rowClassName / rowHoverable 透传。
+            onRow={onRow}
+            rowClassName={rowClassName}
+            rowHoverable={rowHoverable}
+          />,
+        )
+      }
+      // 用 body.row 组件包裹该行所有单元格。
+      // body.row 组件应返回**不产生 grid DOM**的结构（如 antd Form + Context.Provider，
+      // Provider 不渲染真实 DOM；或直接返回 children）。这样 BodyCell 仍是 grid 直接子元素，
+      // grid 显式定位保证布局正确。
+      // 透传 props：对齐 antd body.row 签名 { index, ...props } + data-grid 扩展 record/rowKey。
+      out.push(
+        <BodyRow
+          key={`row-${getRowKey(record, rowKey) ?? index}`}
+          index={index}
+          record={record}
+          rowKey={getRowKey(record, rowKey)}
+        >
+          {rowCells}
+        </BodyRow>,
+      )
+    }
+    return out
+  }
+
+  // 列优先遍历（历史行为，无 body.row 时）。
+  for (let colIdx = 0; colIdx < leafColumns.length; colIdx += 1) {
+    const column = leafColumns[colIdx]
+    const isSortedColumn =
+      !!column.sorter && column.sortOrder !== null && column.sortOrder !== undefined
+    for (let index = lo; index < hi; index += 1) {
+      const record = dataSource[index]
+      if (record === undefined) continue
+      const m = computeMerge(colIdx, index)
+      if (m === null) continue
+      const isHovered = hoveredRowIndex === index
+      out.push(
+        <BodyCell<RecordType>
+          key={`b-${colIdx}-${getRowKey(record, rowKey) ?? index}`}
+          column={column}
+          colIdx={colIdx}
+          record={record}
+          index={index}
+          merge={m.merge}
+          rowSpanTracks={m.rowSpanTracks}
+          rowLine={rowLineBase(index)}
+          info={leafSticky[colIdx]}
+          isHovered={isHovered}
+          isSortedColumn={isSortedColumn}
+          treeEnabled={treeEnabled}
+          treeState={treeState}
+          treeFirstDataColumnIdx={treeFirstDataColumnIdx}
+          rowKey={rowKey}
+          components={components}
+          semanticBody={semanticBody}
+          onHoverEnter={() => setHoveredRowIndex(index)}
+          onHoverLeave={() => setHoveredRowIndex(null)}
+          // ★ 接口全兼容（决策 3 第二步）：onRow / rowClassName / rowHoverable 透传。
+          onRow={onRow}
+          rowClassName={rowClassName}
+          rowHoverable={rowHoverable}
+        />,
+      )
+    }
+  }
+  return out
+}
+
 /** 多级表头路径的表头格：显式 grid-column / grid-row。
  *
  * 对齐与占位（M1 视觉修复）：
@@ -983,11 +1943,17 @@ function HeaderCell<RecordType>({
   cell,
   sticky,
   headerStickyTop,
+  stickyHeaderOffset,
   resizeEnabled,
   onResizerPointerDown,
   resizingKey,
   onSorterClick,
   onFilterApply,
+  semanticHeader,
+  // ★ 接口全兼容（决策 3 第二步）：onHeaderRow / getPopupContainer / headerColumns。
+  onHeaderRow,
+  getPopupContainer,
+  headerColumns,
 }: {
   cell: EngineHeaderCell<RecordType>
   sticky?: { side: FixedSide; offset: number; isEdge: boolean }
@@ -1003,8 +1969,23 @@ function HeaderCell<RecordType>({
    *
    * 与 M2 横向 sticky 共存（corner cell）：单个元素可同时 sticky left + top（浏览器原生支持；
    * antd rc-table corner cell 同款实现）。zIndex 取纵向（4）> 横向（3）。
+   *
+   * ★ S34：sticky prop 启用时本字段恒为 false（页面级与容器内互斥）；改由 `stickyHeaderOffset`
+   *   驱动表头相对 viewport 固定（top: offsetHeader）。
    */
   headerStickyTop?: boolean
+  /**
+   * S34 表头页面级 sticky 偏移（px）。仅 `sticky` prop 启用时传入（否则 undefined）。
+   *
+   * `undefined`：不启用页面级 sticky（走 M4/M8 容器内或默认无固定）。
+   * `number`（含 0）：表头格 inline style 加 `position: sticky; top: <offset>px; zIndex: 4`，
+   * 相对**页面 viewport** 固定（grid 不包 overflow 容器，无 overflow 祖先拦截 sticky 上下文）。
+   * 页面纵向滚动时表头钉在视口顶部 `<offset>px` 处。
+   *
+   * 与 `headerStickyTop` 互斥（同时启用时 sticky 优先，headerStickyTop 恒 false）。
+   * 与 M2 横向 sticky 共存（corner cell 双 sticky，与 M4/M8 同款）。
+   */
+  stickyHeaderOffset?: number
   /** M7：是否启用列宽拖拽（仅在叶子表头格渲染 resizer）。 */
   resizeEnabled?: boolean
   /** M7：resizer pointerdown 回调（参数为列 key）。 */
@@ -1015,7 +1996,79 @@ function HeaderCell<RecordType>({
   onSorterClick?: (columnKey: string) => void
   /** S3：筛选应用回调（参数：列 key + 新筛选值数组）。仅可筛选叶子表头格触发。 */
   onFilterApply?: (filterKey: string, nextFilteredValue: Array<string | number>) => void
+  /** S29：语义化 header 部位（cell/row/wrapper 的 className 与 style）。 */
+  semanticHeader?: import('./types').EngineSemantic['header']
+  /**
+   * ★ 接口全兼容（决策 3 第二步）：onHeaderRow 行级 props 注入（来自 TableProps.onHeaderRow）。
+   * grid 无独立 `<tr>`，引擎把 onHeaderRow 返回值透传到该表头行**所有表头格**（事件 + class + style）。
+   * 未提供（undefined）时不注入（零回归）。
+   */
+  onHeaderRow?: (
+    columns: Array<unknown>,
+    index: number,
+  ) => import('react').HTMLAttributes<HTMLElement> | undefined
+  /**
+   * ★ 接口全兼容（决策 3 第二步）：getPopupContainer（来自 TableProps.getPopupContainer）。
+   * 作为该表头格内 FilterDropdown 的默认挂载容器（列级 filterDropdownProps.getPopupContainer 优先）。
+   */
+  getPopupContainer?: (triggerNode: HTMLElement) => HTMLElement
+  /**
+   * ★ 接口全兼容（决策 3 第二步）：onHeaderRow(columns, index) 的 columns 参数（顶层列 raw 数组）。
+   * 由 GridTableInner 计算后传入（多级表头简化为顶层列）。
+   */
+  headerColumns?: Array<unknown>
 }) {
+  // ★ 接口全兼容（决策 3 第二步）：onHeaderCell 返回值（表头格 props 注入）。
+  //   仅叶子表头格消费（cell.onHeaderCell 仅叶子格有值；分组格恒 undefined）。返回值整体合并到表头格 div
+  //   的 props（className/style/onClick/...）。与 antd useSorter.tsx:217-219 同款合并逻辑
+  //   （`column.onHeaderCell?.(col) || {}`）。
+  //   try/catch 防御用户函数抛错（与 onCell 同款保护）。
+  let onHeaderCellProps: import('react').HTMLAttributes<HTMLElement> | undefined
+  if (cell.isLeaf && cell.onHeaderCell) {
+    try {
+      const raw = cell.raw as ColumnType | undefined
+      onHeaderCellProps = cell.onHeaderCell(raw as unknown as ColumnType, cell.gridRowStart - 1)
+    } catch {
+      onHeaderCellProps = undefined
+    }
+  }
+  // ★ onHeaderRow 返回值（行级 props 注入）。表头行号 = cell.gridRowStart - 1（0-based）。
+  //   columns 参数用 headerColumns（顶层列 raw）；单层表头 = 全部 columns。
+  let onHeaderRowProps: import('react').HTMLAttributes<HTMLElement> | undefined
+  if (onHeaderRow) {
+    try {
+      onHeaderRowProps = onHeaderRow(headerColumns ?? [], cell.gridRowStart - 1)
+    } catch {
+      onHeaderRowProps = undefined
+    }
+  }
+  // 合并 cell 级 + 行级 className（cell.onHeaderCell.className + cell.className + 行 onHeaderRow.className）。
+  // 顺序：基础 dg 类 → semantic.cell → cell.className（列级）→ onHeaderCell.className（单元格级）
+  //   → onHeaderRow.className（行级，最后合并保证行级最优先）。
+  const mergedHeaderExtraClass = [
+    cell.className,
+    onHeaderCellProps?.className,
+    onHeaderRowProps?.className,
+  ]
+    .filter(Boolean)
+    .join(' ') || undefined
+  // 合并 cell 级 + 行级 style（后者覆盖前者同名字段）。
+  const mergedHeaderExtraStyle: CSSProperties = {
+    ...(cell.style ?? null),
+    ...(onHeaderCellProps?.style ?? null),
+    ...(onHeaderRowProps?.style ?? null),
+  }
+  // 提取事件 props（onHeaderCell + onHeaderRow 合并；行级优先覆盖单元格级同名字段）。
+  //   仅取 on* 开头的事件 handler（排除 className/style 已单独合并；其余 onXxx 透传到 div）。
+  const headerEventProps: Record<string, unknown> = {}
+  for (const src of [onHeaderCellProps, onHeaderRowProps]) {
+    if (!src) continue
+    for (const k of Object.keys(src)) {
+      if (k === 'className' || k === 'style') continue
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      headerEventProps[k] = (src as any)[k]
+    }
+  }
   // 分组表头格默认居中（与 antd 多级表头一致）；叶子表头格保留列对齐。
   // M3：表头横向合并格（headerColSpan>1）也居中（跨多列的表头，与 antd <th colspan> 一致）。
   const headerSpan = cell.headerColSpan ?? 1
@@ -1024,11 +2077,15 @@ function HeaderCell<RecordType>({
       ? 'center'
       : cell.align
     : 'center'
-  // 合并 sticky 样式：M2 横向（左/右）+ 纵向 top:0（M4/M8）。
+  // 合并 sticky 样式：M2 横向（左/右）+ 纵向 top:0（M4/M8）或 top:offsetHeader（S34 页面级）。
   const horizontalSticky = stickyHeaderCellStyle(sticky)
-  const verticalSticky: CSSProperties = headerStickyTop
-    ? { position: 'sticky', top: 0, zIndex: 4 }
-    : {}
+  // S34：stickyHeaderOffset（页面级，相对 viewport）优先于 headerStickyTop（容器内，top:0）。
+  //   两者互斥（sticky 启用时 headerStickyTop 恒 false），这里防御性取优先级。
+  const verticalSticky: CSSProperties = stickyHeaderOffset !== undefined
+    ? { position: 'sticky', top: `${stickyHeaderOffset}px`, zIndex: 4 }
+    : headerStickyTop
+      ? { position: 'sticky', top: 0, zIndex: 4 }
+      : {}
   // 同元素同时有横向 sticky 与纵向 sticky 时，position/left/zIndex 由横向样式给出，
   // 这里再 merge 纵向 top/zIndex（纵向 z-index 优先级更高，覆盖横向 z-index）。
   const mergedSticky: CSSProperties = { ...horizontalSticky, ...verticalSticky }
@@ -1038,11 +2095,30 @@ function HeaderCell<RecordType>({
   const sortOrder = sortable ? (cell.sortOrder ?? null) : null
   // S1：是否为当前激活排序列（order 非 null）→ 加 dg-column-sort 类（表头/表体背景变淡灰）。
   const isSorted = sortable && sortOrder !== null
-  // S3：该表头格是否可筛选（仅叶子表头格；分组格无筛选）。
-  const filterable = cell.isLeaf && cell.filterable === true && !cell.hidden
+  // S3/S5/S12：该表头格是否可筛选（仅叶子表头格；分组格无筛选）。
+  // filterable 标志由列树派生（useFilter.isFilterable）；但防御性兜底：即便 cell.filterable 未置位，
+  // 只要 cell.filterDropdown 存在（S5）/ filters 非空（S3/S12）/ onFilter 存在也视为可筛选
+  // （对齐 antd `useFilter/index.tsx:38`：filters || filterDropdown || onFilter 任一即 filterable）。
+  const filterable =
+    cell.isLeaf &&
+    !cell.hidden &&
+    (cell.filterable === true ||
+      (cell.filterDropdown !== undefined && cell.filterDropdown !== null) ||
+      (!!cell.filters && cell.filters.length > 0))
   // 表头格内部是否需要"右侧操作区"（sorter caret / filter 漏斗）。
   // sortable 或 filterable 任一为 true → 用 dg-column-sorters flex 容器（title + 右侧图标）。
   const hasActions = sortable || filterable
+  // S20：表头 ellipsis（仅叶子表头格；对齐 antd：长 title 省略 + hover 显示完整标题）。
+  //   - cell.ellipsis=true 且无右侧操作区（非 sortable/filterable）→ 单 .dg-cell-inner 容器，
+  //     该容器加 ellipsis 类 + title。
+  //   - 有右侧操作区（sortable/filterable）→ 用 .dg-column-sorters 容器（title 在 .dg-column-title
+  //     子元素里）；ellipsis 作用于 .dg-column-title（CSS 选择器见 table.css）。title 仍文本化加到
+  //     .dg-column-title 上（hover 标题文字提示完整文案）。
+  //   注：分组表头格（cell.isLeaf=false）不消费 ellipsis（columnTree 已置 undefined）。
+  //   S21：showTitle:false 时不加 native title（让 render/外部 Tooltip 接管）——与表体同款门。
+  const headerEllipsis = cell.isLeaf && cell.ellipsis === true
+  const headerTitle =
+    headerEllipsis && cell.showTitle !== false ? toEllipsisTitle(cell.title) : undefined
   return (
     <div
       className={[
@@ -1053,14 +2129,22 @@ function HeaderCell<RecordType>({
         shadowClass(sticky),
         // M6：隐藏叶子列的表头格加 dg-cell-hidden（内容不可见；track 0fr 占位保持线号稳定）。
         cell.hidden ? 'dg-cell-hidden' : undefined,
+        // S20：叶子表头格 ellipsis 加 dg-cell-ellipsis（作用于 .dg-cell-inner / .dg-column-title）。
+        headerEllipsis ? 'dg-cell-ellipsis' : undefined,
         // M4/M8 表头纵向 sticky：补不透明背景（防止表体透过）+ 配合 inline position/top/zIndex。
-        headerStickyTop ? 'dg-cell-header-vsticky' : undefined,
+        // S34：stickyHeaderOffset（页面级）同样需要不透明背景（grid 不包容器，表头悬浮于表体之上）。
+        (headerStickyTop || stickyHeaderOffset !== undefined) ? 'dg-cell-header-vsticky' : undefined,
         // S1：可排序列表头格加 dg-column-has-sorters（cursor:pointer + hover 背景）。
         sortable ? 'dg-column-has-sorters' : undefined,
         // S3：可筛选列表头格加 dg-column-has-filter（hover 背景 + 漏斗区域视觉提示）。
         filterable ? 'dg-column-has-filter' : undefined,
         // S1：当前排序列表头格加 dg-column-sort（淡灰背景，对齐 antd tableHeaderSortBg）。
         isSorted ? 'dg-column-sort' : undefined,
+        // S29：语义化 header.cell 部位 className（合并）。
+        semanticHeader?.className?.cell,
+        // ★ 接口全兼容（决策 3 第二步）：cell.className（列级）+ onHeaderCell.className（格级）
+        //   + onHeaderRow.className（行级）合并（顺序见 mergedHeaderExtraClass 注释）。
+        mergedHeaderExtraClass,
       ]
         .filter(Boolean)
         .join(' ')}
@@ -1072,20 +2156,31 @@ function HeaderCell<RecordType>({
       // S1：showSorterTooltip（非 false）→ hover 提示。简单实现为原生 title（对齐 antd 默认 locale：
       //   ascend → "Click to sort descending"，descend → "Cancel sorting"，null → "Click to sort ascending"）。
       //   完整 Tooltip + target 区分（full-header / sorter-icon）留后续视觉打磨。
+      //   ★ S20 冲突处理：表头格 ellipsis 启用时，title 用于显示完整表头文案（对齐 antd：antd 用
+      //   独立 Tooltip 显示排序提示、title 属性显示单元格内容，两者不冲突；data-grid 用原生 title
+      //   只能取一，ellipsis 时优先 title=完整文案，排序提示让位——与 antd 视觉差异：少一个排序提示
+      //   tooltip，但 ellipsis 的核心"hover 看完整文案"行为保留）。非 ellipsis 排序列保持原排序提示。
       title={
-        sortable && cell.showSorterTooltip !== false
-          ? sortOrder === 'ascend'
-            ? 'Click to sort descending'
-            : sortOrder === 'descend'
-              ? 'Cancel sorting'
-              : 'Click to sort ascending'
-          : undefined
+        headerEllipsis
+          ? headerTitle
+          : sortable && cell.showSorterTooltip !== false
+            ? sortOrder === 'ascend'
+              ? 'Click to sort descending'
+              : sortOrder === 'descend'
+                ? 'Cancel sorting'
+                : 'Click to sort ascending'
+            : undefined
       }
       style={{
         gridColumn: `${cell.gridColumnStart} / ${cell.gridColumnEnd}`,
         gridRow: `${cell.gridRowStart} / ${cell.gridRowEnd}`,
         ...(selfAlign ? { textAlign: selfAlign } : null),
         ...mergedSticky,
+        // S29：语义化 header.cell 部位 style（合并覆盖同名字段）。
+        ...(semanticHeader?.style?.cell ?? null),
+        // ★ 接口全兼容（决策 3 第二步）：cell.style + onHeaderCell.style + onHeaderRow.style 合并
+        //   （后者覆盖前者同名字段；在 semantic 之后，保证用户注入最优先）。
+        ...mergedHeaderExtraStyle,
       }}
       // S1：可排序列表头格点击触发排序循环。
       // 注意：filter trigger（FilterDropdown）内部已 stopPropagation，点击漏斗不会触发排序。
@@ -1105,32 +2200,58 @@ function HeaderCell<RecordType>({
               if (!e.currentTarget.contains(e.target as Node)) return
               e.stopPropagation()
               onSorterClick(cell.key)
+              // ★ 接口全兼容（决策 3 第二步）：合并后的 onClick（onHeaderCell + onHeaderRow）在排序
+              //   之后触发（与 antd 表头 onClick 行为一致：排序 + 用户自定义 click 都执行）。
+              ;(headerEventProps.onClick as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)?.(e)
             }
-          : undefined
+          : (headerEventProps.onClick as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)
       }
+      // ★ 接口全兼容（决策 3 第二步）：其余事件 props（onDoubleClick/onMouseEnter/...）透传到表头格 div。
+      //   onClick 已单独合并到排序逻辑（上方），这里跳过 onClick 避免重复触发。
+      {...omitKey(headerEventProps, 'onClick')}
     >
       {hasActions ? (
         // S1/S3：可排序或可筛选列用 dg-column-sorters 容器（flex space-between：title + 右侧操作区）。
         // 右侧操作区含 sorter caret（S1/S2）+ filter 漏斗（S3），对齐 antd 同时有 sorter+filter 的列表头布局。
+        // S20：ellipsis 作用于 .dg-column-title（CSS `.dg-cell.dg-cell-ellipsis .dg-column-title`）。
         <div className="dg-column-sorters">
-          <div className="dg-column-title">{cell.title ?? null}</div>
+          <div
+            className="dg-column-title"
+            // S20：ellipsis 列 hover 表头文字提示完整标题（非 ellipsis 列无 title）。
+            title={headerTitle}
+          >
+            {cell.title ?? null}
+          </div>
           <div className="dg-column-actions">
             {sortable ? (
               <SortIndicator sortOrder={sortOrder} priority={cell.sortPriority} />
             ) : null}
-            {filterable && cell.filters && onFilterApply ? (
+            {filterable && onFilterApply ? (
               <FilterDropdown
-                filters={cell.filters}
+                filters={cell.filters ?? []}
                 filterMultiple={cell.filterMultiple ?? true}
                 filteredValue={cell.filteredValue ?? null}
                 filterOnClose={cell.filterOnClose ?? true}
                 onApply={(next) => onFilterApply(cell.key, next)}
+                customDropdown={cell.filterDropdown}
+                customIcon={cell.filterIcon}
+                dropdownProps={cell.filterDropdownProps}
+                filterSearch={cell.filterSearch}
+                filterMode={cell.filterMode}
+                // ★ 接口全兼容（决策 3 第二步）：Table 级 getPopupContainer 作为筛选下拉默认挂载容器。
+                getPopupContainer={getPopupContainer}
               />
             ) : null}
           </div>
         </div>
       ) : (
-        <div className="dg-cell-inner">{cell.title ?? null}</div>
+        <div
+          className="dg-cell-inner"
+          // S20：ellipsis 列 hover 表头提示完整标题（非 ellipsis 列无 title）。
+          title={headerTitle}
+        >
+          {cell.title ?? null}
+        </div>
       )}
       {/* M7 列宽拖拽 resizer：仅在叶子表头格 + 非隐藏列 + resizeEnabled 时渲染。
           分组表头格（isLeaf=false）无 resizer；隐藏列（cell.hidden）0fr track 无可调宽度。 */}
@@ -1162,6 +2283,11 @@ interface ColumnCellsProps<RecordType> {
    * flat 路径会启用——无合并/多级 + scroll.y 仍走 flat，表头仍要固定）。
    */
   headerStickyTop?: boolean
+  /**
+   * S34 表头页面级 sticky 偏移（px）。详见 HeaderCell 同名 prop。
+   * sticky prop 启用时表头格相对 viewport 固定（top: offsetHeader）。
+   */
+  stickyHeaderOffset?: number
   /** M7：是否启用列宽拖拽。 */
   resizeEnabled?: boolean
   /** M7：resizer pointerdown 回调（参数为列 key）。 */
@@ -1172,6 +2298,23 @@ interface ColumnCellsProps<RecordType> {
   onSorterClick?: (columnKey: string) => void
   /** S3：筛选应用回调（参数：列 key + 新筛选值数组）。仅可筛选列触发。 */
   onFilterApply?: (filterKey: string, nextFilteredValue: Array<string | number>) => void
+  /** S15：自定义组件（components.body.cell 替换单元格内容；body.row 暂不在此路径消费）。 */
+  components?: import('./types').EngineTableProps['components']
+  /** S29：语义化 header 部位（cell/row/wrapper）。 */
+  semanticHeader?: import('./types').EngineSemantic['header']
+  /** S29：语义化 body 部位（cell/row/wrapper）。 */
+  semanticBody?: import('./types').EngineSemantic['body']
+  /**
+   * ★ 接口全兼容（决策 3 第二步）：onHeaderRow / onRow / rowClassName / getPopupContainer / rowHoverable。
+   * 详见 EngineTableProps 同名字段 + GridTableInner 接入注释。flat 路径与 multi 路径同款接入。
+   */
+  onHeaderRow?: import('./types').EngineTableProps['onHeaderRow']
+  onRow?: import('./types').EngineTableProps['onRow']
+  rowClassName?: import('./types').EngineTableProps['rowClassName']
+  getPopupContainer?: import('./types').EngineTableProps['getPopupContainer']
+  rowHoverable?: boolean
+  /** onHeaderRow(columns, index) 的 columns 参数（顶层列 raw 数组）。 */
+  headerColumns?: Array<unknown>
 }
 
 /** 单层路径（grid-auto-flow:column）的列渲染：表头格 + 每数据行格。
@@ -1193,18 +2336,72 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
     onHoverRow,
     sticky,
     headerStickyTop,
+    stickyHeaderOffset,
     resizeEnabled,
     onResizerPointerDown,
     resizingKey,
     onSorterClick,
     onFilterApply,
+    components,
+    semanticHeader,
+    semanticBody,
+    onHeaderRow,
+    onRow,
+    rowClassName,
+    getPopupContainer,
+    rowHoverable = true,
+    headerColumns,
   } = props
 
-  // 合并 sticky 样式：M2 横向（左/右）+ M8/M4 纵向 top:0（与 HeaderCell 同款合并逻辑）。
+  // ★ 接口全兼容（决策 3 第二步）：onHeaderCell 返回值（flat 路径表头格 props 注入）。
+  //   column.onHeaderCell 来自叶子列；返回值整体合并到表头格 div props。与 multi 路径 HeaderCell 同款。
+  let onHeaderCellProps: import('react').HTMLAttributes<HTMLElement> | undefined
+  if (column.onHeaderCell) {
+    try {
+      onHeaderCellProps = column.onHeaderCell(column.raw as unknown as ColumnType, 0)
+    } catch {
+      onHeaderCellProps = undefined
+    }
+  }
+  // ★ onHeaderRow 返回值（行级 props）。flat 路径单层表头，index 恒 0。
+  let onHeaderRowProps: import('react').HTMLAttributes<HTMLElement> | undefined
+  if (onHeaderRow) {
+    try {
+      onHeaderRowProps = onHeaderRow(headerColumns ?? [], 0)
+    } catch {
+      onHeaderRowProps = undefined
+    }
+  }
+  const mergedHeaderExtraClassFlat = [
+    column.className,
+    onHeaderCellProps?.className,
+    onHeaderRowProps?.className,
+  ]
+    .filter(Boolean)
+    .join(' ') || undefined
+  const mergedHeaderExtraStyleFlat: CSSProperties = {
+    ...(column.style ?? null),
+    ...(onHeaderCellProps?.style ?? null),
+    ...(onHeaderRowProps?.style ?? null),
+  }
+  const headerEventPropsFlat: Record<string, unknown> = {}
+  for (const src of [onHeaderCellProps, onHeaderRowProps]) {
+    if (!src) continue
+    for (const k of Object.keys(src)) {
+      if (k === 'className' || k === 'style') continue
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      headerEventPropsFlat[k] = (src as any)[k]
+    }
+  }
+
+  // 合并 sticky 样式：M2 横向（左/右）+ 纵向（M8/M4 top:0 或 S34 top:offsetHeader）。与 HeaderCell 同款。
   const horizontalSticky = stickyHeaderCellStyle(sticky)
-  const verticalSticky: CSSProperties = headerStickyTop
-    ? { position: 'sticky', top: 0, zIndex: 4 }
-    : {}
+  // S34：stickyHeaderOffset（页面级）优先于 headerStickyTop（容器内 top:0）。
+  const verticalSticky: CSSProperties = stickyHeaderOffset !== undefined
+    ? { position: 'sticky', top: `${stickyHeaderOffset}px`, zIndex: 4 }
+    : headerStickyTop
+      ? { position: 'sticky', top: 0, zIndex: 4 }
+      : {}
   const mergedHeaderSticky: CSSProperties = { ...horizontalSticky, ...verticalSticky }
 
   // S1：该列是否可排序 + 当前排序态（与 HeaderCell 同款逻辑）。
@@ -1213,14 +2410,22 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
     (column.sorter === true || typeof column.sorter === 'function' || (typeof column.sorter === 'object' && column.sorter !== null))
   const sortOrder = sortable ? (column.sortOrder ?? null) : null
   const isSorted = sortable && sortOrder !== null
-  // S3：该列是否可筛选（filters 非空 + onFilter；与 HeaderCell 同款逻辑）。
+  // S3/S5/S12：该列是否可筛选（filters 非空 || filterDropdown 存在 || onFilter 是函数）。
+  // 对齐 antd `useFilter/index.tsx:38`：onFilter 非必需——服务端筛选列有 filters 但无 onFilter 也渲染漏斗。
   const filterable =
     !column.hidden &&
-    !!column.filters &&
-    column.filters.length > 0 &&
-    typeof column.onFilter === 'function'
+    ((column.filterDropdown !== undefined && column.filterDropdown !== null) ||
+      (!!column.filters && column.filters.length > 0) ||
+      typeof column.onFilter === 'function')
   // 表头格内部是否需要"右侧操作区"（sorter / filter）。
   const hasActions = sortable || filterable
+  // S20：表头 ellipsis（对齐 antd：长 title 省略 + hover 显示完整标题）。详见 HeaderCell 同款注释。
+  //   S21：showTitle:false 时不加 native title（让 render/外部 Tooltip 接管）——与表体同款门。
+  const headerEllipsis = column.ellipsis === true
+  const headerTitle =
+    headerEllipsis && column.showTitle !== false
+      ? toEllipsisTitle(column.title)
+      : undefined
 
   return (
     <>
@@ -1232,10 +2437,18 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
             fixedClass(column.fixed),
             shadowClass(sticky),
             column.hidden ? 'dg-cell-hidden' : undefined,
-            headerStickyTop ? 'dg-cell-header-vsticky' : undefined,
+            // M4/M8 表头纵向 sticky（容器内 top:0）或 S34 页面级 sticky（top:offsetHeader）：
+            //   均需不透明背景（防止表体透过）+ 配合 inline position/top/zIndex。
+            (headerStickyTop || stickyHeaderOffset !== undefined) ? 'dg-cell-header-vsticky' : undefined,
             sortable ? 'dg-column-has-sorters' : undefined,
             filterable ? 'dg-column-has-filter' : undefined,
             isSorted ? 'dg-column-sort' : undefined,
+            // S20：叶子表头格 ellipsis 加 dg-cell-ellipsis（作用于 .dg-cell-inner / .dg-column-title）。
+            headerEllipsis ? 'dg-cell-ellipsis' : undefined,
+            // S29：语义化 header.cell 部位 className（合并）。
+            semanticHeader?.className?.cell,
+            // ★ 接口全兼容（决策 3 第二步）：column.className + onHeaderCell.className + onHeaderRow.className。
+            mergedHeaderExtraClassFlat,
           ]
             .filter(Boolean)
             .join(' ')}
@@ -1244,18 +2457,25 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
           data-column-key={column.key}
           data-sorter-order={isSorted ? (sortOrder ?? undefined) : undefined}
           // S1：showSorterTooltip hover 提示（简单 title，详见 HeaderCell 同款注释）。
+          //   ★ S20 冲突处理：ellipsis 启用时 title=完整表头文案（优先），排序提示让位（详见 HeaderCell）。
           title={
-            sortable && column.showSorterTooltip !== false
-              ? sortOrder === 'ascend'
-                ? 'Click to sort descending'
-                : sortOrder === 'descend'
-                  ? 'Cancel sorting'
-                  : 'Click to sort ascending'
-              : undefined
+            headerEllipsis
+              ? headerTitle
+              : sortable && column.showSorterTooltip !== false
+                ? sortOrder === 'ascend'
+                  ? 'Click to sort descending'
+                  : sortOrder === 'descend'
+                    ? 'Cancel sorting'
+                    : 'Click to sort ascending'
+                : undefined
           }
           style={{
             ...(column.align ? { textAlign: column.align } : null),
             ...mergedHeaderSticky,
+            // S29：语义化 header.cell 部位 style（合并覆盖同名字段）。
+            ...(semanticHeader?.style?.cell ?? null),
+            // ★ 接口全兼容（决策 3 第二步）：column.style + onHeaderCell.style + onHeaderRow.style。
+            ...mergedHeaderExtraStyleFlat,
           }}
           onClick={
             sortable && onSorterClick
@@ -1264,30 +2484,53 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
                   if (!e.currentTarget.contains(e.target as Node)) return
                   e.stopPropagation()
                   onSorterClick(column.key)
+                  // ★ 接口全兼容（决策 3 第二步）：合并后的 onClick 在排序之后触发。
+                  ;(headerEventPropsFlat.onClick as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)?.(e)
                 }
-              : undefined
+              : (headerEventPropsFlat.onClick as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)
           }
+          // ★ 接口全兼容（决策 3 第二步）：其余事件 props 透传（onClick 已单独合并，跳过避免重复）。
+          {...omitKey(headerEventPropsFlat, 'onClick')}
         >
           {hasActions ? (
             <div className="dg-column-sorters">
-              <div className="dg-column-title">{column.title ?? null}</div>
+              <div
+                className="dg-column-title"
+                // S20：ellipsis 列 hover 表头文字提示完整标题（非 ellipsis 列无 title）。
+                title={headerTitle}
+              >
+                {column.title ?? null}
+              </div>
               <div className="dg-column-actions">
                 {sortable ? (
                   <SortIndicator sortOrder={sortOrder} priority={column.sortPriority} />
                 ) : null}
-                {filterable && column.filters && onFilterApply ? (
+                {filterable && onFilterApply ? (
                   <FilterDropdown
-                    filters={column.filters}
+                    filters={column.filters ?? []}
                     filterMultiple={column.filterMultiple ?? true}
                     filteredValue={column.filteredValue ?? null}
                     filterOnClose={column.filterOnClose ?? true}
                     onApply={(next) => onFilterApply(column.key, next)}
+                    customDropdown={column.filterDropdown}
+                    customIcon={column.filterIcon}
+                    dropdownProps={column.filterDropdownProps}
+                    filterSearch={column.filterSearch}
+                    filterMode={column.filterMode}
+                    // ★ 接口全兼容（决策 3 第二步）：Table 级 getPopupContainer 作为筛选下拉默认挂载容器。
+                    getPopupContainer={getPopupContainer}
                   />
                 ) : null}
               </div>
             </div>
           ) : (
-            <div className="dg-cell-inner">{column.title ?? null}</div>
+            <div
+              className="dg-cell-inner"
+              // S20：ellipsis 列 hover 表头提示完整标题（非 ellipsis 列无 title）。
+              title={headerTitle}
+            >
+              {column.title ?? null}
+            </div>
           )}
           {/* M7 列宽拖拽 resizer：非隐藏列 + resizeEnabled 时渲染。 */}
           {resizeEnabled && !column.hidden && onResizerPointerDown ? (
@@ -1305,7 +2548,71 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
         const rendered: ReactNode = column.render
           ? column.render(text, record, index)
           : text
+        // S20：ellipsis 列默认 title 提示（详见 BodyCell 同款注释）。取原始 dataIndex 值文本化。
+        //   S21：showTitle:false 时不加 native title（详见 BodyCell 同款注释）。
+        const ellipsisTitle =
+          column.ellipsis === true && column.showTitle !== false
+            ? typeof text === 'string'
+              ? text
+              : typeof text === 'number'
+                ? String(text)
+                : undefined
+            : undefined
+        // S15：调用 onCell 取完整返回值（透传给 components.body.cell）。详见 multi 路径同款注释。
+        let onCellProps: Record<string, any> | undefined
+        if (column.onCell && components?.body?.cell) {
+          try {
+            onCellProps = column.onCell(record, index)
+          } catch {
+            onCellProps = undefined
+          }
+        }
         const isHovered = hoveredRowIndex === index
+        // ★ 接口全兼容（决策 3 第二步）：onRow 返回值（行级 props 注入到该单元格）。
+        let onRowProps: import('react').HTMLAttributes<HTMLElement> | undefined
+        if (onRow) {
+          try {
+            onRowProps = onRow(record, index)
+          } catch {
+            onRowProps = undefined
+          }
+        }
+        // ★ rowClassName（行级 class）：string 直接用；函数按行求值。
+        const rowClassNameStr =
+          rowClassName === undefined
+            ? undefined
+            : typeof rowClassName === 'string'
+              ? rowClassName
+              : (() => {
+                  try {
+                    return rowClassName(record, index)
+                  } catch {
+                    return undefined
+                  }
+                })()
+        // ★ rowHoverable=false 时不加 dg-row-hover（关闭内置 hover 视觉）。
+        const hoverClass = rowHoverable === false ? undefined : isHovered ? 'dg-row-hover' : undefined
+        // 合并 cell 级 + 行级 className（column.className + rowClassName + onRow.className）。
+        const mergedBodyExtraClassFlat = [
+          column.className,
+          rowClassNameStr,
+          onRowProps?.className,
+        ]
+          .filter(Boolean)
+          .join(' ') || undefined
+        const mergedBodyExtraStyleFlat: CSSProperties = {
+          ...(column.style ?? null),
+          ...(onRowProps?.style ?? null),
+        }
+        // 提取 onRow 事件 props（除 className/style）。
+        const bodyEventPropsFlat: Record<string, unknown> = {}
+        if (onRowProps) {
+          for (const k of Object.keys(onRowProps)) {
+            if (k === 'className' || k === 'style') continue
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            bodyEventPropsFlat[k] = (onRowProps as any)[k]
+          }
+        }
         return (
           <div
             key={getRowKey(record, rowKey) ?? index}
@@ -1315,9 +2622,19 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
               fixedClass(column.fixed),
               shadowClass(sticky),
               column.hidden ? 'dg-cell-hidden' : undefined,
+              // S20：ellipsis 列加 dg-cell-ellipsis 类（.dg-cell-inner 应用 ellipsis CSS）。
+              //   S21：showTitle:false 仍加类（CSS 省略号照常），只是不加 native title。
+              column.ellipsis === true ? 'dg-cell-ellipsis' : undefined,
               // S1：当前排序列的表体格加 dg-column-sort（淡灰底，对齐 antd tableBodySortBg）。
               isSorted ? 'dg-column-sort' : undefined,
-              isHovered ? 'dg-row-hover' : undefined,
+              // ★ rowHoverable=false 时关闭内置 hover 视觉。
+              hoverClass,
+              // S29：语义化 body.row 部位 className（行级 class 透传到该行所有单元格）。
+              semanticBody?.className?.row,
+              // S29：语义化 body.cell 部位 className（单元格级）。
+              semanticBody?.className?.cell,
+              // ★ 接口全兼容（决策 3 第二步）：column.className + rowClassName + onRow.className。
+              mergedBodyExtraClassFlat,
             ]
               .filter(Boolean)
               .join(' ')}
@@ -1326,11 +2643,47 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
             style={{
               ...(column.align ? { textAlign: column.align } : null),
               ...stickyCellStyle(sticky),
+              // S29：语义化 body.row 部位 style（行级）。
+              ...(semanticBody?.style?.row ?? null),
+              // S29：语义化 body.cell 部位 style（单元格级；后于 row 合并）。
+              ...(semanticBody?.style?.cell ?? null),
+              // ★ 接口全兼容（决策 3 第二步）：column.style + onRow.style 合并。
+              ...mergedBodyExtraStyleFlat,
             }}
-            onMouseEnter={() => onHoverRow(index)}
-            onMouseLeave={() => onHoverRow(null)}
+            onMouseEnter={
+              rowHoverable === false
+                ? (bodyEventPropsFlat.onMouseEnter as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)
+                : (e: React.MouseEvent<HTMLElement>) => {
+                    onHoverRow(index)
+                    ;(bodyEventPropsFlat.onMouseEnter as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)?.(e)
+                  }
+            }
+            onMouseLeave={
+              rowHoverable === false
+                ? (bodyEventPropsFlat.onMouseLeave as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)
+                : (e: React.MouseEvent<HTMLElement>) => {
+                    onHoverRow(null)
+                    ;(bodyEventPropsFlat.onMouseLeave as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)?.(e)
+                  }
+            }
+            // ★ 接口全兼容（决策 3 第二步）：其余 onRow 事件 props 透传（onMouseEnter/Leave 已单独合并，跳过）。
+            {...omitKey(omitKey(bodyEventPropsFlat, 'onMouseEnter'), 'onMouseLeave')}
           >
-            <div className="dg-cell-inner">{rendered}</div>
+            <div
+              className="dg-cell-inner"
+              // S20：ellipsis 列默认 title 提示（hover 显示完整文本；非 ellipsis 列无 title）。
+              title={ellipsisTitle}
+            >
+              {/* S15：若提供 components.body.cell，单元格内容用它渲染；否则直接渲染 rendered（零回归）。 */}
+              {renderCellContent({
+                components,
+                column,
+                record,
+                index,
+                rendered,
+                onCellProps,
+              })}
+            </div>
           </div>
         )
       })}
@@ -1381,6 +2734,18 @@ function fixedClass(fixed: FixedSide | undefined): string | undefined {
   if (fixed === 'start') return 'dg-cell-fixed-start'
   if (fixed === 'end') return 'dg-cell-fixed-end'
   return undefined
+}
+
+/**
+ * ★ 接口全兼容（决策 3 第二步）：浅拷贝对象并剔除指定 key。
+ *
+ * 用于 HeaderCell / BodyCell 的事件 props 合并——onClick 等已单独处理（与排序/hover 逻辑合并），
+ * 剩余 on* 事件透传到 div 时需剔除已处理的 key，避免重复触发。
+ */
+function omitKey<T extends Record<string, unknown>>(obj: T, key: string): Record<string, unknown> {
+  if (!obj) return {}
+  const { [key]: _omit, ...rest } = obj
+  return rest
 }
 
 /**

@@ -74,6 +74,7 @@ import type {
   SorterResult,
   SortOrder,
   TableCurrentDataSource,
+  TablePaginationState,
 } from '../types'
 import { getValueByDataIndex } from './GridTable'
 
@@ -180,7 +181,7 @@ export interface UseSorterOptions<RecordType> {
    * sorter：单列排序为单对象；多列排序为 `SorterResult[]`。
    */
   onChange?: (
-    pagination: Record<string, unknown>,
+    pagination: TablePaginationState,
     filters: Record<string, Array<string | number> | null>,
     sorter: SorterResult<RecordType> | Array<SorterResult<RecordType>>,
     extra: TableCurrentDataSource<RecordType>,
@@ -541,7 +542,12 @@ export function useSorter<RecordType>(
         // `triggerOnChange` 中 changeEventInfo.sorterStates → getSortData 的处理：onChange 里
         // currentDataSource 始终是按"本次交互后的 states"排序后的结果）。
         const currentDataSource = getSortData(dataSource, nextStates)
-        onChange({}, {}, sorter, { currentDataSource, action: 'sort' })
+        // pagination 占位 `{}`：适配层包装 onChange 时会替换为实际分页状态（S11），
+        // useSorter 内部不持有分页态，故传占位（类型断言绕过——适配层忽略此参数）。
+        onChange({} as TablePaginationState, {}, sorter, {
+          currentDataSource,
+          action: 'sort',
+        })
       }
     },
     [columns, mergedStates, dataSource, onChange],

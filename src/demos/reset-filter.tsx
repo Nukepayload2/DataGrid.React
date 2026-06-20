@@ -39,11 +39,12 @@
  * `sortedInfo.columnKey === 'name'`）。引擎 resolveColumnSortKey/resolveFilterKey 优先取 column.key，
  * 故列必须指定 key（或 dataIndex 作为回退）才能正确匹配外部 state。与 antd reset-filter 要求一致。
  *
- * === ellipsis 简化说明（S20 未实现）===
+ * === ellipsis 说明（S20 已落地）===
  *
- * antd demo 三列均带 `ellipsis: true`（超长文本省略号 + title 悬浮提示）。ellipsis 视觉属 S20
- * （未实现），本 demo 保留 `ellipsis: true` 列定义（不阻塞 S4），但实际不产生省略号效果——
- * 文本会正常换行/溢出。S20 落地后此 demo 无需改动即自动获得 ellipsis 视觉。
+ * antd demo 三列均带 `ellipsis: true`（超长文本省略号 + title 悬浮提示）。S20 已实现：
+ * `ellipsis: true` 列的单元格 + 表头加 `dg-cell-ellipsis` 类（overflow:hidden + white-space:nowrap
+ * + text-overflow:ellipsis），hover 显示 native title 完整内容。本 demo 三列同时是 sortable/filterable，
+ * 表头 ellipsis 作用于 `.dg-column-title`（右侧排序/筛选图标不被省略）。
  *
  * === 验证点（S4）===
  *
@@ -127,7 +128,7 @@ export default function ResetFilterDemo() {
       sorter: (a, b) => a.name.length - b.name.length,
       // 受控 sortOrder：仅当 sortedInfo.columnKey === 'name' 时取 order，否则 null。
       sortOrder: sortedInfo.columnKey === 'name' ? sortedInfo.order : null,
-      // S20 未实现：ellipsis 视觉留待 S20，此处保留列定义不阻塞。
+      // S20：ellipsis 视觉（超长文本省略号 + title 提示）；本 demo 三列均启用。
       ellipsis: true,
     },
     {
@@ -188,7 +189,7 @@ export default function ResetFilterDemo() {
           <code>Clear filters and sorters</code>：全清回到初始态。
         </p>
         <p style={{ margin: 0 }}>
-          - ellipsis 视觉属 S20（未实现），列定义保留但不产生省略号效果——S20 落地后自动生效。
+          - S20 ellipsis：三列均启用（超长文本省略号 + hover title 提示）。
         </p>
       </div>
     </div>

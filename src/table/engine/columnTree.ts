@@ -70,13 +70,22 @@ export function collectLeaves<RecordType>(
         width: node.width,
         align: node.align,
         fixed: node.fixed,
+        // ★ 接口全兼容（决策 3 第二步）：column.className / column.style 透传（叶子列单元格消费）。
+        className: node.className,
+        style: node.style,
         ellipsis: node.ellipsis,
+        // S21：showTitle（native title 门）随 ellipsis 透传。与 ellipsis 同走双路径（collectLeaves +
+        //   flattenHeaderCells）——见双透传坑注释（S6 曾漏 collectLeaves）。showTitle:false 时
+        //   渲染层不加 native title，让 render 内 antd Tooltip 接管。
+        showTitle: node.showTitle,
         // M6：隐藏列透传（渲染层据此把 track 置 0fr，单元格 visibility:hidden）。
         hidden: node.hidden,
         render: node.render,
         onCell: node.onCell,
         colSpan: node.colSpan,
         rowScope: node.rowScope,
+        // ★ 接口全兼容（决策 3 第二步）：onHeaderCell 透传到叶子列（flat 路径 ColumnCells 消费）。
+        onHeaderCell: node.onHeaderCell,
         // S1：排序相关字段透传（sorter/sortOrder/sortDirections/showSorterTooltip）。
         // S2：sortPriority（多列优先级序号）一并透传。
         sorter: node.sorter,
@@ -86,11 +95,23 @@ export function collectLeaves<RecordType>(
         showSorterTooltip: node.showSorterTooltip,
         // S3：筛选相关字段透传（filters/onFilter/filterMultiple/filteredValue/filterOnClose）。
         //   filteredValue 由适配层 useFilter 回填（受控/非受控统一在此）。
+        // S5：自定义面板三字段（filterDropdown/filterIcon/filterDropdownProps）一并透传。
+        //   FilterDropdown 渲染层据此切换内置 Checkbox/Radio 与自定义面板。
+        // S6：filterSearch（项搜索）一并透传——单层表头走 leafColumns 路径，ColumnCells 用
+        //   leafColumn，须在此透传才能让 FilterDropdown 收到 filterSearch 渲染搜索框。
+        // S7：filterMode（树形 vs menu 切换）一并透传——同上路径，FilterDropdown 据此切换面板。
+        //   ★ 双透传坑：collectLeaves（→leafColumn）与 flattenHeaderCells（→headerCell）两路径
+        //     都要加（S6 曾漏在 collectLeaves 导致搜索框不渲染）。
         filters: node.filters,
         onFilter: node.onFilter,
         filterMultiple: node.filterMultiple,
         filteredValue: node.filteredValue,
         filterOnClose: node.filterOnClose,
+        filterDropdown: node.filterDropdown,
+        filterIcon: node.filterIcon,
+        filterDropdownProps: node.filterDropdownProps,
+        filterSearch: node.filterSearch,
+        filterMode: node.filterMode,
         raw: node.raw,
       })
       return
@@ -170,6 +191,14 @@ export function flattenHeaderCells<RecordType>(
       title: node.title,
       align: node.align,
       fixed: node.fixed,
+      // ★ 接口全兼容（决策 3 第二步）：column.className / column.style 透传（叶子 + 分组表头格都消费；
+      //   叶子作用于该列数据格 + 叶子表头格；分组作用于分组表头格）。
+      className: node.className,
+      style: node.style,
+      // S20：ellipsis 透传（仅叶子表头格有值——分组节点 ellipsis 无意义，保持 undefined）。
+      ellipsis: leaf ? node.ellipsis === true : undefined,
+      // S21：showTitle（native title 门）随 ellipsis 透传，仅叶子表头格有值（与 ellipsis 同）。
+      showTitle: leaf ? node.showTitle : undefined,
       gridColumnStart: colStart,
       gridColumnEnd: colEnd,
       gridRowStart,
@@ -187,13 +216,32 @@ export function flattenHeaderCells<RecordType>(
       sortOrder: leaf ? node.sortOrder : undefined,
       sortPriority: leaf ? node.sortPriority : undefined,
       showSorterTooltip: leaf ? node.showSorterTooltip : undefined,
-      // S3：筛选信息透传（仅叶子表头格有值；分组表头格无筛选）。
-      //   filterable = filters 非空 + onFilter 存在（与 antd 一致：两者同时存在才渲染漏斗）。
-      filterable: leaf ? !!(node.filters && node.filters.length > 0 && node.onFilter) : false,
+      // S3/S5/S12：筛选信息透传（仅叶子表头格有值；分组表头格无筛选）。
+      //   filterable 与 useFilter.isFilterable 对齐（放宽为 antd `useFilter/index.tsx:38`）：
+      //   filters 非空 || filterDropdown 存在 || onFilter 是函数——任一即 filterable（渲染漏斗）。
+      //   S5 列无 filters，靠 filterDropdown 渲染放大镜 trigger；S12 服务端筛选列有 filters 但无 onFilter。
+      filterable: leaf
+        ? !!(
+            (node.filterDropdown !== undefined && node.filterDropdown !== null) ||
+            (node.filters && node.filters.length > 0) ||
+            typeof node.onFilter === 'function'
+          )
+        : false,
       filters: leaf ? node.filters : undefined,
       filterMultiple: leaf ? node.filterMultiple : undefined,
       filteredValue: leaf ? node.filteredValue : undefined,
       filterOnClose: leaf ? node.filterOnClose : undefined,
+      // S5 自定义面板三字段透传（FilterDropdown 据此渲染自定义面板 + 自定义图标 + Dropdown props）。
+      filterDropdown: leaf ? node.filterDropdown : undefined,
+      filterIcon: leaf ? node.filterIcon : undefined,
+      filterDropdownProps: leaf ? node.filterDropdownProps : undefined,
+      // S6 筛选项搜索透传（FilterDropdown 据此在内置 menu 面板顶部渲染搜索框 + 过滤 flatItems）。
+      // S7 filterMode 透传（FilterDropdown 据此切换 Tree vs Checkbox/Radio 内置面板）。
+      filterSearch: leaf ? node.filterSearch : undefined,
+      filterMode: leaf ? node.filterMode : undefined,
+      // ★ 接口全兼容（决策 3 第二步）：column.onHeaderCell 透传（仅叶子表头格消费；分组表头格恒
+      //   undefined——antd 同款语义）。渲染层（GridTable HeaderCell）把返回值合并到表头格 div props。
+      onHeaderCell: leaf ? node.onHeaderCell : undefined,
       raw: node.raw,
       node,
     })

@@ -25,42 +25,199 @@
  */
 
 import {
+  Children,
   forwardRef,
+  isValidElement,
   useCallback,
+  useContext,
   useImperativeHandle,
   useMemo,
   useRef,
   useState,
+  type ReactElement,
   type ReactNode,
 } from 'react'
+import { Dropdown, Empty, Pagination, Spin, theme } from 'antd'
+import type { SpinProps as SpinPropsInput } from 'antd'
+// S28：响应式断点检测用 antd Grid.useBreakpoint（决策 6：响应式检测用 antd）。
+// useBreakpoint 返回 ScreenMap（{ xs?, sm?, md?, lg?, xl?, xxl?, xxxl? } 各断点布尔），
+// screens[bp]===true 表示当前视口 >= bp（antd responsiveObserver 语义）。
+import Grid from 'antd/es/grid'
+// S23：消费 antd ConfigProvider 的 renderEmpty（全局空状态自定义）。
+// ConfigContext 从 antd 内部 es 路径导入（antd 主入口不导出 ConfigContext）。
+// renderEmpty 签名：RenderEmptyHandler = (componentName: string) => ReactNode。
+import { ConfigContext } from 'antd/es/config-provider/context'
+import type { RenderEmptyHandler } from 'antd/es/config-provider/defaultRenderEmpty'
 import { GridTable, getRowKey } from './engine/GridTable'
 import { SelectionInput } from './engine/SelectionInput'
 import { ExpandIcon } from './engine/ExpandIcon'
-import { useRowSelection, type UseRowSelectionResult } from './engine/useRowSelection'
+import { Summary as SummaryComponent } from './engine/Summary'
+import {
+  useRowSelection,
+  type UseRowSelectionResult,
+  type SelectionItem,
+  SELECTION_ALL,
+  SELECTION_NONE,
+  SELECTION_INVERT,
+} from './engine/useRowSelection'
 import { useRowExpand } from './engine/useRowExpand'
 import { useSorter } from './engine/useSorter'
 import { resolveColumnSortKey } from './engine/useSorter'
 import { useFilter, resolveFilterKey } from './engine/useFilter'
-import type { EngineColumnNode, EngineExpandState, FixedSide } from './engine/types'
+import { useTreeData } from './engine/useTreeData'
+import {
+  usePagination,
+  slicePage,
+  resolvePlacement,
+} from './engine/usePagination'
+import type { EngineColumnNode, EngineExpandState, EngineSemantic, EngineTreeState, FixedSide } from './engine/types'
 import {
   EXPAND_COLUMN,
   SELECTION_COLUMN,
+  type ColumnGroupProps,
   type ColumnOrSentinel,
+  type ColumnProps,
   type ColumnType,
   type Expandable,
   type RowSelectMethod,
   type SizeType,
+  type TablePaginationConfig,
+  type TablePaginationState,
   type TableProps,
   type TableRef,
   type TableRowSelection,
+  type SelectionRenderCellResult,
+  type TableSemanticClassNames,
+  type TableSemanticStyles,
 } from './types'
 import './style/tokens.css'
 import './style/table.css'
 
+/**
+ * S30 component-token 主题定制：Table component token → CSS variables 映射表。
+ *
+ * ★ 背景（决策 4 token 实测）：antd v6 cssinjs 把 component token 输出到 `:where(.ant-table)`
+ *   选择器（通过 `genStyleHooks` 的 cssVar 模式）。data-grid 的根容器是 `.dg-wrapper`
+ *   （非 `.ant-table`），**antd 不会自动把 Table component token 注入到 .dg-wrapper**，
+ *   tokens.css 里的 fallback 也不会被覆盖。因此需要 data-grid Table **主动**用
+ *   `theme.useToken()` 读取 ConfigProvider 当前主题里的 `token.Table`（getComputedToken 会把
+ *   `components.Table` 的覆盖合并进 token.Table），映射为 inline CSS variables 注入到
+ *   `.dg-wrapper` 的 style，从而覆盖 tokens.css 的 fallback。
+ *
+ * ★ 字段对照（逐字段对齐 antd 6.4.4 `components/table/style/index.ts` 的 `ComponentToken`
+ *   定义 + tokens.css 已定义的 `--ant-*` 变量名）：
+ *   token 字段 → CSS variable（kebab-case；末尾连续大写串整体转小写，如 `MD` → `-md`，不拆 `m-d`）。
+ *
+ * ★ 值格式：
+ *   - string（颜色）：原样注入（如 `headerBg: '#1677ff'` → `--ant-header-bg: #1677ff`）。
+ *   - number（padding / radius / font-size / width）：注入为**裸数字**（不带 px），与 tokens.css
+ *     fallback 的格式一致——消费者（tokens.css）用 `calc(var(...) * 1px)` 换算成像素。
+ *     这样数字 token 与 fallback 在格式上等价，回归不破（默认主题下视觉不变）。
+ *   - string（width，如 selectionColumnWidth 可能是 '40px'）：原样注入（calc/fallback 兼容）。
+ *
+ * ★ 仅注入 `value !== undefined` 的字段（保留 fallback）。useToken 返回的 token.Table 在
+ *   默认主题下已包含所有 component token（prepareComponentToken 派生的默认值），注入后与
+ *   tokens.css fallback 视觉等价（零回归）；当 ConfigProvider theme.components.Table 覆盖时，
+ *   覆盖值生效（视觉随 token 变化）。
+ */
+const TABLE_COMPONENT_TOKEN_TO_CSS_VAR: Record<string, string> = {
+  headerBg: '--ant-header-bg',
+  headerColor: '--ant-header-color',
+  headerSortActiveBg: '--ant-header-sort-active-bg',
+  headerSortHoverBg: '--ant-header-sort-hover-bg',
+  bodySortBg: '--ant-body-sort-bg',
+  rowHoverBg: '--ant-row-hover-bg',
+  rowSelectedBg: '--ant-row-selected-bg',
+  rowSelectedHoverBg: '--ant-row-selected-hover-bg',
+  rowExpandedBg: '--ant-row-expanded-bg',
+  cellPaddingBlock: '--ant-cell-padding-block',
+  cellPaddingInline: '--ant-cell-padding-inline',
+  cellPaddingBlockMD: '--ant-cell-padding-block-md',
+  cellPaddingInlineMD: '--ant-cell-padding-inline-md',
+  cellPaddingBlockSM: '--ant-cell-padding-block-sm',
+  cellPaddingInlineSM: '--ant-cell-padding-inline-sm',
+  borderColor: '--ant-border-color',
+  headerBorderRadius: '--ant-header-border-radius',
+  footerBg: '--ant-footer-bg',
+  footerColor: '--ant-footer-color',
+  cellFontSize: '--ant-cell-font-size',
+  cellFontSizeMD: '--ant-cell-font-size-md',
+  cellFontSizeSM: '--ant-cell-font-size-sm',
+  headerSplitColor: '--ant-header-split-color',
+  fixedHeaderSortActiveBg: '--ant-fixed-header-sort-active-bg',
+  headerFilterHoverBg: '--ant-header-filter-hover-bg',
+  filterDropdownMenuBg: '--ant-filter-dropdown-menu-bg',
+  filterDropdownBg: '--ant-filter-dropdown-bg',
+  expandIconBg: '--ant-expand-icon-bg',
+  selectionColumnWidth: '--ant-selection-column-width',
+  stickyScrollBarBg: '--ant-sticky-scroll-bar-bg',
+  stickyScrollBarBorderRadius: '--ant-sticky-scroll-bar-border-radius',
+  // colorBgContainer 是 antd AliasToken（非 Table component token），但 antd 允许在
+  // `components.Table` 下覆盖（getComputedToken 把它合并进 token.Table）。data-grid 表体底色
+  // 消费 --ant-color-bg-container（tokens.css fallback #ffffff）。antd component-token demo
+  // 用 `colorBgContainer: '#e6f4ff'` 覆盖表体底色，此处一并映射以支持。
+  colorBgContainer: '--ant-color-bg-container',
+}
+
+/**
+ * 把 antd Table component token（`token.Table`）映射为 `.dg-wrapper` inline CSS variables。
+ *
+ * - 跳过 undefined（保留 tokens.css fallback）。
+ * - 颜色（string）原样注入；数值（number）原样注入为裸数字（消费者 `calc(*1px)`）。
+ *
+ * 返回 `React.CSSProperties`（key 为 CSS variable 名，如 `'--ant-header-bg'`）。
+ * React 19 支持 CSS 自定义属性作为 style key（string 值），TS 类型用 `as` 断言绕过
+ * CSSProperties 对 `--*` 的严格校验。
+ */
+function buildTableTokenCssVars(
+  tableToken: Record<string, unknown> | undefined,
+): React.CSSProperties {
+  const vars: Record<string, string | number> = {}
+  if (!tableToken) return vars as React.CSSProperties
+  for (const [tokenKey, cssVar] of Object.entries(TABLE_COMPONENT_TOKEN_TO_CSS_VAR)) {
+    const value = (tableToken as Record<string, unknown>)[tokenKey]
+    if (value === undefined || value === null) continue
+    // 颜色 string / 数字 / string(width) 都直接写入（消费者按 tokens.css 约定换算）。
+    if (typeof value === 'string' || typeof value === 'number') {
+      vars[cssVar] = value
+    }
+  }
+  return vars as React.CSSProperties
+}
+
 function normalizeFixed(fixed: ColumnType['fixed']): FixedSide | undefined {
+  // S22：antd v6 `fixed: true` 等价 `'left'`（固定到左侧）；data-grid 归一化为 'start'。
+  if (fixed === true) return 'start'
   if (fixed === 'left' || fixed === 'start') return 'start'
   if (fixed === 'right' || fixed === 'end') return 'end'
   return undefined
+}
+
+/**
+ * 把外部 `column.ellipsis`（antd v6 联合类型 `boolean | { showTitle?: boolean }`）normalize 为
+ * 引擎层双字段 `{ ellipsis, showTitle }`（S20 + S21）。
+ *
+ * - `true` → ellipsis=true, showTitle=undefined（=默认显示 title，渲染层 `showTitle !== false` 命中）。
+ * - `false` / undefined → ellipsis=undefined/false，showTitle=undefined（非 ellipsis 列，无 title）。
+ * - `{ showTitle: false }` → ellipsis=true, showTitle=false（加 ellipsis 类 + **不加** native title，
+ *   让 render 内 antd Tooltip 接管；antd ellipsis-custom-tooltip demo 用法）。
+ * - `{ showTitle: true }` / `{}` → ellipsis=true, showTitle=undefined（=true，加类 + 加默认 title）。
+ *
+ * 返回 `showTitle` 仅在显式 false 时落 `false`，其余落 `undefined`（让渲染层 `!== false` 判定更简洁，
+ * 避免 `showTitle: true` 与 `undefined` 在语义上分叉——两者都表示"显示默认 title"）。
+ */
+function normalizeEllipsis(ellipsis: ColumnType['ellipsis']): {
+  ellipsis: boolean | undefined
+  showTitle: boolean | undefined
+} {
+  if (ellipsis === true) return { ellipsis: true, showTitle: undefined }
+  if (ellipsis && typeof ellipsis === 'object') {
+    return {
+      ellipsis: true,
+      showTitle: ellipsis.showTitle === false ? false : undefined,
+    }
+  }
+  return { ellipsis: undefined, showTitle: undefined }
 }
 
 /**
@@ -130,6 +287,8 @@ function toEngineColumns<RecordType>(
     cols.map((col) => {
       const path = columnKey(col, parentPath, counter)
       const hasChildren = !!col.children && col.children.length > 0
+      // S21：normalize ellipsis（boolean | { showTitle }) → { ellipsis, showTitle } 双字段。
+      const ellipsisNorm = normalizeEllipsis(col.ellipsis)
       const node: EngineColumnNode<RecordType> = {
         // ★ M9 key 去重：所有节点（叶子 + 分组）统一用完整 path 作为 key。
         //   历史上叶子节点用 `path.split(sep).pop()`（取末段），但这会让不同父分组下同名叶子
@@ -141,7 +300,12 @@ function toEngineColumns<RecordType>(
         title: col.title,
         align: col.align,
         fixed: normalizeFixed(col.fixed),
-        ellipsis: col.ellipsis,
+        // ★ 接口全兼容（决策 3 第二步）：column.className / column.style 透传（叶子 + 分组都带；
+        //   分组节点的 className/style 仅作用于分组表头格，叶子节点的作用于数据格 + 叶子表头格）。
+        className: col.className,
+        style: col.style,
+        ellipsis: ellipsisNorm.ellipsis,
+        showTitle: ellipsisNorm.showTitle,
         raw: col,
       }
       if (hasChildren) {
@@ -155,6 +319,10 @@ function toEngineColumns<RecordType>(
         node.onCell = col.onCell
         node.colSpan = col.colSpan
         node.rowScope = col.rowScope
+        // ★ 接口全兼容（决策 3 第二步）：column.onHeaderCell 透传（仅叶子列消费；分组表头格无
+        //   onHeaderCell——antd 同款语义：分组列的 onHeaderCell 无意义）。引擎渲染层把返回值
+        //   合并到表头格 div props（className/style/onClick/...）。
+        node.onHeaderCell = col.onHeaderCell
         // M6：隐藏列透传（仅叶子列消费；分组列的 hidden 无意义）。
         node.hidden = col.hidden
         // S1：排序相关透传（仅叶子列消费；分组列无 sorter）。
@@ -171,10 +339,170 @@ function toEngineColumns<RecordType>(
         node.onFilter = col.onFilter as unknown as ((value: string | number, record: RecordType) => boolean) | undefined
         node.filterMultiple = col.filterMultiple
         node.filterOnClose = col.filterOnClose
+        // S5：自定义筛选面板相关字段透传（filterDropdown/filterIcon/filterDropdownProps）。
+        //   filterDropdown 存在时渲染层（FilterDropdown）切换为自定义面板；filterIcon 覆盖漏斗图标；
+        //   filterDropdownProps 透传到 antd Dropdown（open 受控 / onOpenChange / triggerClassName 等）。
+        node.filterDropdown = col.filterDropdown as unknown as EngineColumnNode<RecordType>['filterDropdown']
+        node.filterIcon = col.filterIcon as unknown as EngineColumnNode<RecordType>['filterIcon']
+        node.filterDropdownProps = col.filterDropdownProps
+        // S6：筛选项搜索透传（true → 默认 contains；函数 → 自定义匹配）。
+        node.filterSearch = col.filterSearch as unknown as EngineColumnNode<RecordType>['filterSearch']
+        // S7：筛选下拉展示模式透传（'tree' → 树形；'menu'/undefined → Checkbox/Radio）。
+        node.filterMode = col.filterMode
+        // S15：单元格重渲染优化透传（仅叶子列消费；components.body.cell 提供时生效）。
+        node.shouldCellUpdate = col.shouldCellUpdate as EngineColumnNode<RecordType>['shouldCellUpdate']
       }
       return node
     })
   return build(columns, '')
+}
+
+/**
+ * S31 JSX 风格 API：`<Table.Column>` 单列声明组件（对齐 antd v6 `Table.Column`）。
+ *
+ * **不渲染 DOM**（渲染 null）——它是 `columns` prop 的语法糖，仅作 `<Table>` JSX 子元素
+ * 声明一列的数据载体。Table 适配层（`convertChildrenToColumns`）遍历 JSX 子元素时取出其 props
+ * 转换为 ColumnType。
+ *
+ * props = ColumnType 全部字段（title/dataIndex/key/render/width/align/fixed/...）；
+ * `children` 禁止（Column 是叶子列，多级表头用 ColumnGroup）。
+ *
+ * 与 antd 一致："This is a syntactic sugar for `columns` prop. So HOC will not work on this."
+ * （不通过 HOC 增强，纯数据载体）。
+ *
+ * 用类型断言 `as unknown as (props: ColumnProps<RecordType>) => null` 绕过 TS 对泛型箭头函数
+ * 的限制（与 antd `<RecordType extends AnyObject>(_: ColumnProps<RecordType>) => null` 同款）。
+ */
+function TableColumn<RecordType = any>(_: ColumnProps<RecordType>): null {
+  return null
+}
+// 显式声明为函数组件（displayName 便于 devtools 识别 + 运行时挂 type 标记供解析识别）。
+const Column: <RecordType = any>(props: ColumnProps<RecordType>) => null =
+  TableColumn as <RecordType = any>(props: ColumnProps<RecordType>) => null
+;(Column as unknown as { displayName: string }).displayName = 'Table.Column'
+
+/**
+ * S31 JSX 风格 API：`<Table.ColumnGroup>` 分组列声明组件（对齐 antd v6 `Table.ColumnGroup`）。
+ *
+ * **不渲染 DOM**（渲染 null）。声明一个多级表头分组列（M1 `columns[].children` 的 JSX 等价物）。
+ * props：`title`（分组列表头）+ `children`（Column / ColumnGroup 的 ReactElement 数组，任意深度嵌套）。
+ * Table 适配层把它转换为 `{ title, ...rest, children: [...] }`（复用 M1 多级表头渲染）。
+ */
+function TableColumnGroup<RecordType = any>(_: ColumnGroupProps<RecordType>): null {
+  return null
+}
+const ColumnGroup: <RecordType = any>(props: ColumnGroupProps<RecordType>) => null =
+  TableColumnGroup as <RecordType = any>(props: ColumnGroupProps<RecordType>) => null
+;(ColumnGroup as unknown as { displayName: string }).displayName = 'Table.ColumnGroup'
+
+/**
+ * 运行时类型标记——用于 `convertChildrenToColumns` 识别 JSX 子元素是 Column 还是 ColumnGroup。
+ *
+ * antd 依赖 React `type` 引用相等（node.type === Column）区分；data-grid 同款实现（Column 与
+ * ColumnGroup 是模块内唯一函数引用，children 解析时用 `===` 比对）。同时挂 `__isDgColumn`/
+ * `__isDgColumnGroup` 布尔标记作为防御性识别（避免混淆/打包重命名导致引用失配）。
+ */
+;(Column as unknown as { __isDgColumn: boolean }).__isDgColumn = true
+;(ColumnGroup as unknown as { __isDgColumnGroup: boolean }).__isDgColumnGroup = true
+
+/**
+ * S31 JSX children → columns 转换（对齐 antd rc-table `convertChildrenToColumns`）。
+ *
+ * 用 React.Children 遍历 `<Table>` 的 JSX 子元素，识别 `<Table.Column>`（→ ColumnType）与
+ * `<Table.ColumnGroup>`（→ `{ title, ...rest, children: 递归转换 }`，复用 M1 多级表头），生成
+ * `ColumnType[]`（等价于传 `columns` prop 的产物，下游 columnTree 构建透明消费）。
+ *
+ * **识别机制**：
+ *   - 跳过非 ReactElement 子节点（文本/null/boolean 等，与 antd `toArray().filter(isValidElement)` 一致）。
+ *   - Column（叶子列）：取 props（除 children）+ React key（key !== undefined 时写入 ColumnType.key
+ *     作为稳定 key，对齐 antd `convertChildrenToColumns` 把 node.key 并入 column）。
+ *   - ColumnGroup（分组列）：同上取 props，并把其 JSX children **递归**转换（任意深度），写入
+ *     ColumnType.children（复用 M1 渲染）。
+ *   - 既非 Column 也非 ColumnGroup 的元素：按 antd 行为兼容处理（当普通列对象取 props）——
+ *     data-grid 仅官方支持 Column/ColumnGroup，此处保守地透传 props（与 antd rc-table 通用
+ *     `convertChildrenToColumns` 不区分 type 的行为一致）。
+ *
+ * **React key 并入**：与 antd 一致，把元素的 React key（`node.key`）作为 column.key 回填
+ * （仅当 props 未显式传 key 且 node.key 存在时），保证列有稳定 key（多级表头/排序/筛选/拖拽依赖）。
+ *
+ * 与 antd rc-table `convertChildrenToColumns`（`react-component/table/src/hooks/useColumns/index.tsx:18-37`）
+ * 逐行对齐。
+ */
+function convertChildrenToColumns<RecordType>(
+  children: ReactNode,
+): Array<ColumnType<RecordType>> {
+  const nodes = Children.toArray(children).filter((node): node is ReactElement => isValidElement(node))
+  return nodes.map((node) => {
+    const element = node as ReactElement<Record<string, any>>
+    const reactKey = element.key
+    // 解构出 children（ColumnGroup 递归用），其余 props 作为列字段。
+    const { children: nodeChildren, ...restProps } = element.props ?? {}
+    const column: ColumnType<RecordType> = { ...restProps } as ColumnType<RecordType>
+    // React key 并入（与 antd 一致：node.key 作为 column.key 回填）。
+    if (column.key === undefined && reactKey !== null && reactKey !== undefined) {
+      column.key = reactKey
+    }
+    // ColumnGroup：递归转换 JSX children → ColumnType.children（复用 M1 多级表头）。
+    // 普通元素（非 Column/ColumnGroup）若有 children 也按 antd 通用路径递归（保守兼容）。
+    if (nodeChildren !== undefined && nodeChildren !== null) {
+      column.children = convertChildrenToColumns<RecordType>(nodeChildren)
+    }
+    return column
+  })
+}
+
+/**
+ * S32 列默认值合并：把 Table 级 `column` prop（列默认属性）浅合并到每个列。
+ *
+ * **对齐 antd** `useFilledColumns`（`components/table/hooks/useFilledColumns.ts`）+
+ * `@rc-component/util` 的 `mergeProps` 语义（后者覆盖前者，但 `undefined` 不覆盖已定义值）。
+ *
+ * 合并规则（**列自身优先**）：
+ *   - 对每个普通列，浅合并 `{ ...stripUndefined(columnDefault), ...stripUndefined(col) }`，
+ *     其中 `stripUndefined` 剔除值为 `undefined` 的字段（保证列自身未设置的字段回退到默认、
+ *     默认未设置的字段不污染列）。这等价于 antd `mergeProps(default, col)`：col 已定义字段覆盖
+ *     default，col 未定义（undefined）字段保留 default。
+ *   - **哨兵豁免**：`Table.EXPAND_COLUMN` / `Table.SELECTION_COLUMN` 哨兵对象**原样返回**（保持引用不变），
+ *     因为适配层后续用 `===` 识别哨兵，合并会破坏引用相等（对齐 antd `useFilledColumns` 哨兵分支）。
+ *   - **多级表头递归**：含 `children` 的分组列，对**该列自身**先做合并（剔除 `column.children`，
+ *     避免错误注入分组结构——对齐 antd：`omit(column, ['children'])`），再**递归**合并其 children
+ *     每一层（`column` 默认逐层下传）。
+ *
+ * **零回归**：`columnDefault` 为 undefined 时直接返回原 `columns` 引用（不遍历、不新建数组），
+ *   保证无 column prop 的所有现有 demo 列引用不变（下游 useMemo 不重算）。
+ */
+function applyColumnDefaults<RecordType>(
+  columns: Array<ColumnOrSentinel<RecordType>>,
+  columnDefault: Partial<ColumnType<RecordType>> | undefined,
+): Array<ColumnOrSentinel<RecordType>> {
+  if (!columnDefault) return columns
+  // 预剔除 column 默认里的 undefined 字段 + children（避免污染分组结构）。
+  const base: Partial<ColumnType<RecordType>> = {}
+  for (const k of Object.keys(columnDefault) as Array<keyof ColumnType<RecordType>>) {
+    if (k === 'children') continue
+    const v = columnDefault[k]
+    if (v !== undefined) (base as Record<string, unknown>)[k as string] = v
+  }
+
+  const merge = (col: ColumnType<RecordType>): ColumnType<RecordType> => {
+    // col 自身已定义字段覆盖 base（undefined 字段不覆盖）。
+    const merged: Record<string, unknown> = { ...base }
+    for (const k of Object.keys(col) as Array<keyof ColumnType<RecordType>>) {
+      const v = col[k]
+      if (v !== undefined) merged[k as string] = v
+    }
+    const result = merged as unknown as ColumnType<RecordType>
+    // 多级表头：递归合并 children（column 默认逐层下传）。
+    if (Array.isArray(col.children) && col.children.length > 0) {
+      result.children = col.children.map((child) => merge(child))
+    }
+    return result
+  }
+
+  return columns.map((c) => {
+    if (c === SELECTION_COLUMN || c === EXPAND_COLUMN) return c
+    return merge(c as ColumnType<RecordType>)
+  })
 }
 
 function sizeToClass(size: SizeType | undefined): string | undefined {
@@ -182,8 +510,20 @@ function sizeToClass(size: SizeType | undefined): string | undefined {
     case 'small':
       return 'dg-size-small'
     case 'middle':
+    // antd v6 'medium' 视觉等价 v5 'middle'（InternalTable.tsx:294 把 'middle' 映射为 'medium'）；
+    // 共用 dg-size-middle 类（cell padding block 12 / inline 8）。
+    case 'medium':
       return 'dg-size-middle'
+    case 'compact':
+      // ★ S27 决策 4 实测：antd v6 Table 组件本身**不存在 compact size**
+      //   （SizeType = 'small'|'medium'|'middle'|'large'，config-provider/SizeContext.tsx:6；
+      //    Table style 只输出 large/MD/SM 三档 token，table/style/index.ts:516-528）。
+      //   compact 是 Button/Space/Input 等其它组件的尺寸概念。data-grid 的 SizeType 保留 'compact'
+      //   （用于 <ConfigProvider componentSize> 全局消费的兜底），Table 层视觉等价 'small'
+      //   （与 antd 6.4.4 实测最紧凑 Table 尺寸一致）。不造 antd 不存在的 token（决策 4，避免臆测）。
+      return 'dg-size-small'
     case 'large':
+      // 显式 'large'：dg-size-large 类无样式覆写（等价默认无 size 类，padding 16/16）。
       return 'dg-size-large'
     default:
       return undefined
@@ -238,12 +578,34 @@ function applySortOrderToNode<RecordType>(
 }
 
 /**
+ * 判定 `EngineColumnNode` 是否可筛选——与 `useFilter.isFilterable` 字面一致
+ * （antd `useFilter/index.tsx:38`：filters 非空 || filterDropdown 存在 || onFilter 存在）。
+ *
+ * ★ S12：激活态回填门（hasAnyFilter + applyFilterToNode 跳过条件）需与 filterable 判定单一真理源对齐。
+ *   `EngineColumnNode` 无 `filterable` 字段（仅 `EngineHeaderCell` 在 columnTree.ts:206 计算），
+ *   故此处用内联条件复刻 isFilterable，避免引入跨类型字段或破坏列树结构。
+ *
+ * - S3（filters + onFilter 列）：true（filters 非空）。
+ * - S5（filterDropdown 列，无 filters）：true（filterDropdown 存在）。
+ * - S12（纯 filters 无 onFilter 列，如 ajax Gender）：true（filters 非空）——本修复核心。
+ * - 仅 onFilter（filters 空、filterDropdown 空）：true（兜底）。
+ * - 三者皆无：false。
+ */
+function isNodeFilterable<RecordType>(
+  node: EngineColumnNode<RecordType>,
+): boolean {
+  if (node.filterDropdown !== undefined && node.filterDropdown !== null) return true
+  if (!!node.filters && node.filters.length > 0) return true
+  return typeof node.onFilter === 'function'
+}
+
+/**
  * 把 useFilter 派生的 filteredValueMap 回填到列树节点（S3）。
  *
  * 规则：
  *   - 叶子节点（无 children）：从其 raw（原始 antd column）算出 filterKey（与 sortKey 同算法：
  *     column.key ?? dataIndex），查 filteredValueMap；命中 → 设 filteredValue；
- *     未命中但该列可筛选（node.filters 非空 + node.onFilter）→ 设 null（确保漏斗为 Outlined 灰态）；
+ *     未命中但该列可筛选（isNodeFilterable）→ 设 null（确保漏斗为 Outlined 灰态）；
  *     不可筛选列保持 undefined。
  *   - 分组节点：递归处理 children。
  *
@@ -259,8 +621,12 @@ function applyFilterToNode<RecordType>(
     )
     return { ...node, children: newChildren }
   }
-  // 不可筛选列（无 filters/onFilter）：filteredValue 保持 undefined。
-  if (!node.filters || !node.onFilter) return node
+  // 不可筛选列：filteredValue 保持 undefined。
+  // ★ S12：跳过条件与 useFilter.isFilterable 字面一致（filters 非空 || filterDropdown 存在 || onFilter 存在）。
+  //   修复：此前 (!filters || !onFilter) && !filterDropdown 漏掉「纯 filters 无 onFilter」列
+  //   （ajax demo Gender），导致该类列 filteredValue 不回填、漏斗无激活态。
+  //   S5（filterDropdown 列）/ S3（filters+onFilter 列）行为不变——仍判定为可筛选。
+  if (!isNodeFilterable(node)) return node
   const raw = node.raw as ColumnType<RecordType> | undefined
   const filterKey = raw ? resolveFilterKey(raw) : undefined
   const key = filterKey !== undefined ? String(filterKey) : undefined
@@ -273,6 +639,56 @@ const SELECTION_COLUMN_KEY = '__dg_selection__'
 
 /** 展开列稳定 key（用作引擎列 key 与 React key；M9）。 */
 const EXPAND_COLUMN_KEY = '__dg_expand__'
+
+/**
+ * S9 表头 selections 下拉（决策 6：用 antd `<Dropdown>` + `<Menu>`）。
+ *
+ * - 触发器：自绘 caret-down SVG（与既有自绘图标约定一致，避免直接 import @ant-design/icons）。
+ *   视觉对齐 antd `DownOutlined`（antd 选择列表头的下拉箭头）。
+ * - 菜单项：列 selections 的 `text`；点击 → `onSelect(item)`（由 `buildSelectionColumnNode`
+ *   转发到 `selection.applySelection`）。
+ * - `onSelect` 签名 void（对齐 antd `SelectionItemSelectFn`）。
+ */
+function SelectionsDropdown({
+  selections,
+  onSelect,
+}: {
+  selections: Array<SelectionItem>
+  onSelect: (item: SelectionItem) => void
+}) {
+  const menuItems = selections.map((item, index) => ({
+    key: item.key ?? index,
+    label: item.text ?? item.key,
+    onClick: () => onSelect(item),
+  }))
+  return (
+    <Dropdown menu={{ items: menuItems }} trigger={['click']}>
+      <span
+        className="dg-selection-dropdown-trigger"
+        role="button"
+        aria-label="selections"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          cursor: 'pointer',
+          color: 'rgba(0,0,0,0.45)',
+          padding: '0 2px',
+        }}
+      >
+        {/* caret-down SVG（自绘，视觉对齐 antd DownOutlined）。 */}
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 1024 1024"
+          fill="currentColor"
+          aria-hidden="true"
+        >
+          <path d="M884 256h-75c-5.1 0-9.9 2.5-12.9 6.6L512 654.2 227.9 262.6c-3-4.1-7.8-6.6-12.9-6.6h-75c-6.5 0-10.3 7.4-6.5 12.6l352.6 486.1c12.8 17.6 39 17.6 51.7 0l352.6-486.1c3.9-5.2.1-12.6-6.4-12.6z" />
+        </svg>
+      </span>
+    </Dropdown>
+  )
+}
 
 /**
  * 构造选择列叶子节点（M5）。
@@ -300,18 +716,24 @@ function buildSelectionColumnNode<RecordType>(
   fireSelectionChange: (nextKeys: Array<React.Key>, method: RowSelectMethod) => void,
   rowKeyResolved: string | ((record: RecordType) => string | number),
 ): EngineColumnNode<RecordType> {
-  const { columnWidth, fixed, hideSelectAll = false, align = 'center' } = rowSel
+  const { columnWidth, fixed, hideSelectAll = false, align = 'center', renderCell } = rowSel
   const isRadio = selection.isRadio
   const type: 'checkbox' | 'radio' = isRadio ? 'radio' : 'checkbox'
   // 列宽默认：antd 选择列默认宽度 32px（token tableSelectionColumnWidth）。
   // 用户传 columnWidth 时覆盖；未传则用 32px（对齐 antd 默认视觉）。
   const width = columnWidth ?? 32
 
+  // S9：表头下拉箭头（仅当 resolvedSelections 非空 + 非 radio + 非 hideSelectAll 时渲染）。
+  // 对齐 antd `${prefixCls}-selection-extra`：表头全选 checkbox 旁的小下拉，点击弹出 selections 菜单。
+  const resolvedSelections = selection.resolvedSelections
+  const showSelectionDropdown =
+    !isRadio && !hideSelectAll && resolvedSelections && resolvedSelections.length > 0
+
   // 表头格内容。
   const headerContent: ReactNode = (() => {
     if (isRadio) return null // radio 无全选
     if (hideSelectAll) return null
-    return (
+    const checkbox = (
       <SelectionInput
         type="checkbox"
         checked={selection.allSelected}
@@ -324,6 +746,23 @@ function buildSelectionColumnNode<RecordType>(
         }}
       />
     )
+    if (!showSelectionDropdown) return checkbox
+    return (
+      <div className="dg-selection-header" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        {checkbox}
+        <SelectionsDropdown
+          selections={resolvedSelections}
+          onSelect={(item) => {
+            const result = selection.applySelection(item)
+            if (result) {
+              fireSelectionChange(result.nextKeys, result.method)
+            }
+            // 自定义项（result===null）：onSelect 内部已调用 item.onSelect(changeableRowKeys)，
+            // demo 自行 setState（受控回填）——引擎无需动作（对齐 antd）。
+          }}
+        />
+      </div>
+    )
   })()
 
   return {
@@ -333,15 +772,85 @@ function buildSelectionColumnNode<RecordType>(
     fixed: normalizeFixed(fixed),
     // 叶子列属性：width/render。dataIndex 不设（选择列不取数据字段）。
     width,
-    render: (_text: any, record: RecordType, _index: number) => {
+    // D1：rowSelection.renderCell —— 自定义勾选格内容（替代默认 SelectionInput）。
+    // 接入 M3 cellMerge：onCell 调 renderCell 提取 props.rowSpan/colSpan，返回给 cellMerge
+    //   计算合并（被覆盖格 hidden 不渲染）。render 与 onCell 各调一次 renderCell（demo 的
+    //   renderCell 须为纯函数，与 antd rc-table 一致）。
+    onCell: renderCell
+      ? (record: RecordType, index: number) => {
+          const key = getRowKey(record, rowKeyResolved)
+          const checked = selection.isSelected(key)
+          const node = buildDefaultSelectionInput(
+            type,
+            record,
+            key,
+            checked,
+            selection,
+            rowSel,
+            fireSelectionChange,
+            rowKeyResolved,
+          )
+          let result: SelectionRenderCellResult
+          try {
+            result = renderCell(checked, record, index, node)
+          } catch {
+            return undefined
+          }
+          // ReactNode 形态：无 props 合并。
+          if (result === null || typeof result !== 'object' || Array.isArray(result) || !('props' in result)) {
+            return undefined
+          }
+          // 对象形态：透传 props（含 rowSpan/colSpan，由 cellMerge 消费）。
+          return (result as { props?: Record<string, any> }).props
+        }
+      : undefined,
+    render: (_text: any, record: RecordType, index: number) => {
       const key = getRowKey(record, rowKeyResolved)
       const disabled = selection.isDisabled(record)
       const checked = selection.isSelected(key)
+      // S13 树形父子联动：父行半选态（checkStrictly=false + 部分子选中）。
+      const indeterminate = selection.isIndeterminate(key)
       const name = rowSel.getCheckboxProps?.(record)?.name
+      // D1：renderCell 存在时用其返回值的 children（或 ReactNode）替代默认 SelectionInput。
+      if (renderCell) {
+        const node = (
+          <SelectionInput
+            type={type}
+            checked={checked}
+            indeterminate={indeterminate}
+            disabled={disabled}
+            name={name}
+            aria-label={typeof name === 'string' && name ? name : undefined}
+            onChange={() => {
+              if (disabled) return
+              const next = selection.toggleRow(key)
+              fireSelectionChange(next, 'single')
+            }}
+          />
+        )
+        let result: SelectionRenderCellResult
+        try {
+          result = renderCell(checked, record, index, node)
+        } catch {
+          return node
+        }
+        // ReactNode 形态：直接返回。
+        if (
+          result === null ||
+          typeof result !== 'object' ||
+          Array.isArray(result) ||
+          !('props' in result)
+        ) {
+          return result as ReactNode
+        }
+        // 对象形态：返回 children（默认 node 若 children 未提供）。
+        return (result as { children?: ReactNode }).children ?? node
+      }
       return (
         <SelectionInput
           type={type}
           checked={checked}
+          indeterminate={indeterminate}
           disabled={disabled}
           name={name}
           aria-label={typeof name === 'string' && name ? name : undefined}
@@ -354,6 +863,40 @@ function buildSelectionColumnNode<RecordType>(
       )
     },
   }
+}
+
+/**
+ * D1：构造默认 `<SelectionInput>`（作为 renderCell 的 `node` 参数透传给用户）。
+ * 与 buildSelectionColumnNode 内 render 默认分支同款 props，抽函数避免 renderCell 路径重复。
+ */
+function buildDefaultSelectionInput<RecordType>(
+  type: 'checkbox' | 'radio',
+  record: RecordType,
+  key: React.Key,
+  checked: boolean,
+  selection: UseRowSelectionResult<RecordType>,
+  rowSel: TableRowSelection<RecordType>,
+  fireSelectionChange: (nextKeys: Array<React.Key>, method: RowSelectMethod) => void,
+  _rowKeyResolved: string | ((record: RecordType) => string | number),
+) {
+  const disabled = selection.isDisabled(record)
+  const indeterminate = selection.isIndeterminate(key)
+  const name = rowSel.getCheckboxProps?.(record)?.name
+  return (
+    <SelectionInput
+      type={type}
+      checked={checked}
+      indeterminate={indeterminate}
+      disabled={disabled}
+      name={name}
+      aria-label={typeof name === 'string' && name ? name : undefined}
+      onChange={() => {
+        if (disabled) return
+        const next = selection.toggleRow(key)
+        fireSelectionChange(next, 'single')
+      }}
+    />
+  )
 }
 
 /**
@@ -436,14 +979,39 @@ const TableComponent = forwardRef(TableInner) as <RecordType = any>(
 ) => React.ReactElement
 
 // 运行时挂载静态属性（forwardRef 组件是函数对象，可挂属性；与 antd 同款实现）。
+// S9：追加 SELECTION_ALL / SELECTION_NONE / SELECTION_INVERT（对齐 antd ForwardTable）。
+// S22：追加 Summary（对齐 antd ForwardTable.Summary，含 .Row / .Cell 静态属性）。
+// S31：追加 Column / ColumnGroup（对齐 antd `Table.Column` / `Table.ColumnGroup`，
+//   JSX 风格 API——`<Table.Column>` / `<Table.ColumnGroup>` 子元素声明列）。
 Object.assign(TableComponent, {
   EXPAND_COLUMN,
   SELECTION_COLUMN,
+  SELECTION_ALL,
+  SELECTION_NONE,
+  SELECTION_INVERT,
+  Summary: SummaryComponent,
+  Column,
+  ColumnGroup,
 })
 
 export const Table = TableComponent as typeof TableComponent & {
   EXPAND_COLUMN: typeof EXPAND_COLUMN
   SELECTION_COLUMN: typeof SELECTION_COLUMN
+  SELECTION_ALL: SelectionItem
+  SELECTION_NONE: SelectionItem
+  SELECTION_INVERT: SelectionItem
+  /** S22 汇总组件（对齐 antd `Table.Summary`，含 .Row / .Cell）。 */
+  Summary: typeof SummaryComponent
+  /**
+   * S31 JSX 风格 API 单列组件（对齐 antd `Table.Column`）。
+   * `<Table.Column title="..." dataIndex="..." />` 等价于在 `columns` 里声明一列。详见 `ColumnProps`。
+   */
+  Column: typeof Column
+  /**
+   * S31 JSX 风格 API 分组列组件（对齐 antd `Table.ColumnGroup`）。
+   * `<Table.ColumnGroup title="..."><Table.Column/></Table.ColumnGroup>` 等价于 `columns[].children`。详见 `ColumnGroupProps`。
+   */
+  ColumnGroup: typeof ColumnGroup
 }
 
 function TableInner<RecordType = any>(
@@ -451,7 +1019,6 @@ function TableInner<RecordType = any>(
   ref: React.Ref<TableRef>,
 ) {
   const {
-    columns = [],
     dataSource = [],
     rowKey = 'key',
     bordered = false,
@@ -468,13 +1035,108 @@ function TableInner<RecordType = any>(
     resizableMaxWidth,
     rowSelection,
     expandable,
+    pagination,
+    loading,
     className,
     style,
     onChange,
     showSorterTooltip,
+    components,
+    summary,
+    locale,
+    classNames,
+    styles,
+    // S32：Table 级列默认属性（对齐 antd `TableProps.column`）。undefined 时不合并（零回归）。
+    column,
+    // S34：页面级粘性表头（对齐 antd `TableProps.sticky`）。undefined/false 不启用（零回归）。
+    sticky,
+    // ★ 接口全兼容（决策 3 第二步）新公共 API：onHeaderRow / onRow / rowClassName /
+    //   getPopupContainer / rowHoverable。全部 undefined 时引擎零回归（不注入任何额外 DOM/props）。
+    onHeaderRow,
+    onRow,
+    rowClassName,
+    getPopupContainer,
+    rowHoverable,
   } = props
 
+  // === S31 JSX 风格 API：columns 或 children 二选一 ===
+  // 与 antd `columns || convertChildrenToColumns(children)`（InternalTable.tsx:231）逐字对齐：
+  //   - 传 `columns` prop（含显式 `[]`）→ 走 columns 路径（所有现有 demo，零回归），JSX children 忽略。
+  //   - 未传 `columns` prop（undefined）但传 JSX children（`<Table.Column>` / `<Table.ColumnGroup>`）
+  //     → 走解析路径，用 convertChildrenToColumns 把 JSX 子元素转为 columns 数组。
+  //   - 两者都未传 → columns=[] 空表（无列）。
+  // ★ 关键：用 `props.columns === undefined` 区分"未传"与"显式传 []"（解构默认值无法区分，故不从解构取 columns）。
+  //   仅当 columns 未传时才解析 children，保证传 columns 的所有现有 demo 零回归（visibleColumns/columnTree 等
+  //   下游 useMemo 依赖项不变）。
+  const columns: Array<ColumnOrSentinel<RecordType>> = useMemo(() => {
+    let raw: Array<ColumnOrSentinel<RecordType>>
+    if (props.columns !== undefined) {
+      raw = props.columns
+    } else if (props.children !== undefined && props.children !== null) {
+      raw = convertChildrenToColumns<RecordType>(props.children)
+    } else {
+      raw = []
+    }
+    // S32：把 Table 级 `column` 默认属性浅合并到每个列（列自身优先；哨兵豁免；多级表头递归）。
+    //   `column` undefined 时 applyColumnDefaults 原样返回 raw（零回归：现有 demo 列引用不变）。
+    //   合并位置在 responsive 过滤 / 排序 / 筛选 / 列树构建之前，保证 column 默认（如 align/ellipsis/
+    //   responsive/sorter/...）对所有下游机制生效（对齐 antd `useFilledColumns(rawColumns, column)`
+    //   在 InternalTable 派生 baseColumns 时合并，下游消费 baseColumns）。
+    return applyColumnDefaults<RecordType>(raw, column)
+    // children 是 ReactNode（含 ReactElement），引用稳定（JSX 每次渲染产生新数组但元素引用稳定；
+    // convertChildrenToColumns 依赖元素 props，props 变化时父组件本就会重渲染）。依赖 columns + children + column。
+  }, [props.columns, props.children, column])
+
   const rowKeyResolved = rowKey as string | ((record: RecordType) => string | number)
+
+  // === S28 响应式 responsive：按当前视口断点过滤列（对齐 antd InternalTable.tsx:235-246）===
+  // 实现位置：在所有列派生（排序/筛选/选择/展开/列树构建）之前过滤 columns，保证被移除的列
+  //   不参与任何下游机制（与 antd 一致：antd 在 InternalTable 派生 mergedColumns 时过滤，
+  //   下游消费 mergedColumns）。
+  //
+  // ★ 性能优化（对齐 antd `needResponsive` 思路）：先算 needResponsive（任一普通列设了 responsive）。
+  //   - needResponsive=false（所有现有 demo 默认）：visibleColumns 直接返回原 columns 引用（短路），
+  //     即使 screens 在视口变化时更新，visibleColumns 引用不变 → 下游 useMemo 不重算 → 零回归、
+  //     零多余重渲染。
+  //   - needResponsive=true：按 screens 过滤。
+  //   哨兵（EXPAND_COLUMN / SELECTION_COLUMN）不是 ColumnType，不带 responsive，跳过判定。
+  //
+  // 注：antd 公开类型 `Grid.useBreakpoint` 声明为无参（`() => ScreenMap`），底层 hook 实际支持
+  //   `refreshOnChange` 参数但公开类型未暴露。这里用无参形式（refreshOnChange 默认 true，订阅
+  //   responsiveObserver）；needResponsive 短路保证无 responsive 的 demo 不触发重渲染（visibleColumns
+  //   引用稳定），订阅本身是轻量 ResizeObserver，无性能问题。
+  const needResponsive = useMemo(() => {
+    for (const c of columns as Array<ColumnOrSentinel<RecordType>>) {
+      if (c === SELECTION_COLUMN || c === EXPAND_COLUMN) continue
+      if ((c as ColumnType<RecordType>).responsive) return true
+    }
+    return false
+  }, [columns])
+
+  // useBreakpoint 订阅 antd responsiveObserver，视口变化时返回新 ScreenMap 触发重渲染。
+  // 仅在 needResponsive=true 的场景下被下游 visibleColumns 消费；needResponsive=false 时短路。
+  const screens = Grid.useBreakpoint()
+
+  // 过滤 columns：无 responsive 的列（含哨兵）保留；有 responsive 的列按 antd 语义匹配
+  // （列出的任一断点在当前视口激活即保留）。逐字对齐 antd InternalTable.tsx:242-246：
+  //   matched = Object.keys(screens).filter(bp => screens[bp])
+  //   显示 <=> !responsive || responsive.some(r => matched.has(r))
+  const visibleColumns = useMemo(() => {
+    if (!needResponsive) return columns
+    const screensMap = screens ?? {}
+    const matched = new Set<string>()
+    for (const bp in screensMap) {
+      if (screensMap[bp as keyof typeof screensMap]) matched.add(bp)
+    }
+    return (columns as Array<ColumnOrSentinel<RecordType>>).filter((c) => {
+      // 哨兵不带 responsive，始终保留（对齐 antd：哨兵在 useFilledColumns 阶段展开，已不是
+      // responsive 过滤的对象）。
+      if (c === SELECTION_COLUMN || c === EXPAND_COLUMN) return true
+      const col = c as ColumnType<RecordType>
+      if (!col.responsive) return true
+      return col.responsive.some((r) => matched.has(r as string))
+    })
+  }, [columns, needResponsive, screens])
 
   // === S1 单列 + S2 多列排序（须在 M5 选择 / M9 展开之前派生 sortedDataSource，供下游 hooks 消费）===
   // useSorter 从原始 antd columns 派生排序状态（受控/非受控、sortDirections 循环、defaultSortOrder、
@@ -487,18 +1149,32 @@ function TableInner<RecordType = any>(
   //   受控时为原 dataSource。
   // - onSorterClick：引擎表头格点击时触发（该列自身 sortDirections 循环 + 单列/多列状态切换 + onChange 分发）。
   // 注意：传入的 columns 是**已过滤哨兵**的原始 antd 列（哨兵不是可排序列）。
+  // === S11 分页状态占位 ref ===
+  // useSorter（在下方）/ useFilter（下方）的 onChange 在用户交互时触发（滞后于 render），
+  // 届时 ref 已被 usePagination（更下方）同步为最新分页状态。这样 sort/filter 触发的 onChange
+  // 的 pagination 参数始终反映当前分页（对齐 antd：onChange 的 pagination 始终反映当前分页）。
+  // 初始值兜底（pagination 未启用时也安全——下方 useMemo 会算出"未启用"态注入）。
+  const paginationStateRef = useRef<TablePaginationState>({ current: 1, pageSize: 0, total: 0 })
+
   const sortableColumns = useMemo(
     () =>
-      (columns as Array<ColumnOrSentinel<RecordType>>).filter(
+      (visibleColumns as Array<ColumnOrSentinel<RecordType>>).filter(
         (c): c is ColumnType<RecordType> =>
           c !== SELECTION_COLUMN && c !== EXPAND_COLUMN,
       ),
-    [columns],
+    [visibleColumns],
   )
   const { sortOrderMap, sortPriorityMap, sortedDataSource, onSorterClick, currentSorterResult } = useSorter<RecordType>({
     columns: sortableColumns,
     dataSource,
-    onChange,
+    // S11：包装 onChange，把 useSorter 内部传入的占位 pagination `{}` 替换为当前实际分页状态
+    // （paginationStateRef.current，对齐 antd：onChange 的 pagination 始终反映当前分页）。
+    // filters/sorter/extra 原样透传（useSorter 内部已组装 filters={} / sorter / action:'sort'）。
+    onChange: onChange
+      ? (_pagination, filters, sorter, extra) => {
+          onChange(paginationStateRef.current, filters, sorter, extra)
+        }
+      : undefined,
   })
 
   // === S3 基础列筛选（须在 M5 选择 / M9 展开之前派生 filteredDataSource，供下游 hooks 消费）===
@@ -512,17 +1188,43 @@ function TableInner<RecordType = any>(
   // 注意：传入 sortedDataSource（排序后），实现 raw → sort → filter 叠加（与 antd 一致）。
   // 排序结果（sortOrderMap/sortedDataSource）变化时，useFilter 的输入随之变化，filteredDataSource
   // 重算（筛选条件基于新排序结果——虽然筛选是数据集合层面操作、与顺序无关，但叠加链顺序对齐 antd）。
-  const { filteredValueMap, filteredDataSource, setFilterValue } = useFilter<RecordType>({
+  const { filteredValueMap, filteredDataSource, setFilterValue, getFiltersArg } = useFilter<RecordType>({
     columns: sortableColumns,
     dataSource: sortedDataSource,
     onFilterChange: (filters, currentDataSource) => {
       // 适配层注入最新 sorter（useSorter.currentSorterResult），组装完整 onChange。
       // sorter 取当前排序状态（非"本次筛选前的"也非"点击排序触发的 nextStates"——
       // 筛选不改变排序，sorter 应反映当前已应用的排序）。
+      // S11：注入当前分页状态（对齐 antd：onChange 的 pagination 始终反映当前分页）。
       if (!onChange) return
-      onChange({}, filters, currentSorterResult, { currentDataSource, action: 'filter' })
+      onChange(
+        paginationStateRef.current,
+        filters,
+        currentSorterResult,
+        { currentDataSource, action: 'filter' },
+      )
     },
   })
+
+  // === S13 树形数据（须在 M5 选择 / M9 展开之前派生 flattenedDataSource，供下游 hooks 消费）===
+  // 解析 childrenColumnName / indentSize：expandable.* 字段优先（对齐 antd getExpandableProps），
+  // 未设时用 Table 级字段；都未设时用默认 'children' / 15（对齐 antd 6.4.4 实测 InternalTable.tsx:611）。
+  const childrenColumnName =
+    expandable?.childrenColumnName ?? props.childrenColumnName ?? 'children'
+  const indentSize = expandable?.indentSize ?? 15
+
+  // useTreeData：检测树形（任一 record 含 childrenColumnName 非空数组）→ 扁平化 + 展开过滤。
+  // 非树形 → flattenedData 原样 filteredDataSource（零回归）；rowInfoMap/parentChildrenMap 空。
+  const tree = useTreeData<RecordType>({
+    dataSource: filteredDataSource,
+    childrenColumnName,
+    rowKey: rowKeyResolved,
+    expandable: expandable as Expandable<RecordType> | undefined,
+  })
+  const treeEnabled = tree.treeEnabled
+  // 树形模式下，下游选择/展开/分页/渲染都消费 flattenedData（仅可见行）。
+  // 非树形 → flattenedData === filteredDataSource（同引用，零回归）。
+  const flattenedDataSource = tree.flattenedData
 
   // === M5 行选择 ===
   // 非受控默认值：仅当 rowSelection.selectedRowKeys 未传时使用 defaultSelectedRowKeys。
@@ -539,49 +1241,90 @@ function TableInner<RecordType = any>(
       : uncontrolledKeys
     : []
 
-  // 状态机：从 effectiveSelectedKeys + filteredDataSource + rowKey + getCheckboxProps 派生。
+  // 状态机：从 effectiveSelectedKeys + flattenedDataSource + rowKey + getCheckboxProps 派生。
   // ★ S1：用排序后的顺序；★ S3：用筛选后的数据源（与引擎实际渲染顺序一致）。
+  // ★ S13：树形模式下用 flattenedDataSource（仅可见行）——与引擎实际渲染顺序一致；
+  //   同时传 checkStrictly + parentChildrenMap 启用父子联动。
   //   使 selectedRows 与引擎渲染顺序一致（与 antd "onChange 返回渲染后顺序的 selectedRows"语义一致）。
-  // 返回 isSelected/allSelected/intermediate/isDisabled 与 toggle* 操作。
+  // 返回 isSelected/allSelected/intermediate/isDisabled/isIndeterminate 与 toggle* 操作。
   const selection = useRowSelection<RecordType>({
     type: rowSel?.type,
     selectedRowKeys: effectiveSelectedKeys,
-    dataSource: filteredDataSource,
+    dataSource: flattenedDataSource,
     rowKey: rowKeyResolved,
     getCheckboxProps: rowSel?.getCheckboxProps,
+    selections: rowSel?.selections,
+    checkStrictly: rowSel?.checkStrictly,
+    parentChildrenMap: tree.parentChildrenMap,
   })
 
   // 统一 onChange 分发：更新非受控 state + 调用 rowSel.onChange。
   // selectedRows 按 selectableKeys 顺序返回（即排除 disabled 行；与 antd 一致）。
+  // ★ S12 preserveSelectedRowKeys（跨页/跨数据源保留已选 key，对齐 antd）：
+  //   - false（默认）：每次勾选操作生成的 nextKeys 会被**过滤**——保留 dataSource 中存在的 key，
+  //     丢弃不在当前数据源的 key（antd `setSelectedKeys` 非 preserve 分支：keys.filter(getRecordByKey)）。
+  //     即：已选但翻页后不在当前页的 key，会在下次勾选时被清掉。
+  //   - true：不过滤，nextKeys 原样保留所有 key（antd preserve 分支：availableKeys = keys）。
+  //     典型 ajax 场景：翻页后回原页，之前选的仍是选中态。
+  //   受控/非受控都过滤（antd 的 setMergedSelectedKeys 对两者都写过滤后的值）。
   const fireSelectionChange = useCallback(
-    (nextKeys: Array<React.Key>, method: RowSelectMethod) => {
+    (nextKeysInput: Array<React.Key>, method: RowSelectMethod) => {
       if (!rowSel) return
+      const preserve = rowSel.preserveSelectedRowKeys === true
+      // S12：非 preserve 模式过滤掉不在数据源中的 key（对齐 antd）。
+      // preserve=true 则保留全部（含跨页/跨数据源的 key）。
+      // ★ S13：树形模式下用**全树**（filteredDataSource，未扁平化）做存在性判定——
+      //   折叠的子孙 key 仍在全树中（antd getRecordByKey 搜全树，行为一致），
+      //   不应被清掉（checkStrictly=false 勾父→勾全部子孙含折叠的）。
+      const existenceSource = treeEnabled ? filteredDataSource : flattenedDataSource
+      const nextKeys: Array<React.Key> = preserve
+        ? nextKeysInput
+        : (() => {
+            const existSet = new Set<React.Key>()
+            const walk = (records: Array<RecordType>) => {
+              for (const rec of records) {
+                existSet.add(getRowKey(rec, rowKeyResolved))
+                // 树形：递归收集子孙 key（折叠的也在）。
+                const children = rec && typeof rec === 'object'
+                  ? (rec as any)[childrenColumnName]
+                  : undefined
+                if (Array.isArray(children) && children.length > 0) walk(children)
+              }
+            }
+            walk(existenceSource)
+            return nextKeysInput.filter((k) => existSet.has(k))
+          })()
       if (!isControlledSelection) {
         setUncontrolledKeys(nextKeys)
       }
-      // 按 selectableKeys 顺序构造 selectedRows（disabled 行不会出现在 nextKeys 的 selectable 子集里，
-      // 但 nextKeys 可能含 selectableKeys 之外的 key——antd preserveSelectedRowKeys 语义；
-      // selectedRows 只回填 dataSource 中能匹配到的 record）。
-      // ★ S1/S3：遍历 filteredDataSource（排序+筛选后顺序），与 antd "onChange 返回渲染后顺序的 selectedRows" 一致。
+      // 按 selectableKeys 顺序构造 selectedRows（disabled 行不会出现在 nextKeys 的 selectable 子集里）。
+      // ★ S1/S3/S13：遍历 flattenedDataSource（排序+筛选+树形扁平化后顺序——仅可见行），
+      //   与 antd "onChange 返回渲染后顺序的 selectedRows" 一致。
+      //   注：折叠的子孙 record 不在 flattenedDataSource，不出现在 selectedRows（与 antd 一致：
+      //   antd selectedRows 也只含当前可见的选中行）。
       const keySet = new Set<React.Key>(nextKeys)
       const rows: Array<RecordType> = []
-      for (const rec of filteredDataSource) {
+      for (const rec of flattenedDataSource) {
         const k = getRowKey(rec, rowKeyResolved)
         if (keySet.has(k)) rows.push(rec)
       }
       rowSel.onChange?.(nextKeys, rows, { type: method })
     },
-    [rowSel, isControlledSelection, filteredDataSource, rowKeyResolved],
+    [rowSel, isControlledSelection, flattenedDataSource, filteredDataSource, treeEnabled, childrenColumnName, rowKeyResolved],
   )
 
   // === M9 行展开状态（useRowExpand hook 派生；引擎 + 展开列 render 闭包共同消费）===
   // ★ S1：用排序后的顺序；★ S3：用筛选后的数据源（与引擎实际渲染顺序一致）。
+  // ★ S13：树形模式下**不启用** M9 expandState（antd 行为：tree-data 与 expandedRowRender 互斥，
+  //   树形优先）。故 useRowExpand 仍调用（非树形 demo 不破），但 engineExpandState 在树形模式下
+  //   返回 undefined（见下方 useMemo 守卫）。
   const expand = useRowExpand<RecordType>({
     expandable: expandable as Expandable<RecordType> | undefined,
-    dataSource: filteredDataSource,
+    dataSource: flattenedDataSource,
     rowKey: rowKeyResolved,
   })
-  const expandEnabled = expand.expandEnabled
+  // ★ S13：树形模式下禁用 M9 expand（即使 expandable.expandedRowRender 存在）——树形优先。
+  const expandEnabled = !treeEnabled && expand.expandEnabled
   const showExpandColumn =
     expandEnabled && (expandable?.showExpandColumn !== false)
 
@@ -619,7 +1362,7 @@ function TableInner<RecordType = any>(
     //   → 多个匿名列都回退到 `col-0` → 表头格 React key 重复（virtual-list demo 的 `Group` 与
     //   `Action` 列均无 key/dataIndex，都得到 `col-0`）。
     const anonCounter = { seq: 0 }
-    for (const item of columns as Array<ColumnOrSentinel<RecordType>>) {
+    for (const item of visibleColumns as Array<ColumnOrSentinel<RecordType>>) {
       if (item === SELECTION_COLUMN) {
         seenSelectionSentinel = true
         if (selectionNode) result.push(selectionNode)
@@ -644,7 +1387,9 @@ function TableInner<RecordType = any>(
     }
     return result
     // selection / expand state 变化时重建（捕获最新勾选/展开态）；columns 变化时重建。
-  }, [columns, selectionNode, expandNode, showSorterTooltip])
+    // ★ S28：visibleColumns 是 columns 经 responsive 过滤后的结果，依赖项改用 visibleColumns
+    //   （screens 变化时 visibleColumns 重算 → columnTree 重建 → 引擎按新列树渲染）。
+  }, [visibleColumns, selectionNode, expandNode, showSorterTooltip])
 
   // 把 useSorter 派生的 sortOrderMap 回填到 columnTree 的叶子节点（引擎据此渲染排序图标 +
   // dg-column-sort 类）。回填按"原始 antd column"匹配：每个叶子引擎节点的 raw 字段保留原始列引用，
@@ -676,9 +1421,17 @@ function TableInner<RecordType = any>(
       )
     }
     // 第二步：筛选回填（S3）。仅当存在至少一个可筛选列时才做回填（零回归优化）。
+    // ★ S12：激活态门与 filterable 判定单一真理源对齐（与 useFilter.isFilterable 字面一致——
+    //   filters 非空 || filterDropdown 存在 || onFilter 存在）。修复「纯 filters 无 onFilter」列
+    //   （如 ajax demo Gender）激活态不回填：此前门用 (filters && onFilter) || filterDropdown，
+    //   漏掉纯 filters 列 → hasAnyFilter=false → applyFilterToNode 跳过 → filteredValue 恒 null → 漏斗不变蓝。
+    //   注：EngineColumnNode 无 filterable 字段（仅 EngineHeaderCell 有），故此处用内联条件复刻 isFilterable。
     let hasAnyFilter = false
     for (const node of tree) {
-      if (!hasChildren(node) && node.filters && node.onFilter) {
+      if (
+        !hasChildren(node) &&
+        isNodeFilterable(node)
+      ) {
         hasAnyFilter = true
         break
       }
@@ -689,14 +1442,124 @@ function TableInner<RecordType = any>(
     return tree
   }, [columnTree, sortOrderMap, sortPriorityMap, filteredValueMap])
 
+  // === S29 语义化样式 classNames/styles 求值 ===
+  // 支持对象（静态）或函数 `(info) => 对象`（动态，按 info.props 求值）。对齐 antd v6：
+  //   - info.props 含 size/bordered/virtual/scroll/pagination 子集（与 antd 一致：暴露当前生效 props）。
+  //   - 求值后统一得到 `TableSemanticClassNames`/`TableSemanticStyles` 对象。
+  // 适配层直接消费 root/title/footer/pagination.*（注入到对应 DOM）；section/content/header/body
+  //   透传给引擎（GridTable.semantic）由引擎注入到 grid 内部部位。
+  // 未提供（undefined）时 semanticResolved 为 undefined，所有部位走默认 class/style，零回归。
+  const semanticInfo = {
+    props: {
+      size,
+      bordered,
+      virtual,
+      scroll,
+      pagination: pagination as false | TablePaginationConfig | undefined,
+    },
+  }
+  const classNamesResolved: TableSemanticClassNames | undefined = useMemo(() => {
+    if (classNames === undefined) return undefined
+    if (typeof classNames === 'function') return classNames(semanticInfo)
+    return classNames
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [classNames, size, bordered, virtual, scroll, pagination])
+  const stylesResolved: TableSemanticStyles | undefined = useMemo(() => {
+    if (styles === undefined) return undefined
+    if (typeof styles === 'function') return styles(semanticInfo)
+    return styles
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [styles, size, bordered, virtual, scroll, pagination])
+
+  // 引擎消费子集（section/content/header/body）。
+  const engineSemantic: EngineSemantic | undefined = useMemo(() => {
+    if (!classNamesResolved && !stylesResolved) return undefined
+    const sem: EngineSemantic = {}
+    if (classNamesResolved?.section || stylesResolved?.section) {
+      sem.section = {
+        className: classNamesResolved?.section,
+        style: stylesResolved?.section,
+      }
+    }
+    if (classNamesResolved?.content || stylesResolved?.content) {
+      sem.content = {
+        className: classNamesResolved?.content,
+        style: stylesResolved?.content,
+      }
+    }
+    if (classNamesResolved?.header || stylesResolved?.header) {
+      sem.header = {
+        className: classNamesResolved?.header,
+        style: stylesResolved?.header,
+      }
+    }
+    if (classNamesResolved?.body || stylesResolved?.body) {
+      sem.body = {
+        className: classNamesResolved?.body,
+        style: stylesResolved?.body,
+      }
+    }
+    return sem
+  }, [classNamesResolved, stylesResolved])
+
+  // S34：sticky 启用时给 .dg-wrapper 加 dg-sticky 修饰类。
+  //   table.css 的 .dg-wrapper 默认 overflow:hidden + width:100%（圆角裁剪 + 容器约束），
+  //   但 overflow:hidden 使 .dg-wrapper 成为表头 sticky 的非 visible 溢出祖先（CSS 规范），
+  //   拦截 sticky 上下文，导致页面级 sticky 表头相对 viewport 永不触发；同时 width:100%
+  //   裁切 .dg-grid min-width:scrollX，使页面横向不滚动（fixed-end/StickyScrollBar 失效）。
+  //   故 sticky 启用时切到 .dg-sticky：overflow:visible 放开 sticky 上下文到 viewport，
+  //   width:auto 不约束宽度让 grid 撑宽页面横向滚动。
+  //   圆角降级：sticky 模式下 .dg-wrapper 不裁剪，圆角视觉降级（优先 sticky 功能正确）。
+  const stickyClassEnabled = sticky !== undefined && sticky !== false
   const wrapperClass = [
     'dg-wrapper',
     sizeToClass(size),
     bordered ? 'dg-bordered' : '',
+    stickyClassEnabled ? 'dg-sticky' : '',
     className ?? '',
+    // S29：语义化 root 部位 className（合并到根容器）。
+    classNamesResolved?.root ?? '',
   ]
     .filter(Boolean)
     .join(' ')
+
+  // S30 component-token 主题定制：用 antd `theme.useToken()` 读取当前 ConfigProvider 主题，
+  // 把 `token.Table`（Table component token，含 theme.components.Table 的覆盖）映射为
+  // `.dg-wrapper` inline CSS variables（覆盖 tokens.css 的 fallback）。
+  //
+  // ★ 关键（决策 4 实测）：antd v6 cssinjs 把 component token 输出到 `:where(.ant-table)`，
+  //   data-grid 用 `.dg-wrapper`（非 `.ant-table`），token 不会自动注入——必须主动 useToken
+  //   读取 + inline 注入。详见 `buildTableTokenCssVars` 注释。
+  //
+  // ★ 零回归：未接入 ConfigProvider theme.components.Table 时，token.Table 仍含 prepareComponentToken
+  //   派生的默认值（与 tokens.css fallback 视觉等价），注入后视觉不变。接入 ConfigProvider
+  //   theme.components.Table 覆盖后，覆盖值生效（视觉随 token 变化）。
+  //
+  // ★ token 是 GlobalToken（AliasToken & ComponentTokenMap），token.Table 是 Table component token
+  //   对象（getComputedToken 把 components.Table 合并进来）。token 引用在 ConfigProvider theme
+  //   变化时更新（useCacheToken 内部依赖 theme/override）→ useMemo 重算 vars → 视觉同步。
+  const { token: antdThemeToken } = theme.useToken()
+  const tableTokenVars = useMemo(
+    () => buildTableTokenCssVars(antdThemeToken.Table as Record<string, unknown> | undefined),
+    [antdThemeToken.Table],
+  )
+
+  // S29：语义化 root 部位 style（合并到根容器 style；semantic 覆盖同名字段）。
+  // S30：tableTokenVars（component token → CSS variables）合并到根容器 style；
+  //   优先级：style（用户传入） > tableTokenVars（antd theme token） > tokens.css fallback。
+  //   即 token vars 覆盖 fallback（CSS variable 由 inline style 提供，优先级高于 class），
+  //   用户传入的同名 style 字段（如显式设置背景色）覆盖 token vars（用户显式优先）。
+  //   注：用户 style 与 token vars 的 key 空间不同（用户用标准 CSS 属性，token vars 用
+  //   `--ant-*`），实际几乎不冲突；合并顺序保证语义清晰。
+  const wrapperStyle = useMemo(() => {
+    const merged: React.CSSProperties = { ...tableTokenVars }
+    if (stylesResolved?.root) {
+      Object.assign(merged, style, stylesResolved.root)
+    } else if (style) {
+      Object.assign(merged, style)
+    }
+    return merged
+  }, [style, stylesResolved?.root, tableTokenVars])
 
   // 引擎层 ref（暴露 scrollTo 等）。本组件的 forwardRef ref 桥接到它。
   const engineRef = useRef<TableEngineHandle | null>(null)
@@ -709,11 +1572,11 @@ function TableInner<RecordType = any>(
         const engine = engineRef.current
         if (!engine) return
         // key → index：在适配层根据 rowKey 解析（引擎不感知 key 语义）。
-        // ★ S1/S3：用 filteredDataSource（引擎实际渲染的数据源顺序——排序+筛选后），否则排序/筛选后
-        //   scrollTo(key) 会滚到错误行。
+        // ★ S1/S3/S13：用 flattenedDataSource（引擎实际渲染的数据源顺序——排序+筛选+树形扁平化后），
+        //   否则排序/筛选/树形展开后 scrollTo(key) 会滚到错误行。
         if (config.key !== undefined) {
           const key = config.key
-          const idx = filteredDataSource.findIndex(
+          const idx = flattenedDataSource.findIndex(
             (rec) => getRowKey(rec, rowKeyResolved) === key,
           )
           if (idx < 0) return
@@ -742,13 +1605,15 @@ function TableInner<RecordType = any>(
       },
       nativeElement: rootRef.current,
     }),
-    [filteredDataSource, rowKeyResolved],
+    [flattenedDataSource, rowKeyResolved],
   )
 
   // === M9 引擎展开状态对象 ===
   // 把 useRowExpand 的派生结果封装为 EngineExpandState，传给引擎。
   // 引擎据此插展开内容 track（0fr/1fr）+ 渲染展开内容；展开列 render 闭包直接用 expand（hook 结果）。
+  // ★ S13：树形模式下 engineExpandState 恒 undefined（树形优先；treeState 单独传）。
   const engineExpandState: EngineExpandState | undefined = useMemo(() => {
+    if (treeEnabled) return undefined
     if (!expandEnabled || !expandable?.expandedRowRender) return undefined
     return {
       expandEnabled,
@@ -761,15 +1626,257 @@ function TableInner<RecordType = any>(
       showExpandColumn,
       expandIcon: expandable.expandIcon,
     }
-  }, [expandEnabled, expandable, expand, showExpandColumn])
+  }, [treeEnabled, expandEnabled, expandable, expand, showExpandColumn])
 
-  return (
-    <div className={wrapperClass} style={style} ref={rootRef}>
-      {title ? <div className="dg-title">{title(filteredDataSource)}</div> : null}
+  // === S13 引擎树形状态对象 ===
+  // 把 useTreeData 的派生结果封装为 EngineTreeState，传给引擎。
+  // 引擎据此在第一列数据单元格内按 level × indentSize 左缩进 + 渲染展开/收起图标。
+  // 非树形 → undefined（零回归，引擎不消费）。
+  const engineTreeState: EngineTreeState | undefined = useMemo(() => {
+    if (!treeEnabled) return undefined
+    return {
+      treeEnabled,
+      indentSize,
+      rowInfoMap: tree.rowInfoMap,
+      isExpanded: tree.isExpanded,
+      toggleExpand: tree.toggleExpand,
+    }
+  }, [treeEnabled, indentSize, tree])
+
+  // === S34 页面级粘性表头归一化 ===
+  // 对外 `sticky?: boolean | StickyConfig`（对齐 antd v6）→ 引擎层统一为
+  // `{ offsetHeader?, offsetScroll?, getContainer? } | undefined`。
+  //   - undefined / false：不启用（engineSticky=undefined，零回归）。
+  //   - true：启用（默认偏移 0；engineSticky={}，引擎读 offsetHeader/offsetScroll 时兜底 0）。
+  //   - 对象：原样透传。
+  const engineSticky = useMemo(() => {
+    if (sticky === undefined || sticky === false) return undefined
+    if (sticky === true) return {}
+    return sticky
+  }, [sticky])
+
+  // === S11 分页集成 ===
+  // ★ 默认不分页：pagination 为 undefined/false → 不启用分页，pagedDataSource = filteredDataSource（全显），
+  //   保持 F1–M9/S1–S10 所有 demo 行为不变（零回归）。
+  //   显式传 TablePaginationConfig 对象才启用分页：切片 + 渲染 antd Pagination。
+  const paginationEnabled = pagination !== undefined && pagination !== false
+  const paginationConfig = (pagination === undefined || pagination === false
+    ? {}
+    : pagination) as TablePaginationConfig
+
+  const paginationInfo = usePagination({
+    pagination: paginationConfig,
+    // ★ S13：树形模式下分页基于扁平化后数据源长度（仅可见行）；非树形同 filteredDataSource。
+    dataSourceLength: flattenedDataSource.length,
+    onPaginationChange: (nextCurrent, nextPageSize) => {
+      // 翻页/改 pageSize → 触发 Table onChange(action:'paginate')。
+      // paginationState 用回调参数构造（antd Pagination 不会传越界 page，current 已 effective）。
+      if (!onChange) return
+      const total =
+        typeof paginationConfig.total === 'number' && paginationConfig.total > 0
+          ? paginationConfig.total
+          : flattenedDataSource.length
+      const nextState: TablePaginationState = {
+        current: nextCurrent,
+        pageSize: nextPageSize,
+        total,
+      }
+      onChange(
+        nextState,
+        getFiltersArg(),
+        currentSorterResult,
+        // currentDataSource：分页**前**的全量数据源（与 antd 一致）。
+        { currentDataSource: flattenedDataSource, action: 'paginate' },
+      )
+    },
+  })
+
+  // 同步 paginationStateRef（供 useSorter/useFilter 的 onChange 闭包注入最新分页）。
+  // 分页未启用时构造"全量态"（current=1, pageSize=长度, total=长度），保证 onChange.pagination
+  // 始终有意义（与 antd 未开分页时 onChange.pagination 仍含 {current,pageSize,total} 一致）。
+  const effectivePaginationState: TablePaginationState = paginationEnabled
+    ? paginationInfo.paginationState
+    : { current: 1, pageSize: flattenedDataSource.length, total: flattenedDataSource.length }
+  paginationStateRef.current = effectivePaginationState
+
+  // 分页切片（未启用 → 全量）。
+  // S12：传入 paginationInfo.total 用于服务端模式检测——dataSource.length < total（server/async）
+  // 时不切片（对齐 antd InternalTable.tsx:547-557），避免双重分页。
+  // ★ S13：基于 flattenedDataSource（树形扁平化后）切片；非树形同 filteredDataSource。
+  const pagedDataSource = paginationEnabled
+    ? slicePage(
+        flattenedDataSource,
+        paginationInfo.current,
+        paginationInfo.pageSize,
+        paginationInfo.total,
+      )
+    : flattenedDataSource
+
+  // === S22 汇总 summary 解析 ===
+  // summary prop：函数 → 用 pagedDataSource（当前页数据）调用；ReactNode → 原样。
+  // ★ 与 title/footer 传 filteredDataSource（全量）不同：summary 传 **pagedDataSource**（当前页），
+  //   对齐 antd summary 实际行为（antd summary 的 pageData 也是当前页数据，见 antd summary demo
+  //   `summary={(pageData) => ...}` 注释）。未启用分页时 pagedDataSource = filteredDataSource（全量）。
+  const summaryNode: ReactNode = useMemo(() => {
+    if (summary === undefined || summary === null) return null
+    if (typeof summary === 'function') {
+      return (summary as (pageData: Array<RecordType>) => ReactNode)(pagedDataSource)
+    }
+    return summary
+  }, [summary, pagedDataSource])
+
+  // === S23 自定义空状态与 loading 占位 ===
+  // 消费 antd ConfigContext.renderEmpty（全局空状态自定义）+ TableProps.locale.emptyText（Table 级）。
+  //
+  // emptyText 来源优先级（严格对齐 antd `InternalTable.tsx:706-718` 的 mergedEmptyNode）：
+  //   1. `locale.emptyText`（Table 级，最高优先级——antd 同款门：typeof locale?.emptyText !== 'undefined' 即用）。
+  //   2. `ConfigProvider.renderEmpty('Table')`（全局空状态）。
+  //   3. 默认 antd `<Empty>`（无描述）。
+  //
+  // **表体 empty 不区分"空数据 vs 筛选无结果"**（对齐 antd InternalTable.tsx:714-717）：
+  //   antd 表体 empty（RcTable emptyText）由 mergedEmptyNode 决定，来源固定为
+  //   `locale.emptyText > renderEmpty('Table') > 默认`，**不区分** dataSource 为空 vs 筛选后无匹配。
+  //   data-grid 同样如此：pagedDataSource 为空（含空数据与筛选无结果两种）时统一用上述优先级解析。
+  //
+  //   ★ 注意：antd 的 `'Table.filter'` 是**另一个**独立语义（见 FilterDropdown.tsx:395,410）——
+  //   仅用于 **filter 下拉面板内部**当 `column.filters` 为空数组时的占位，**不是**表体筛选无结果。
+  //   该语义在 data-grid 由 FilterDropdown 消费（见 engine/FilterDropdown.tsx），与本处表体 empty 无关。
+  //
+  // **loading 交互**（对齐 antd `InternalTable.tsx:711-713`）：当 loading spinning 且 dataSource
+  //   为 null/undefined（这里 data-grid 的 dataSource 默认 [] 而非 null，故该 antd 边界不直接对应）时，
+  //   antd 不显示 empty（只显示 loading）。data-grid 的 dataSource 恒为数组，故无需特殊处理 loading
+  //   × empty 互斥（loading 由 Spin 遮罩覆盖 empty 区，视觉上 empty 被 loading 盖住，功能正确）。
+  const { renderEmpty } = useContext(ConfigContext)
+
+  const emptyText: ReactNode = useMemo(() => {
+    // pagedDataSource 非空 → 不需要 empty（引擎渲染数据行）。
+    if (pagedDataSource.length > 0) return null
+    // 1. Table 级 locale.emptyText 优先（antd 同款门：typeof !== 'undefined'）。
+    if (locale?.emptyText !== undefined) return locale.emptyText
+    // 2. ConfigProvider.renderEmpty('Table')（表体 empty 统一用 'Table'，不区分空数据 vs 筛选无结果）。
+    const rendered = (renderEmpty as RenderEmptyHandler | undefined)?.('Table')
+    if (rendered !== undefined && rendered !== null && rendered !== false) return rendered
+    // 3. 默认 antd Empty（无描述）。
+    return <Empty />
+  }, [pagedDataSource.length, locale?.emptyText, renderEmpty])
+
+  // 解析 placement → top/bottom 对齐（未启用分页 → 两侧均 null，不渲染）。
+  const placement = paginationEnabled
+    ? resolvePlacement(paginationConfig.placement)
+    : { top: null, bottom: null }
+  // antd 行为：仅当 total > 0 且分页启用时渲染分页器。
+  const showPagination = paginationEnabled && paginationInfo.total > 0
+  // 分页器尺寸：pagination.size 优先；否则随 Table size（small/middle→'small'，其余 default/undefined）。
+  // 传给 antd Pagination 时类型断言（antd Pagination size 接受 SizeType，这里只在 'small'/undefined 间取）。
+  const paginationSize: 'small' | undefined =
+    paginationConfig.size === 'small'
+      ? 'small'
+      : paginationConfig.size === 'default'
+        ? undefined
+        : size === 'small' || size === 'middle' || size === 'medium' || size === 'compact'
+          ? 'small'
+          : undefined
+
+  // 构造单个分页器节点（对齐 antd InternalTable.renderPagination）。
+  // S29：注入 semantic.pagination.root（外层 div className/style）+ pagination.item（透传到
+  //   antd Pagination 的 className——近似语义：antd Pagination 无单项 item className 公共 API，
+  //   data-grid 把 item className 合并到 Pagination 整体 className，item style 合并到 style）。
+  const paginationRootClassName = classNamesResolved?.pagination?.root
+  const paginationItemClassName = classNamesResolved?.pagination?.item
+  const paginationRootStyle = stylesResolved?.pagination?.root
+  const paginationItemStyle = stylesResolved?.pagination?.item
+  const renderPaginationNode = (align: 'start' | 'center' | 'end') => (
+    <div
+      className={[
+        'dg-pagination',
+        `dg-pagination-${align}`,
+        paginationRootClassName,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      style={{
+        display: 'flex',
+        justifyContent:
+          align === 'start'
+            ? 'flex-start'
+            : align === 'center'
+              ? 'center'
+              : 'flex-end',
+        margin: '16px 0',
+        ...(paginationRootStyle ?? null),
+      }}
+    >
+      <Pagination
+        current={paginationInfo.current}
+        pageSize={paginationInfo.pageSize}
+        total={paginationInfo.total}
+        showSizeChanger={paginationConfig.showSizeChanger}
+        pageSizeOptions={paginationConfig.pageSizeOptions}
+        showTotal={paginationConfig.showTotal}
+        hideOnSinglePage={paginationConfig.hideOnSinglePage}
+        size={paginationSize}
+        onChange={paginationInfo.onInternalChange}
+        onShowSizeChange={paginationInfo.onInternalChange}
+        className={[
+          paginationConfig.className,
+          paginationItemClassName,
+        ]
+          .filter(Boolean)
+          .join(' ') || undefined}
+        style={
+          paginationItemStyle
+            ? { ...(paginationConfig.style ?? null), ...paginationItemStyle }
+            : paginationConfig.style
+        }
+      />
+    </div>
+  )
+  const topPaginationNode =
+    showPagination && placement.top ? renderPaginationNode(placement.top) : null
+  const bottomPaginationNode =
+    showPagination && placement.bottom
+      ? renderPaginationNode(placement.bottom)
+      : null
+
+  // === S12 loading 态（决策 6：Spin 用 antd）===
+  // 把 loading prop 归一化为 antd `<Spin>` 的 props（对齐 antd InternalTable.spinProps）：
+  //   - boolean：{ spinning: <bool> }。
+  //   - SpinProps 对象：原样透传（spinning 字段优先，与 antd `<Spin spinning={false} {...spinProps}>` 一致）。
+  //   - **undefined（默认）：完全不包 Spin**（零 DOM 变化，保证现有 demo 回归不破）。
+  // 用 Spin 包裹整个表格内容（topPagination / title / 表体 / footer / bottomPagination），
+  // 与 antd InternalTable 的 Spin 包裹范围一致（antd 也是把 top/bottom pagination + table 全包在 Spin 内）。
+  // ★ 零回归优化：loading 未传（undefined）时**不渲染 Spin 容器**，DOM 与原先完全一致——
+  //   避免 antd Spin 的 `.ant-spin-nested-loading` 包裹层给现有无 loading 的 demo 引入额外 DOM
+  //   （antd 自身所有 Table 都有这层，但 data-grid 为严格零回归，仅在显式启用 loading 时才引入）。
+  const spinProps: SpinPropsInput | undefined = useMemo(() => {
+    if (loading === undefined) return undefined
+    if (typeof loading === 'boolean') return { spinning: loading }
+    return loading
+  }, [loading])
+
+  // 表格内容（topPagination / title / 表体 / footer / bottomPagination）。
+  // loading 启用时用 Spin 包裹；未启用时直接渲染（零 DOM 变化）。
+  // S29：title/footer 注入 semantic.title / semantic.footer 的 className/style；
+  //   GridTable 接收 engineSemantic（section/content/header/body 子集）。
+  const titleClassName = classNamesResolved?.title
+  const titleStyle = stylesResolved?.title
+  const footerClassName = classNamesResolved?.footer
+  const footerStyle = stylesResolved?.footer
+  const tableContent = (
+    <>
+      {topPaginationNode}
+      {title ? (
+        <div
+          className={['dg-title', titleClassName].filter(Boolean).join(' ')}
+          style={titleStyle}
+        >
+          {title(flattenedDataSource)}
+        </div>
+      ) : null}
       <GridTable<RecordType>
         ref={engineRef as unknown as React.Ref<TableEngineHandle>}
         columnTree={columnTreeWithSortAndFilter}
-        dataSource={filteredDataSource}
+        dataSource={pagedDataSource}
         rowKey={rowKeyResolved}
         rowHeight={rowHeight}
         headerHeight={headerHeight}
@@ -780,10 +1887,47 @@ function TableInner<RecordType = any>(
         resizableMinWidth={resizableMinWidth}
         resizableMaxWidth={resizableMaxWidth}
         expandState={engineExpandState}
+        treeState={engineTreeState}
         onSorterClick={onSorterClick}
         onFilterApply={setFilterValue}
+        components={components}
+        summary={summaryNode}
+        emptyText={emptyText}
+        semantic={engineSemantic}
+        sticky={engineSticky}
+        onHeaderRow={onHeaderRow}
+        onRow={onRow}
+        rowClassName={
+          rowClassName === undefined
+            ? undefined
+            : typeof rowClassName === 'string'
+              ? rowClassName
+              : (record: RecordType, index: number) => rowClassName(record, index)
+        }
+        getPopupContainer={getPopupContainer}
+        rowHoverable={rowHoverable}
       />
-      {footer ? <div className="dg-footer">{footer(filteredDataSource)}</div> : null}
+      {footer ? (
+        <div
+          className={['dg-footer', footerClassName].filter(Boolean).join(' ')}
+          style={footerStyle}
+        >
+          {footer(flattenedDataSource)}
+        </div>
+      ) : null}
+      {bottomPaginationNode}
+    </>
+  )
+
+  return (
+    <div className={wrapperClass} style={wrapperStyle} ref={rootRef}>
+      {spinProps !== undefined ? (
+        <Spin spinning={false} {...spinProps}>
+          {tableContent}
+        </Spin>
+      ) : (
+        tableContent
+      )}
     </div>
   )
 }
@@ -802,4 +1946,16 @@ interface TableEngineHandle {
 }
 
 export { getRowKey }
-export type { TableProps, ColumnType, SizeType, TableRef } from './types'
+// S31 JSX 风格 API：命名导出 Column / ColumnGroup 组件（同时挂为 Table.Column / Table.ColumnGroup 静态属性）。
+export { Column, ColumnGroup }
+export type {
+  TableProps,
+  ColumnType,
+  ColumnProps,
+  ColumnGroupProps,
+  SizeType,
+  TableRef,
+  TablePaginationConfig,
+  TablePaginationPlacement,
+  TablePaginationState,
+} from './types'

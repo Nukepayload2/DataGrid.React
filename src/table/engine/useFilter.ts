@@ -124,13 +124,26 @@ export function resolveFilterKey<RecordType>(
 }
 
 /**
- * 判断某列是否可筛选（S3）：filters 非空 + onFilter 存在。
+ * 判断某列是否可筛选（S3/S5/S12）：
+ *   - 内置模式（S3）：filters 非空（onFilter 非必需）。
+ *   - 自定义面板模式（S5）：filterDropdown 存在（filters 可空、onFilter 非必需）。
+ *   - onFilter 模式：onFilter 是函数（filters 可空）。
+ *
+ * **对齐 antd `useFilter/index.tsx:38`**：`filters || filterDropdownIsDefined || 'onFilter' in column`
+ * ——filters/filterDropdown/onFilter 任一存在即 filterable（渲染漏斗）。**onFilter 非必需**：
+ * 服务端模式（S12 ajax）列声明 filters 但不传 onFilter，漏斗仍渲染，onChange 仍回传 filters，
+ * 前端不过滤（数据由服务端处理）。
  */
 export function isFilterable<RecordType>(
   column: ColumnType<RecordType> | undefined,
 ): boolean {
   if (!column) return false
-  return !!column.filters && column.filters.length > 0 && typeof column.onFilter === 'function'
+  // S5：自定义面板优先——有 filterDropdown 即可筛选（即使无 filters/onFilter）。
+  if (column.filterDropdown !== undefined && column.filterDropdown !== null) return true
+  // S3/S12：filters 非空即 filterable（onFilter 非必需——服务端筛选时前端不过滤）。
+  if (!!column.filters && column.filters.length > 0) return true
+  // 仅 onFilter（filters 空、filterDropdown 空）也视为可筛选（兜底）。
+  return typeof column.onFilter === 'function'
 }
 
 /**
@@ -192,7 +205,10 @@ function computeFilteredDataSource<RecordType>(
     if (key === undefined) continue
     const values = filteredValueMap.get(key)
     if (!values || values.length === 0) continue
-    activeFilters.push({ onFilter: c.onFilter!, values })
+    // S12 守卫：filterable 放宽后，server 模式列可能无 onFilter（filters 非空但 onFilter 缺省）。
+    // 对齐 antd：无 onFilter 的列渲染漏斗但前端不过滤（数据由服务端处理），跳过该列。
+    if (typeof c.onFilter !== 'function') continue
+    activeFilters.push({ onFilter: c.onFilter, values })
   }
   if (activeFilters.length === 0) return dataSource
   return dataSource.filter((record) =>

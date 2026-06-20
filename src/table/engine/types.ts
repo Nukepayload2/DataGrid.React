@@ -68,8 +68,28 @@ export interface EngineLeafColumn<RecordType = any> {
   align?: Align
   /** 是否固定列（已归一化为 start/end）。 */
   fixed?: FixedSide
-  /** 是否单行省略号。本阶段仅样式占位（详见 S20 任务）。 */
+  /**
+   * ★ 接口全兼容（决策 3 第二步，对齐 antd `column.className`）。该列单元格额外 className
+   * （透传到数据单元格 + 表头格）。详见对外 types.ts ColumnType.className。
+   */
+  className?: string
+  /**
+   * ★ 接口全兼容（决策 3 第二步，对齐 antd `column.style`）。该列单元格额外 inline style。
+   * 详见对外 types.ts ColumnType.style。
+   */
+  style?: import('react').CSSProperties
+  /**
+   * 是否单行省略号（S20 + S21）。由适配层 normalize：外部 `boolean | {showTitle}` 统一解析为
+   * `boolean`（控制是否加 `dg-cell-ellipsis` CSS 类）；`showTitle` 单独透传（见下）。
+   */
   ellipsis?: boolean
+  /**
+   * 是否显示默认 native title（S21，对齐 antd `ellipsis.showTitle`）。
+   * 由适配层 normalize 自 `{ showTitle: false }` 解析：`undefined`/`true` → 显示默认 title；
+   * `false` → cell-inner **不加** native title（让 render 内 antd Tooltip 接管 hover）。
+   * 仅 `ellipsis: true` 列消费（非 ellipsis 列无 title，本字段无意义）。
+   */
+  showTitle?: boolean
   /**
    * 是否隐藏该列（M6）。
    * `true`：该叶子列在 `grid-template-columns` 中占一条 `0fr` track（track 仍存在，线号不变），
@@ -87,11 +107,25 @@ export interface EngineLeafColumn<RecordType = any> {
    */
   render?: (text: any, record: RecordType, index: number) => ReactNode
   /**
-   * 单元格合并入口（M3）。
-   * 返回 { colSpan?, rowSpan? }；含 0 表示该格被覆盖（不渲染）。
+   * 单元格事件 + 合并入口（M3 + S15）。
+   * 返回 { colSpan?, rowSpan?, ...任意字段 }；含 colSpan/rowSpan=0 表示该格被覆盖（不渲染）。
+   * 返回值的**其余字段**（除 colSpan/rowSpan）由渲染层透传给 components.body.cell（S15）。
    * 详见对外 types.ts ColumnType.onCell 注释。
+   *
+   * 引擎消费：cellMerge 只读 colSpan/rowSpan（M3）；GridTable 渲染单元格时若提供了
+   * components.body.cell，会调用 onCell 取完整返回值透传给 cell 组件。
    */
-  onCell?: (record: RecordType, index: number) => { colSpan?: number; rowSpan?: number } | undefined
+  onCell?: (record: RecordType, index: number) => Record<string, any> | undefined
+  /**
+   * ★ 接口全兼容（决策 3 第二步，对齐 antd `column.onHeaderCell`）。表头格 props 注入。
+   * flat 路径（ColumnCells）用 leafColumn 消费本字段；multi 路径由 EngineColumnNode.onHeaderCell
+   * 经 flattenHeaderCells 透传到 EngineHeaderCell.onHeaderCell。详见 EngineColumnNode.onHeaderCell。
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onHeaderCell?: (
+    column: any,
+    index: number,
+  ) => import('react').HTMLAttributes<HTMLElement> | undefined
   /**
    * 表头格横向跨列数（M3）。
    * `colSpan: N` (N>=2)：表头格跨 N 个叶子列；后续 N-1 叶子列需 `colSpan: 0`（被覆盖，不渲染表头格）。
@@ -149,8 +183,48 @@ export interface EngineLeafColumn<RecordType = any> {
    * 关闭下拉即应用（S3，默认 true）。引擎据此控制 Dropdown 的 onOpenChange 行为。
    */
   filterOnClose?: boolean
+  /**
+   * 自定义筛选下拉面板（S5，透传对外 `column.filterDropdown`）。
+   * 引擎渲染层（FilterDropdown）据此切换：有 filterDropdown → 渲染自定义面板（注入 antd 兼容 props）；
+   * 无 → 渲染内置 Checkbox/Radio 面板。函数签名见对外 types.ts `FilterDropdownProps`。
+   */
+  filterDropdown?:
+    | React.ReactNode
+    | ((props: import('../types').FilterDropdownProps) => React.ReactNode)
+  /**
+   * 自定义漏斗图标（S5，透传对外 `column.filterIcon`）。
+   * 函数 `(filtered: boolean) => ReactNode`；或直接 ReactNode。缺省用自绘 FilterOutlined/Filled。
+   */
+  filterIcon?:
+    | React.ReactNode
+    | ((filtered: boolean) => React.ReactNode)
+  /**
+   * 透传给筛选下拉 antd Dropdown 的 props（S5，透传对外 `column.filterDropdownProps`）。
+   * 含 open（受控）/onOpenChange/triggerClassName/overlayClassName 等。
+   */
+  filterDropdownProps?: import('../types').ColumnFilterDropdownProps
+  /**
+   * 筛选项搜索（S6，透传对外 `column.filterSearch`；仅叶子列消费）。
+   * true → 默认 contains 匹配；函数 → 自定义；undefined/false → 不渲染搜索框。
+   * 仅 menu 模式内置面板生效；自定义面板（filterDropdown）不消费。详见对外 types.ts。
+   */
+  filterSearch?:
+    | true
+    | ((input: string, record: import('./types').EngineFilterItem) => boolean)
+  /**
+   * 筛选下拉展示模式（S7，透传对外 `column.filterMode`，默认 'menu'）。
+   * 'tree' → 内置下拉用 antd `<Tree checkable>` 渲染树形结构（filters.children）；'menu' → Checkbox/Radio。
+   * 自定义面板（filterDropdown）存在时 filterMode 无效（被取代）。详见对外 types.ts。
+   */
+  filterMode?: 'menu' | 'tree'
   /** 原始 antd column，按需透传（后续任务 colSpan/rowSpan/onCell 等使用）。 */
   raw?: unknown
+  /**
+   * 单元格重渲染优化（S15，对齐 antd `column.shouldCellUpdate`）。
+   * 返回 false 时该单元格（components.body.cell）在 record 变化时不重渲染。
+   * 仅当 components.body.cell 提供时消费。详见对外 types.ts ColumnType.shouldCellUpdate。
+   */
+  shouldCellUpdate?: (prevRecord: RecordType, nextRecord: RecordType) => boolean
 }
 
 /**
@@ -173,8 +247,22 @@ export interface EngineColumnNode<RecordType = any> {
   align?: Align
   /** 是否固定列（已归一化；M2 落地，本阶段仅透传）。 */
   fixed?: FixedSide
-  /** 是否单行省略号（仅叶子列消费）。 */
+  /**
+   * ★ 接口全兼容（决策 3 第二步，对齐 antd `column.className`）。该列单元格/表头格额外 className。
+   * 详见 EngineLeafColumn.className / 对外 types.ts ColumnType.className。
+   */
+  className?: string
+  /**
+   * ★ 接口全兼容（决策 3 第二步，对齐 antd `column.style`）。该列单元格/表头格额外 inline style。
+   * 详见 EngineLeafColumn.style / 对外 types.ts ColumnType.style。
+   */
+  style?: import('react').CSSProperties
+  /** 是否单行省略号（仅叶子列消费，已 normalize 为 boolean）。详见 EngineLeafColumn.ellipsis。 */
   ellipsis?: boolean
+  /**
+   * 是否显示默认 native title（S21，仅叶子列消费，已 normalize）。详见 EngineLeafColumn.showTitle。
+   */
+  showTitle?: boolean
   /**
    * 是否隐藏该列（M6，仅叶子节点消费；分组节点的 hidden 无意义——多级表头隐藏通过隐藏
    * 子叶子实现，父分组格随之收缩）。
@@ -190,9 +278,23 @@ export interface EngineColumnNode<RecordType = any> {
   width?: number | string
   render?: (text: any, record: RecordType, index: number) => ReactNode
   /**
-   * 单元格合并入口（M3，仅叶子节点消费）。详见 EngineLeafColumn.onCell。
+   * 单元格事件 + 合并入口（M3 + S15，仅叶子节点消费）。详见 EngineLeafColumn.onCell。
    */
-  onCell?: (record: RecordType, index: number) => { colSpan?: number; rowSpan?: number } | undefined
+  onCell?: (record: RecordType, index: number) => Record<string, any> | undefined
+  /**
+   * ★ 接口全兼容（决策 3 第二步，对齐 antd `column.onHeaderCell`）。表头格 props 注入
+   * （仅叶子节点消费；分组表头格无 onHeaderCell）。签名 `(column, index) => HTMLAttributes`，
+   * 返回值整体合并到表头格 div 的 props（className/style/onClick/...）。
+   * 详见对外 types.ts ColumnType.onHeaderCell。
+   *
+   * ★ column 参数用 `any`（对齐 antd `GetComponentProps` 的 data 参数风格）——适配层传入强类型
+   *   `(column: ColumnType, index) => ...` 可赋值给本字段（参数逆变 any 兼容）。
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onHeaderCell?: (
+    column: any,
+    index: number,
+  ) => import('react').HTMLAttributes<HTMLElement> | undefined
   /**
    * 表头格横向跨列数（M3，仅叶子节点消费）。详见 EngineLeafColumn.colSpan。
    */
@@ -239,8 +341,41 @@ export interface EngineColumnNode<RecordType = any> {
    * 关闭下拉即应用（S3，仅叶子节点消费，默认 true）。
    */
   filterOnClose?: boolean
+  /**
+   * 自定义筛选下拉面板（S5，仅叶子节点消费，透传 `column.filterDropdown`）。
+   * 详见 EngineLeafColumn.filterDropdown。
+   */
+  filterDropdown?:
+    | React.ReactNode
+    | ((props: import('../types').FilterDropdownProps) => React.ReactNode)
+  /**
+   * 自定义漏斗图标（S5，仅叶子节点消费，透传 `column.filterIcon`）。
+   */
+  filterIcon?:
+    | React.ReactNode
+    | ((filtered: boolean) => React.ReactNode)
+  /**
+   * 透传给筛选下拉 antd Dropdown 的 props（S5，仅叶子节点消费，透传 `column.filterDropdownProps`）。
+   */
+  filterDropdownProps?: import('../types').ColumnFilterDropdownProps
+  /**
+   * 筛选项搜索（S6，仅叶子节点消费，透传 `column.filterSearch`）。
+   * 详见 EngineLeafColumn.filterSearch。
+   */
+  filterSearch?:
+    | true
+    | ((input: string, record: import('./types').EngineFilterItem) => boolean)
+  /**
+   * 筛选下拉展示模式（S7，仅叶子节点消费，透传 `column.filterMode`，默认 'menu'）。
+   * 详见 EngineLeafColumn.filterMode。
+   */
+  filterMode?: 'menu' | 'tree'
   /** 原始 antd column（透传）。 */
   raw?: unknown
+  /**
+   * 单元格重渲染优化（S15，仅叶子节点消费）。详见 EngineLeafColumn.shouldCellUpdate。
+   */
+  shouldCellUpdate?: (prevRecord: RecordType, nextRecord: RecordType) => boolean
 }
 
 /**
@@ -264,6 +399,41 @@ export interface EngineHeaderCell<RecordType = any> {
   align?: Align
   /** 是否固定列（透传）。 */
   fixed?: FixedSide
+  /**
+   * ★ 接口全兼容（决策 3 第二步，对齐 antd `column.className`）。该列表头格额外 className
+   * （来自 column.className，仅叶子表头格消费；分组表头格恒 undefined）。合并到表头格 div 的
+   * className 列表。详见对外 types.ts ColumnType.className。
+   */
+  className?: string
+  /**
+   * ★ 接口全兼容（决策 3 第二步，对齐 antd `column.style`）。该列表头格额外 inline style
+   * （来自 column.style，仅叶子表头格消费）。合并到表头格 div 的 inline style。详见对外
+   * types.ts ColumnType.style。
+   */
+  style?: import('react').CSSProperties
+  /**
+   * ★ 接口全兼容（决策 3 第二步，对齐 antd `column.onHeaderCell`）。表头格 props 注入
+   * （仅叶子表头格消费；分组表头格恒 undefined）。详见 EngineColumnNode.onHeaderCell /
+   * 对外 types.ts ColumnType.onHeaderCell。
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onHeaderCell?: (
+    column: any,
+    index: number,
+  ) => import('react').HTMLAttributes<HTMLElement> | undefined
+  /**
+   * 是否单行省略号（S20 + S21，仅叶子表头格有值；已 normalize 为 boolean）。
+   * `true`：表头格加 `dg-cell-ellipsis` 类（`.dg-cell-inner` 应用 overflow:hidden +
+   * white-space:nowrap + text-overflow:ellipsis）；title 为 string 时额外设 native title
+   * 悬浮提示（对齐 antd：长 title 省略 + hover 显示完整标题）——是否加 title 受 `showTitle` 门控。
+   */
+  ellipsis?: boolean
+  /**
+   * 是否显示默认 native title（S21，仅叶子表头格有值，已 normalize）。
+   * `showTitle: false` → 表头格不加 native title（让 render/外部 Tooltip 接管）。
+   * 详见 EngineLeafColumn.showTitle。
+   */
+  showTitle?: boolean
   /** 1-based 起始列号（对应 grid-template-columns 的第 N 条 track）。 */
   gridColumnStart: number
   /** 1-based 结束列号（exclusive，即 gridColumnEnd = gridColumnStart + colSpan）。 */
@@ -344,6 +514,38 @@ export interface EngineHeaderCell<RecordType = any> {
    * 关闭下拉即应用（S3，仅叶子表头格有值，默认 true）。
    */
   filterOnClose?: boolean
+  /**
+   * 自定义筛选下拉面板（S5，仅叶子表头格有值，透传 `column.filterDropdown`）。
+   * 有值时引擎渲染层（FilterDropdown）渲染自定义面板（注入 antd 兼容 props），
+   * 否则渲染内置 Checkbox/Radio 面板。
+   */
+  filterDropdown?:
+    | React.ReactNode
+    | ((props: import('../types').FilterDropdownProps) => React.ReactNode)
+  /**
+   * 自定义漏斗图标（S5，仅叶子表头格有值，透传 `column.filterIcon`）。
+   */
+  filterIcon?:
+    | React.ReactNode
+    | ((filtered: boolean) => React.ReactNode)
+  /**
+   * 透传给筛选下拉 antd Dropdown 的 props（S5，仅叶子表头格有值，透传 `column.filterDropdownProps`）。
+   */
+  filterDropdownProps?: import('../types').ColumnFilterDropdownProps
+  /**
+   * 筛选项搜索（S6，仅叶子表头格有值，透传 `column.filterSearch`）。
+   * 引擎渲染层（FilterDropdown）据此在内置 menu 面板顶部渲染 antd Input 搜索框 + 过滤 flatItems。
+   * true → 默认 contains；函数 → 自定义；undefined/false → 不渲染搜索框。详见对外 types.ts。
+   */
+  filterSearch?:
+    | true
+    | ((input: string, record: import('./types').EngineFilterItem) => boolean)
+  /**
+   * 筛选下拉展示模式（S7，仅叶子表头格有值，透传 `column.filterMode`，默认 'menu'）。
+   * 引擎渲染层（FilterDropdown）据此切换内置面板：'tree' → antd `<Tree checkable>` 树形；
+   * 'menu'/undefined → Checkbox.Group/Radio.Group。详见对外 types.ts。
+   */
+  filterMode?: 'menu' | 'tree'
 }
 
 /**
@@ -408,6 +610,18 @@ export interface EngineTableProps<RecordType = any> {
     index: number,
   ) => ReactNode
   /**
+   * 自定义组件（S15，对齐 antd v6 `TableComponents` 子集；data-grid div 渲染适配）。
+   * - `body.cell`：提供时替换 dg-cell div **内部内容**渲染（返回 ReactNode）；props 含
+   *   `{ children, record, index, dataIndex, ...onCell返回值 }`。
+   * - `body.row`：提供时每行渲染一个包裹层组件（用于 Form/Context 等）。
+   * - `header.cell`：表头格（S19 用，本任务占位不消费）。
+   * 详见对外 types.ts TableComponents 注释。
+   */
+  components?: {
+    header?: { cell?: React.ComponentType<any> }
+    body?: { row?: React.ComponentType<any>; cell?: React.ComponentType<any> }
+  }
+  /**
    * 列宽拖拽调整开关（M7）。
    *
    * - `true`（或 undefined，由适配层默认值决定）：在**叶子表头格右侧**渲染 resizer 手柄，
@@ -446,6 +660,16 @@ export interface EngineTableProps<RecordType = any> {
    */
   expandState?: EngineExpandState
   /**
+   * S13 树形数据状态（由适配层 useTreeData 派生，引擎只消费、不持有状态）。
+   *
+   * 引擎据此在**第一列数据列**单元格内按 `level × indentSize` 左缩进 + `hasChildren` 行渲染展开/收起图标。
+   * 数据源已由适配层扁平化（按展开状态过滤未展开父行的子孙行），引擎按普通扁平表格渲染。
+   *
+   * 与 M9 expandState（expandedRowRender 自定义展开内容）互斥：树形模式下不启用 expandState
+   * （antd 行为：tree-data 优先于 expandedRowRender）。
+   */
+  treeState?: EngineTreeState
+  /**
    * 排序点击回调（S1）。
    * 用户点击可排序叶子表头格（含排序图标区域）时触发。参数为该列的稳定 key（来自 columnTree，
    * 即 `column.key` / dataIndex / 匿名 col-N）。
@@ -462,6 +686,149 @@ export interface EngineTableProps<RecordType = any> {
    * 引擎只负责触发此回调，不持有筛选状态。
    */
   onFilterApply?: (filterKey: string, nextFilteredValue: Array<string | number>) => void
+  /**
+   * 汇总栏 summary（S22，透传对外 `TableProps.summary` 解析后的 ReactNode）。
+   *
+   * 适配层在 Table.tsx 解析 `summary` prop：
+   *   - 函数 → 用 pagedDataSource 调用得到 ReactNode。
+   *   - ReactNode → 原样。
+   * 解析后的 ReactNode 传给引擎；引擎渲染到 grid 末尾的 summary 区。
+   *
+   * 引擎渲染：遍历 ReactNode（应为 `Table.Summary` 容器内含 `Table.Summary.Row` 列表），
+   * 给每个 Row cloneElement 注入 `__rowLine`（grid-row 线号）+ `__fixed`（sticky bottom 标志），
+   * Row 再通过 Context 把 rowLine/fixed 传给 Cell，Cell 据此设 grid-row + sticky bottom。
+   *
+   * 未提供（undefined）时不渲染 summary 区（零回归）。
+   */
+  summary?: ReactNode
+  /**
+   * 空状态占位内容（S23）。
+   *
+   * 适配层（Table.tsx）解析 emptyText 来源优先级（严格对齐 antd `InternalTable.tsx:706-718`）：
+   *   1. `TableProps.locale.emptyText`（Table 级，最高优先级）。
+   *   2. `ConfigProvider.renderEmpty('Table')`（全局表体空状态）。
+   *   3. 默认 antd `<Empty>`。
+   * 解析后的 ReactNode 传给引擎；引擎仅在 pagedDataSource 为空时渲染一个跨所有列的 empty 区
+   * （`grid-column: 1 / -1`，居中）。非空时不渲染（零回归）。
+   *
+   * 表体 empty 不区分"空数据 vs 筛选无结果"（对齐 antd InternalTable.tsx:714-717）——两种场景
+   * 共用同一 emptyText（已由适配层按上述优先级解析为单一 'Table' 语义）。
+   * 注：antd 的 `'Table.filter'` 是 filter 下拉内 filters 空时的占位（FilterDropdown 消费），
+   * 与表体 empty 无关。
+   */
+  emptyText?: ReactNode
+  /**
+   * S34 页面级粘性表头配置（由适配层解析后传入；引擎据此切到"页面级 sticky"渲染路径）。
+   *
+   * **语义（区别 M8 容器内固定）**：表头相对**页面 viewport** 固定（`position: sticky;
+   * top: offsetHeader`），而非相对表格滚动容器（M8）。详见对外 `StickyConfig` 注释。
+   *
+   * 引擎消费：
+   *   - `offsetHeader`：表头 grid item 的 sticky top 值（页面纵向滚动时表头钉在视口顶部该偏移处）。
+   *   - `offsetScroll`：底部 StickyScrollBar 的 sticky bottom 值。
+   *   - `getContainer`：StickyScrollBar 同步监听的滚动容器（默认 window）。
+   *
+   * **引擎行为切换**：sticky 启用时，`.dg-grid` 外**不包** overflow 容器（避免拦截 sticky 上下文），
+   * grid 直接渲染 + `min-width: scrollX` 撑宽；表头 grid item 加 `position: sticky; top: offsetHeader`；
+   * grid 之后渲染一个 `StickyScrollBar`（`position: sticky; bottom: offsetScroll`）同步页面横向滚动。
+   *
+   * 未提供（undefined）时不启用（所有现有渲染路径不变，零回归）。
+   */
+  sticky?: {
+    offsetHeader?: number
+    offsetScroll?: number
+    getContainer?: () => HTMLElement | Window | undefined
+  }
+  /**
+   * S29 语义化 classNames/styles（已由适配层解析为对象——classNames/styles 可能是对象或函数，
+   * 适配层在 Table.tsx 内求值后传给引擎一个**确定的语义化部位 class/style 对象**）。
+   *
+   * 引擎消费的部位：
+   *   - `section`：grid 外的包装容器（`.dg-section`）class/style。
+   *   - `content`：grid 根容器（`.dg-content`/`.dg-grid`）class/style——与 `.dg-grid` 合并。
+   *   - `header.{wrapper,row,cell}`：表头容器/表头行/表头格 class/style。
+   *   - `body.{wrapper,row,cell}`：表体容器/表体行/表体格 class/style。
+   *
+   * 引擎只消费 grid 内部位（section / content / header.{wrapper,row,cell} / body.{wrapper,row,cell}）；
+   * root/title/footer/pagination.*
+   * 由适配层在 Table.tsx 直接消费（不传引擎）。
+   *
+   * 注入策略：class 与现有 dg-* 类合并（`[existing, semantic].filter(Boolean).join(' ')`）；
+   * style 与现有 style 浅合并（semantic 覆盖同名字段）。
+   *
+   * 未提供（undefined）时不注入任何额外 class/style，零回归。
+   */
+  semantic?: EngineSemantic
+  /**
+   * ★ 接口全兼容（决策 3 第二步，对齐 antd v6 `TableProps.onHeaderRow`）。表头行 props 注入。
+   * grid 渲染下表头无独立 `<tr>`，引擎把返回值透传到该表头行**所有表头格**（事件 + class + style）。
+   * 详见对外 types.ts TableProps.onHeaderCell。未提供（undefined）时不注入（零回归）。
+   *
+   * ★ columns 参数用 `any[]`（对齐 antd `GetComponentProps` 风格）——适配层传入强类型
+   *   `(columns: ColumnType[], index) => ...` 可赋值给本字段。
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onHeaderRow?: (
+    columns: Array<any>,
+    index: number,
+  ) => import('react').HTMLAttributes<HTMLElement> | undefined
+  /**
+   * ★ 接口全兼容（决策 3 第二步，对齐 antd v6 `TableProps.onRow`）。表体行 props 注入。
+   * grid 渲染下表体无独立 `<tr>`，引擎把返回值透传到该行**所有数据单元格**（事件 + class + style）。
+   * 详见对外 types.ts TableProps.onRow。未提供（undefined）时不注入（零回归）。
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onRow?: (
+    record: any,
+    index: number,
+  ) => import('react').HTMLAttributes<HTMLElement> | undefined
+  /**
+   * ★ 接口全兼容（决策 3 第二步，对齐 antd v6 `TableProps.rowClassName`）。表体行 className。
+   * grid 渲染下表体无独立 `<tr>`，引擎把 class 透传到该行**所有数据单元格**（行级 class 标记）。
+   * 详见对外 types.ts TableProps.rowClassName。未提供（undefined）时不注入（零回归）。
+   */
+  rowClassName?: string | ((record: any, index: number) => string)
+  /**
+   * ★ 接口全兼容（决策 3 第二步，对齐 antd v6 `TableProps.getPopupContainer`）。筛选下拉等
+   * dropdown 的挂载容器。引擎把它作为 FilterDropdown 内 antd Dropdown 的默认 getPopupContainer
+   * （列级 filterDropdownProps.getPopupContainer 优先）。未提供（undefined）时 antd Dropdown 走
+   * 默认（document.body），零回归。
+   */
+  getPopupContainer?: (triggerNode: HTMLElement) => HTMLElement
+  /**
+   * ★ 接口全兼容（决策 3 第二步，对齐 antd v6 `TableProps.rowHoverable`）。行是否可 hover 高亮，
+   * 默认 true。false 时单元格不加 dg-row-hover（关闭内置 hover 视觉）。详见对外 types.ts
+   * TableProps.rowHoverable。未提供（undefined）时默认 true（保持现有 hover 行为不变，零回归）。
+   */
+  rowHoverable?: boolean
+}
+
+/**
+ * 引擎层树形数据状态（S13）。适配层 useTreeData 派生后传入；引擎只读不写。
+ *
+ * 适配层在树形模式下（dataSource record 含 `childrenColumnName` 子字段）调用 useTreeData：
+ *   1. 把嵌套 children 扁平化（DFS）成普通 record 数组（按展开状态过滤未展开父行的子孙行），
+ *      **替换原 dataSource 传给引擎**——引擎按普通扁平表格渲染。
+ *   2. 同时构建 `rowInfoMap`（key → {level, parentKey, hasChildren}），引擎据此在**第一列数据列**
+ *      单元格内按 `level × indentSize` 左缩进 + `hasChildren` 行渲染展开/收起图标。
+ *
+ * 引擎据此在渲染数据单元格时（仅 treeState 启用且该列为"首数据列"）插入缩进 + 展开图标。
+ */
+export interface EngineTreeState {
+  /** 是否启用树形模式（treeState 启用）。 */
+  treeEnabled: boolean
+  /** 每层缩进宽度（px）。默认 15（对齐 antd 6.4.4 实测）。 */
+  indentSize: number
+  /**
+   * key → 树形行信息。
+   * 包含扁平化后**所有可见行**（已按展开状态过滤）的 level/parentKey/hasChildren。
+   * 引擎在渲染某行数据格时按该行 key 查此 Map。
+   */
+  rowInfoMap: Map<React.Key, { level: number; parentKey: React.Key | null; hasChildren: boolean }>
+  /** 某 key 是否展开。 */
+  isExpanded: (key: React.Key) => boolean
+  /** 切换某行展开态（点击展开图标触发）。参数：(key)。 */
+  toggleExpand: (key: React.Key) => void
 }
 
 /**
@@ -496,4 +863,38 @@ export interface EngineExpandState {
     onExpand: (record: any, e: import('react').MouseEvent) => void
     record: any
   }) => ReactNode
+}
+
+/**
+ * S29 引擎层语义化样式（已求值的对象，由适配层 Table.tsx 传入）。
+ *
+ * 引擎只消费**grid 内**部位（root/title/footer/pagination.* 由适配层直接消费）：
+ *   - `section`：grid 外的包装容器（`.dg-section`，含滚动容器）。
+ *   - `content`：grid 根容器（`.dg-content`/`.dg-grid`）。
+ *   - `header.{wrapper,row,cell}`：表头容器/表头行/表头格。
+ *   - `body.{wrapper,row,cell}`：表体容器/表体行/表体格。
+ *
+ * 与对外 `TableSemanticClassNames/Styles`（types.ts）字段一一对应，仅取引擎消费的子集。
+ */
+export interface EngineSemanticSection {
+  wrapper?: string
+  cell?: string
+  row?: string
+}
+export interface EngineSemanticSectionStyles {
+  wrapper?: import('react').CSSProperties
+  cell?: import('react').CSSProperties
+  row?: import('react').CSSProperties
+}
+export interface EngineSemantic {
+  section?: { className?: string; style?: import('react').CSSProperties }
+  content?: { className?: string; style?: import('react').CSSProperties }
+  header?: {
+    className?: EngineSemanticSection
+    style?: EngineSemanticSectionStyles
+  }
+  body?: {
+    className?: EngineSemanticSection
+    style?: EngineSemanticSectionStyles
+  }
 }

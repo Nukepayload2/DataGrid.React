@@ -104,7 +104,25 @@
   --dg-border: calc(var(--ant-line-width) * 1px) var(--ant-line-type) var(--ant-border-color);
 }
 
-/* size 变量切换：通过 dg-size-* 类覆写 padding / 字号 token。 */
+/* size 变量切换：通过 dg-size-* 类覆写 padding / 字号 token（S27）。
+ *
+ * ★ 三档视觉尺寸（对齐 antd v6 `components/table/style/index.ts:544-567`）：
+ *   - large（默认，无 size 类或带 dg-size-large）：cell padding block 16 / inline 16 / font 14。
+ *   - medium = middle（dg-size-middle，antd v5 'middle' 在 v6 映射为 'medium'，
+ *     InternalTable.tsx:294）：cell padding block 12 (paddingSM) / inline 8 (paddingXS) / font 14。
+ *   - small（dg-size-small）：cell padding block 8 (paddingXS) / inline 8 (paddingXS) / font 14。
+ *
+ * ★ 关于 compact（决策 4 实测结论，S27）：
+ *   antd v6 **Table 组件本身不存在 compact size**——`SizeType = 'small' | 'medium' | 'middle' | 'large'`
+ *   （components/config-provider/SizeContext.tsx:6），Table style 也只输出 large/MD/SM 三档 token
+ *   （components/table/style/index.ts:516-528）。`compact` 是 Button/Space/Input 等其它组件的尺寸概念，
+ *   不属于 Table。data-grid 的 SizeType 在 S24 保留了 'compact'（用于 `<ConfigProvider componentSize>`
+ *   全局消费的兜底），Table 层把它视觉等价为 'small'（与 antd 6.4.4 实测最紧凑 Table 尺寸一致）。
+ *   即 compact → dg-size-small，不单独造 antd 不存在的 token（避免臆测）。
+ */
+.dg-wrapper.dg-size-large {
+  /* 显式 'large'：等价默认（无 size 类），这里仅为 sizeToClass 返回值提供明确的类（无样式覆写）。 */
+}
 .dg-wrapper.dg-size-middle {
   --dg-cell-padding-block: calc(var(--ant-cell-padding-block-md) * 1px);
   --dg-cell-padding-inline: calc(var(--ant-cell-padding-inline-md) * 1px);

@@ -20,6 +20,30 @@
   width: 100%;
 }
 
+/* === S34 页面级 sticky：放开 .dg-wrapper 的 overflow/width 约束 ===
+ *
+ * .dg-wrapper 默认 `overflow:hidden`（圆角裁剪）+ `width:100%`（容器约束）。
+ * S34 sticky 启用时这两条都会破坏页面级 sticky：
+ *   1. overflow:hidden 使 .dg-wrapper 成为表头 position:sticky 的"非 visible 溢出祖先"
+ *      （CSS Sticky 规范：sticky 元素相对最近的"可滚动祖先/非 visible 溢出祖先"固定）。
+ *      .dg-wrapper 自身不内部滚动 → 表头 sticky 相对它永不触发，相对 viewport 更不会触发。
+ *      → 改 overflow:visible，让 sticky 上下文穿透到 window（页面），表头相对 viewport 固定。
+ *   2. width:100% 裁切内部 .dg-grid 的 min-width:scrollX（横向滚动），导致页面横向不滚动
+ *      （documentElement.scrollWidth === clientWidth），fixed-end 列与 StickyScrollBar 全失效。
+ *      → 改 width:auto，让 .dg-grid min-width 撑宽页面，触发页面原生横向滚动。
+ *
+ * ★ 圆角降级：overflow:visible 后 .dg-wrapper 不再裁剪，顶部圆角视觉降级
+ *   （圆角处不再裁切子节点溢出）。优先 sticky 功能正确，圆角视觉可接受降级。
+ *   后续若需保圆角，可把 border-radius + overflow:hidden 下推到 .dg-grid 内部容器
+ *   （需保证该容器本身 overflow 非 visible 不在 sticky 元素的祖先链上拦截上下文）。
+ *
+ * ★ 零回归：未加 dg-sticky 类的 .dg-wrapper（非 sticky demo）保持 overflow:hidden + width:100%。
+ */
+.dg-wrapper.dg-sticky {
+  overflow: visible;
+  width: auto;
+}
+
 .dg-title,
 .dg-footer {
   padding: var(--dg-cell-padding-block) var(--dg-cell-padding-inline);
@@ -191,6 +215,20 @@
   border-top: var(--dg-border);
 }
 
+/* bordered 模式下固定列组合边框（S26）：
+   fixed-end 侧最左格（.dg-sticky-shadow-end）悬浮于可滚动普通列之上，
+   其左侧可见边缘靠下方普通列的 border-inline-end 不可靠（被 fixed 列不透明背景遮挡
+   + 横向滚到尽头时下方无可对齐的边框）。显式给该格补 border-inline-start，
+   保证 bordered + fixed 组合下右 sticky 列左边缘完整（避免 lun 的右 sticky 列缺左 border 缺陷）。
+   fixed-start 侧最右格（.dg-sticky-shadow-start）右边缘同理补 border-inline-end。 */
+.dg-wrapper.dg-bordered .dg-sticky-shadow-end {
+  border-inline-start: var(--dg-border);
+}
+
+.dg-wrapper.dg-bordered .dg-sticky-shadow-start {
+  border-inline-end: var(--dg-border);
+}
+
 /* 固定列接口位（M2 落地，本阶段仅 class 占位避免视觉异常） */
 .dg-cell-fixed-start,
 .dg-cell-fixed-end {
@@ -301,12 +339,27 @@
   background: var(--dg-header-bg);
 }
 
-/* ellipsis 接口位（S20 落地，本阶段基本样式） */
+/* === S20 ellipsis 省略号 ===
+ *
+ * `column.ellipsis: true` 列的单元格（表体 + 表头）加 `dg-cell-ellipsis` 类：
+ *   - `.dg-cell-inner`（无 sorter/filter 的普通单元格 / 表头）：overflow:hidden + white-space:nowrap
+ *     + text-overflow:ellipsis + max-width:100%（限制在列宽内，超长文本显示省略号）。
+ *   - `.dg-column-title`（有 sorter/filter 的表头格）：同款 ellipsis（title 文字省略，右侧操作区不动）。
+ *
+ * 与 antd 行为对齐：长文本/长表头超列宽时省略号；hover 由引擎在 `.dg-cell-inner` / `.dg-column-title`
+ *   上设 native `title` 提示完整内容（antd 默认行为；S21 ellipsis={ showTitle: false } 会关闭）。
+ */
 .dg-cell.dg-cell-ellipsis .dg-cell-inner {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
   max-width: 100%;
+}
+
+.dg-cell.dg-cell-ellipsis .dg-column-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /* === M5 行选择 ===
@@ -835,6 +888,17 @@
   overflow-y: auto;
 }
 
+/* S6 筛选项搜索框（antd Input + 放大镜前缀）。
+   对齐 antd `.ant-table-filter-dropdown-search`：底部留间距与筛选项列表分开。 */
+.dg-filter-dropdown-search {
+  padding: 8px 8px 0;
+}
+
+/* 搜索 Input 撑满面板宽度（对齐 antd filter-dropdown-search-input）。 */
+.dg-filter-dropdown-search-input {
+  width: 100%;
+}
+
 .dg-filter-menu-list {
   display: flex;
   flex-direction: column;
@@ -869,4 +933,51 @@
 .dg-cell-header.dg-column-has-filter:hover {
   background: var(--dg-header-sort-hover-bg, #f5f5f5);
 }
+
+/* === S22 汇总 summary ===
+ *
+ * `.dg-cell-summary`：summary 区单元格（grid item）。视觉对齐 antd `.ant-table-summary`：
+ *   - 底色 tableBg（与表体一致白底；antd summary 默认无特殊背景，与表体连续）。
+ *   - 顶部 1px 分割线（与表体最后一行区分；antd summary 顶部有 border-top——此处用 box-shadow 模拟，
+ *     因 summary 在 grid 末尾，其上方是表体最后一行的 border-bottom，再加 border-top 会双线，
+ *     故这里只在 summary 区首行的 Cell 顶部加一条淡线，视觉上"分隔表体与汇总"）。
+ *   - 单元格内边距与表体一致（dg-cell 已有 padding）。
+ *
+ * sticky bottom（fixed 模式）：由 Cell inline style 设 position:sticky; bottom:0; z-index:2，
+ *   背景需不透明才能盖住滚动的表体。.dg-cell-summary 显式给白底（var(--dg-body-bg)）。
+ *
+ * 与 bordered 组合：.dg-bordered .dg-cell 已给所有 cell 加 border-inline-end（竖边框），
+ *   summary cell 自动继承；summary 末行的 border-bottom 由 .dg-cell-body 的 border-bottom 提供
+ *   （但 summary cell 用 .dg-cell-summary 不是 .dg-cell-body，无 border-bottom——这里显式给
+ *   summary cell 加 border-bottom，与 antd summary 末行底部边框一致）。
+ */
+.dg-cell-summary {
+  background: var(--dg-body-bg, #ffffff);
+  border-bottom: var(--dg-border);
+}
+
+/* summary 区首行顶部加一条淡分割线（与表体区分）。
+   视觉对齐 antd `.ant-table-summary`（box-shadow: 0 -1px 0 border-color）。
+   注：因 summary cell 是 grid item 按行排列，无法用 :first-child 精确命中"首行"（DOM 顺序未必按行）；
+   故用 box-shadow inset top 给所有 summary cell 加顶部线——相邻 summary 行之间会双线（1px+1px=2px），
+   但 summary 通常只有 1-2 行，双线视觉影响极小；且 antd summary 多行间也无分割线（仅整体顶部一条）。
+   这里给所有 summary cell 加 top shadow，多行间表现为略深的线（可接受）。 */
+.dg-cell-summary {
+  box-shadow: 0 -1px 0 var(--dg-border-color, #f0f0f0);
+}
+
+/* sticky bottom 时强制不透明背景（覆盖表体滚动内容）。 */
+.dg-cell-summary[style*='position: sticky'],
+.dg-cell-summary[style*='position:sticky'] {
+  background: var(--dg-body-bg, #ffffff);
+}
+
+/* summary cell 对齐（与 .dg-cell[data-align] 同机制）。 */
+.dg-cell-summary[data-align='center'] {
+  justify-content: center;
+}
+.dg-cell-summary[data-align='end'] {
+  justify-content: flex-end;
+}
+
 
