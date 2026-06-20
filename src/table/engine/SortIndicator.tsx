@@ -1,18 +1,18 @@
 /**
- * 表头排序指示器（S1 + S2，自研——lun 无此能力）。
+ * 表头排序指示器（S1 + S2，决策 6 统一化）。
  *
- * 三态视觉对齐 antd 6.4.4（`components/table/style/sorter.ts`）：
- *   - 升序（sortOrder='ascend'）：caret-up 高亮（主色），caret-down 灰。
- *   - 降序（sortOrder='descend'）：caret-down 高亮（主色），caret-up 灰。
- *   - 无（sortOrder=null）：两 caret 均灰。
+ * 三态视觉对齐 antd 6.4.4（实测 `#/demos/head` 右栏 antd 栏 computed style）：
+ *   - 升序（sortOrder='ascend'）：CaretUpOutlined 高亮（主色 #1677ff），CaretDownOutlined 灰。
+ *   - 降序（sortOrder='descend'）：CaretDownOutlined 高亮（主色），CaretUpOutlined 灰。
+ *   - 无（sortOrder=null）：两 caret 均灰（headerIconColor = rgba(0,0,0,0.294)）。
  *
- * 实现用纯 CSS 画 caret（无外部图标依赖）：
- *   - caret-up / caret-down 用 border 三角形（width:0; height:0; border:solid transparent）。
- *   - 两 caret 垂直堆叠（flex column），up 在上、down 在下（与 antd `column-sorter-inner` 一致）。
- *   - 高亮（active）= 主色；灰 = `--dg-header-icon-color`（对齐 antd headerIconColor）。
+ * **决策 6 统一化**：caret 改用 `@ant-design/icons` 的 `CaretUpOutlined`/`CaretDownOutlined`
+ * （与 antd Table 内部 sort icon 一致——antd 也是用这两个 icon 组件渲染 caret）。
+ * 旧实现用 CSS border 三角形画 caret，与 antd 实际 SVG icon 在小尺寸下有视觉差异（border 三角
+ * 锐度/比例略不同）；改用 icon 组件后像素级一致。
  *
- * hover 表头格时整体变 `--dg-header-icon-hover-color`（对齐 antd `column-sorters:hover`）。
- * 颜色变量在 table.css 中定义。
+ * 结构对齐 antd `.ant-table-column-sorter-inner`（两 caret 垂直堆叠，inline-flex column），
+ * active caret 有 `margin-top: -3.6px` 上提（对齐 antd `&-up + &-down { marginTop: -0.3em }`）。
  *
  * === S2 多列优先级序号 ===
  *
@@ -22,6 +22,7 @@
  * 由适配层传入 priority；其它情况不渲染数字（视觉与 S1 一致，零回归）。
  */
 
+import { CaretDownOutlined, CaretUpOutlined } from '@ant-design/icons'
 import type { SortOrder } from '../types'
 
 export interface SortIndicatorProps {
@@ -35,7 +36,7 @@ export interface SortIndicatorProps {
 }
 
 /**
- * 渲染排序三态指示器（caret-up + caret-down 垂直堆叠）。
+ * 渲染排序三态指示器（CaretUpOutlined + CaretDownOutlined 垂直堆叠）。
  * 多列模式下可附加优先级数字徽标（S2）。
  */
 export function SortIndicator({ sortOrder, priority }: SortIndicatorProps) {
@@ -54,8 +55,13 @@ export function SortIndicator({ sortOrder, priority }: SortIndicatorProps) {
       aria-hidden="true"
     >
       <span className="dg-column-sorter-inner">
-        <span className={`dg-column-sorter-up${ascendActive ? ' dg-column-sorter-active' : ''}`} />
-        <span className={`dg-column-sorter-down${descendActive ? ' dg-column-sorter-active' : ''}`} />
+        <CaretUpOutlined
+          className={`dg-column-sorter-up${ascendActive ? ' dg-column-sorter-active' : ''}`}
+          // active caret 通过 CSS color 控制（对齐 antd `.active { color: colorPrimary }`）。
+        />
+        <CaretDownOutlined
+          className={`dg-column-sorter-down${descendActive ? ' dg-column-sorter-active' : ''}`}
+        />
       </span>
       {showPriority ? (
         <span className="dg-column-sorter-priority">{priority}</span>

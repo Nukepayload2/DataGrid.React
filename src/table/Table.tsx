@@ -37,7 +37,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from 'react'
-import { Dropdown, Empty, Pagination, Spin, theme } from 'antd'
+import { Dropdown, Empty, Pagination, Spin } from 'antd'
 import type { SpinProps as SpinPropsInput } from 'antd'
 // S28：响应式断点检测用 antd Grid.useBreakpoint（决策 6：响应式检测用 antd）。
 // useBreakpoint 返回 ScreenMap（{ xs?, sm?, md?, lg?, xl?, xxl?, xxxl? } 各断点布尔），
@@ -48,6 +48,43 @@ import Grid from 'antd/es/grid'
 // renderEmpty 签名：RenderEmptyHandler = (componentName: string) => ReactNode。
 import { ConfigContext } from 'antd/es/config-provider/context'
 import type { RenderEmptyHandler } from 'antd/es/config-provider/defaultRenderEmpty'
+// ★ 主题注入重构 Round 1：直接调用 antd 真实的 token→CSS-var 注入工具（防猜测铁律）。
+//
+// 旧实现（S30 + task #21）手维护两张 token→CSS var 映射表 + 两个 build 函数（72 条手枚举），
+// 既漏键又得手动维护 kebab-case（cellPaddingBlockMD → --ant-cell-padding-block-md 等）。
+// 现直接复用 antd 内部同一套注入工具，**同输入同输出**，零猜测：
+//
+// - `useToken`（antd 内部 hook，`antd/es/theme/internal` 公开导出）返回 6 元组
+//   `[mergedTheme, realToken, hashId, token, cssVar, zeroRuntime]`：
+//     * `realToken`（index 1）= **未 var 化的原值** token（含 colorPrimary:'#1677ff' 原值，
+//       非公开 useToken 的 'var(--ant-x)' 字符串）。
+//     * `cssVar`（index 4）= `{ prefix, key }`（默认 prefix='ant', key='css-var-root'），
+//       与 antd 注入 alias var 的 transformToken 配置完全一致。
+// - `transformToken`（`@ant-design/cssinjs/es/util/css-variables` 内部导出）：antd 注入
+//   `:where(.${hashId}).${scope}{--k:v;...}` 的真实函数。内部处理：
+//     * number 且非 unitless → `${v}px`（与 antd 注入格式一致）。
+//     * string → 原样。
+//     * ignore 跳过（motionBase/motionUnit）；preserve 原样保留（screenXS..screenXXXL）。
+//     * camelCase→kebab + `--${prefix}-` 前缀（token2CSSVar）。
+//   返回 `[tokenWithCssVar, cssVarsStr]`，我们 parse cssVarsStr 取 `--k:v` 对。
+//
+// ★ unitless / ignore / preserve 集合**直接 import 自 antd 源文件**（`antd/es/theme/useToken`），
+//   不自己枚举（防猜测铁律）。antd Table style 在 `genStyleHooks('Table', ..., { unitless: { expandIconScale: true } })`
+//   额外声明 expandIconScale unitless，我们在 Table 组件 token 注入时合并此条。
+//
+// ★ Table 组件 token 的 prefixToken 重命名（`genCSSVarRegister` 的 fn 回调里）：antd 先把
+//   `headerBg` → `TableHeaderBg`（key 改写，原 key delete），再喂 transformToken → 产出
+//   `--ant-table-header-bg`（不是 `--ant-header-bg`）。我们同样复制 prefixToken 重命名，保证
+//   data-grid .dg-wrapper 注入的组件 token 键名与 antd .ant-table-wrapper DOM 完全一致。
+//
+// ★ 交叉验证（chrome-devtools 读 .ant-table-wrapper 实际 computed --ant-*，逐键对比 .dg-wrapper）：
+//   交验证者做（启动 dev server + 双栏 component-token/basic demo + dump 全套 var）。
+import { useToken as useAntdInternalToken } from 'antd/es/theme/internal'
+import {
+  ignore as antdTokenIgnore,
+  unitless as antdTokenUnitless,
+} from 'antd/es/theme/useToken'
+import { transformToken } from '@ant-design/cssinjs/es/util/css-variables'
 import { GridTable, getRowKey } from './engine/GridTable'
 import { SelectionInput } from './engine/SelectionInput'
 import { ExpandIcon } from './engine/ExpandIcon'
@@ -94,95 +131,149 @@ import './style/tokens.css'
 import './style/table.css'
 
 /**
- * S30 component-token 主题定制：Table component token → CSS variables 映射表。
+ * 主题注入重构 Round 1（替代旧 S30 + task #21 的两张手维护映射表 + 两个 build 函数）。
  *
- * ★ 背景（决策 4 token 实测）：antd v6 cssinjs 把 component token 输出到 `:where(.ant-table)`
- *   选择器（通过 `genStyleHooks` 的 cssVar 模式）。data-grid 的根容器是 `.dg-wrapper`
- *   （非 `.ant-table`），**antd 不会自动把 Table component token 注入到 .dg-wrapper**，
- *   tokens.css 里的 fallback 也不会被覆盖。因此需要 data-grid Table **主动**用
- *   `theme.useToken()` 读取 ConfigProvider 当前主题里的 `token.Table`（getComputedToken 会把
- *   `components.Table` 的覆盖合并进 token.Table），映射为 inline CSS variables 注入到
- *   `.dg-wrapper` 的 style，从而覆盖 tokens.css 的 fallback。
+ * 直接调用 antd 真实工具（transformToken + useToken realToken），让 `.dg-wrapper` 拿到与
+ * antd `.ant-table-wrapper` **同名同值的全套 `--ant-*`**（alias + Table component token）。
  *
- * ★ 字段对照（逐字段对齐 antd 6.4.4 `components/table/style/index.ts` 的 `ComponentToken`
- *   定义 + tokens.css 已定义的 `--ant-*` 变量名）：
- *   token 字段 → CSS variable（kebab-case；末尾连续大写串整体转小写，如 `MD` → `-md`，不拆 `m-d`）。
+ * === 注入路径（与 antd 同款，零猜测）===
  *
- * ★ 值格式：
- *   - string（颜色）：原样注入（如 `headerBg: '#1677ff'` → `--ant-header-bg: #1677ff`）。
- *   - number（padding / radius / font-size / width）：注入为**裸数字**（不带 px），与 tokens.css
- *     fallback 的格式一致——消费者（tokens.css）用 `calc(var(...) * 1px)` 换算成像素。
- *     这样数字 token 与 fallback 在格式上等价，回归不破（默认主题下视觉不变）。
- *   - string（width，如 selectionColumnWidth 可能是 '40px'）：原样注入（calc/fallback 兼容）。
+ * 1. **alias var**（基础 alias token → `--ant-*`）：
+ *    `transformToken(realToken, cssVar.key, { prefix: cssVar.prefix, unitless, ignore, preserve })`
+ *    —— 同 `useCacheToken` 内部调用（不含 hashCls/scope → cssVarsStr selector 为 `.${key}`）。
+ *    产出 `--ant-color-primary:#1677ff;--ant-border-radius:6px;...` 全套 alias。
  *
- * ★ 仅注入 `value !== undefined` 的字段（保留 fallback）。useToken 返回的 token.Table 在
- *   默认主题下已包含所有 component token（prepareComponentToken 派生的默认值），注入后与
- *   tokens.css fallback 视觉等价（零回归）；当 ConfigProvider theme.components.Table 覆盖时，
- *   覆盖值生效（视觉随 token 变化）。
+ * 2. **Table component var**（Table 组件 token → `--ant-table-*`）：
+ *    antd `genCSSVarRegister('Table', ...)` 内部两步：
+ *      (a) `prefixToken` 重命名：`{headerBg:...}` → `{TableHeaderBg:...}`（原 key delete），
+ *          喂 transformToken 后产出 `--ant-table-header-bg`（不是 `--ant-header-bg`）。
+ *      (b) `transformToken(renamed, cssVar.key, { prefix, unitless: {TableExpandIconScale:true} })`，
+ *          unitless 仅追加 Table 特有的 `expandIconScale`（antd table style genStyleHooks 声明）。
+ *    我们复制此流程：realToken.Table → prefixToken 重命名 → transformToken。
+ *
+ * === 输出 parse ===
+ *
+ * transformToken 返回 `[tokenWithCssVar, cssVarsStr]`，cssVarsStr = `${selector}{--k1:v1;--k2:v2;...}`。
+ * 我们 parse 提取 `--k:v` 对（正则），合并为 React inline style 对象。
+ *
+ * === 单位 ===
+ *
+ * antd transformToken number→`${v}px`（unitless 白名单除外）。data-grid tokens.css fallback
+ * 已对齐带 px 格式（如 `--ant-cell-padding-block: 16px`），table.css 消费者直接 `var(--ant-*)`
+ * （不再 `calc(var * 1px)`，避免 `calc(16px*1px)` 无效）。
+ *
+ * === 跳过内部字段 ===
+ *
+ * realToken 含 `_tokenKey`（hash 字符串，useCacheToken 注入），非 token 字段，不产出 CSS var。
+ * 用 `^_` 前缀过滤。antd `useCacheToken` 调 transformToken 时用的是 `mergedDerivativeToken`
+ * （未含 _tokenKey），我们用 realToken（含 _tokenKey），故需手动过滤。
+ *
+ * === 超集说明 + 已知差异 ===
+ *
+ * **realToken.Table 的内容**：经深读 antd 源码（`antd/es/theme/useToken.js` getComputedToken），
+ * `realToken.Table` 只含**用户在 ConfigProvider theme.components.Table 显式声明的覆盖项**
+ * （prepareComponentToken 派生的默认值不在此——antd 是在 `genCSSVarRegister` 的 fn 回调里
+ * 通过 getDefaultComponentToken + getComponentToken 在渲染时单独合并 + 删除与 alias 同值键）。
+ *
+ * **data-grid 的简化**：本实现直接喂 `realToken.Table` 给 transformToken（按任务规格），
+ * 不调 prepareComponentToken（避免引入 antd/es/table/style/index 整包 + FastColor）。
+ * 后果：
+ *   - 默认主题（无 components.Table 覆盖）：realToken.Table 为空 → tableTokenVars 为空 →
+ *     完全走 tokens.css fallback（已提供与 antd prepareComponentToken 默认等价的值）。视觉等价。
+ *   - 用户覆盖若干 token（如 component-token demo 27 个）：被覆盖的 27 个 token 注入为
+ *     `--ant-table-*` inline var 覆盖 fallback；其余 token 走 fallback。与 antd DOM 一致
+ *     （antd DOM 也只产"与 alias 不同的子集"，本实现是此子集的精确实现）。
+ *
+ * **已知差异**：若用户覆盖某个 alias token（如 colorFillAlter）→ antd prepareComponentToken
+ * 会重新派生 headerBg/rowHoverBg/...（值随 colorFillAlter 变），但 data-grid 不重派生
+ * （tokens.css fallback 是静态值）→ 这部分 token 视觉不同步。若验证者发现此差异阻断，
+ * 后续可 import prepareComponentToken 重派生（代价：包大小增加）。
  */
-const TABLE_COMPONENT_TOKEN_TO_CSS_VAR: Record<string, string> = {
-  headerBg: '--ant-header-bg',
-  headerColor: '--ant-header-color',
-  headerSortActiveBg: '--ant-header-sort-active-bg',
-  headerSortHoverBg: '--ant-header-sort-hover-bg',
-  bodySortBg: '--ant-body-sort-bg',
-  rowHoverBg: '--ant-row-hover-bg',
-  rowSelectedBg: '--ant-row-selected-bg',
-  rowSelectedHoverBg: '--ant-row-selected-hover-bg',
-  rowExpandedBg: '--ant-row-expanded-bg',
-  cellPaddingBlock: '--ant-cell-padding-block',
-  cellPaddingInline: '--ant-cell-padding-inline',
-  cellPaddingBlockMD: '--ant-cell-padding-block-md',
-  cellPaddingInlineMD: '--ant-cell-padding-inline-md',
-  cellPaddingBlockSM: '--ant-cell-padding-block-sm',
-  cellPaddingInlineSM: '--ant-cell-padding-inline-sm',
-  borderColor: '--ant-border-color',
-  headerBorderRadius: '--ant-header-border-radius',
-  footerBg: '--ant-footer-bg',
-  footerColor: '--ant-footer-color',
-  cellFontSize: '--ant-cell-font-size',
-  cellFontSizeMD: '--ant-cell-font-size-md',
-  cellFontSizeSM: '--ant-cell-font-size-sm',
-  headerSplitColor: '--ant-header-split-color',
-  fixedHeaderSortActiveBg: '--ant-fixed-header-sort-active-bg',
-  headerFilterHoverBg: '--ant-header-filter-hover-bg',
-  filterDropdownMenuBg: '--ant-filter-dropdown-menu-bg',
-  filterDropdownBg: '--ant-filter-dropdown-bg',
-  expandIconBg: '--ant-expand-icon-bg',
-  selectionColumnWidth: '--ant-selection-column-width',
-  stickyScrollBarBg: '--ant-sticky-scroll-bar-bg',
-  stickyScrollBarBorderRadius: '--ant-sticky-scroll-bar-border-radius',
-  // colorBgContainer 是 antd AliasToken（非 Table component token），但 antd 允许在
-  // `components.Table` 下覆盖（getComputedToken 把它合并进 token.Table）。data-grid 表体底色
-  // 消费 --ant-color-bg-container（tokens.css fallback #ffffff）。antd component-token demo
-  // 用 `colorBgContainer: '#e6f4ff'` 覆盖表体底色，此处一并映射以支持。
-  colorBgContainer: '--ant-color-bg-container',
+function parseCssVarsString(cssVarsStr: string): Record<string, string> {
+  // cssVarsStr 格式：`${selector}{--k1:v1;--k2:v2;...}`（selector 内部可能含 :where(...)）。
+  // 提取 `{...}` 内的 declarations，逐条按 `;` 分割 + 首个 `:` 分隔 key/value。
+  const open = cssVarsStr.indexOf('{')
+  const close = cssVarsStr.lastIndexOf('}')
+  if (open < 0 || close < 0) return {}
+  const body = cssVarsStr.slice(open + 1, close)
+  const vars: Record<string, string> = {}
+  for (const decl of body.split(';')) {
+    const colon = decl.indexOf(':')
+    if (colon < 0) continue
+    const key = decl.slice(0, colon).trim()
+    const value = decl.slice(colon + 1).trim()
+    if (!key || !value) continue
+    vars[key] = value
+  }
+  return vars
 }
 
 /**
- * 把 antd Table component token（`token.Table`）映射为 `.dg-wrapper` inline CSS variables。
+ * 把任意 token 对象通过 antd `transformToken` 转换为 `--k:v` 对（解析 cssVarsStr）。
  *
- * - 跳过 undefined（保留 tokens.css fallback）。
- * - 颜色（string）原样注入；数值（number）原样注入为裸数字（消费者 `calc(*1px)`）。
- *
- * 返回 `React.CSSProperties`（key 为 CSS variable 名，如 `'--ant-header-bg'`）。
- * React 19 支持 CSS 自定义属性作为 style key（string 值），TS 类型用 `as` 断言绕过
- * CSSProperties 对 `--*` 的严格校验。
+ * - 跳过内部字段（`_` 开头，如 `_tokenKey`）。
+ * - unitless / ignore / preserve 由调用方传入（alias 用 antd 全集，Table 用 Table 子集）。
  */
-function buildTableTokenCssVars(
-  tableToken: Record<string, unknown> | undefined,
-): React.CSSProperties {
-  const vars: Record<string, string | number> = {}
-  if (!tableToken) return vars as React.CSSProperties
-  for (const [tokenKey, cssVar] of Object.entries(TABLE_COMPONENT_TOKEN_TO_CSS_VAR)) {
-    const value = (tableToken as Record<string, unknown>)[tokenKey]
-    if (value === undefined || value === null) continue
-    // 颜色 string / 数字 / string(width) 都直接写入（消费者按 tokens.css 约定换算）。
-    if (typeof value === 'string' || typeof value === 'number') {
-      vars[cssVar] = value
-    }
+function tokenToCssVars(
+  token: Record<string, unknown>,
+  cssVar: { prefix: string; key: string },
+  options: {
+    unitless?: Record<string, boolean>
+    ignore?: Record<string, boolean>
+    preserve?: Record<string, boolean>
+  } = {},
+): Record<string, string> {
+  // 过滤内部字段（_tokenKey 等），避免污染输出。
+  const cleaned: Record<string, unknown> = {}
+  for (const [k, v] of Object.entries(token)) {
+    if (k.startsWith('_')) continue
+    cleaned[k] = v
   }
-  return vars as React.CSSProperties
+  const [, cssVarsStr] = transformToken(cleaned, cssVar.key, {
+    prefix: cssVar.prefix,
+    unitless: options.unitless,
+    ignore: options.ignore,
+    preserve: options.preserve,
+  })
+  return parseCssVarsString(cssVarsStr)
+}
+
+/**
+ * antd `genCSSVarRegister` 的 `prefixToken`（私有，复制实现避免依赖未导出）。
+ * 命名规则：`Table` + key[0].toUpperCase() + key.slice(1)。
+ * 例：`headerBg` → `TableHeaderBg`、`cellPaddingBlockMD` → `TableCellPaddingBlockMD`。
+ */
+function tablePrefixToken(key: string): string {
+  return `Table${key.slice(0, 1).toUpperCase()}${key.slice(1)}`
+}
+
+/**
+ * 把 Table 组件 token（realToken.Table）通过 antd 同款流程转为 `--ant-table-*` CSS vars。
+ *
+ * 1. 复制 antd `genCSSVarRegister('Table', ...)` 的 prefixToken 重命名循环：
+ *    `{headerBg:...}` → `{TableHeaderBg:...}`（原 key delete）。
+ * 2. transformToken 转换（prefix='ant', key='css-var-root', unitless={TableExpandIconScale:true}）。
+ *    unitless 仅追加 Table 特有的 `expandIconScale`（genStyleHooks('Table', ..., {unitless:{expandIconScale:true}})）。
+ *    alias unitless 字段（lineHeight/fontSize/...）在 Table 组件 token 中无对应键（Table
+ *    不派生这些），无需追加。
+ */
+function tableTokenToCssVars(
+  tableToken: Record<string, unknown> | undefined,
+  cssVar: { prefix: string; key: string },
+): Record<string, string> {
+  if (!tableToken) return {}
+  // (a) prefixToken 重命名（与 antd genCSSVarRegister 一致）。
+  const renamed: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(tableToken)) {
+    if (key.startsWith('_')) continue
+    renamed[tablePrefixToken(key)] = value
+  }
+  // (b) transformToken：unitless 仅 Table 特有 expandIconScale（已重命名为 TableExpandIconScale）。
+  const [, cssVarsStr] = transformToken(renamed, cssVar.key, {
+    prefix: cssVar.prefix,
+    unitless: { TableExpandIconScale: true },
+  })
+  return parseCssVarsString(cssVarsStr)
 }
 
 function normalizeFixed(fixed: ColumnType['fixed']): FixedSide | undefined {
@@ -1530,43 +1621,97 @@ function TableInner<RecordType = any>(
     .filter(Boolean)
     .join(' ')
 
-  // S30 component-token 主题定制：用 antd `theme.useToken()` 读取当前 ConfigProvider 主题，
-  // 把 `token.Table`（Table component token，含 theme.components.Table 的覆盖）映射为
-  // `.dg-wrapper` inline CSS variables（覆盖 tokens.css 的 fallback）。
+  // ★ 主题注入重构 Round 1：用 antd 内部 `useToken`（`antd/es/theme/internal`）拿 realToken
+  //   （未 var 化的原值，与 antd transformToken 输入完全一致），喂 antd 真实 `transformToken`
+  //   产出与 .ant-table-wrapper 同名同值的全套 `--ant-*`。详见文件头注释 + `tokenToCssVars`/
+  //   `tableTokenToCssVars` 注释。
   //
-  // ★ 关键（决策 4 实测）：antd v6 cssinjs 把 component token 输出到 `:where(.ant-table)`，
-  //   data-grid 用 `.dg-wrapper`（非 `.ant-table`），token 不会自动注入——必须主动 useToken
-  //   读取 + inline 注入。详见 `buildTableTokenCssVars` 注释。
+  // useAntdInternalToken 返回 6 元组 `[mergedTheme, realToken, hashId, token, cssVar, zeroRuntime]`：
+  //   - realToken（index 1）= 未 var 化原值（公开 theme.useToken().token 已被 var 化为 'var(--ant-x)'，
+  //     不能直接喂 transformToken——会产出 --ant-x:var(--ant-y) 自引用空循环）。
+  //   - cssVar（index 4）= `{ prefix:'ant', key:'css-var-root' }`（默认；ConfigProvider cssVar
+  //     可覆盖 prefix/key，但 demo 不覆盖）。
   //
-  // ★ 零回归：未接入 ConfigProvider theme.components.Table 时，token.Table 仍含 prepareComponentToken
-  //   派生的默认值（与 tokens.css fallback 视觉等价），注入后视觉不变。接入 ConfigProvider
-  //   theme.components.Table 覆盖后，覆盖值生效（视觉随 token 变化）。
+  // 旧实现 `theme.useToken()` 返回的 token 是 var 化的（值是字符串 'var(--ant-color-primary)'），
+  //   旧映射表只读键名不读值（直接写入 token 字段值如 '#1677ff'），凑巧没踩 var 自引用坑。
+  //   新实现必须用 realToken（原值），与 antd transformToken 同输入同输出。
   //
-  // ★ token 是 GlobalToken（AliasToken & ComponentTokenMap），token.Table 是 Table component token
-  //   对象（getComputedToken 把 components.Table 合并进来）。token 引用在 ConfigProvider theme
-  //   变化时更新（useCacheToken 内部依赖 theme/override）→ useMemo 重算 vars → 视觉同步。
-  const { token: antdThemeToken } = theme.useToken()
+  // ★ realToken.Table 是 getComputedToken 合并后的 Table component token（含 prepareComponentToken
+  //   默认派生 + ConfigProvider theme.components.Table 覆盖）。
+  //
+  // ★ useMemo 依赖 realToken：useCacheToken 内部用 tokenStr 缓存，realToken 引用在 theme/override
+  //   变化时更新（新对象）→ useMemo 重算 vars → 视觉同步。
+  const antdUseTokenResult = useAntdInternalToken()
+  // realToken 已是 GlobalToken（useToken 元组 index 1），强转为 Record<string, unknown>
+  //   以便 transformToken 处理（transformToken 接受任意 token 对象，TS 上用 Record 表达）。
+  //   经 unknown 中转避免 strict 类型校验。
+  const realToken = antdUseTokenResult[1] as unknown as Record<string, unknown> | undefined
+  const cssVar = antdUseTokenResult[4] as { prefix: string; key: string }
+
+  // alias var：transformToken(realToken, ...)，与 useCacheToken 内部同款调用。
+  //   unitless/ignore/preserve 直接复用 antd 源文件导出的全集（不自己枚举，防猜测）。
+  const aliasTokenVars = useMemo(
+    () =>
+      realToken
+        ? tokenToCssVars(realToken, cssVar, {
+            unitless: antdTokenUnitless as Record<string, boolean>,
+            ignore: antdTokenIgnore as Record<string, boolean>,
+            // preserve 集合 antd useToken.ts 内部声明为 const（未 export），复制稳定集合：
+            //   screenXS..screenXXXL 各 min/max（preserve 让 transformToken 原样保留数值不转 CSS var）。
+            preserve: {
+              screenXS: true, screenXSMin: true, screenXSMax: true,
+              screenSM: true, screenSMMin: true, screenSMMax: true,
+              screenMD: true, screenMDMin: true, screenMDMax: true,
+              screenLG: true, screenLGMin: true, screenLGMax: true,
+              screenXL: true, screenXLMin: true, screenXLMax: true,
+              screenXXL: true, screenXXLMin: true, screenXXLMax: true,
+              screenXXXL: true, screenXXXLMin: true,
+            },
+          })
+        : {},
+    [realToken, cssVar],
+  )
+
+  // Table component var：prefixToken 重命名 + transformToken（unitless 仅 expandIconScale）。
+  //   详见 tableTokenToCssVars 注释。
   const tableTokenVars = useMemo(
-    () => buildTableTokenCssVars(antdThemeToken.Table as Record<string, unknown> | undefined),
-    [antdThemeToken.Table],
+    () =>
+      realToken?.Table
+        ? tableTokenToCssVars(
+            realToken.Table as Record<string, unknown>,
+            cssVar,
+          )
+        : {},
+    [realToken, cssVar],
   )
 
   // S29：语义化 root 部位 style（合并到根容器 style；semantic 覆盖同名字段）。
-  // S30：tableTokenVars（component token → CSS variables）合并到根容器 style；
-  //   优先级：style（用户传入） > tableTokenVars（antd theme token） > tokens.css fallback。
-  //   即 token vars 覆盖 fallback（CSS variable 由 inline style 提供，优先级高于 class），
-  //   用户传入的同名 style 字段（如显式设置背景色）覆盖 token vars（用户显式优先）。
-  //   注：用户 style 与 token vars 的 key 空间不同（用户用标准 CSS 属性，token vars 用
-  //   `--ant-*`），实际几乎不冲突；合并顺序保证语义清晰。
+  // 主题注入：aliasTokenVars（基础 alias token）+ tableTokenVars（Table component token）合并到根容器
+  //   style；优先级：style（用户传入） > stylesResolved.root（S29 语义 root style）
+  //   > tableTokenVars（Table component token）> aliasTokenVars（基础 alias token）
+  //   > tokens.css fallback。
+  //
+  //   合并顺序 `{...aliasTokenVars, ...tableTokenVars}`：tableTokenVars 覆盖 aliasTokenVars 同名字段。
+  //   实际几乎不重名：alias 用 `--ant-color-*`/`--ant-border-radius` 等直名（`token2CSSVar('colorPrimary','ant')`
+  //   = `--ant-color-primary`），Table 用 `--ant-table-*`（prefixToken 加 `Table` 前缀后再 token2CSSVar：
+  //   `token2CSSVar('TableHeaderBg','ant')` = `--ant-table-header-bg`）。
+  //
+  //   ★ colorBgContainer 特殊情况：alias 路径产出 `--ant-color-bg-container`（alias token），
+  //   Table 路径若用户在 components.Table.colorBgContainer 覆盖则产出 `--ant-table-color-bg-container`
+  //   （Table prefixToken 后）。data-grid 表体底色消费 `--ant-color-bg-container`（tokens.css）；
+  //   验证者需对照 antd .ant-table-wrapper 实际 computed var 确认 data-grid 消费的键与 antd 一致。
+  //
+  //   CSS variable 由 inline style 提供优先级高于 class（tokens.css fallback）。用户 style 与 token
+  //   vars 的 key 空间不同（用户用标准 CSS 属性，token vars 用 `--ant-*`），实际不冲突。
   const wrapperStyle = useMemo(() => {
-    const merged: React.CSSProperties = { ...tableTokenVars }
+    const merged: React.CSSProperties = { ...aliasTokenVars, ...tableTokenVars }
     if (stylesResolved?.root) {
       Object.assign(merged, style, stylesResolved.root)
     } else if (style) {
       Object.assign(merged, style)
     }
     return merged
-  }, [style, stylesResolved?.root, tableTokenVars])
+  }, [style, stylesResolved?.root, tableTokenVars, aliasTokenVars])
 
   /**
    * ★ §9 列宽策略 tableLayout 派生（对齐 antd `Table.tsx:613-627` 简化版）。

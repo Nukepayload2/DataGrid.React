@@ -1,22 +1,35 @@
 /**
- * 行展开图标（M9 默认实现，自研——lun 无展开图标列）。
+ * 行展开图标（M9 默认实现，决策 6 统一化）。
  *
- * 默认绘制 antd 6.4.4 同款展开图标：一个带边框的方块，内部一个"▶/▼"三角（旋转过渡）。
+ * **决策 6 统一化**：复刻 antd 6.4.4 `.ant-table-row-expand-icon` 的**实际 CSS 画法**
+ * （实测 `#/demos/expand` 右栏 antd 栏 computed style，非 icon 组件——antd 也是用 CSS 画）：
+ *   - 容器：17×17px，border 0.8px solid #f0f0f0，border-radius 6px，transform: scale(0.9412)
+ *     （17→视觉 16px 微缩，对齐 antd `expandIconScale = controlInteractiveSize / expandIconSize`）。
+ *   - `::before`（横线）：position absolute，top 7px，inset-inline 3px，height 1px，
+ *     background currentColor。
+ *   - `::after`（竖线）：position absolute，top/bottom 3px，inset-inline-start 7px，width 1px，
+ *     background currentColor，默认 rotate(90deg)。
+ *   - 三态（对齐 antd 6.4.4 `&-collapsed` / `&-expanded` / `&-spaced`）：
+ *     * collapsed：`::before { transform: rotate(-180deg) }`，`::after { transform: rotate(0) }`
+ *       → 横线翻转 + 竖线归位 → 视觉 "+"
+ *       （注：antd collapsed 默认就是 `+`；展开态才把竖线旋走变 "−"）。
+ *     * expanded：`::before { transform: none }`，`::after { transform: rotate(90deg) }`
+ *       → 竖线旋成与横线重叠 → 视觉 "−"。
+ *     * spaced（disabled/不可展开）：`::before/::after { display:none; content:none }`，
+ *       background transparent，border 0，visibility:hidden → 空 cell。
+ *   - hover/active：border-color: currentcolor（与 antd `&:focus,&:hover,&:active` 一致）。
+ *
  * 用户可通过 `expandable.expandIcon` 自定义替换。
  *
- * 视觉对齐 antd：14×14 边框方块（与 selection-input 视觉系列一致），内部三角用 CSS border 画。
- * - 收起态：三角朝右（▶）。
- * - 展开态：三角朝下（▼）——通过 `transform: rotate(90deg)` 平滑过渡（0.3s）。
- *
- * 与展开 track 的 0fr↔1fr 过渡同步：图标旋转 + track 展开 同时发生，视觉一致。
+ * 与展开 track 的 0fr↔1fr 过渡同步：图标 +/- 切换的 transform 过渡 + track 展开同时发生，视觉一致。
  */
 
 import type { CSSProperties, MouseEvent } from 'react'
 
 export interface ExpandIconProps {
-  /** 当前是否展开（决定三角朝向）。 */
+  /** 当前是否展开（决定 +/− 形态）。 */
   expanded: boolean
-  /** 是否禁用（rowExpandable=false 行：图标灰、不响应点击）。 */
+  /** 是否禁用（rowExpandable=false 行：图标变 spaced 态——空、不可见、不响应点击）。 */
   disabled?: boolean
   /** 点击展开/收起回调。 */
   onExpand: (e: MouseEvent<HTMLButtonElement>) => void
@@ -33,8 +46,12 @@ export function ExpandIcon(props: ExpandIconProps) {
       type="button"
       className={[
         'dg-expand-icon',
-        expanded ? 'dg-expand-icon-expanded' : undefined,
-        disabled ? 'dg-expand-icon-disabled' : undefined,
+        // disabled（不可展开行）→ spaced 态（空、不可见）；否则按 expanded 选 collapsed/expanded。
+        disabled
+          ? 'dg-expand-icon-spaced'
+          : expanded
+            ? 'dg-expand-icon-expanded'
+            : 'dg-expand-icon-collapsed',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -44,7 +61,7 @@ export function ExpandIcon(props: ExpandIconProps) {
       onClick={onExpand}
       style={style}
     >
-      <span className="dg-expand-icon-arrow" aria-hidden="true" />
+      {/* 内部标记由 CSS ::before/::after 画（与 antd 同款），无子 DOM。 */}
     </button>
   )
 }

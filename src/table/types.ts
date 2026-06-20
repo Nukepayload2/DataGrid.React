@@ -228,7 +228,7 @@ export interface TableRowSelection<RecordType = any> {
    * `disabled: true` 的行不可勾选、不参与全选/半选。
    */
   getCheckboxProps?: (record: RecordType) => RowCheckboxProps | undefined
-  /** 选择列宽度（number→px，string→原样）。缺省走 token `--ant-selection-column-width`。 */
+  /** 选择列宽度（number→px，string→原样）。缺省走 token `--ant-table-selection-column-width`。 */
   columnWidth?: number | string
   /**
    * 选择列固定方向。antd 接受 'left'/'right'/'start'/'end'，内部归一化。

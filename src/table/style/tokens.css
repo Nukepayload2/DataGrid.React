@@ -2,106 +2,118 @@
  * data-grid 样式层（F3）：antd v6 兼容的 CSS variables / design token。
  *
  * ★ 来源声明（决策 4）：
- *   token 名取自 antd 6.4.4 源码 `components/table/style/index.ts` 的 `ComponentToken`
+ *   token 名取自 antd 6.4.4 `components/table/style/index.ts` 的 `ComponentToken`
  *   定义（见该文件 `export interface ComponentToken { ... }`，逐字段对照）。
  *   antd v6 cssinjs 会把组件 token 以 `--<prefix>-<kebabCaseName>` 形式输出到 DOM
- *   （默认 prefix=ant），故 `headerBg` → `--ant-header-bg`、`rowHoverBg` → `--ant-row-hover-bg`、
- *   `cellPaddingBlock` → `--ant-cell-padding-block` 等。
+ *   （默认 prefix=ant），故 `headerBg` → `--ant-table-header-bg`、`rowHoverBg` → `--ant-table-row-hover-bg`、
+ *   `cellPaddingBlock` → `--ant-table-cell-padding-block` 等（Table 组件 token 经 `prefixToken` 重命名
+ *   加 `Table` 前缀，见 Table.tsx `tableTokenToCssVars`）。
  *
  *   **未浏览器实测**：本任务为实施者，不做 chrome-devtools UI 对照验证（由后续验证者 agent 负责）。
  *   默认值参照 antd 6.4.4 `prepareComponentToken` 的派生结果（colorFillAlter / colorBgContainer /
  *   colorBorderSecondary / borderRadiusLG / padding 等）在默认主题下的实测取值，已尽量贴近。
  *
+ * === 主题注入重构 Round 1：单位对齐（与 antd transformToken 同款）===
+ *
+ * antd 注入 `--ant-*` 时 number → `${v}px`（unitless 白名单除外，见 `transformToken`）。
+ * 旧 fallback 用裸数字 + 消费者 `calc(var * 1px)` 换算。但主题注入后 `.dg-wrapper` 拿到的是
+ * **antd 带单位 px 的值**（如 `--ant-table-cell-padding-block: 16px`），`calc(16px * 1px)` 无效。
+ *
+ * 修复：tokens.css fallback **全部改为带 px**（与 antd 注入格式一致），消费者直接 `var(--ant-*)`
+ * （去掉 `calc(var * 1px)`，见 table.css）。这样 fallback 与 antd 注入格式统一，主题注入后无单位
+ * 不一致。unitless 字段（如 expandIconScale）antd 自身不加 px——fallback 也用裸数字（仅 expandIconScale
+ * 一项，dg 当前不消费，为完整性声明）。
+ *
  * 使用方式：
  *   - 默认：`.dg-wrapper` 上自带本文件的 fallback 值，独立运行也视觉正确。
- *   - 接入 antd v6 主题：在任意祖先节点挂载 antd（ConfigProvider 即可），antd 会输出同名
- *     `--ant-*` 变量并覆盖这里的 fallback，从而与 antd 视觉一致。
- *
- * 后续任务（S30 component-token）将通过 CSS variables 把 ConfigProvider theme.components.Table
- * 的动态值注入到这里。
+ *   - 接入 antd v6 主题：Table.tsx 用 useToken + transformToken 把全套 `--ant-*`（alias + Table
+ *     component）注入为 `.dg-wrapper` inline style，覆盖这里的 fallback（同名同优先级 inline 高于 class）。
  */
 
 /* 当未接入 antd 主题时，dg-wrapper 提供与 antd 6.4.4 默认主题等价的 fallback。
-   接入 antd 后，这些变量会被 antd 输出的同名 `--ant-*` 覆盖。 */
+   接入 antd 后，这些变量会被 Table.tsx 注入的同名 `--ant-*` 覆盖（inline style 优先）。 */
 .dg-wrapper {
-  /* —— 颜色：表头 —— */
-  --ant-header-bg: #fafafa;
-  --ant-header-color: rgba(0, 0, 0, 0.88);
-  --ant-header-split-color: #f0f0f0;
+  /* —— 颜色：表头（Table component token）—— */
+  --ant-table-header-bg: #fafafa;
+  --ant-table-header-color: rgba(0, 0, 0, 0.88);
+  --ant-table-header-split-color: #f0f0f0;
 
-  /* —— 颜色：表体 / 行态 —— */
-  --ant-row-hover-bg: #fafafa;
-  --ant-row-selected-bg: #e6f4ff;
-  --ant-row-selected-hover-bg: #bae0ff;
-  --ant-row-expanded-bg: #fafafa;
+  /* —— 颜色：表体 / 行态（Table component token）—— */
+  --ant-table-row-hover-bg: #fafafa;
+  --ant-table-row-selected-bg: #e6f4ff;
+  --ant-table-row-selected-hover-bg: #bae0ff;
+  --ant-table-row-expanded-bg: #fafafa;
 
-  /* —— 颜色：排序 / 过滤（预留，本阶段未消费） —— */
-  --ant-header-sort-active-bg: #fafafa;
-  --ant-header-sort-hover-bg: #f5f5f5;
-  --ant-body-sort-bg: #fafafa;
-  --ant-fixed-header-sort-active-bg: #fafafa;
-  --ant-header-filter-hover-bg: #f5f5f5;
+  /* —— 颜色：排序 / 过滤（Table component token）—— */
+  --ant-table-header-sort-active-bg: #fafafa;
+  --ant-table-header-sort-hover-bg: #f5f5f5;
+  --ant-table-body-sort-bg: #fafafa;
+  --ant-table-fixed-header-sort-active-bg: #fafafa;
+  --ant-table-header-filter-hover-bg: #f5f5f5;
 
-  /* —— 颜色：底部 / 过滤下拉（预留） —— */
-  --ant-footer-bg: #fafafa;
-  --ant-footer-color: rgba(0, 0, 0, 0.88);
-  --ant-filter-dropdown-bg: #ffffff;
-  --ant-filter-dropdown-menu-bg: #ffffff;
-  --ant-expand-icon-bg: #ffffff;
+  /* —— 颜色：底部 / 过滤下拉（Table component token）—— */
+  --ant-table-footer-bg: #fafafa;
+  --ant-table-footer-color: rgba(0, 0, 0, 0.88);
+  --ant-table-filter-dropdown-bg: #ffffff;
+  --ant-table-filter-dropdown-menu-bg: #ffffff;
+  --ant-table-expand-icon-bg: #ffffff;
 
-  /* —— 边框 / 圆角 —— */
-  /* 注：该变量对应 antd 全局 token `colorBorderSecondary`（非 Table component token），
-     antd 也会以同名 `--ant-border-color` 输出，命名层面兼容。 */
-  --ant-border-color: #f0f0f0;
-  --ant-header-border-radius: 8;
+  /* —— 边框 / 圆角（Table component token）—— */
+  --ant-table-border-color: #f0f0f0;
+  --ant-table-header-border-radius: 8px;
 
-  /* —— 单元格内边距（large / 默认；来自 antd `cellPaddingBlock`/`cellPaddingInline`） —— */
-  --ant-cell-padding-block: 16;
-  --ant-cell-padding-inline: 16;
+  /* —— 单元格内边距（large / 默认；来自 antd `cellPaddingBlock`/`cellPaddingInline`）—— */
+  --ant-table-cell-padding-block: 16px;
+  --ant-table-cell-padding-inline: 16px;
 
-  /* —— 单元格内边距（middle） —— */
+  /* —— 单元格内边距（middle）—— */
   /* 注：antd v6 cssinjs 命名规则为末尾大写串整体转小写（不拆开），
-     故 `cellPaddingBlockMD` → `--ant-cell-padding-block-md`（`MD` 不拆为 `m-d`）。 */
-  --ant-cell-padding-block-md: 12;
-  --ant-cell-padding-inline-md: 8;
+     故 `cellPaddingBlockMD` → `--ant-table-cell-padding-block-md`（`MD` 不拆为 `m-d`）。 */
+  --ant-table-cell-padding-block-md: 12px;
+  --ant-table-cell-padding-inline-md: 8px;
 
-  /* —— 单元格内边距（small） —— */
-  --ant-cell-padding-block-sm: 8;
-  --ant-cell-padding-inline-sm: 8;
+  /* —— 单元格内边距（small）—— */
+  --ant-table-cell-padding-block-sm: 8px;
+  --ant-table-cell-padding-inline-sm: 8px;
 
-  /* —— 字号 —— */
-  --ant-cell-font-size: 14;
-  --ant-cell-font-size-md: 14;
-  --ant-cell-font-size-sm: 14;
+  /* —— 字号（Table component token）—— */
+  --ant-table-cell-font-size: 14px;
+  --ant-table-cell-font-size-md: 14px;
+  --ant-table-cell-font-size-sm: 14px;
 
-  /* —— 表格底色（colorBgContainer） —— */
+  /* —— 选择列宽（Table component token，M5 消费）—— */
+  --ant-table-selection-column-width: 32px;
+
+  /* —— sticky 滚动条（Table component token，S34 消费）—— */
+  --ant-table-sticky-scroll-bar-bg: rgba(0, 0, 0, 0.25);
+  --ant-table-sticky-scroll-bar-border-radius: 100px;
+
+  /* —— 全局基础 alias token（dg-wrapper 内非 antd 组件根的消费者用）—— */
+  /* 表格底色（colorBgContainer，alias token，component-token 可覆盖） */
   --ant-color-bg-container: #ffffff;
-
-  /* —— 全局线宽/线型（antd lineWidth/lineType） —— */
-  --ant-line-width: 1;
+  /* 全局线宽/线型（alias token） */
+  --ant-line-width: 1px;
   --ant-line-type: solid;
 
-  /* —— 选择列宽（预留，M5 消费） —— */
-  --ant-selection-column-width: 32;
-
-  /* —— sticky 滚动条（预留，S34 消费） —— */
-  --ant-sticky-scroll-bar-bg: rgba(0, 0, 0, 0.25);
-  --ant-sticky-scroll-bar-border-radius: 100;
-
-  /* —— data-grid 自身布局变量（非 antd token） —— */
-  --dg-row-hover-bg: var(--ant-row-hover-bg);
-  --dg-header-bg: var(--ant-header-bg);
-  --dg-header-color: var(--ant-header-color);
-  --dg-body-bg: var(--ant-color-bg-container);
-  --dg-border-color: var(--ant-border-color);
-  --dg-header-split-color: var(--ant-header-split-color);
-  --dg-footer-bg: var(--ant-footer-bg);
-  --dg-footer-color: var(--ant-footer-color);
-  --dg-font-size: calc(var(--ant-cell-font-size) * 1px);
-  --dg-cell-padding-block: calc(var(--ant-cell-padding-block) * 1px);
-  --dg-cell-padding-inline: calc(var(--ant-cell-padding-inline) * 1px);
-  --dg-radius: calc(var(--ant-header-border-radius) * 1px);
-  --dg-border: calc(var(--ant-line-width) * 1px) var(--ant-line-type) var(--ant-border-color);
+  /* —— data-grid 自身布局变量（非 antd token）——
+     直接消费 antd 带单位值（去掉旧 calc(*1px) 换算，与 antd 注入格式一致）。
+     ★ colorBgContainer 双消费：优先 --ant-table-color-bg-container（Table 组件 token，
+       component-token demo 覆盖时由 Table.tsx tableTokenVars 注入），fallback 到
+       --ant-color-bg-container（alias token，默认主题）。antd Table style 用 tableBg
+       别名指向 var(--ant-table-color-bg-container)，data-grid 等效用 fallback 链。 */
+  --dg-row-hover-bg: var(--ant-table-row-hover-bg);
+  --dg-header-bg: var(--ant-table-header-bg);
+  --dg-header-color: var(--ant-table-header-color);
+  --dg-body-bg: var(--ant-table-color-bg-container, var(--ant-color-bg-container));
+  --dg-border-color: var(--ant-table-border-color);
+  --dg-header-split-color: var(--ant-table-header-split-color);
+  --dg-footer-bg: var(--ant-table-footer-bg);
+  --dg-footer-color: var(--ant-table-footer-color);
+  --dg-font-size: var(--ant-table-cell-font-size);
+  --dg-cell-padding-block: var(--ant-table-cell-padding-block);
+  --dg-cell-padding-inline: var(--ant-table-cell-padding-inline);
+  --dg-radius: var(--ant-table-header-border-radius);
+  --dg-border: var(--ant-line-width) var(--ant-line-type) var(--ant-table-border-color);
 }
 
 /* size 变量切换：通过 dg-size-* 类覆写 padding / 字号 token（S27）。
@@ -119,18 +131,20 @@
  *   不属于 Table。data-grid 的 SizeType 在 S24 保留了 'compact'（用于 `<ConfigProvider componentSize>`
  *   全局消费的兜底），Table 层把它视觉等价为 'small'（与 antd 6.4.4 实测最紧凑 Table 尺寸一致）。
  *   即 compact → dg-size-small，不单独造 antd 不存在的 token（避免臆测）。
+ *
+ * ★ 主题注入重构 Round 1：直接 `var(--ant-table-cell-*)`（antd 注入带 px），不再 `calc(var * 1px)`。
  */
 .dg-wrapper.dg-size-large {
   /* 显式 'large'：等价默认（无 size 类），这里仅为 sizeToClass 返回值提供明确的类（无样式覆写）。 */
 }
 .dg-wrapper.dg-size-middle {
-  --dg-cell-padding-block: calc(var(--ant-cell-padding-block-md) * 1px);
-  --dg-cell-padding-inline: calc(var(--ant-cell-padding-inline-md) * 1px);
-  --dg-font-size: calc(var(--ant-cell-font-size-md) * 1px);
+  --dg-cell-padding-block: var(--ant-table-cell-padding-block-md);
+  --dg-cell-padding-inline: var(--ant-table-cell-padding-inline-md);
+  --dg-font-size: var(--ant-table-cell-font-size-md);
 }
 
 .dg-wrapper.dg-size-small {
-  --dg-cell-padding-block: calc(var(--ant-cell-padding-block-sm) * 1px);
-  --dg-cell-padding-inline: calc(var(--ant-cell-padding-inline-sm) * 1px);
-  --dg-font-size: calc(var(--ant-cell-font-size-sm) * 1px);
+  --dg-cell-padding-block: var(--ant-table-cell-padding-block-sm);
+  --dg-cell-padding-inline: var(--ant-table-cell-padding-inline-sm);
+  --dg-font-size: var(--ant-table-cell-font-size-sm);
 }

@@ -402,125 +402,27 @@
   text-overflow: ellipsis;
 }
 
-/* === M5 行选择 ===
+/* === M5 行选择（决策 6 统一化：改用 antd Checkbox/Radio）===
  *
- * `.dg-selection-input`：原生 `<input type="checkbox|radio">`，重置为 antd 6.4.4 视觉。
- *   - checkbox：14×14 圆角方块（antd checkbox-size=16，含 1px border）；选中态主色填充。
- *   - radio：14×14 圆；选中态中心实心点主色。
- *   - indeterminate（半选）：横线（用 background-image 画，因 :indeterminate 伪类仅 checkbox 支持）。
- *   - disabled：灰底（对齐 antd disabled 视觉）。
+ * `.dg-selection-input`：data-grid 的 SelectionInput 组件现在内部渲染 antd `<Checkbox>`/`<Radio>`，
+ * 由 antd 主题接管所有视觉（16×16 方框/圆 + 0.8px border + 主色填充 + indeterminate 8×8 蓝方块 +
+ * radio 中心白点 + disabled 灰底）。决策 6「非核心用 antd」——勾选框对齐基准 = antd 6.4.4 原生。
+ *
+ * data-grid 只需调整 antd wrapper 的 margin（选择列裸控件，去掉 antd 默认右 margin）+ 让 wrapper
+ * 居中适配列布局。所有边框/颜色/对勾/横线规则**移除**——antd 自带，重复声明会与 antd CSS-in-JS 冲突。
  *
  * 选择列默认居中（.dg-cell[data-align='center'] 提供 justify-content:center）；
- * 列宽由 rowSelection.columnWidth 或 max-content 决定（缺省 ~32px，由 padding 撑开）。
+ * 列宽由 rowSelection.columnWidth 或默认 32px 决定（Table.buildSelectionColumnNode）。
  */
-.dg-selection-input {
-  /* 重置浏览器默认 appearance，自定义视觉。 */
-  appearance: none;
-  -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
+
+/* 选择列裸控件：去掉 antd Checkbox/Radio wrapper 默认的 margin-inline-end（antd 默认 8px，
+   用于 label 与文字间距；选择列无文字，margin 会使控件偏左）。对齐 antd Table 表头/表体勾选框
+   的 `.ant-table-selection-column .ant-checkbox-wrapper { margin-inline-end: 0 }` 规则。 */
+.dg-selection-input.ant-checkbox-wrapper,
+.dg-selection-input.ant-radio-wrapper {
+  margin-inline-end: 0;
   margin: 0;
-  /* 与 antd 6.4.4 一致：圆角方块（checkbox）/ 圆（radio）；1px 边框。 */
-  border: 1px solid var(--dg-border-color, #d9d9d9);
-  background: var(--dg-body-bg, #ffffff);
-  cursor: pointer;
-  position: relative;
-  flex-shrink: 0;
-  transition: all 0.2s;
-  /* 颜色：主色（antd colorPrimary=#1677ff）。 */
-  --dg-primary-color: #1677ff;
-  --dg-primary-hover: #4096ff;
-}
-
-.dg-selection-input[type='checkbox'] {
-  border-radius: 4px;
-}
-
-.dg-selection-input[type='radio'] {
-  border-radius: 50%;
-}
-
-/* hover：边框变主色（与 antd checkbox/radio hover 一致）。 */
-.dg-selection-input:not(:disabled):hover {
-  border-color: var(--dg-primary-color);
-}
-
-/* 选中态：checkbox 填充主色 + 白色对勾；radio 中心主色实心点。
-   用 background + 内联 SVG 画对勾（appearance:none 后 :checked 不再有原生视觉）。 */
-.dg-selection-input[type='checkbox']:checked {
-  background: var(--dg-primary-color);
-  border-color: var(--dg-primary-color);
-}
-
-.dg-selection-input[type='checkbox']:checked::after {
-  /* 白色对勾（与 antd 一致），用 border 画 L 形旋转。 */
-  content: '';
-  position: absolute;
-  left: 4px;
-  top: 1px;
-  width: 4px;
-  height: 8px;
-  border: solid #fff;
-  border-width: 0 1.5px 1.5px 0;
-  transform: rotate(45deg);
-}
-
-.dg-selection-input[type='radio']:checked {
-  border-color: var(--dg-primary-color);
-}
-
-.dg-selection-input[type='radio']:checked::after {
-  /* radio 中心实心点（与 antd radio 选中视觉一致）。 */
-  content: '';
-  position: absolute;
-  left: 3px;
-  top: 3px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--dg-primary-color);
-}
-
-/* 半选态（indeterminate，仅 checkbox）：横线（与 antd 一致）。
-   :indeterminate 是 DOM 属性伪类（SelectionInput 通过 ref 设置 el.indeterminate）。 */
-.dg-selection-input[type='checkbox']:indeterminate {
-  background: var(--dg-primary-color);
-  border-color: var(--dg-primary-color);
-}
-
-.dg-selection-input[type='checkbox']:indeterminate::after {
-  content: '';
-  position: absolute;
-  left: 2.5px;
-  top: 6px;
-  width: 9px;
-  height: 2px;
-  background: #fff;
-  border-radius: 1px;
-}
-
-/* disabled：灰底 + 灰边（与 antd disabled 视觉一致）。 */
-.dg-selection-input:disabled {
-  background: #f5f5f5;
-  border-color: #d9d9d9;
-  cursor: not-allowed;
-}
-
-.dg-selection-input[type='checkbox']:disabled:checked {
-  background: #d9d9d9;
-  border-color: #d9d9d9;
-}
-
-.dg-selection-input[type='checkbox']:disabled:checked::after {
-  border-color: #fff;
-}
-
-.dg-selection-input[type='radio']:disabled:checked {
-  border-color: #d9d9d9;
-}
-
-.dg-selection-input[type='radio']:disabled:checked::after {
-  background: #d9d9d9;
+  /* 选择列内 inline-flex 居中由父 .dg-cell[data-align='center'] 提供。 */
 }
 
 /* === M3 合并单元格 ===
@@ -618,104 +520,161 @@
   display: none;
 }
 
-/* === M9 行展开 ===
+/* === M9 行展开（决策 6 统一化：复刻 antd 6.4.4 .ant-table-row-expand-icon 实际画法）===
  *
- * `.dg-expand-icon`：默认展开/收起图标（antd 6.4.4 同款视觉，自研）。
- *   - 16×16 圆角方块边框（与 dg-selection-input 视觉系列一致）。
- *   - 内部三角（▶/▼）用 CSS border 画；展开态 transform: rotate(90deg) 平滑过渡（0.3s），
- *     与 grid-template-rows 的 0fr↔1fr 过渡同步——图标旋转 + 内容展开同时发生。
- *   - disabled：rowExpandable=false 行的图标灰、不响应点击（与 antd disabled 展开图标一致）。
+ * `.dg-expand-icon`：复刻 antd 6.4.4 的展开图标——带边框方块 + 内部 +/- 标记，三态切换。
+ * antd 实测（`#/demos/expand` 右栏 computed style）：
+ *   - 容器 17×17px，border 0.8px solid #f0f0f0，border-radius 6px，background #fff，
+ *     transform: scale(0.9412)（17→视觉 16px，对齐 antd `expandIconScale = controlInteractiveSize/expandIconSize`）。
+ *   - `::before`（横线）：absolute，top 7px，inset-inline 3px，height 1px，background currentColor。
+ *   - `::after`（竖线）：absolute，top/bottom 3px，inset-inline-start 7px，width 1px，
+ *     background currentColor，默认 rotate(90deg)（与横线重叠 → 视觉 "-"）。
+ *   - 三态（对齐 antd `&-collapsed` / `&-expanded` / `&-spaced`）：
+ *     * collapsed：::before rotate(-180deg) + ::after rotate(0) → "+" 形态（收起，可展开）。
+ *     * expanded：::before transform none + ::after rotate(90deg) → "-" 形态（已展开，可收起）。
+ *     * spaced（disabled）：::before/::after display:none + content:none，背景透明、border 0、
+ *       visibility:hidden → 空占位（rowExpandable=false 行）。
+ *   - hover/active：border-color: currentColor（与 antd `&:focus,&:hover,&:active { borderColor: currentcolor }` 一致）。
  *
+ * 与展开 track 的 0fr↔1fr 过渡同步：`::before`/`::after` 的 transform 过渡（motionDurationSlow）
+ * + track 展开同时发生，视觉一致。
+ *
+ * 旧实现用 CSS border 三角 + rotate（▶/▼），与 antd 实际 +/- 画法不同——改为 antd 实际画法。
  * `.dg-row-expanded`：展开内容容器（grid item，跨整行 grid-column:1/-1）。
  *   - overflow:hidden + min-height:0：配合展开内容 track 的 0fr（收起裁剪到 0）/1fr（展开自然高）。
- *   - 背景：antd 展开行有淡灰底（rowExpandedBg），这里消费 --ant-row-expanded-bg token。
+ *   - 背景：antd 展开行有淡灰底（rowExpandedBg），这里消费 --ant-table-row-expanded-bg token。
  *   - 内边距：antd 展开内容默认带 padding（与单元格 padding 一致 + 缩进）。
  */
 .dg-expand-icon {
   appearance: none;
   -webkit-appearance: none;
-  width: 16px;
-  height: 16px;
+  /* antd 6.4.4 实测：17×17 + scale(0.9412) → 视觉 16px（对齐 antd expandIconSize=17 + expandIconScale=16/17）。 */
+  width: 17px;
+  height: 17px;
   margin: 0;
   padding: 0;
-  border: 1px solid var(--dg-border-color, #d9d9d9);
+  /* antd 6.4.4 实测：border 0.8px solid #f0f0f0（注意是 #f0f0f0 不是 #d9d9d9）。 */
+  border: 0.8px solid #f0f0f0;
   background: var(--dg-body-bg, #ffffff);
-  border-radius: 4px;
+  /* antd 6.4.4 实测：border-radius 6px（默认主题 borderRadius）。 */
+  border-radius: 6px;
   cursor: pointer;
   position: relative;
   flex-shrink: 0;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  --dg-primary-color: #1677ff;
+  /* 17→16 微缩（antd expandIconScale）。 */
+  transform: scale(0.9412);
+  color: var(--dg-header-color, rgba(0, 0, 0, 0.88));
+  transition:
+    border-color 0.2s ease,
+    transform 0.2s ease;
 }
 
-.dg-expand-icon:not(:disabled):hover {
-  border-color: var(--dg-primary-color);
+/* hover/active/focus：border 变 currentColor（对齐 antd `&:focus,&:hover,&:active { borderColor: currentcolor }`）。 */
+.dg-expand-icon:not(:disabled):hover,
+.dg-expand-icon:not(:disabled):focus,
+.dg-expand-icon:not(:disabled):active {
+  border-color: currentcolor;
 }
 
-/* 内部三角（▶）：用 border 三角形画，宽高 0 + 4 个 border 中的左边形成三角。
-   展开态旋转 90deg（▶ → ▼）。 */
-.dg-expand-icon-arrow {
-  display: block;
-  width: 0;
-  height: 0;
-  border-style: solid;
-  border-width: 4px 0 4px 5px;
-  border-color: transparent transparent transparent var(--dg-border-color, #bfbfbf);
-  /* 三角向右偏移一点，视觉居中在方块内（▶ 的尖向右）。 */
-  margin-left: 1px;
+/* ::before（横线）：absolute，top 7px，inset-inline 3px，height 1px。
+   默认 transform none（expanded 态），collapsed 态旋转 -180deg。 */
+.dg-expand-icon::before {
+  content: '';
+  position: absolute;
+  top: 7px;
+  inset-inline-end: 3px;
+  inset-inline-start: 3px;
+  height: 1px;
+  background: currentcolor;
   transition: transform 0.3s ease;
 }
 
-.dg-expand-icon:not(:disabled):hover .dg-expand-icon-arrow {
-  border-left-color: var(--dg-primary-color);
+/* ::after（竖线）：absolute，top/bottom 3px，inset-inline-start 7px，width 1px。
+   默认 transform rotate(90deg)（与横线重叠 → "-"，expanded 态）。
+   collapsed 态归位 rotate(0) → "+"。 */
+.dg-expand-icon::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  inset-inline-start: 7px;
+  width: 1px;
+  background: currentcolor;
+  transform: rotate(90deg);
+  transition: transform 0.3s ease;
 }
 
-.dg-expand-icon-expanded .dg-expand-icon-arrow {
+/* collapsed 态（未展开）：横线翻转 + 竖线归位 → "+"。
+   对齐 antd 6.4.4 `&-collapsed::before { transform: rotate(-180deg) }` +
+   `&-collapsed::after { transform: rotate(0deg) }`。 */
+.dg-expand-icon-collapsed::before {
+  transform: rotate(-180deg);
+}
+.dg-expand-icon-collapsed::after {
+  transform: rotate(0deg);
+}
+
+/* expanded 态（已展开）：横线归位 + 竖线旋成横 → "-"。
+   （::before/::after 默认值即为此态，此处显式声明便于阅读 + 防止 collapsed 规则在类切换时残留。） */
+.dg-expand-icon-expanded::before {
+  transform: none;
+}
+.dg-expand-icon-expanded::after {
   transform: rotate(90deg);
 }
 
-.dg-expand-icon-expanded:not(:disabled) .dg-expand-icon-arrow {
-  border-left-color: var(--dg-primary-color);
-}
-
+/* spaced 态（不可展开行 / disabled）：隐藏所有标记 + 空白透明 + 不占交互。
+   对齐 antd 6.4.4 `&-spaced { &::before, &::after { display:none; content:none }, background:transparent, border:0, visibility:hidden }`。 */
+.dg-expand-icon-spaced,
 .dg-expand-icon:disabled {
-  background: #f5f5f5;
-  border-color: #d9d9d9;
+  background: transparent;
+  border: 0;
   cursor: not-allowed;
+  visibility: hidden;
 }
 
-.dg-expand-icon:disabled .dg-expand-icon-arrow {
-  border-left-color: #d9d9d9;
+.dg-expand-icon-spaced::before,
+.dg-expand-icon-spaced::after,
+.dg-expand-icon:disabled::before,
+.dg-expand-icon:disabled::after {
+  display: none;
+  content: none;
 }
 
 /* 展开内容容器（grid item，grid-column:1/-1 跨整行）。
    overflow:hidden + min-height:0 配合 track 0fr/1fr 过渡；
-   背景 + 内边距对齐 antd 展开行视觉。 */
+   背景 + 内边距对齐 antd 展开行视觉。
+   ★ 主题注入重构 Round 1：var 名改 --ant-table-row-expanded-bg（prefixToken 重命名），
+     padding 直接 var(--dg-cell-padding-*)（tokens.css 现在用带 px 值，去掉 calc(*1px)）。 */
 .dg-row-expanded {
-  background: var(--ant-row-expanded-bg, #fafafa);
-  padding: calc(var(--dg-cell-padding-block) * 1px) calc(var(--dg-cell-padding-inline) * 1px);
+  background: var(--ant-table-row-expanded-bg, #fafafa);
+  padding: var(--dg-cell-padding-block) var(--dg-cell-padding-inline);
   box-sizing: border-box;
 }
 
 /* 展开列单元格（与选择列类似，居中）。dg-cell[data-align='center'] 已提供 justify-content。 */
 
-/* === S1 单列排序 ===
+/* === S1 单列排序（决策 6 统一化：caret 改用 @ant-design/icons CaretUpOutlined/CaretDownOutlined）===
  *
- * 视觉对齐 antd 6.4.4（`components/table/style/sorter.ts`）：
+ * 视觉对齐 antd 6.4.4 实测（`#/demos/head` 右栏 antd 栏 computed style + `components/table/style/sorter.ts`）：
  *   - `.dg-column-has-sorters`：可排序列的表头格——cursor:pointer + hover 背景（tableHeaderSortHoverBg）。
  *   - `.dg-column-sort`：当前排序列——表头背景 tableHeaderSortBg + 表体背景 tableBodySortBg（淡灰）。
  *   - `.dg-column-sorters`：表头格内部 flex 容器（title + 排序图标 space-between）。
  *   - `.dg-column-title`：标题文字，flex:1 占据剩余空间。
- *   - `.dg-column-sorter`：排序图标容器（caret-up + caret-down 垂直堆叠）。
- *   - `.dg-column-sorter-up/down`：两个 caret（border 三角形画）。
- *   - `.dg-column-sorter-active`：当前激活 caret（主色高亮）。
+ *   - `.dg-column-sorter`：排序图标容器（font-size:0 消除 caret 行高 + color 灰）。
+ *   - `.dg-column-sorter-inner`：caret-up + caret-down 垂直堆叠（inline-flex column）。
+ *   - `.dg-column-sorter-up/down`：antd CaretUpOutlined/CaretDownOutlined icon（SVG，12×12）。
+ *   - `.dg-column-sorter-active`：激活 caret 主色高亮（colorPrimary=#1677ff）。
  *
- * caret 用 CSS border 三角形（width:0;height:0;border:solid transparent）画，
- * 与 antd CaretUpOutlined/CaretDownOutlined 视觉一致（实心小三角）。
- * 默认两 caret 灰（headerIconColor）；激活主色（colorPrimary=#1677ff）。
+ * caret 改用 antd icon 组件（决策 6 统一化）——与 antd Table 内部 sort icon 像素级一致。
+ * 旧实现用 CSS border 三角，小尺寸下锐度/比例与 SVG icon 有差异。
+ *
+ * antd 实测关键值：
+ *   - caret SVG 12×12px，fill = currentColor。
+ *   - 未激活 color = rgba(0,0,0,0.294)（headerIconColor，= colorIcon * opacityLoading）。
+ *   - 激活 color = #1677ff（colorPrimary）。
+ *   - 激活 caret 上提 margin-top: -3.6px（= -0.3em，对齐 antd `&-up + &-down { marginTop: -0.3em }`）。
  */
 .dg-cell-header.dg-column-has-sorters {
   cursor: pointer;
@@ -765,11 +724,11 @@
 }
 
 /* 排序图标容器：caret-up + caret-down 垂直堆叠（对齐 antd column-sorter-inner）。
-   color 默认灰（headerIconColor），hover 表头时变深（headerIconHoverColor）。
-   font-size:0 消除 caret 之间空隙（caret 用 border 三角，自身 width/height=0）。 */
+   color 默认灰（headerIconColor = rgba(0,0,0,0.294) 实测），hover 表头时变深（headerIconHoverColor）。
+   font-size:0 消除 antd icon 组件默认 1em 行高带来的 caret 间距（antd 源码同款做法）。 */
 .dg-column-sorter {
   margin-inline-start: 4px;
-  color: var(--dg-header-icon-color, #bfbfbf);
+  color: var(--dg-header-icon-color, rgba(0, 0, 0, 0.294));
   font-size: 0;
   display: inline-flex;
   align-items: center;
@@ -783,30 +742,14 @@
   align-items: center;
 }
 
-/* caret 三角：用 border 画（与 antd CaretUp/Down 视觉一致）。
-   up：尖朝上的三角（下边实色，其余透明）。
-   down：尖朝下的三角（上边实色，其余透明）。 */
+/* caret：antd CaretUpOutlined/CaretDownOutlined icon（SVG）。
+   font-size:12px = antd fontSizeIcon（实测）；color currentColor 继承父容器。
+   默认 currentColor = 灰（headerIconColor）；active 时通过 .dg-column-sorter-active 覆盖为主色。 */
 .dg-column-sorter-up,
 .dg-column-sorter-down {
-  display: block;
-  width: 0;
-  height: 0;
-  border-style: solid;
-  border-width: 0 3.5px 4px;
-  border-color: transparent transparent currentColor;
-  /* 默认 currentColor = 灰；active 时通过 .dg-column-sorter-active 的 color 覆盖为主色。 */
-}
-
-/* up caret（尖朝上）：翻转 border 方向——下边 transparent、上边实色。
-   注：上面默认规则画的是"尖朝下"，这里 up 覆盖为"尖朝上"。 */
-.dg-column-sorter-up {
-  border-width: 4px 3.5px 0;
-  border-color: currentColor transparent transparent;
-}
-
-/* down caret 与 down（默认规则已是尖朝下），无需额外覆盖，仅保留类名占位便于 active 切换。 */
-.dg-column-sorter-down {
-  margin-top: -1px;
+  font-size: 12px;
+  line-height: 1;
+  color: currentColor;
 }
 
 /* 激活 caret（当前排序方向）：主色高亮。
@@ -816,10 +759,17 @@
   color: var(--dg-primary-color, #1677ff);
 }
 
+/* active caret 上提 margin-top: -3.6px（实测，对齐 antd `&-up + &-down { marginTop: -0.3em }`，
+   0.3em × 12px = 3.6px）。让 up caret 与 down caret 在 active 态视觉收紧。
+   注：antd 只在 up+down 相邻时上提 down；这里 down 紧跟 up，对齐 antd 选择器。 */
+.dg-column-sorter-up + .dg-column-sorter-down {
+  margin-top: -3.6px;
+}
+
 /* hover 表头格时排序图标整体变深（对齐 antd column-sorters:hover column-sorter）。
    注：active 的主色优先级更高（单类 .dg-column-sorter-active 在 hover 规则之后声明，覆盖之）。 */
 .dg-cell-header.dg-column-has-sorters:hover .dg-column-sorter {
-  color: var(--dg-header-icon-hover-color, #8c8c8c);
+  color: var(--dg-header-icon-hover-color, rgba(0, 0, 0, 0.88));
 }
 .dg-cell-header.dg-column-has-sorters:hover .dg-column-sorter-up.dg-column-sorter-active,
 .dg-cell-header.dg-column-has-sorters:hover .dg-column-sorter-down.dg-column-sorter-active {
@@ -915,7 +865,7 @@
    对齐 antd `.ant-table-filter-dropdown`：min-width、背景、圆角、内边距。 */
 .dg-filter-dropdown {
   min-width: 120px;
-  background: var(--ant-filter-dropdown-bg, #ffffff);
+  background: var(--ant-table-filter-dropdown-bg, #ffffff);
   border-radius: 8;
   box-sizing: border-box;
   /* antd Dropdown 默认会包一层 popup 容器（带阴影/边框）；这里只管面板内部布局。 */

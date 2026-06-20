@@ -1,17 +1,23 @@
 /**
- * 行选择 UI 原子组件（M5）：checkbox / radio。
+ * 行选择 UI 原子组件（M5，决策 6 统一化）：checkbox / radio。
  *
- * 纯原生 HTML `<input type="checkbox|radio">`，**不依赖 antd**（data-grid 不引入 antd 本体）。
- * 视觉对齐 antd 6.4.4 默认主题（圆角方块/圆点 + 主色 #1677ff）。
+ * **决策 6 统一化**：改用 antd 原生 `<Checkbox>` / `<Radio>` 组件（外观对齐 antd 6.4.4）。
+ * 好处：
+ *   - indeterminate（半选）：antd Checkbox 原生支持 prop，告别 ref hack（旧实现要用 ref 设 `el.indeterminate`）。
+ *   - radio 模式直接消费 antd 6 重构后的 `.ant-radio` DOM（外圈 + 中心白点）。
+ *   - disabled / hover / 颜色 token 全部由 antd 主题接管，零维护成本。
  *
- * - `indeterminate`（半选）：HTML input 原生支持（DOM 属性，需 ref 设置；React 不直接支持 prop）。
- *   用 ref 在挂载/更新时同步 `el.indeterminate = props.indeterminate`。
+ * 对外 API（SelectionInputProps）保持不变，调用方无需改动：
+ *   - checked/indeterminate/disabled/name/aria-label/onChange(checked,event)/style 全部透传。
+ *   - 内部把 antd onChange 的 `e.target.checked` 映射为 `onChange(checked, e)`（与旧原生 input 签名一致）。
  *
  * 组件无内部状态——完全受控（checked + onChange）；状态由 useRowSelection 状态机驱动。
  */
 
-import { useEffect, useRef } from 'react'
 import type { CSSProperties, ChangeEvent } from 'react'
+import { Checkbox, Radio } from 'antd'
+import type { CheckboxChangeEvent } from 'antd/es/checkbox'
+import type { RadioChangeEvent } from 'antd/es/radio'
 import type { SelectionType } from './useRowSelection'
 
 export interface SelectionInputProps {
@@ -27,9 +33,13 @@ export interface SelectionInputProps {
 }
 
 /**
- * 选择框原子组件。
- * - type='checkbox'：方块，支持 indeterminate（半选）。
- * - type='radio'：圆点，无 indeterminate（HTML radio 无此概念）。
+ * 选择框原子组件（决策 6 统一化）。
+ * - type='checkbox'：antd `<Checkbox>`（支持 indeterminate 半选 prop）。
+ * - type='radio'：antd `<Radio>`（antd 6 重构后中心白点视觉）。
+ *
+ * antd Checkbox/Radio onChange 签名为 `(e: CheckboxChangeEvent) => void`，
+ * 其中 `e.target.checked` 即勾选态、`e.nativeEvent` 指向原生 input ChangeEvent。
+ * 这里桥接为旧的 `onChange(checked, event)` 签名（保持调用方 API 不破）。
  */
 export function SelectionInput(props: SelectionInputProps) {
   const {
@@ -43,28 +53,45 @@ export function SelectionInput(props: SelectionInputProps) {
     style,
   } = props
 
-  // indeterminate 是 DOM 属性（非 React prop），用 ref 同步。
-  const inputRef = useRef<HTMLInputElement | null>(null)
-  useEffect(() => {
-    if (inputRef.current && type === 'checkbox') {
-      inputRef.current.indeterminate = indeterminate
-    }
-  }, [indeterminate, type])
+  // antd Checkbox 的 CheckboxChangeEvent / Radio 的 RadioChangeEvent 都有 `target.checked`
+  // + `nativeEvent`。桥接为外部 `onChange(checked, event)` 签名（调用方依赖 checked）。
+  // 注：antd 6 的 nativeEvent 类型是 MouseEvent（rc-checkbox 内部把 click 当 change 派发），
+  // 与外部声明的 ChangeEvent<HTMLInputElement> 不直接兼容；调用方实际不消费 event 字段，
+  // 用 `as unknown as` 双重断言安全通过（运行时 event 对象本身不影响调用方逻辑）。
+  const handleCheckboxChange = (e: CheckboxChangeEvent) => {
+    onChange(e.target.checked, (e.nativeEvent ?? e) as unknown as ChangeEvent<HTMLInputElement>)
+  }
+  const handleRadioChange = (e: RadioChangeEvent) => {
+    onChange(e.target.checked, (e.nativeEvent ?? e) as unknown as ChangeEvent<HTMLInputElement>)
+  }
+
+  if (type === 'radio') {
+    return (
+      <Radio
+        checked={checked}
+        disabled={disabled}
+        // antd Radio 无 indeterminate 概念；忽略该字段（radio 单选无半选）。
+        name={name}
+        aria-label={ariaLabel}
+        onChange={handleRadioChange}
+        style={style}
+        // 选择列只需裸控件，去掉 antd wrapper 默认 margin（.dg-selection-input-radio 规则归零）。
+        className="dg-selection-input dg-selection-input-radio"
+      />
+    )
+  }
 
   return (
-    <input
-      ref={inputRef}
-      type={type === 'radio' ? 'radio' : 'checkbox'}
-      className="dg-selection-input"
+    <Checkbox
       checked={checked}
+      // antd Checkbox 原生支持 indeterminate prop（不再需要 ref hack）。
+      indeterminate={indeterminate}
       disabled={disabled}
       name={name}
       aria-label={ariaLabel}
-      onChange={(e) => onChange(e.target.checked, e)}
-      // indeterminate 初始值（仅在挂载时生效一次；后续靠上面的 effect 同步）。
-      // React 对 indeterminate 无原生支持；这里设 ref 后再由 effect 覆盖更稳。
-      // 注：defaultValue/checked 只对受控 checked 生效；indeterminate 必须用 ref。
+      onChange={handleCheckboxChange}
       style={style}
+      className="dg-selection-input dg-selection-input-checkbox"
     />
   )
 }

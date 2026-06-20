@@ -640,7 +640,7 @@ function StickyScrollBar({
         bottom: `${offsetScroll}px`,
         height: '8px',
         zIndex: 5,
-        background: 'var(--ant-sticky-scroll-bar-bg, rgba(0, 0, 0, 0.08))',
+        background: 'var(--ant-table-sticky-scroll-bar-bg, rgba(0, 0, 0, 0.08))',
         // bar 宽度与 grid 对齐：grid 多宽 bar 多宽（gridRef 提供 grid 宽度参考）。
         // sticky 元素横向随页面滚动（默认行为），故 bar 始终覆盖"当前视口横向可见区域"对齐 grid。
         minWidth: gridRef.current?.style.minWidth || undefined,
@@ -652,8 +652,8 @@ function StickyScrollBar({
         style={{
           height: '8px',
           width: '20px',
-          borderRadius: 'var(--ant-sticky-scroll-bar-border-radius, 100px)',
-          background: 'var(--ant-sticky-scroll-bar-bg, rgba(0, 0, 0, 0.25))',
+          borderRadius: 'var(--ant-table-sticky-scroll-bar-border-radius, 100px)',
+          background: 'var(--ant-table-sticky-scroll-bar-bg, rgba(0, 0, 0, 0.25))',
           cursor: 'pointer',
           willChange: 'transform',
         }}
