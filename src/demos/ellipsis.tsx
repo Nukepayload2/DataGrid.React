@@ -171,7 +171,10 @@ export default function EllipsisDemo() {
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>ellipsis: true</strong>：Address ×4 列均省略号。左栏 data-grid S20 实现
-              （<code>dg-cell-ellipsis</code> CSS 类 + 默认 native title）；右栏 antd 原生 ellipsis。
+              （<code>dg-cell-ellipsis</code> CSS 类：<code>overflow:hidden + white-space:nowrap +
+              text-overflow:ellipsis + word-break:keep-all</code>，对齐 antd
+              <code>genEllipsisStyle</code>（<code>table/style/ellipsis.ts</code>）+ 默认 native title）；
+              右栏 antd 原生 ellipsis。
             </li>
             <li>
               <strong>title 长度递减</strong>：表头 'Address' → 'Long Column Long Column Long Column'

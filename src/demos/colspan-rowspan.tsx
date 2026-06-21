@@ -40,8 +40,18 @@
  *   gridColumnEnd 扩展，后续 colSpan-1 个叶子表头格标 covered=true（不渲染 DOM）。
  * - 单元格合并（column.onCell）：cellMerge.computeCellMergePlan 对每格算 hidden + colSpan/rowSpan；
  *   hidden 格不渲染 DOM；左上角格设 grid-column/grid-row 的 span。
- * - rowScope='row'：视觉加粗（.dg-cell-rowscope），与 antd 一致。
+ * - rowScope='row'：视觉对齐 antd `<th scope="row">`——headerBg 灰底 + headerColor 文字色 +
+ *   加粗（.dg-cell-rowscope 消费 --dg-header-bg/--dg-header-color，font-weight:600=fontWeightStrong）。
  * - bordered：保留（与 antd demo 一致，便于看清合并边界）。
+ *
+ * === §11 外观对齐（本轮修复，CSS Grid 范围内）===
+ *
+ * - rowScope 灰底 + 文字色：原仅 font-weight 加粗（白底），antd `<th scope="row">` 走 tbody>tr>th
+ *   规则有 headerBg 背景。补 background/color 对齐。
+ * - 跨列表头居中：Home phone 表头格 colSpan:2，antd th[colspan] 居中。data-grid 叶子表头格加
+ *   data-header-colspan 属性（GridTable），CSS 触发 justify-content:center。
+ * - 跨列表头无分割竖线（非 bordered）：antd th[colspan] 不画 ::before 分割线，data-grid 补
+ *   :not([data-header-colspan]) 排除（bordered 默认开，此差异仅在切 bordered=false 时可见）。
  */
 
 import { useState } from 'react'
@@ -232,11 +242,34 @@ export default function ColspanRowspanDemo() {
               cellMerge.computeCellMergePlan 算 hidden + span；antd 原生。两侧合并区应一致。
             </li>
             <li>
-              <strong>rowScope='row'</strong>：RowHead 列行标题视觉加粗（.dg-cell-rowscope），两侧一致。
+              <strong>rowScope='row'</strong>：RowHead 列单元格渲染为 antd <code>&lt;th scope="row"&gt;</code>
+              （rc-table scopeCellComponent=th），视觉套用 antd <code>tbody &gt; tr &gt; th</code> 规则——
+              <strong>headerBg 灰底（#fafafa）+ headerColor 文字色 + 加粗</strong>。data-grid
+              <code>.dg-cell-rowscope</code> 消费 <code>--dg-header-bg</code>/<code>--dg-header-color</code>，
+              两侧 RowHead 列视觉一致（灰底加粗）。
             </li>
             <li>
               <strong>渲染格数对照</strong>：表头 5 格 + 第 1/3 行各 6 格 + 第 2 行 2 格（RowHead + Name 跨 5）
               + 第 4 行 6 格 + 第 5 行 5 格（Home phone 被 rowSpan:0 覆盖）。
+            </li>
+            <li>
+              <strong>跨列表头居中</strong>：Home phone 表头格 <code>colSpan:2</code>，antd 给
+              <code>&lt;th colspan&gt;</code> 居中（<code>textAlign:center</code>）。data-grid
+              <code>.dg-cell-header[data-header-colspan]</code> 触发 <code>justify-content:center</code>，
+              两侧 Home phone 表头文字均居中。
+            </li>
+            <li>
+              <strong>合并 × 边框</strong>：合并格（跨多列/多行）作为单个 grid item，border 只画在外边缘
+              （bordered 模式由 <code>.dg-bordered .dg-cell</code> 的 border-inline-end + 通用 border-bottom
+              提供）；合并区域内无线（无 double-line / 无缺线），与 antd 一致。
+            </li>
+            <li>
+              <strong>合并 × hover（column-aware）</strong>：合并格（<code>rowSpan:2</code>，跨第 4-5 行）在
+              其跨度内**任一行**被 hover 时都加 hover 背景（<code>dg-row-hover</code> 类驱动，grid item 跨 2 行
+              整块染色）——即 hover 第 4 行**或**第 5 行，Home phone 合并格都高亮。对齐 antd 6.4.4 / rc-table
+              column-aware hover：rc-table <code>Cell/useHoverState</code> 的 <code>inHoverRange</code> 用
+              <em>区间相交</em>判定（<code>cellStartRow &lt;= hoverRow &lt;= cellStartRow+rowSpan-1</code>），
+              合并 td 视觉占跨度行空间就高亮，而非按 DOM 行归属。普通格（rowSpan=1）退化为只高亮所在行（零回归）。
             </li>
           </ul>
         </div>

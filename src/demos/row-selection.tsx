@@ -30,25 +30,47 @@
  *    用 antd，但 data-grid 引擎本身不依赖 antd 本体，保留改造前的原生实现）；右栏 antd
  *    `<Radio.Group>`。
  * 2. **分隔线**：左栏用 `border-top`；右栏 antd `<Divider>`。
- * 3. **★ §9 已知差异（disabled 行灰底）**：data-grid disabled 行**无整行灰底**（仅 checkbox
- *    自身灰），与 antd 默认 disabled 行淡灰背景不一致。**对照可见**——如实保留差异，
- *    登记 §9（M5）不修。
- * 4. **onChange 回调签名**：data-grid `onChange(keys, rows, info)` 三参；antd `onChange(keys, rows)`
+ * 3. **onChange 回调签名**：data-grid `onChange(keys, rows, info)` 三参；antd `onChange(keys, rows)`
  *    两参。两侧均 console.log 实际入参（对照可看 console）。
  *
- * === 验证点（M5 + 决策 9）===
+ * === §11 row-selection 外观对齐说明（★ disabled 行无灰底属正确，非差异）===
+ *
+ * 原 §9 登记「M5 disabled 行无整行灰底」曾误判为差异——经 antd 6.4.4 源码核实为**错误登记**：
+ *   - antd `components/table/style/selection.ts:97-114` 只定义了 `row-selected` / `row-hover` 两态
+ *     行背景，**无 disabled 行背景规则**。
+ *   - antd `components/table/style/index.ts` 全表样式也无任何 disabled-row 背景类。
+ *   - antd `components/table/hooks/useSelection.tsx` 只在 checkbox 自身上透传 `disabled`（getCheckboxProps），
+ *     不给行加任何 class。
+ *   - 唯一 disabled 视觉来自 antd **Checkbox 组件自身**（`components/checkbox/style/index.ts:227-251`）：
+ *     `.ant-checkbox-disabled { background: colorBgContainerDisabled; borderColor: colorBorder }`——
+ *     **仅作用于 16×16 方框**，行 td 无任何背景变化。
+ *   - 实测 antd row-selection demo 右栏 "Disabled User" 行：整行白底，仅 checkbox 方框灰（行 td 背景与
+ *     普通行一致）。
+ *   - data-grid 的 SelectionInput 渲染 antd `<Checkbox>`/`<Radio>`（决策 6 统一化），disabled 透传
+ *     → antd Checkbox/Radio 的 disabled 样式自动接管（方框灰、colorBgContainerDisabled 背景）。
+ *   - 故 data-grid disabled 行视觉与 antd **逐像素一致**（整行白底 + 方框灰）——**无差异，无需修**。
+ *   - 本任务不新增 dg-row-disabled 类（加了反而与 antd 不符）。
+ *
+ * 选择列 padding（§11 本任务修复）：antd `selection.ts:49-61` 给选择列单独设 paddingXS(4px/4px)，
+ *   不随 size 变化。data-grid 原沿用普通 cell padding（16/16）→ 列宽 32px 下勾选框被挤。已在
+ *   table.css `.dg-cell[data-column-key='__dg_selection__']` 修复（padding-inline = paddingXS）。
+ *
+ * === 验证点（M5 + 决策 9 + §11）===
  *
  * 【checkbox 模式】
  * 1. 勾选某行 → 表头反映状态；表头全选框三态（未选/全选/半选）。
- * 2. 表头全选切换；"Disabled User" 行 checkbox 不可勾选（点击无反应、视觉 disabled）。
+ * 2. 表头全选切换；"Disabled User" 行 checkbox 不可勾选（点击无反应、视觉 disabled——方框灰，
+ *    整行白底与普通行一致，与 antd 一致）。
  * 【radio 模式】
- * 3. 单选互斥；表头无全选框；"Disabled User" 行 radio 不可选。
- * 【★ 双栏对照（§9 差异）】
- * 4. disabled 行（"Disabled User"）：
- *    - 右栏 antd：整行淡灰背景（bg-container-disabled）+ checkbox 灰。
- *    - 左栏 data-grid：**仅 checkbox 灰，整行无灰底**（§9 已知差异，登记不修）。
- * 5. 两侧 onChange 各自 console.log（selectedRowKeys + selectedRows）。
- * 6. 切换 type → 两侧 selectedKeys 同步清空（共享 state）。
+ * 3. 单选互斥；表头无全选框；"Disabled User" 行 radio 不可选（圆圈灰，整行白底）。
+ * 【§11 对齐点】
+ * 4. **disabled 行视觉**：两侧 "Disabled User" 整行均白底（无灰底）+ 勾选框灰——逐格一致（非差异）。
+ * 5. **选择列 padding**：两侧选择列单元格左右 padding = 4px（antd paddingXS），勾选框水平居中。
+ * 6. **表头全选半选**：部分选中时表头 checkbox 显示 indeterminate 8×8 蓝方块（antd Checkbox 原生）。
+ * 7. **选中行色**：选中行整行 `--ant-table-row-selected-bg`；选中+hover `--ant-table-row-selected-hover-bg`。
+ * 8. **行 hover 色**：非选中行 hover `--ant-table-row-hover-bg`。
+ * 9. 两侧 onChange 各自 console.log（selectedRowKeys + selectedRows）。
+ * 10. 切换 type → 两侧 selectedKeys 同步清空（共享 state）。
  */
 
 import { useState } from 'react'
@@ -267,9 +289,18 @@ export default function RowSelectionDemo() {
               （受控），console.log 各自入参（data-grid 三参含 info，antd 两参）。
             </li>
             <li>
-              <strong>★ §9 已知差异</strong>：右栏 antd <strong>"Disabled User" 整行淡灰背景</strong>
-              （bg-container-disabled）；左栏 data-grid **仅 checkbox 灰、整行无灰底**（功能正确）。
-              登记 §9（M5 disabled 行灰底），<strong>本任务不修</strong>——对照可见差异是双栏价值所在。
+              <strong>★ §11 disabled 行视觉（非差异）</strong>：两侧 <strong>"Disabled User"</strong>
+              整行均<strong>白底</strong>（无灰底）+ 勾选框方框灰。经 antd 6.4.4 源码核实：antd
+              selection.ts/index.ts <strong>无 disabled 行背景规则</strong>，disabled 视觉仅来自
+              Checkbox 组件自身（<code>colorBgContainerDisabled</code> 作用于 16×16 方框）。data-grid
+              的 SelectionInput 渲染 antd Checkbox/Radio + 透传 disabled → 视觉逐像素对齐。
+              原 §9「M5 disabled 行无灰底」登记为<strong>误判</strong>（本任务不新增 dg-row-disabled 类）。
+            </li>
+            <li>
+              <strong>★ §11 选择列 padding 修复</strong>：antd <code>selection.ts:49-61</code> 选择列
+              单元格 paddingInlineStart/End = <code>paddingXS</code>（4px，不随 size 变化）。data-grid
+              原沿用普通 cell padding（large 16/16）→ 32px 列宽下勾选框被挤；本任务在
+              <code>.dg-cell[data-column-key='__dg_selection__']</code> 收紧到 paddingXS，与 antd 一致。
             </li>
             <li>
               <strong>type 控件差异</strong>：左栏原生 <code>&lt;input type="radio"&gt;</code> RadioGroup

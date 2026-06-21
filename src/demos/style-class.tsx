@@ -12,6 +12,11 @@
  *   原用 `antd-style` 库（生成 className 字符串注入）；为保持「无额外依赖」+ 与左栏对齐展示，
  *   右栏改为直接用 antd 原生 `classNames` 字符串 + `styles` 对象/函数（antd v6 原生支持），
  *   视觉行为等价。
+ * - **★ 忠实复刻深色主题**：antd 官方 demo 的 styles/stylesFn 用深色值（`#e0e0e0` 文字 +
+ *   `rgba(0,0,0,0.3)` 阴影 + `rgba(226,225,225,0.1)` 虚线 outline + `#b8bdfd` 表头/分页色），
+ *   本 demo 两侧**逐字复刻**（不改成浅色/紫色）。root class `.dg-style-class-root` 的 CSS
+ *   定义在 `src/table/style/table.css` 末尾（对齐 antd `createStaticStyles` 的 root 样式：
+ *   `color:#e0e0e0; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.3)`）。
  * - **共享控制条**：顶部全宽，Virtual / scroll.y 两个 Switch + 一次性展示「对象 styles /
  *   函数 stylesFn」两种模式（同一 state 同时驱动两侧表格）。
  *
@@ -35,6 +40,7 @@
  *
  * - antd demo 用 `antd-style`（CSS-in-JS 生成 className）；本 demo 两侧均直接用字面量
  *   className 字符串 + inline style 对象（不依赖 antd-style）——功能等价，演示部位注入。
+ *   root class `.dg-style-class-root` 的视觉样式由 `table.css` 预定义（对齐 antd root CSS）。
  * - antd Pagination 有原生 `itemClassName`；data-grid 的 pagination.item 为近似单项样式。
  * - grid 渲染无独立 tr，body.row/header.row 的 class 透传到行内单元格（与 antd td 结构不同）。
  */
@@ -73,9 +79,10 @@ const antdColumns: NonNullable<AntdTableProps<RecordType>['columns']> = [
 // classNames / styles 共享定义（两侧等价注入）
 // ---------------------------------------------------------------------------
 
-// classNames：对象（静态）。root class 注入到根容器（.dg-wrapper / .ant-table）。
-// 对齐 antd demo 的 `createStaticStyles({ root })` 生成的 root class —— 直接用字面量 class，
-// 配合下方 styles 内联样式演示。
+// classNames：对象（静态）。root class 注入到根容器（.dg-wrapper / .ant-table-wrapper）。
+// 对齐 antd demo 的 `createStaticStyles({ root })` 生成的 root class（color/borderRadius/boxShadow）。
+// antd demo 用 antd-style CSS-in-JS 注入该 class 的样式；本 demo 两侧均改用字面量 class +
+// 预定义 CSS（见 `style-class.css` 的 `.dg-style-class-root`），视觉等价、零额外依赖。
 const dgClassNames: TableClassNames<RecordType> = {
   root: 'dg-style-class-root',
 }
@@ -84,7 +91,7 @@ const antdClassNames: NonNullable<AntdTableProps<RecordType>['classNames']> = {
 }
 
 // styles：对象（静态）。作用于 root/pagination/body.row/body.cell 等部位。
-// 对齐 antd demo 的 `styles` 对象。
+// 对齐 antd demo 的 `styles` 对象（深色主题，逐字复刻 antd 6.4.4 官方 style-class demo）。
 const dgStyles: TableStyles<RecordType> = {
   root: {
     padding: 10,
@@ -97,10 +104,10 @@ const dgStyles: TableStyles<RecordType> = {
   },
   body: {
     row: {
-      outline: '1px dashed rgba(226, 225, 225, 0.4)',
+      outline: '1px dashed rgba(226, 225, 225, 0.1)',
     },
     cell: {
-      outline: '1px dashed rgba(226, 225, 225, 0.4)',
+      outline: '1px dashed rgba(226, 225, 225, 0.1)',
     },
   },
 }
@@ -116,23 +123,24 @@ const antdStyles: NonNullable<AntdTableProps<RecordType>['styles']> = {
   },
   body: {
     row: {
-      outline: '1px dashed rgba(226, 225, 225, 0.4)',
+      outline: '1px dashed rgba(226, 225, 225, 0.1)',
     },
     cell: {
-      outline: '1px dashed rgba(226, 225, 225, 0.4)',
+      outline: '1px dashed rgba(226, 225, 225, 0.1)',
     },
   },
 }
 
 // stylesFn：函数式 `(info) => styles`。按 info.props.size 求值返回不同样式。
-// 对齐 antd demo 的 `stylesFn`：size='medium' 时返回自定义 root/title/footer/header.cell/pagination。
+// 对齐 antd demo 的 `stylesFn`：size='medium' 时返回自定义深色 root/title/footer/header.cell/pagination
+// （逐字复刻 antd 6.4.4 官方 style-class demo）。
 const dgStylesFn: TableStyles<RecordType> = (info) => {
   if (info?.props?.size === 'medium') {
     return {
       root: {
-        color: '#5b21b6',
+        color: '#e0e0e0',
         borderRadius: 8,
-        boxShadow: '0 4px 20px rgba(91, 33, 182, 0.15)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
       },
       title: {
         backgroundImage: 'linear-gradient(90deg, #6a5acd, #836fff)',
@@ -142,15 +150,15 @@ const dgStylesFn: TableStyles<RecordType> = (info) => {
         padding: '12px 16px',
       },
       footer: {
-        color: '#6b7280',
+        color: '#9ca3af',
       },
       header: {
         cell: {
           fontWeight: 600,
           fontSize: '0.95rem',
-          color: '#4338ca',
+          color: '#b8bdfd',
           padding: '12px 16px',
-          borderBottom: '1px solid rgba(67, 56, 202, 0.12)',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
         },
       },
       pagination: {
@@ -158,7 +166,7 @@ const dgStylesFn: TableStyles<RecordType> = (info) => {
           padding: 10,
         },
         item: {
-          color: '#4338ca',
+          color: '#b8bdfd',
         },
       },
     }
@@ -169,9 +177,9 @@ const antdStylesFn: NonNullable<AntdTableProps<RecordType>['styles']> = (info) =
   if (info?.props?.size === 'medium') {
     return {
       root: {
-        color: '#5b21b6',
+        color: '#e0e0e0',
         borderRadius: 8,
-        boxShadow: '0 4px 20px rgba(91, 33, 182, 0.15)',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
       },
       title: {
         backgroundImage: 'linear-gradient(90deg, #6a5acd, #836fff)',
@@ -181,15 +189,15 @@ const antdStylesFn: NonNullable<AntdTableProps<RecordType>['styles']> = (info) =
         padding: '12px 16px',
       },
       footer: {
-        color: '#6b7280',
+        color: '#9ca3af',
       },
       header: {
         cell: {
           fontWeight: 600,
           fontSize: '0.95rem',
-          color: '#4338ca',
+          color: '#b8bdfd',
           padding: '12px 16px',
-          borderBottom: '1px solid rgba(67, 56, 202, 0.12)',
+          borderBottom: '1px solid rgba(255,255,255,0.08)',
         },
       },
       pagination: {
@@ -197,7 +205,7 @@ const antdStylesFn: NonNullable<AntdTableProps<RecordType>['styles']> = (info) =
           padding: 10,
         },
         item: {
-          color: '#4338ca',
+          color: '#b8bdfd',
         },
       },
     }
@@ -349,6 +357,14 @@ export default function StyleClassDemo() {
           各部位注入效果。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
+              <strong>★ 深色主题忠实复刻</strong>：antd 官方 demo 的 styles/stylesFn 用深色值
+              （<code>#e0e0e0</code> 文字 + <code>rgba(0,0,0,0.3)</code> 阴影 +
+              <code>rgba(226,225,225,0.1)</code> 虚线 + <code>#b8bdfd</code> 表头/分页色），
+              本 demo 两侧<strong>逐字复刻</strong>（不改成浅色/紫色）——root class
+              <code>.dg-style-class-root</code> 的视觉样式由 <code>table.css</code> 预定义
+              （对齐 antd <code>createStaticStyles</code> root CSS）。
+            </li>
+            <li>
               <strong>两块 Table 同栏展示</strong>：对象 styles（size=small，含 virtual +
               scroll.y）+ 函数 stylesFn（size=medium，触发 <code>if (size==='medium')</code>
               分支）——与 antd demo 两块结构一致，两侧同屏对照。
@@ -369,7 +385,8 @@ export default function StyleClassDemo() {
               <code> antd-style</code> 库 <code>createStaticStyles</code>
               生成 className 字符串。本 demo 右栏改用 antd v6 原生
               <code> classNames</code>（字符串）+ <code>styles</code>（对象/函数），
-              视觉等价、<strong>零额外依赖</strong>。
+              视觉等价、<strong>零额外依赖</strong>。root class 的 CSS 在
+              <code>table.css</code> 末尾预定义（深色 + 圆角 12 + 阴影）。
             </li>
             <li>
               <strong>grid vs tr</strong>（已知差异）：data-grid 表头/表体无独立

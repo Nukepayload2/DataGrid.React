@@ -34,9 +34,11 @@
  *    默认 **true**（父子独立），antd 默认 **false**（父子联动）。本 demo 未传 checkStrictly
  *    （antd demo 也未传），故**两侧行为不同**——左 data-grid 父子独立勾选、右 antd 父子联动。
  *    如实保留对照（这正是决策 9 的意义，登记 §9 不修）。
- * 2. **§9 ellipsis 视觉 gap**：data-grid grid 列宽策略 + width:'30%' 相对值在 auto 模式下
- *    可能使 ellipsis 列 track 不收缩 → 无 `...`；antd `<table>{width:100%}` + tableLayout:fixed
- *    ellipsis 稳定 `...`。不阻塞组合验证，登记 §9。
+ * 2. **ellipsis 视觉对齐**（§11 第 0 步 C1 列宽策略修复后已对齐）：data-grid `derivedTableLayout`
+ *    完整复刻 antd mergedTableLayout——首列 `ellipsis:true` 隐式派生 `tableLayout:'fixed'` +
+ *    `.dg-grid{width:100%}` + 无 width 列 `minmax(0,1fr)`（min:0 收缩），ellipsis 列 track<content
+ *    → `...` 生效（scrollWidth>clientWidth），与 antd `<table>{width:100%}` + tableLayout:fixed
+ *    视觉一致。Name 列超长树名稳定省略号。
  */
 
 import { useState } from 'react'
@@ -176,9 +178,10 @@ export default function TreeTableEllipsisDemo() {
               右 antd 默认 <strong>false</strong>（父子联动）。如实保留对照，登记 §9 不修。
             </li>
             <li>
-              <strong>§9 ellipsis 视觉 gap</strong>：data-grid auto 模式下 <code>width:'30%'</code>
-              相对值 + grid 列宽策略可能使 ellipsis 列无 <code>...</code>；antd width+flex fill 稳定
-              <code> ...</code>。登记 §9 不修，不阻塞组合验证。
+              <strong>ellipsis 视觉对齐</strong>（§11 第 0 步 C1 修复后已对齐）：data-grid
+              <code>derivedTableLayout</code> 隐式派生 <code>tableLayout:'fixed'</code>（首列 ellipsis）+
+              无 width 列 <code>minmax(0,1fr)</code> → Name 列超长树名稳定省略号 <code>...</code>，
+              与 antd <code>&lt;table&gt;</code> + tableLayout:fixed 一致。
             </li>
             <li>
               <strong>决策 2</strong>：树形展开行视为普通表格行，遵循行高约定（不动态测量）。

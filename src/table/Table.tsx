@@ -825,18 +825,12 @@ function SelectionsDropdown({
         className="dg-selection-dropdown-trigger"
         role="button"
         aria-label="selections"
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          cursor: 'pointer',
-          color: 'rgba(0,0,0,0.45)',
-          padding: '0 2px',
-        }}
       >
-        {/* caret-down SVG（自绘，视觉对齐 antd DownOutlined）。 */}
+        {/* caret-down SVG（自绘，视觉对齐 antd DownOutlined）。尺寸 12×12 对齐 antd
+            selection.ts:88 `fontSize: fontSizeIcon`（=12px）。 */}
         <svg
-          width="10"
-          height="10"
+          width="12"
+          height="12"
           viewBox="0 0 1024 1024"
           fill="currentColor"
           aria-hidden="true"
@@ -1785,35 +1779,64 @@ function TableInner<RecordType = any>(
   }, [style, stylesResolved?.root, tableTokenVars, aliasTokenVars])
 
   /**
-   * ★ §9 列宽策略 tableLayout 派生（对齐 antd `Table.tsx:613-627` 简化版）。
+   * ★ C1 列宽策略 tableLayout 派生（对齐 antd rc-table `Table.tsx:613-627` mergedTableLayout）。
    *
-   * data-grid `grid-template-columns` 默认 `max-content`（列宽=内容宽），且 `.dg-grid` 无
-   * `width:100%` 容器约束 → ① ellipsis 列 track=content 宽，cell-inner 不溢出 → 视觉无 `...`
-   * （S20 gap）；② 表格总宽=内容宽溢出视口（S27 narrow gap）。antd 用 `<table>{width:100%}`
-   * + `table-layout:fixed` 让无 width 列均分剩余（被压缩 < content → ellipsis 生效）。
+   * data-grid `grid-template-columns` 默认 `max-content`（列宽=内容宽）→ ① ellipsis 列 track=content
+   * 宽，cell-inner 不溢出 → 视觉无 `...`（S20 gap）；② 固定列 + scroll.x 场景下，无 width 列
+   * max-content 不填满 scrollX，实际列总宽 < 声明宽 → 横滚到右时 fixed-end 列脱离右边缘（§9
+   * task#38 暴露的 virtual-list 问题）。antd 用 `<table>{width:100%}` + `table-layout:fixed`
+   * 让无 width 列均分剩余（填满 scrollX，fixed-end 始终贴右；被压缩 < content → ellipsis 生效）。
    *
-   * **派生规则**（对齐 antd 简化版，仅 ellipsis 触发；不派生 scroll.x/sticky → fixed）：
+   * **派生规则**（对齐 antd `mergedTableLayout`，C1 完整版——补 fixColumn/fixHeader/sticky 派生）：
    *   - 用户显式传 `tableLayout`（`'fixed'` / `'auto'`）→ 用之。
-   *   - 未显式 + **有 ellipsis 列**（columns 任一叶子列 `ellipsis` truthy）→ 隐式 `'fixed'`
-   *     （让 ellipsis 视觉自动生效，修 S20 gap）。
-   *   - 否则 → `'auto'`（默认，维持 max-content 零回归）。
+   *   - 未显式 + **fixColumn**（任一叶子列 `fixed:'start'|'end'`）→ 'fixed'（除非 scroll.x==='max-content'，
+   *     此时 antd 保持 'auto' 让内容自然撑宽）。
+   *   - 未显式 + **fixHeader**（scroll.y===true 容器内固定表头）/ **sticky**（S34 页面级）/ **有 ellipsis 列**
+   *     → 'fixed'。
+   *   - 否则 → 'auto'（默认，维持 max-content；basic 等无 fixed/ellipsis/scroll 的 demo 走此路径）。
    *
-   * ★ 仅 ellipsis 触发：不动 scroll.x/sticky 派生（避免破坏固定列 M2 偏移计算 / 虚拟 M4 /
-   *   sticky S34——这些场景列宽依赖 max-content 测量）。若需在 narrow/无 ellipsis 场景强制
-   *   fixed，调用方显式传 `tableLayout: 'fixed'`。
+   * antd 源码依据：`react-component/table/src/Table.tsx:613-627`：
+   *   ```
+   *   if (tableLayout) return tableLayout;
+   *   if (fixColumn) return mergedScrollX === 'max-content' ? 'auto' : 'fixed';
+   *   if (fixHeader || isSticky || flattenColumns.some(({ellipsis}) => ellipsis)) return 'fixed';
+   *   return 'auto';
+   *   ```
    *
-   * ★ ellipsis 判定：基于已过滤哨兵的 visibleColumns（与渲染一致）。哨兵（SELECTION/EXPAND）
-   *   不是 ColumnType，不带 ellipsis，跳过。
+   * ★ 与 C1 colTracks 策略配合：fixed 模式下无 width 列 `minmax(0,1fr)` 均分剩余填满容器/scrollX，
+   *   绝对 width 列 `minmax(width,1fr)`；auto 模式下 `max-content`/`minmax(width,max-content)`。
+   *   修 §9 task#38 virtual-list fixed-end 脱离 + S20 ellipsis + S27 narrow 均分（narrow 需 demo 显式
+   *   tableLayout:fixed 或有 fixed/ellipsis 列才派生，narrow demo 三列均无 fixed/ellipsis 故仍 auto
+   *   ——属 auto 语义预期，§9 已登记，不在本任务改 demo）。
+   *
+   * ★ M2 固定列偏移不受影响：useStickyColumns 用 ResizeObserver 实测 DOM 宽度（不依赖 col.width 数值），
+   *   fixed 模式下 minmax 算出的实际宽度会被 ResizeObserver 重测，sticky 偏移自动正确。
+   *
+   * ★ ellipsis/fixed 判定：基于已过滤哨兵的 visibleColumns（与渲染一致）。哨兵（SELECTION/EXPAND）
+   *   不是 ColumnType，不带 ellipsis/fixed，跳过。
    */
   const derivedTableLayout: 'auto' | 'fixed' = useMemo(() => {
     if (tableLayoutProp === 'fixed' || tableLayoutProp === 'auto') return tableLayoutProp
-    // 隐式派生：任一叶子列 ellipsis truthy → fixed。
+    // 扫描叶子列：fixColumn（任一 fixed）+ ellipsis（任一 ellipsis truthy）。
+    let hasFixedColumn = false
+    let hasEllipsis = false
     for (const c of visibleColumns as Array<ColumnOrSentinel<RecordType>>) {
       if (c === SELECTION_COLUMN || c === EXPAND_COLUMN) continue
-      if ((c as ColumnType<RecordType>).ellipsis) return 'fixed'
+      const col = c as ColumnType<RecordType>
+      if (col.fixed) hasFixedColumn = true
+      if (col.ellipsis) hasEllipsis = true
     }
+    // fixHeader = scroll.y===true（决策 7 容器内固定表头）；isSticky = sticky prop 启用。
+    const fixHeader = scroll?.y === true
+    const isSticky = sticky !== undefined && sticky !== false
+    // 对齐 antd `Table.tsx:620-622`：fixColumn 时提前返回（max-content → auto，否则 fixed），
+    //   不再落到 fixHeader/ellipsis 分支——即使同时有 fixHeader/ellipsis，fixColumn+max-content 仍 auto。
+    if (hasFixedColumn) {
+      return scroll?.x === 'max-content' ? 'auto' : 'fixed'
+    }
+    if (fixHeader || isSticky || hasEllipsis) return 'fixed'
     return 'auto'
-  }, [tableLayoutProp, visibleColumns])
+  }, [tableLayoutProp, visibleColumns, scroll?.x, scroll?.y, sticky])
 
   // 引擎层 ref（暴露 scrollTo 等）。本组件的 forwardRef ref 桥接到它。
   const engineRef = useRef<TableEngineHandle | null>(null)
@@ -2049,14 +2072,11 @@ function TableInner<RecordType = any>(
         .filter(Boolean)
         .join(' ')}
       style={{
-        display: 'flex',
-        justifyContent:
-          align === 'start'
-            ? 'flex-start'
-            : align === 'center'
-              ? 'center'
-              : 'flex-end',
-        margin: '16px 0',
+        // ★ 对齐（start/center/end）由 `dg-pagination-${align}` class 提供 justify-content
+        // （见 table.css `.dg-pagination-start/center/end`，对齐 antd `.ant-table-pagination-*`）。
+        // display:flex / flex-wrap / row-gap / margin / `> *` flex:none 均在 table.css
+        // `.dg-pagination` 消费 `var(--ant-margin)`/`var(--ant-padding-xs)`（主题可驱动，
+        // 对齐 antd `components/table/style/pagination.ts`）。
         ...(paginationRootStyle ?? null),
       }}
     >
@@ -2161,6 +2181,14 @@ function TableInner<RecordType = any>(
         }
         getPopupContainer={getPopupContainer}
         rowHoverable={rowHoverable}
+        // ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定 → 引擎加 dg-row-selected 类（CSS 消费
+        //   --ant-table-row-selected-bg / row-selected-hover-bg）。仅 rowSelection 启用时提供
+        //   （无选择 demo 零回归，避免每 cell 多一次回调）；record→key 用 canonical getRowKey（与引擎一致）。
+        isRowSelected={
+          rowSel
+            ? (record: RecordType) => selection.isSelected(getRowKey(record, rowKeyResolved))
+            : undefined
+        }
       />
       {footer ? (
         <div

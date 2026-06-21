@@ -263,8 +263,58 @@ export function flattenHeaderCells<RecordType>(
   // 注意：叶子表头格在 out 中按 leafIndex 升序（前序遍历天然如此）；只处理 isLeaf 项。
   // 对 children 多级表头场景，colSpan 字段不应在分组节点出现（与 antd 一致），故不影响。
   applyHeaderColSpan(out)
+  markLastLeaves(out)
 
   return out
+}
+
+/**
+ * 标记末列与分组最右叶子（表头分隔线排除用，对齐 antd）。
+ *
+ * antd 表头分隔线规则（`components/table/style/index.ts:322`）：
+ *   `thead > tr > th:not(:last-child):not(selection):not(expand):not([colspan])::before`
+ * —— `:last-child` 相对该 th 的父 `<tr>`，排除**该行最右一格**。
+ *
+ * data-grid 因 grid 容器扁平（表头格与表体格同为 `.dg-grid` 直接子节点），
+ * `:last-child` 恒指最后一个表体格，对表头格永远为真，无法用 CSS 排除末列。
+ * 故由引擎在叶子表头格上打两个标记，CSS 用 `:not([data-leaf-last])` /
+ * `:not([data-group-last])` 排除（详见 table.css `[data-leaf-index]::before` 注释）：
+ *
+ * 1. **`isLastLeaf`（全局末列）**：`leafIndex === 叶子总数 - 1`。
+ *    对应 antd 单层/多级表头叶子层 `<tr>` 的 `:last-child`（最右叶子）。
+ *    例：jsx demo Action（最右叶子）；basic demo 最右列。
+ *
+ * 2. **`isGroupLastLeaf`（分组最右叶子）**：该叶子的 `gridColumnEnd` 命中
+ *    某个**跨越 >=2 叶子的分组表头格**的 `gridColumnEnd`（即此叶子在分组最右，
+ *    且分组不止 1 列）。对应多级表头的"分组右边界"——antd 该位置恰为上层分组行
+ *    的某个 `<th>` 边界，视觉上不画分隔线。例：jsx demo Name 分组下的 Last Name。
+ *    单层表头无分组表头格，所有叶子均为 false（零回归）。
+ */
+function markLastLeaves<RecordType>(
+  cells: Array<EngineHeaderCell<RecordType>>,
+): void {
+  const leaves = cells.filter((c) => c.isLeaf)
+  if (leaves.length === 0) return
+
+  // 全局末列：leafIndex 最大者（leaves 已按 leafIndex 升序，末项即最大）。
+  const lastLeafIndex = leaves[leaves.length - 1].leafIndex
+  for (const leaf of leaves) {
+    leaf.isLastLeaf = leaf.leafIndex === lastLeafIndex
+  }
+
+  // 分组 colEnd 集合：仅"跨越 >=2 叶子的分组表头格"（gridColumnEnd - gridColumnStart >= 2）
+  // 才计入——单列分组（gridColumnEnd - gridColumnStart === 1）与单层表头无视觉边界差异，
+  // 不应触发排除（避免误伤）。分组表头格 !isLeaf。
+  const groupColEnds = new Set<number>()
+  for (const c of cells) {
+    if (!c.isLeaf && c.gridColumnEnd - c.gridColumnStart >= 2) {
+      groupColEnds.add(c.gridColumnEnd)
+    }
+  }
+  for (const leaf of leaves) {
+    // 叶子的 gridColumnEnd 命中某分组 colEnd → 该叶子是那个分组的最右叶子。
+    leaf.isGroupLastLeaf = groupColEnds.has(leaf.gridColumnEnd)
+  }
 }
 
 /**

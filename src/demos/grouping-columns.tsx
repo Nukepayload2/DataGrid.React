@@ -26,9 +26,11 @@
  *    - 右栏 antd：忠实复刻该 scroll（x 含 calc 公式）。
  *    - 左栏 data-grid：用 `scroll={{x:'calc(700px + 50%)', y:true}}`（决策 7：y:true 数据区域模式，
  *      CSS 自动适应高度；父容器需明确 height）。父容器 height 设 47*5≈240（与 antd y 等价）。
- * 4. **§9 右固定列脱离观察**：左栏含 scroll.x + Gender fixed 'end' + Company Name 列无 width（max-content），
- *    横滚到最右时可能触发 §9 narrow gap 同源问题（task #38 virtual-list 暴露）。右栏 antd 无此问题。
- *    如实保留对照，登记 §9 不修。
+ * 4. **★ §9 右固定列脱离已修（C1 列宽策略落地后）**：左栏含 scroll.x + Gender fixed 'end' +
+ *    Company Name 列无 width。C1 前（§9 narrow gap 同源，task #38 virtual-list 暴露）横滚到最右时
+ *    右固定列脱离容器右边缘；C1 列宽策略（absolute width → grid `minmax(width,1fr)`，无 width 列
+ *    `minmax(0,1fr)`，派生 fixed tableLayout）后该列填满 scroll.x 剩余空间，Gender 严格贴右
+ *    （实测 diff 0.000003px 亚像素，与 antd 等价）。右栏 antd 一直无此问题，现两侧一致。
  * 5. **数据量**：antd demo 固定 100 行；data-grid 侧通过 Count 控件可切换 100/6（默认 100 对齐 antd）。
  */
 
@@ -322,9 +324,11 @@ export default function GroupingColumnsDemo() {
               <code>size="middle"</code>（data-grid v6 别名，等价 medium）。可通过控制条切换。
             </li>
             <li>
-              <strong>★ §9 右固定列脱离观察</strong>（task #38 同源 narrow gap）：左栏含 scroll.x +
-              Gender fixed 'end' + Company Name 列无 width（max-content），横滚到最右时 data-grid 右固定
-              列可能脱离容器右边缘（§9 已登记）；右栏 antd 无此问题。如实保留对照，不修。
+              <strong>★ §9 右固定列脱离已修（C1 列宽策略）</strong>：左栏含 scroll.x + Gender fixed 'end' +
+              Company Name 列无 width。C1 列宽策略（absolute width → grid <code>minmax(width,1fr)</code>，
+              无 width 列 <code>minmax(0,1fr)</code>，派生 fixed tableLayout）后该列填满 scroll.x 剩余空间，
+              Gender 严格贴右（实测 diff 0.000003px 亚像素，与 antd 等价）。右栏 antd 一直无此问题，
+              现两侧一致。
             </li>
           </ul>
         </div>

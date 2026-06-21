@@ -13,8 +13,10 @@
  *
  * === 决策 9 双栏对照 ===
  *
- * - **左栏（data-grid Table）**：行为与改造前一致（`column.hidden` → 引擎 grid track `0fr` 过渡，
- *   单元格/表头格 `visibility:hidden`，`.dg-grid` `transition: grid-template-columns 0.3s` 平滑）。
+ * - **左栏（data-grid Table）**：行为与改造前一致（`column.hidden` → 引擎 grid track `0fr`，
+ *   单元格/表头格 `visibility:hidden`，track 不删除保线号稳定）。
+ *   注：`.dg-grid` 声明了 `transition: grid-template-columns 0.3s`，但本 demo 列均无 width
+ *   （track=max-content，非可动画尺寸），实际为瞬切（CSS 固有约束，非 bug，详见底部说明区）。
  * - **右栏（antd Table）**：忠实复刻 antd hidden-columns demo（antd 原生 `column.hidden`）。
  * - **共享控制条**：antd `<Checkbox.Group>`（两侧共用一个 checkedList 状态，同步驱动两侧）。
  *   改造前 data-grid demo 用原生 `<input type="checkbox">` 最小实现；决策 9 双栏下统一用 antd
@@ -115,15 +117,21 @@ export default function HiddenColumnsDemo() {
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>column.hidden</strong>：不在 checkedList 的列标记 hidden。左栏 data-grid 走
-              grid track <code>0fr</code> 过渡（<code>transition: grid-template-columns 0.3s</code>）；
-              右栏 antd 走原生 hidden。
+              grid track <code>0fr</code>（track 不删除，线号稳定）；右栏 antd 走原生 hidden。
             </li>
             <li>
-              <strong>过渡动画</strong>：左栏 data-grid 有 0.3s 平滑收起/展开动画；右栏 antd 即时切换。
-              对照两侧动画差异。
+              <strong>过渡动画（CSS 固有约束，非 bug）</strong>：引擎在 <code>.dg-grid</code> 上声明了
+              <code>transition: grid-template-columns 0.3s ease</code>，CSS 允许对 track size 列表逐项
+              插值——但<strong>仅当 track size 是可动画尺寸（px / fr / %）时</strong>。本 demo 8 列均未设
+              <code>width</code>，track size 为 <code>max-content</code>（非可动画尺寸），<code>max-content → 0fr</code>
+              CSS 引擎无法逐项插值，故<strong>实际表现为瞬切</strong>（与右栏 antd 原生 hidden 视觉等价，均即时切换）。
+              欲观察 0.3s 平滑动画，需给列设固定 <code>width</code>（如 <code>resizable</code> demo 拖拽定宽后隐藏可见）。
+              这是 CSS Grid 的固有约束（非 data-grid 缺陷），不强制对齐，此处如实标注。
             </li>
             <li>
-              <strong>表头线号稳定</strong>：取消/恢复勾选不应导致其它列标题/数据错位（两侧均应稳定）。
+              <strong>0fr track 不删除（线号稳定）</strong>：隐藏列在 <code>grid-template-columns</code> 中仍占一条
+              <code>0fr</code> track，取消/恢复勾选不会导致其它列标题/数据错位（左栏 data-grid 线号恒稳；
+              右栏 antd 原生 hidden 重渲染亦稳）。
             </li>
           </ul>
         </div>

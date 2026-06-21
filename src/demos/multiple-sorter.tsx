@@ -14,29 +14,41 @@
  * === antd demo 要素（S2 多列排序）===
  *
  * - 各分数列带 `sorter: { compare, multiple }`：
- *     * Chinese Score：multiple=3
+ *     * Chinese Score：multiple=3（最高优先级）
  *     * Math Score：multiple=2
- *     * English Score：multiple=1（最小=最高优先级）
+ *     * English Score：multiple=1（最低优先级）
  *   Name 列不可排序。
  * - 点击多列表头叠加排序——点击一列只改该列自身 order，不清空其它列（多列语义）。
- * - 数据按 multiple 优先级叠加：先按 multiple 大的粗排、再按 multiple 小的细排，
- *   最终 multiple 最小的列是"最终决定序"（最高优先级）。
- * - 表头 caret 旁显示优先级数字（1/2/3…，按 multiple 升序；1 = 最高优先级）。
+ * - 数据按 multiple 优先级叠加：multiple **越大优先级越高**（主排序键），先按 multiple 大的列粗排，
+ *   multiple 小的列在主键相等时作为次级排序细化。依据：antd `getSortData`
+ *   （`components/table/hooks/useSorter.tsx:331-333`）——
+ *   `innerSorterStates.sort((a,b) => b.multiplePriority - a.multiplePriority)`，即 multiple 大者先比较。
+ *   data-grid 引擎逐字对齐（`src/table/engine/useSorter.ts` `getSortData` 第 358 行 `pb - pa`）。
+ *   ★ 故 **Chinese(multiple=3) 是主排序键**（最高优先级），English(multiple=1) 是最末细化键。
  * - onChange 返回 `SorterResult[]`（多列激活时）；console.log 各参数。
  *
  * === 验证点（S2）===
  *
- * 1. 点击 English（multiple=1）descend → 排序结果以 English 为主序（最高优先级）。
- * 2. 再点击 Math（multiple=2）descend → English 仍激活，叠加：English 相等时按 Math 排。
- * 3. 再点击 Chinese（multiple=3）descend → 三列叠加；表头分别显示 1（English）/ 2（Math）/ 3（Chinese）。
+ * 1. 点击 Chinese（multiple=3）descend → 排序结果以 Chinese 为主序（最高优先级）。
+ *    数据 4 行 chinese={98,98,98,88} → descend：三个 98 在前、88（Jim Red）在末。
+ * 2. 再点击 Math（multiple=2）descend → Chinese 仍激活，叠加：chinese 相等时按 Math 排。
+ *    三个 chinese=98 中 Math descend：Joe Black(90) > Jim Green(66) > John Brown(60)。
+ * 3. 再点击 English（multiple=1）descend → 三列叠加；English 只在 Chinese+Math 都相等时才起作用。
  * 4. 点击已激活列继续循环（descend → null → ascend → descend）；某列 null 时从优先级链中移除。
  * 5. onChange sorter 为数组（多列激活时）/ 单对象（仅一列激活时）/ `{}`（无激活）。
  *
  * === data-grid 实现说明 ===
  *
- * 多列状态机见 `src/table/engine/useSorter.ts`（S2 扩展）；表头优先级序号由 SortIndicator 的
- * `priority` prop 渲染（`src/table/engine/SortIndicator.tsx`）。本 demo 仅配置 columns + onChange，
- * 与 antd demo 等价（无任何 data-grid 扩展 API）。
+ * 多列状态机见 `src/table/engine/useSorter.ts`（S2 扩展，对齐 antd `useSorter.tsx`）。
+ * 排序优先级（谁先比较）与 antd 一致：multiple 大者先比较 = 主排序键（见上节源码依据）。
+ *
+ * ★ 与 antd 的两处可观察差异（详见底部对照说明「差异备注」，非 demo 可修，登记 §11）：
+ *   (A) **优先级徽标**：data-grid SortIndicator 多列激活时会在 caret 旁渲染一个优先级数字徽标
+ *       （`dg-column-sorter-priority`，1=最高优先级=multiple 最大）。**antd 6.4.4 官方 multiple-sorter
+ *       demo 不渲染此徽标**（antd `sorter.ts` 样式 + demo 均无）。属 data-grid 增强，非对齐项。
+ *   (B) **onChange sorter 数组顺序**：antd `generateSorterInfo`（`useSorter.tsx:296-324`）按**列定义
+ *       插入顺序**输出激活列；data-grid `generateSorterInfo`（`useSorter.ts:292-314`）按 **multiple
+ *       升序**输出（历史决策，见引擎文件 docstring）。两侧数组元素集合相同，顺序不同。
  */
 
 import { useState } from 'react'
@@ -192,12 +204,15 @@ export default function MultipleSorterDemo() {
           左右并排呈现 data-grid 与 antd multiple-sorter demo（S2 多列排序）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>Chinese</strong> multiple=3、<strong>Math</strong> multiple=2、
-              <strong>English</strong> multiple=1（最小=最高优先级）。Name 不可排序。
+              <strong>Chinese</strong> multiple=3（最高优先级）、<strong>Math</strong> multiple=2、
+              <strong>English</strong> multiple=1（最低优先级）。Name 不可排序。
+              <strong>multiple 越大 = 优先级越高</strong>（主排序键），依据：antd
+              <code>getSortData</code> 中 <code>b.multiplePriority - a.multiplePriority</code>。
             </li>
             <li>
-              <strong>多列叠加</strong>：点击一列不清空其它列；数据按 multiple 优先级叠加，最终 multiple
-              最小的列是「最终决定序」（最高优先级）。表头 caret 旁显示优先级数字（1/2/3，按 multiple 升序）。
+              <strong>多列叠加</strong>：点击一列不清空其它列；先按 multiple 大的列粗排，multiple 小的列
+              在主键相等时作为次级细化。例：Chinese+Math 都 descend → 三个 chinese=98 按 Math 排，
+              Joe Black(90) &gt; Jim Green(66) &gt; John Brown(60)。
             </li>
             <li>
               <strong>循环</strong>：点击已激活列继续循环（descend → null → ascend → descend）；某列 null
@@ -210,6 +225,22 @@ export default function MultipleSorterDemo() {
             <li>
               <strong>Bordered 开关</strong>：同时切换两侧边框。<strong>Reset 按钮</strong>：递增 React key
               强制两侧 Table 重新挂载，清空所有排序激活态（不引入受控语义）。
+            </li>
+            <li>
+              <strong>★ 差异备注（§11）</strong>：
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li>
+                  <strong>优先级徽标</strong>：左栏 data-grid 多列激活时在 caret 旁显示一个数字徽标
+                  （1/2/3，<strong>1 = 最高优先级 = multiple 最大</strong>，即 Chinese 激活时显示 1）。
+                  右栏 antd <strong>不渲染</strong>此徽标（antd 6.4.4 multiple-sorter demo + sorter 样式
+                  均无此元素）。属 data-grid 增强，非 antd 对齐项。
+                </li>
+                <li>
+                  <strong>onChange sorter 数组顺序</strong>：antd 按列定义顺序（Chinese, Math, English）
+                  输出激活列；data-grid 按 multiple 升序（English, Math, Chinese）输出。数组元素集合相同，
+                  顺序不同（引擎历史决策，非 demo 可修）。
+                </li>
+              </ul>
             </li>
           </ul>
         </div>

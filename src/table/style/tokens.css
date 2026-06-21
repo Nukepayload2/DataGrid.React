@@ -49,7 +49,12 @@
   --ant-table-header-sort-hover-bg: #f5f5f5;
   --ant-table-body-sort-bg: #fafafa;
   --ant-table-fixed-header-sort-active-bg: #fafafa;
-  --ant-table-header-filter-hover-bg: #f5f5f5;
+  /* ★ §11 head 返工：删除 `--ant-table-header-filter-hover-bg`（错误 token 名）。
+     antd Table 无 `tableHeaderFilterHoverBg` token——filter trigger hover bg 用的 Table 组件 token
+     名是 `tableHeaderFilterActiveBg`（filter.ts:68），但该 token 默认派生 = colorFillContent（alias），
+     antd DOM 不单独输出 `--ant-table-header-filter-active-bg`（与 alias 同值被删）。
+     故 hover bg 直接消费 alias `--ant-color-fill-content`（下方 fallback 已声明 rgba(0,0,0,0.06)），
+     table.css `.dg-filter-trigger:hover` 同步改用 alias token。这里不再重复声明 filter bg fallback。 */
 
   /* —— 颜色：底部 / 过滤下拉（Table component token）—— */
   --ant-table-footer-bg: #fafafa;
@@ -85,8 +90,19 @@
   --ant-table-selection-column-width: 32px;
 
   /* —— sticky 滚动条（Table component token，S34 消费）—— */
+  /* antd 6.4.4 sticky.ts 用的 token 体系（非单一 stickyScrollBarBg）：
+     - tableScrollBg（bar 容器背景，= colorSplit，很浅）：prepareComponentToken:582 派生。
+     - tableScrollThumbBg（thumb 背景，= stickyScrollBarBg = colorTextPlaceholder）。
+     - tableScrollThumbBgHover（thumb hover，= colorTextHeading）。
+     - tableScrollThumbSize（bar/thumb 高度，= 8）。
+     - stickyScrollBarBorderRadius（胶囊圆角，= 100）。
+     data-grid StickyScrollBar（GridTable.tsx）按 antd sticky.ts 同款分 3 色 + borderTop。 */
   --ant-table-sticky-scroll-bar-bg: rgba(0, 0, 0, 0.25);
   --ant-table-sticky-scroll-bar-border-radius: 100px;
+  --ant-table-scroll-bg: rgba(5, 5, 5, 0.06);
+  --ant-table-scroll-thumb-bg: rgba(0, 0, 0, 0.25);
+  --ant-table-scroll-thumb-bg-hover: rgba(0, 0, 0, 0.88);
+  --ant-table-scroll-thumb-size: 8px;
 
   /* —— 全局基础 alias token（dg-wrapper 内非 antd 组件根的消费者用）—— */
   /* 表格底色（colorBgContainer，alias token，component-token 可覆盖） */
@@ -100,10 +116,43 @@
   --ant-color-primary: #1677ff;
   /* 分割线色（alias token；fixed 列阴影 消费；antd fixed.ts getShadowStyle 用 colorSplit） */
   --ant-color-split: rgba(5, 5, 5, 0.06);
+  /* §11 head：filter-trigger hover 色消费（antd filter.ts:67 `color: colorIcon`，默认 rgba(0,0,0,0.45)）。
+     注：filter hover 用 colorIcon 而非 headerIconHoverColor（=colorIconHover*opacityLoading）——
+     sorter hover 用 headerIconHoverColor（sorter.ts:104），两者语义不同，data-grid 须分别对齐。 */
+  --ant-color-icon: rgba(0, 0, 0, 0.45);
+  /* §11 head：filter-trigger hover background 消费（antd filter.ts:68 `background: tableHeaderFilterActiveBg`，
+     prepareComponentToken:472 派生 headerFilterHoverBg: colorFillContent，默认主题 colorFillContent
+     实测≈#f5f5f5）。注：headerFilterHoverBg token 在 prepareComponentToken 派生为 colorFillContent
+     （未混 opacity），与 headerSortHoverBg(colorFillContent onBg solid) 视觉相近但语义不同——
+     antd DOM .ant-table-filter-trigger:hover 的 background 实测即为 colorFillContent solid。 */
+  --ant-color-fill-content: rgba(0, 0, 0, 0.06);
+  /* fontSizeSM（alias token；filter-trigger fontSize 消费，antd filter.ts:61 `fontSize: fontSizeSM`）。
+     默认主题 fontSizeSM = 14（antd fontSize 基础=14，fontSizeSM=14 不降级）。 */
+  --ant-font-size-sm: 14px;
+  /* paddingXXS（alias token；filter-trigger padding `0 paddingXXS` 消费，antd filter.ts:59）。
+     默认主题 paddingXXS = 4。与 --ant-padding-xs 同值（antd padding scale 里 xs==xxs==4），
+     但 antd 源码 filter.ts 用 paddingXXS，这里独立 fallback 保持语义可追溯。 */
+  --ant-padding-xxs: 4px;
   /* 标题/正文文字色（alias token；悬浮滚动条 hover 态 消费；antd tableScrollThumbBgHover 用 colorTextHeading） */
   --ant-color-text-heading: rgba(0, 0, 0, 0.88);
+  /* 正文文字色（alias token；antd `.ant-table` 经 resetComponent(token) 设 `color: colorText`，
+     全表 body cell 通过继承拿到此色；展开图标 `color: inherit` 也解析到此色。
+     §11 C2 tree-data 种子 #2 修复：data-grid body 原本无 color 声明，继承浏览器默认纯黑
+     (rgb(0,0,0))——与 antd 的 rgba(0,0,0,0.88) 不符。改为显式消费 --ant-color-text 对齐。 */
+  --ant-color-text: rgba(0, 0, 0, 0.88);
+  /* 链接色族（alias token；展开图标 hover/focus/active color 消费）。
+     antd expand.ts 第 55 行 `...operationUnit(token)`（components/style/index.tsx:169-198）在
+     展开图标上注入 `:hover/:focus { color: colorLinkHover }`、`:active { color: colorLinkActive }`。
+     默认主题 colorLinkHover=#69b1ff（genColorMapToken.ts:111 linkColors[4]）、
+     colorLinkActive=#0958d9（linkColors[7]）。§11 C2 tree-data 种子 #1 修复消费。 */
+  --ant-color-link-hover: #69b1ff;
+  --ant-color-link-active: #0958d9;
   /* 全局圆角（alias token；expand 图标 / filter 下拉圆角 消费） */
   --ant-border-radius: 6px;
+  /* paddingXS（alias token；§11 row-selection 选择列单元格 paddingInlineStart/End 消费）。
+     antd selection.ts:54-55 给选择列单元格设 paddingXS（=4px 默认主题，不随 size 变化）。
+     接入 antd 主题时由 Table.tsx aliasTokenVars 注入覆盖。 */
+  --ant-padding-xs: 4px;
 
   /* —— data-grid 自身布局变量（非 antd token）——
      直接消费 antd 带单位值（去掉旧 calc(*1px) 换算，与 antd 注入格式一致）。

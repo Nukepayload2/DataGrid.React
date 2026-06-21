@@ -638,9 +638,13 @@ function StickyScrollBar({
       style={{
         position: 'sticky',
         bottom: `${offsetScroll}px`,
-        height: '8px',
+        // antd sticky.ts:34,38 height = tableScrollThumbSize(8) + background = tableScrollBg(浅)。
+        height: 'var(--ant-table-scroll-thumb-size, 8px)',
         zIndex: 5,
-        background: 'var(--ant-table-sticky-scroll-bar-bg, rgba(0, 0, 0, 0.08))',
+        background: 'var(--ant-table-scroll-bg, rgba(5, 5, 5, 0.06))',
+        // antd sticky.ts:39 borderTop: tableBorder（1px solid tableBorderColor）。data-grid 同款，
+        // 用 --ant-table-border-color（= #f0f0f0，与 antd tableBorderColor 一致）。
+        borderTop: 'var(--ant-line-width, 1px) var(--ant-line-type, solid) var(--ant-table-border-color, #f0f0f0)',
         // bar 宽度与 grid 对齐：grid 多宽 bar 多宽（gridRef 提供 grid 宽度参考）。
         // sticky 元素横向随页面滚动（默认行为），故 bar 始终覆盖"当前视口横向可见区域"对齐 grid。
         minWidth: gridRef.current?.style.minWidth || undefined,
@@ -649,13 +653,16 @@ function StickyScrollBar({
       <div
         ref={thumbRef}
         onPointerDown={onThumbPointerDown}
+        className="dg-sticky-scroll-bar-thumb"
         style={{
-          height: '8px',
+          height: 'var(--ant-table-scroll-thumb-size, 8px)',
           width: '20px',
+          // antd sticky.ts:50 borderRadius = stickyScrollBarBorderRadius(100) + backgroundColor = tableScrollThumbBg。
           borderRadius: 'var(--ant-table-sticky-scroll-bar-border-radius, 100px)',
-          background: 'var(--ant-table-sticky-scroll-bar-bg, rgba(0, 0, 0, 0.25))',
+          background: 'var(--ant-table-scroll-thumb-bg, rgba(0, 0, 0, 0.25))',
           cursor: 'pointer',
           willChange: 'transform',
+          transition: 'background-color 0.2s ease',
         }}
       />
     </div>
@@ -704,6 +711,8 @@ function GridTableInner<RecordType = any>(
     rowClassName,
     getPopupContainer,
     rowHoverable,
+    // ★ §11 C2 tree-data 种子 #3（共享改动）：行选中态判定 → 加 dg-row-selected 类。
+    isRowSelected,
   } = props
 
   const gridRef = useRef<HTMLDivElement | null>(null)
@@ -1047,14 +1056,42 @@ function GridTableInner<RecordType = any>(
       // M7 列宽拖拽：用户拖拽过的列优先用 resizedWidths（具体 px），覆盖 column.width。
       // 未拖拽过的列保持原逻辑（column.width → max-content / fixed 下 minmax(0,1fr)）。
       // 这样首次拖拽 max-content 列时，第一次 move 即把该列从 max-content 转为受控 px。
+      // ★ 拖拽后的列固定为受控 px，不参与 1fr 比例分配（与现状/语义一致：用户已明确指定该列宽，
+      //   不应再被比例伸缩；其余列按各自的 minmax/max-content 策略分剩余）。
       const resized = resizedWidths.get(col.key)
       if (resized !== undefined) return `${resized}px`
+      // ★ C1 列宽策略（§11 第 0 步，对齐 antd `<table width:100%>` + table-layout 行为）。
+      //
+      // antd 源码 ground truth（已读，不猜）：
+      //   - `.ant-table table` CSS 恒为 `width:100%`（`ant-design/components/table/style/index.ts:280-286`）。
+      //   - horizonScroll（scroll.x 或 fixed 列）时 `<table>` inline `{ width: scrollX, minWidth:'100%' }`
+      //     （`react-component/table/src/Table.tsx:438-441`）。
+      //   - `<colgroup><col style={width, minWidth}>`：`minWidth` 仅 tableLayout==='auto' 时来自 column.minWidth
+      //     （`react-component/table/src/ColGroup.tsx:33-35`）；`width` = column.width 原样。
+      //   - mergedTableLayout：显式 > (fixColumn ? (scroll.x==='max-content' ? 'auto' : 'fixed'))
+      //     > (fixHeader||sticky||ellipsis ? 'fixed' : 'auto')（`Table.tsx:612-627`）。
+      //
+      // grid-track 等效（min/max 双约束模拟 `<col width>` + `table-layout` 的「min-width=width，剩余按比例」语义）：
+      //   - **绝对 width 列**（number / 非百分比字符串如 `'100px'`）：
+      //     · fixed 模式 → `minmax(width, 1fr)`：min=width（保底，总 min>容器 出横滚 / <容器 撑满不留空），
+      //       max=1fr 按比例分剩余。这正是 §11 需求「最小绝对宽度 + 比例宽」（等效 `flex:1 1 width`）。
+      //     · auto 模式 → `minmax(width, max-content)`：min=width（保底），max=content（可随内容增长，
+      //       与 antd `table-layout:auto` 下 `<col width>` 列宽=content 但至少 width 语义一致）。
+      //   - **百分比 width 列**（如 `'20%'`）：**原样作为 track**（不包 minmax）——antd 不转换，
+      //     `<col style="width:'20%'">` 相对表格宽 20%；grid `grid-template-columns: 20%` 相对容器 20%，
+      //     语义一致。minmax 包装百分比在 grid 里 min/max 同为百分比无意义，故保留原样。
+      //   - **无 width 列**：fixed → `minmax(0, 1fr)`（min:0 收缩触发 ellipsis，修 S20 gap）；
+      //     auto → `max-content`（内容宽）。
+      //   - 配合 `.dg-grid{width:100%}`（见 gridStyle）约束表格总宽=容器宽：总 min>容器 出滚动条，
+      //     总 min<容器 minmax 的 1fr/max-content 撑满容器（修 basic Action 截断 + narrow 均分）。
       const w = toTrack(col.width)
-      if (w !== undefined) return w
-      // ★ §9 tableLayout:'fixed'：无 width 列 → `minmax(0, 1fr)`（均分剩余，min:0 允许收缩
-      //   < content → 触发 ellipsis 视觉生效，修 S20 gap）。配合 `.dg-grid{width:100%}` 约束
-      //   （见下方 gridFinalStyle），让表格总宽=容器宽，不溢出视口（修 S27 narrow gap）。
-      //   auto 模式（默认）：维持 `max-content`（零回归）。
+      if (w !== undefined) {
+        // 百分比 width（含 '%'）：原样 track（antd `<col style="width:xx%">` 等效）。
+        if (typeof col.width === 'string' && col.width.includes('%')) return w
+        // 绝对 width：minmax 策略（fixed=1fr 比例 / auto=max-content 可增长）。
+        return tableLayout === 'fixed' ? `minmax(${w}, 1fr)` : `minmax(${w}, max-content)`
+      }
+      // 无 width：fixed → minmax(0,1fr) 收缩（ellipsis 视觉）；auto → max-content（零回归）。
       return tableLayout === 'fixed' ? 'minmax(0, 1fr)' : 'max-content'
     })
 
@@ -1109,12 +1146,21 @@ function GridTableInner<RecordType = any>(
     gridTemplateRows,
     gridTemplateColumns,
     ...(gridAutoFlow ? { gridAutoFlow } : null),
-    // ★ §9 tableLayout:'fixed'：约束模式给 .dg-grid 加 width:100%（约束=容器宽，
-    //   修表格溢出 S27 narrow gap）；配合无 width 列 `minmax(0, 1fr)`（见 colTracks）均分剩余，
-    //   触发 ellipsis 视觉生效（修 S20 gap）。auto 模式不加（零回归）。
-    //   注：与 scrollMinWidth（M2 横向滚动 min-width）正交——min-width 仍生效（表格至少 scrollX 宽），
-    //   width:100% 让表格在容器更宽时撑满容器（fixed 列宽策略在容器约束下均分）。
-    ...(tableLayout === 'fixed' ? { width: '100%' } : null),
+    // ★ C1 列宽策略（§11 第 0 步）：`.dg-grid` 恒定 `width:100%`（对齐 antd `<table>` CSS
+    //   `.ant-table table{width:100%}`，见 `ant-design/components/table/style/index.ts:280-286`）。
+    //   这是修 basic Action 截断 + 该出的横滚条出现的核心——
+    //   - auto 模式：列取 `max-content`/`minmax(width,max-content)`，width:100% 让 grid 总宽
+    //     = max(100%, Σmax-content)：内容>容器时 grid 撑宽（溢出 → 外层 .dg-scroll/.dg-wrapper
+    //     overflow 出滚动条，即 antd `<table>` 在 auto 下内容溢出容器的等效行为）；内容<容器时
+    //     grid=容器宽（撑满，不留白）。配合 `max-content` track，列宽仍=内容宽（行为与 antd auto 一致）。
+    //   - fixed 模式：列 `minmax(0,1fr)`/`minmax(width,1fr)`，width:100% 让 1fr 均分容器剩余，
+    //     minmax(width,..) 的 Σmin>容器 时溢出滚动（修 S27 narrow 均分 + S20 ellipsis）。
+    //   - 与 scrollMinWidth（scroll.x 下 min-width:scrollX）正交：min-width 仍生效（至少 scrollX 宽），
+    //     width:100% 在容器更宽时撑满（fixed 列宽策略在容器约束下均分）。
+    //   ★ S34 sticky 例外：sticky 模式下**不加** width:100%（保留 width:auto）——sticky 需页面级
+    //     横向滚动，width:100% 会把 grid 约束在 .dg-wrapper（dg-sticky 下已 width:auto=视口宽），
+    //     虽然 min-width:scrollX 仍能撑宽，但为保持 S34 既有测过的行为零回归，sticky 路径完全不动。
+    ...(!stickyEnabled ? { width: '100%' } : null),
   }
 
   // === M2 滚动容器 ===
@@ -1233,6 +1279,8 @@ function GridTableInner<RecordType = any>(
             onRow,
             rowClassName,
             rowHoverable,
+            // ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定 → 加 dg-row-selected 类。
+            isRowSelected,
           })}
           {/* M9 行展开内容：每个可展开 + 展开中的数据行渲染一条展开内容 grid item，
               grid-column: 1 / -1 跨整行，grid-row 指向该行下方的展开内容 track。
@@ -1299,6 +1347,9 @@ function GridTableInner<RecordType = any>(
             key={column.key}
             column={column}
             colIdx={colIdx}
+            // ★ 表头分隔线排除：单层末列标记（对齐 antd `thead th:not(:last-child)::before`）。
+            //   单层无分组，仅需末列排除；多级路径由 columnTree.markLastLeaves 算 data-group-last。
+            isLastLeaf={colIdx === leafColumns.length - 1}
             dataSource={dataSource}
             rowKey={rowKey}
             showHeader={showHeader}
@@ -1323,6 +1374,8 @@ function GridTableInner<RecordType = any>(
             rowHoverable={rowHoverable}
             getPopupContainer={getPopupContainer}
             headerColumns={headerColumns}
+            // ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定 → 加 dg-row-selected 类。
+            isRowSelected={isRowSelected}
           />
         ))}
       </div>
@@ -1506,8 +1559,21 @@ function renderTreeIndent<RecordType>({
           onExpand={() => treeState.toggleExpand(key)}
         />
       ) : (
-        // 无 children 行：等宽占位（与展开图标同宽，保持列对齐）。
-        <span style={{ display: 'inline-block', width: 16, height: 16, flexShrink: 0 }} aria-hidden="true" />
+        // ★ §11 C2 tree-data 种子 #3 修复：无 children 行渲染 disabled ExpandIcon（spaced 态），
+        // 对齐 antd `.ant-table-row-expand-icon-spaced`（antd BodyRow 对 rowExpandable=false /
+        // 无 children 的行也渲染一个 disabled button，加 -spaced 类，visibility:hidden 占位）。
+        // antd expand.ts 第 102-110 行：`&-spaced { &::before/::after { display:none; content:none },
+        //   background:transparent, border:0, visibility:hidden }`。容器尺寸同展开图标（17×17 +
+        //   scale(0.9412)），故占位宽度与 collapsed/expanded 态一致，缩进对齐。
+        // 旧实现渲染裸 16×16 span：宽度差 1px（antd 视觉宽 17×0.9412≈16，但 grid item 的 track
+        //   分配 + antd float 布局差异导致左栏比 antd 少 1px）+ DOM/a11y 不一致（antd 有 button 节点）。
+        // 改为 disabled ExpandIcon 后，DOM 与 antd 同构（disabled button），尺寸/visibility 由
+        //   .dg-expand-icon-spaced CSS 接管（table.css 第 714-720 行），与 antd spaced 态一致。
+        <ExpandIcon
+          expanded={false}
+          disabled
+          onExpand={() => treeState.toggleExpand(key)}
+        />
       )}
       {/* 图标与内容之间的间隔（对齐 antd 默认间距）。 */}
       <span style={{ display: 'inline-block', width: 4, flexShrink: 0 }} aria-hidden="true" />
@@ -1591,6 +1657,8 @@ function BodyCell<RecordType>({
   onRow,
   rowClassName,
   rowHoverable = true,
+  // ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定 → 加 dg-row-selected 类。
+  isRowSelected,
 }: {
   column: EngineLeafColumn<RecordType>
   colIdx: number
@@ -1617,6 +1685,8 @@ function BodyCell<RecordType>({
   rowClassName?: string | ((record: any, index: number) => string)
   /** ★ 接口全兼容（决策 3 第二步）：rowHoverable 行 hover 开关，默认 true。 */
   rowHoverable?: boolean
+  /** ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定回调。未提供时不加 dg-row-selected 类（零回归）。 */
+  isRowSelected?: (record: RecordType) => boolean
 }) {
   const colSpan = merge?.colSpan ?? 1
   const text = getValueByDataIndex(record, column.dataIndex)
@@ -1676,6 +1746,10 @@ function BodyCell<RecordType>({
   // ★ rowHoverable=false 时不加 dg-row-hover（关闭内置 hover 视觉）。
   const hoverClass =
     rowHoverable === false ? undefined : isHovered ? 'dg-row-hover' : undefined
+  // ★ §11 C2 tree-data 种子 #3（共享）：行选中态 → 加 dg-row-selected 类（CSS 消费 antd token）。
+  //   镜像 flat 路径 ColumnCells（~2721）的算式，保证多级表头路径与 flat 路径行为一致。
+  const selectedClass =
+    isRowSelected && isRowSelected(record) ? 'dg-row-selected' : undefined
   // 合并 cell 级 + 行级 className（column.className + rowClassName + onRow.className）。
   const mergedBodyExtraClass = [
     column.className,
@@ -1713,6 +1787,8 @@ function BodyCell<RecordType>({
         isSortedColumn ? 'dg-column-sort' : undefined,
         // ★ rowHoverable=false 时关闭内置 hover 视觉。
         hoverClass,
+        // ★ §11 C2 tree-data 种子 #3（共享）：行选中态 → dg-row-selected 类。
+        selectedClass,
         // S29：语义化 body.row 部位 className（行级 class 透传到该行所有单元格）。
         semanticBody?.className?.row,
         // S29：语义化 body.cell 部位 className（单元格级）。
@@ -1724,6 +1800,11 @@ function BodyCell<RecordType>({
         .join(' ')}
       data-align={column.align ?? undefined}
       data-row-index={index}
+      // ★ §11 row-selection：表体格也标 data-column-key（与表头格 GridTable.tsx:2282/2604 对齐）。
+      //   用于选择列（key='__dg_selection__'）专用样式定位——antd selection.ts:49-61 给选择列单元格
+      //   单独设 paddingInlineStart/End = paddingXS(4px)（区别于普通列的 cellPaddingInline），CSS 需精确命中。
+      //   之前仅表头格标 data-column-key，表体选择列 padding 沿用普通列（16/8px）→ 与 antd 不符。
+      data-column-key={column.key}
       style={{
         gridColumn:
           colSpan > 1 ? `${colIdx + 1} / span ${colSpan}` : `${colIdx + 1}`,
@@ -1815,6 +1896,8 @@ function renderBodyCells<RecordType>({
   onRow,
   rowClassName,
   rowHoverable = true,
+  // ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定 → 加 dg-row-selected 类。
+  isRowSelected,
 }: {
   leafColumns: Array<EngineLeafColumn<RecordType>>
   dataSource: Array<RecordType>
@@ -1840,6 +1923,8 @@ function renderBodyCells<RecordType>({
   rowClassName?: string | ((record: any, index: number) => string)
   /** ★ 接口全兼容（决策 3 第二步）：rowHoverable 行 hover 开关，默认 true。 */
   rowHoverable?: boolean
+  /** ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定回调。 */
+  isRowSelected?: (record: RecordType) => boolean
 }): Array<ReactNode> {
   // ★ 接口全兼容（决策 3 第二步）：按行预计算 onRow 返回值 + rowClassName（同行的每个单元格共享）。
   //   预计算避免在 BodyCell 内重复调用（onRow 是用户函数，重复调用既浪费也可能有副作用）。
@@ -1865,13 +1950,27 @@ function renderBodyCells<RecordType>({
     return { merge, rowSpanTracks }
   }
 
+  // ★ §11 对齐 antd 6.4.4 / rc-table 7.51 的 column-aware hover：合并格（rowSpan>1）在
+  //   其跨度内任一行被 hover 时，该合并格本身也加 dg-row-hover 高亮（视觉占跨度行空间就高亮）。
+  //   antd 实现：rc-table Cell/index.js:92 useHoverState(index, mergedRowSpan) +
+  //   useHoverState.js:4-7 inHoverRange(cellStartRow, cellRowSpan, hoverStart, hoverEnd) 用区间相交判定
+  //   （onMouseEnter 调 onHover(index, index+rowSpan-1)，单行 hover 时 hoverStart===hoverEnd）。
+  //   data-grid 的 hoveredRowIndex 等价于 hoverStart===hoverEnd===该行 index，故区间相交退化为：
+  //   hoveredRowIndex 落在 [startRow, startRow+logicalRowSpan-1] 即高亮。
+  //   ★ rowSpan=1（普通格，含 flat 路径全部 cell）退化为 hoveredRowIndex===startRow，与原逻辑
+  //     完全一致——非合并 demo 零回归。logicalRowSpan 取 merge.rowSpan（不含 M9 展开 track 偏移），
+  //     因 hoveredRowIndex 是逻辑行 index（与 antd 行号同语义）。
+  const isRowSpanHovered = (startRow: number, logicalRowSpan: number) =>
+    hoveredRowIndex !== null &&
+    hoveredRowIndex >= startRow &&
+    hoveredRowIndex <= startRow + logicalRowSpan - 1
+
   if (BodyRow) {
     // 行优先遍历：每行用 body.row 包裹。
     for (let index = lo; index < hi; index += 1) {
       const record = dataSource[index]
       if (record === undefined) continue
       const rowLine = rowLineBase(index)
-      const isHovered = hoveredRowIndex === index
       const rowCells: Array<ReactNode> = []
       for (let colIdx = 0; colIdx < leafColumns.length; colIdx += 1) {
         const column = leafColumns[colIdx]
@@ -1879,6 +1978,9 @@ function renderBodyCells<RecordType>({
         if (m === null) continue
         const isSortedColumn =
           !!column.sorter && column.sortOrder !== null && column.sortOrder !== undefined
+        // ★ §11 rowSpan-aware hover：合并格按区间相交判定（见 isRowSpanHovered 注释）。
+        //   rowSpan=1 退化为 hoveredRowIndex===index（零回归）。
+        const isHovered = isRowSpanHovered(index, m.merge?.rowSpan ?? 1)
         rowCells.push(
           <BodyCell<RecordType>
             key={`b-${colIdx}-${getRowKey(record, rowKey) ?? index}`}
@@ -1904,6 +2006,8 @@ function renderBodyCells<RecordType>({
             onRow={onRow}
             rowClassName={rowClassName}
             rowHoverable={rowHoverable}
+            // ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定。
+            isRowSelected={isRowSelected}
           />,
         )
       }
@@ -1936,7 +2040,9 @@ function renderBodyCells<RecordType>({
       if (record === undefined) continue
       const m = computeMerge(colIdx, index)
       if (m === null) continue
-      const isHovered = hoveredRowIndex === index
+      // ★ §11 rowSpan-aware hover：合并格按区间相交判定（见 isRowSpanHovered 注释）。
+      //   rowSpan=1 退化为 hoveredRowIndex===index（零回归）。
+      const isHovered = isRowSpanHovered(index, m.merge?.rowSpan ?? 1)
       out.push(
         <BodyCell<RecordType>
           key={`b-${colIdx}-${getRowKey(record, rowKey) ?? index}`}
@@ -1962,6 +2068,8 @@ function renderBodyCells<RecordType>({
           onRow={onRow}
           rowClassName={rowClassName}
           rowHoverable={rowHoverable}
+          // ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定。
+          isRowSelected={isRowSelected}
         />,
       )
     }
@@ -2206,6 +2314,20 @@ function HeaderCell<RecordType>({
       data-leaf={cell.isLeaf ? '1' : '0'}
       data-leaf-index={cell.isLeaf && cell.leafIndex !== undefined ? String(cell.leafIndex) : undefined}
       data-column-key={cell.isLeaf ? cell.key : undefined}
+      // ★ 表头分隔线排除标记（对齐 antd `thead th:not(:last-child)::before`）：
+      //   data-leaf-last = 全局末列；data-group-last = 分组最右叶子（多级表头分组右边界）。
+      //   由 columnTree.markLastLeaves 算出（见该函数注释）；CSS ::before 用 :not() 排除。
+      //   详见 table.css `[data-leaf-index]::before` 注释。
+      data-leaf-last={cell.isLeaf && cell.isLastLeaf ? '' : undefined}
+      data-group-last={cell.isLeaf && cell.isGroupLastLeaf ? '' : undefined}
+      // ★ §11 colspan-rowspan 对齐：叶子表头格跨列数（>=2 时标记）。用于 CSS ::before 分割竖线
+      //   排除跨列表头格（对齐 antd `thead th:not([colspan])::before`——跨列表头格无内部分割线）。
+      //   headerColSpan 由 columnTree.applyHeaderColSpan 设置（Home phone colSpan:2 → 2；普通列 1）。
+      data-header-colspan={
+        cell.isLeaf && cell.headerColSpan !== undefined && cell.headerColSpan >= 2
+          ? String(cell.headerColSpan)
+          : undefined
+      }
       data-sorter-order={isSorted ? (sortOrder ?? undefined) : undefined}
       // S1：showSorterTooltip（非 false）→ hover 提示。简单实现为原生 title（对齐 antd 默认 locale：
       //   ascend → "Click to sort descending"，descend → "Cancel sorting"，null → "Click to sort ascending"）。
@@ -2324,6 +2446,12 @@ interface ColumnCellsProps<RecordType> {
   column: EngineLeafColumn<RecordType>
   /** 叶子列索引（用于 ResizeObserver 测量标记与 sticky 取值）。 */
   colIdx: number
+  /**
+   * ★ 表头分隔线排除：该列是否为全局末列（单层路径）。
+   * 多级路径不传（由 columnTree.markLastLeaves 算 cell.isLastLeaf → data-leaf-last）。
+   * CSS 用 `:not([data-leaf-last])` 排除末列表头格的右侧分隔线。
+   */
+  isLastLeaf?: boolean
   dataSource: Array<RecordType>
   rowKey: string | ((record: RecordType) => string | number)
   showHeader: boolean
@@ -2369,6 +2497,12 @@ interface ColumnCellsProps<RecordType> {
   rowHoverable?: boolean
   /** onHeaderRow(columns, index) 的 columns 参数（顶层列 raw 数组）。 */
   headerColumns?: Array<unknown>
+  /**
+   * ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定回调。
+   * 引擎在命中选中行的所有 body cell 上加 `dg-row-selected` 类（CSS 消费 antd token）。
+   * 未提供（undefined）时不加类（零回归）。详见 EngineTableProps.isRowSelected。
+   */
+  isRowSelected?: (record: RecordType) => boolean
 }
 
 /** 单层路径（grid-auto-flow:column）的列渲染：表头格 + 每数据行格。
@@ -2383,6 +2517,7 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
   const {
     column,
     colIdx,
+    isLastLeaf,
     dataSource,
     rowKey,
     showHeader,
@@ -2405,6 +2540,8 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
     getPopupContainer,
     rowHoverable = true,
     headerColumns,
+    // ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定 → 加 dg-row-selected 类。
+    isRowSelected,
   } = props
 
   // ★ 接口全兼容（决策 3 第二步）：onHeaderCell 返回值（flat 路径表头格 props 注入）。
@@ -2520,6 +2657,10 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
           data-align={column.align ?? undefined}
           data-leaf-index={String(colIdx)}
           data-column-key={column.key}
+          // ★ 表头分隔线排除（单层末列，对齐 antd `thead th:not(:last-child)::before`）。
+          //   单层无分组，仅设 data-leaf-last；多级路径在 HeaderCell 设 data-group-last。
+          //   详见 table.css `[data-leaf-index]::before` 注释。
+          data-leaf-last={isLastLeaf ? '' : undefined}
           data-sorter-order={isSorted ? (sortOrder ?? undefined) : undefined}
           // S1：showSorterTooltip hover 提示（简单 title，详见 HeaderCell 同款注释）。
           //   ★ S20 冲突处理：ellipsis 启用时 title=完整表头文案（优先），排序提示让位（详见 HeaderCell）。
@@ -2657,6 +2798,10 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
                 })()
         // ★ rowHoverable=false 时不加 dg-row-hover（关闭内置 hover 视觉）。
         const hoverClass = rowHoverable === false ? undefined : isHovered ? 'dg-row-hover' : undefined
+        // ★ §11 C2 tree-data 种子 #3（共享）：行选中态 → 加 dg-row-selected 类
+        //   （CSS 消费 --ant-table-row-selected-bg / row-selected-hover-bg）。
+        const selectedClass =
+          isRowSelected && isRowSelected(record) ? 'dg-row-selected' : undefined
         // 合并 cell 级 + 行级 className（column.className + rowClassName + onRow.className）。
         const mergedBodyExtraClassFlat = [
           column.className,
@@ -2694,6 +2839,8 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
               isSorted ? 'dg-column-sort' : undefined,
               // ★ rowHoverable=false 时关闭内置 hover 视觉。
               hoverClass,
+              // ★ §11 C2 tree-data 种子 #3（共享）：行选中态 → dg-row-selected 类。
+              selectedClass,
               // S29：语义化 body.row 部位 className（行级 class 透传到该行所有单元格）。
               semanticBody?.className?.row,
               // S29：语义化 body.cell 部位 className（单元格级）。
@@ -2705,6 +2852,10 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
               .join(' ')}
             data-align={column.align ?? undefined}
             data-row-index={index}
+            // ★ §11 row-selection：表体格也标 data-column-key（与上方 BodyCell 多级表头路径 + 表头格一致）。
+            //   选择列（key='__dg_selection__'）专用样式定位——antd selection.ts:49-61 选择列 padding
+            //   = paddingXS(4px)，区别于普通列 cellPaddingInline。详见 BodyCell 同款注释。
+            data-column-key={column.key}
             style={{
               ...(column.align ? { textAlign: column.align } : null),
               ...stickyCellStyle(sticky),

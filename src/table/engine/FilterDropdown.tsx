@@ -544,13 +544,18 @@ export function FilterDropdown({
           <div className="dg-filter-dropdown-search" onKeyDown={(e) => e.stopPropagation()}>
             <Input
               prefix={<SearchOutlined />}
-              placeholder="Search"
+              // ★ §11 filter-search 对齐：antd enUS locale filterSearchPlaceholder = 'Search in filters'
+              // （locale/en_US.ts:29）。原硬编码 'Search' 与 antd 不符，修正。
+              // 注：data-grid 暂未透传 Table locale 到 FilterDropdown，故用 antd enUS 默认值硬编码。
+              placeholder="Search in filters"
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               // htmlSize=1 对齐 antd：绕开 input 默认 min-width（让 popup 宽度由外层约束）。
               htmlSize={1}
               className="dg-filter-dropdown-search-input"
-              allowClear
+              // ★ §11 filter-search 对齐：antd FilterSearch（FilterSearch.tsx:25-33）**无 allowClear**
+              // —— filter 搜索框不带清除（×）按钮。原 data-grid 误加 allowClear（右栏 antd 无），
+              // 去掉以对齐。用户用关闭下拉或手动删除清空（antd 同款行为）。
             />
           </div>
         ) : null}
@@ -567,7 +572,11 @@ export function FilterDropdown({
                 className="dg-filter-dropdown-checkall"
                 onChange={onCheckAll}
               >
-                Select All
+                {/* ★ §11 filter-in-tree 对齐：antd enUS locale filterCheckAll = 'Select all items'
+                    （locale/en_US.ts:28；消费处 antd FilterDropdown.tsx:434 `{locale?.filterCheckall ?? locale?.filterCheckAll}`）。
+                    data-grid 暂未透传 Table locale 到 FilterDropdown，故用 antd enUS 默认值硬编码
+                    （与上面 filterSearchPlaceholder='Search in filters' 同款处理）。原硬编码 'Select All' 与 antd 不符。 */}
+                Select all items
               </Checkbox>
             ) : null}
             <Tree
@@ -589,6 +598,13 @@ export function FilterDropdown({
               filterTreeNode={filterTreeNode as unknown as React.ComponentProps<typeof Tree>['filterTreeNode']}
             />
           </div>
+        ) : visibleItems.length === 0 ? (
+          // === menu 模式搜索过滤后无匹配项（对齐 antd FilterDropdown.tsx:477,488-490 isEmpty 分支）===
+          // antd：`const isEmpty = items.every(item => item === null)` → 搜索无匹配时所有 item 为 null →
+          // 显示 empty 占位（与 filters 列表本身为空时同一个 renderEmpty('Table.filter')）。
+          // data-grid：visibleItems（经 filterSearch 过滤）为空等价 antd 的 isEmpty → 显示同一占位。
+          // ★ §11 filter-search 修复：原实现渲染空 Checkbox/Radio.Group（空白），antd 显示 empty 占位。
+          <div className="dg-filter-dropdown-empty">{filterEmptyNode}</div>
         ) : filterMultiple ? (
           // === menu 多选（Checkbox.Group，S3 既有）===
           <Checkbox.Group

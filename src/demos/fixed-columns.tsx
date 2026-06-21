@@ -30,6 +30,22 @@
  *    Action fixed 'end' + 中间 Column 1-20 无 width（max-content），横滚到最右时 data-grid
  *    右固定列 Action 可能脱离容器右边缘（§9 已登记：无 width 列 max-content vs antd width+flex
  *    fill）。右栏 antd 无此问题。如实保留对照，登记 §9 不修。
+ *
+ * === §11 fixed-columns 阴影对齐结论（本轮实施）===
+ * 6. **★ 固定列边缘阴影**（已对齐）：data-grid `.dg-sticky-shadow-start/end` 此前用 **外投影**
+ *    `box-shadow: 10px 0 8px -8px`（缺 `inset`），antd 6.4.4 `fixed.ts:6-16` getShadowStyle 用
+ *    **内投影** `inset 10px 0 8px -8px colorSplit` / `inset -10px 0 8px -8px colorSplit`。本轮
+ *    已在 `table.css` 补 `inset` 关键字（颜色/方向/偏移原本就对）——与 antd 视觉一致（阴影落在
+ *    固定列内侧、更含蓄）。
+ * 7. **★ 阴影随滚动切换（unfixable，登记不修）**：antd 的 `fix-start/end-shadow-show` class 由
+ *    rc-table 的横向 scrollLeft 监听动态切换——滚到最左时 start 阴影隐藏、滚到最右时 end 阴影隐藏
+ *    （`react-component/table/src/Table.tsx:825-826` shadowStart/shadowEnd）。data-grid 两侧阴影
+ *    **恒显**（纯 CSS，不脚本监听 scrollLeft，遵守 §11 约束）。视觉差异：data-grid 滚到尽头时
+ *    固定列边缘仍有一道极淡阴影线（antd 没有）——阴影很淡（8px 模糊 + colorSplit 0.06 alpha），
+ *    不破坏视觉，反而始终提示固定列边界。属可接受差异，无需修。
+ * 8. **固定列偏移/边框/横滚贴边/z-index/固定列×hover-selected**：均沿用已落地共享修复
+ *    （C1 列宽 + 选中行色含 `.dg-cell-fixed-*` + 表头分隔线 + bordered 固定列组合边框 + corner
+ *    z-index 5），本轮无新增改动——验证者按下方清单逐项核对即可。
  */
 
 import { useState } from 'react'

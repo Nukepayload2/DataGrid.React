@@ -17,6 +17,13 @@
  *
  * data-grid 表格总宽默认 = `max-content`（每列 track 取内容宽度），窄容器 300px 下表格会
  * 横向溢出。antd 用 `table-layout: fixed` + `width: 100%` 让列均分容器宽度。两侧差异对照可见。
+ * 根因：narrow demo 列无 width + 未显式传 `tableLayout: 'fixed'` → data-grid 走 auto 语义（每列
+ * max-content），符合 grid auto 模式预期（非回归）。若要消除溢出需 demo 显式传 fixed（决策层事项）。
+ *
+ * === ★ 已知 polish（§9 B2：Page Segmented 切换不翻页，登记不修）===
+ *
+ * 控制条 Page 1/13/20 Segmented 用 `pagination.defaultCurrent`（非受控初值），切换 Segmented 只更新
+ * React state，不会重置 Table 内部 current（antd `defaultCurrent` 同语义，两侧行为一致）。非引擎 bug。
  *
  * minPaneWidth=320：narrow demo 单侧容器 300px + 边框/padding，两栏并排需 ~656+；320 阈值使
  * 容器 ≥ 656 横排（超宽屏），常规视口竖排（每栏全宽，300 容器 + 表格更清晰）。
@@ -124,6 +131,14 @@ export default function NarrowDemo() {
             </li>
             <li>
               <strong>size="small"</strong>：两侧均 small（cell padding 8/8），对照行高一致。
+            </li>
+            <li>
+              <strong>★ Page Segmented 切换不翻页（§9 B2 polish，已知保留）</strong>：控制条 Page 1 /
+              13 / 20 Segmented 仅设 <code>pagination.defaultCurrent</code>（antd Table 的
+              <strong>非受控初值</strong>，仅在 Table 挂载时读取一次）。切换 Segmented 后 state 更新但
+              <strong>不会重置 Table 内部 current</strong>，故分页器不跳转（两侧行为一致：antd 官方
+              <code>defaultCurrent</code> 同语义）。要实现切换即跳转需改受控 <code>pagination.current</code>
+              + <code>onChange</code>（demo 决策层事项，非引擎 bug）。
             </li>
           </ul>
         </div>

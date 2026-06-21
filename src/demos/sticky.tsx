@@ -239,6 +239,15 @@ export default function StickyDemo() {
               min-width:1500 撑宽 + 底部 StickyScrollBar 同步；antd rc-table 实现路径不同但视觉对齐。
               S34 与 M8 互斥（data-grid 简化）。
             </li>
+            <li>
+              <strong>StickyScrollBar 视觉对齐</strong>（本次修复）：底部横向滚动条按 antd
+              <code> components/table/style/sticky.ts </code>同款三色分离——bar 容器
+              <code> tableScrollBg </code>（= colorSplit，浅灰 0.06）+ <code>borderTop: tableBorder</code>
+              + height <code>tableScrollThumbSize(8)</code>；thumb <code>tableScrollThumbBg</code>
+              （= stickyScrollBarBg，0.25），hover <code>tableScrollThumbBgHover</code>（= colorTextHeading，
+              深）。修复前 bar 用 thumb 色（偏深 0.25）且无 borderTop/thumb hover，现已逐项对齐 antd。
+              tokens.css 补 <code>--ant-table-scroll-bg/thumb-bg/thumb-bg-hover/thumb-size</code> fallback。
+            </li>
           </ul>
         </div>
       </SplitDemo>

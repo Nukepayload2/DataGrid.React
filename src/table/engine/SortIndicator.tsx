@@ -17,9 +17,13 @@
  * === S2 多列优先级序号 ===
  *
  * `priority`（1-based，可选）非空时，在 caret 右侧显示一个数字徽标（如 1/2/3…），表示该列在
- * 多列排序中的优先级（1 = 最高优先级 = `sorter.multiple` 最小）。对齐 antd multiple-sorter demo：
- * 激活的排序列表头 caret 旁显示优先级数字。仅当该列处于激活态（sortOrder 非 null）且多列模式下
- * 由适配层传入 priority；其它情况不渲染数字（视觉与 S1 一致，零回归）。
+ * 多列排序中的优先级。编号语义：**1 = 最高优先级 = `sorter.multiple` 最大**（对齐 antd
+ * `getSortData` 的 `b.multiplePriority - a.multiplePriority` 实际比较顺序——multiple 大者先比较 =
+ * 主排序键 = 最高优先级）。即 Chinese(multiple=3)→1、Math(multiple=2)→2、English(multiple=1)→3。
+ *
+ * ★ **data-grid 增强，非 antd 对齐项**：antd 6.4.4 官方 multiple-sorter demo 与 sorter.ts 样式均
+ *   无此徽标。仅当该列处于激活态（sortOrder 非 null）且多列模式下由适配层传入 priority；其它
+ *   情况不渲染数字（视觉与 S1 一致，零回归）。
  */
 
 import { CaretDownOutlined, CaretUpOutlined } from '@ant-design/icons'

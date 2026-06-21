@@ -42,6 +42,11 @@
  *    - 「Scroll To index 999」/「Scroll To Top」按钮同时调用两侧 ref.scrollTo（data-grid ref +
  *      antd ref），对照两侧滚动行为是否一致。data-grid 原「Scroll To key 50」保留为左栏专属。
  *
+ * 7. **悬浮滚动条**（决策 7 + 决策 8，有意差异）：
+ *    - 左栏 data-grid：自定义 macOS 风格悬浮滚动条（细线 2px + hover hit 24px 变 8px + 拖动同步），
+ *      替代浏览器原生纵/横滚动条；滚动行为等价。
+ *    - 右栏 antd：浏览器原生滚动条。视觉更轻是有意设计，不是 bug。
+ *
  * === data-grid 侧行为与改造前一致（回归不破）===
  *
  * - virtual + scroll={{ x: 2000, y: true }}（决策 7：CSS 自适应高度，父容器 height:400）。
@@ -453,6 +458,12 @@ export default function VirtualListDemo() {
             <li>
               <strong>scrollTo 双 ref</strong>：「Scroll To index 999 / Top」同时滚动两侧对照；
               「Scroll To key 50」仅左栏 data-grid（原 demo 保留）。
+            </li>
+            <li>
+              <strong>悬浮滚动条</strong>（决策 7 + 决策 8，有意差异）：左栏 data-grid 用 macOS 风格
+              自定义悬浮滚动条（默认 2px 半透明细线，hover hit 24px 区变 8px 实色 + 拖动同步），
+              替代浏览器原生纵/横滚动条；右栏 antd 用浏览器原生滚动条。data-grid 侧滚动条视觉更轻，
+              但滚动行为（滚轮/拖动/键盘/程序 scrollTop）与原生等价。
             </li>
             <li>
               <strong>本试点核心评估</strong>（用户指定）：50/50 左右并排在「宽 + 高 + 双向滚动」

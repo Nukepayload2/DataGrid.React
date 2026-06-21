@@ -28,12 +28,15 @@
  * 3. **createStyles 滚动条**：antd 官方 demo 用 `antd-style` createStyles 自定义细滚动条样式。
  *    data-grid 项目未装 `antd-style`（决策 6 + 与 colspan-rowspan/style-class 等已迁移 demo 同款
  *    简化）——略去该 className，使用浏览器默认滚动条。视觉略简，功能等价。
- * 4. **★ §9 右固定列脱离观察**（task #38 同源 narrow gap）：左栏含 `scroll.x:'max-content'` +
- *    Action1/Action3 fixed 'end' + 中间 Column 2-20 无 width（max-content），横滚到最右时
- *    data-grid 右侧分散固定列（Action1/Action3）可能脱离容器右边缘（§9 已登记：无 width 列
- *    max-content vs antd width+flex fill）。右栏 antd 无此问题。如实保留对照，登记 §9 不修。
- *    特别地，本 demo 的「分散堆叠」结构在 §9 场景下视觉更复杂（Action1 叠在 Action3 左侧），
- *    是 §9 对照的高价值 demo。
+ * 4. **★ §9 右固定列脱离（C1 已确认本 demo 不复现）**：本 demo 用 `scroll.x:'max-content'`，
+ *    C1 列宽策略验收时已确认 max-content 路径下**左右固定列严格贴边、无脱离**（与 antd 一致）。
+ *    §9 登记的「右固定列脱离」只在数字 `scroll.x` + 无 width 列总和 < 声明宽的场景复现
+ *    （如 virtual-list / grouping-columns），本 demo 不命中。如实保留对照。
+ * 5. **固定列边缘阴影恒显**（unfixable，跨 demo 共享）：data-grid 固定列 start/end 边缘阴影
+ *    `inset 10px 0 8px -8px colorSplit` 恒显（纯 CSS，不脚本监听 scrollLeft）；
+ *    antd 由 rc-table 监听 scrollLeft 动态切换 shadow-show（滚到最左隐藏 start 阴影 / 最右隐藏 end）。
+ *    本 demo 两侧分散固定列（Column1 起 start 阴影 / Action1 起 end 阴影）恒显，视觉差异极小
+ *    （阴影本身 8px 模糊 + 0.06 alpha 极淡），登记不修（纯 CSS 范围内无法动态切换）。
  */
 
 import { useState } from 'react'
@@ -265,12 +268,17 @@ export default function FixedGappedColumnsDemo() {
               data-grid 项目未装 antd-style，两侧均用浏览器默认滚动条（视觉略简，功能等价）。
             </li>
             <li>
-              <strong>★ §9 右固定列脱离观察</strong>（task #38 同源 narrow gap，高价值对照点）：
-              左栏含 <code>scroll.x:'max-content' </code>+ Action1/Action3 fixed 'end' + 中间
-              Column 2-20 无 width（max-content），横滚到最右时 data-grid 右侧分散固定列可能脱离
-              容器右边缘（§9 已登记：无 width 列 max-content vs antd width+flex fill）。
-              本 demo 的「分散堆叠」结构在 §9 场景下视觉更复杂（Action1 叠在 Action3 左侧），
-              是 §9 对照的高价值 demo。右栏 antd 无此问题。如实保留对照，登记 §9 不修。
+              <strong>★ §9 右固定列脱离（C1 已确认本 demo 不复现）</strong>：本 demo 用
+              <code>scroll.x:'max-content'</code>，C1 列宽策略验收时确认 max-content 路径下
+              左右固定列严格贴边、无脱离（与 antd 一致）。§9 登记的「右固定列脱离」只在数字
+              scroll.x + 无 width 列总和 &lt; 声明宽的场景复现（如 virtual-list/grouping-columns），
+              本 demo 不命中。
+            </li>
+            <li>
+              <strong>固定列边缘阴影恒显</strong>（unfixable，跨 demo 共享）：data-grid 固定列
+              start/end 边缘阴影恒显（纯 CSS，不脚本监听 scrollLeft）；antd 由 rc-table 监听
+              scrollLeft 动态切换。本 demo 分散固定列（Column1 起 start 阴影 / Action1 起 end 阴影）
+              恒显，视觉差异极小（阴影 8px 模糊 + 0.06 alpha 极淡），登记不修。
             </li>
           </ul>
         </div>

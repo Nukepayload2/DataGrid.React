@@ -48,9 +48,11 @@
  *
  * 1. **checkStrictly 默认值（§9 S13/S25）**：data-grid 引擎层默认 **true**，antd 默认 **false**；
  *    本 demo 两侧均显式传共享 state（初值 false），规避差异。
- * 2. **preserve=false 树形语义（§9 S14）**：data-grid 因 fireSelectionChange 走**全树存在性判定**
- *    （S13 引入），合法父行（仅被分页切到别页/折叠）的 key 仍保留；antd preserve=false 翻页后
- *    丢不可见 key。差异对树形更友好；preserve=true 时两侧行为一致（key 原样保留）。
+ * 2. **preserve=false 树形语义（§9 S14）**：两侧对**固定树形数据**行为一致——antd
+ *    `getRecordByKey`（useLazyKVMap.ts:21 dig）递归走 `rawData` 全树（含跨页父+折叠子），
+ *    data-grid `fireSelectionChange` 存在性判定也走全树 `filteredDataSource`（Table.tsx:1433）。
+ *    故本 demo 翻页/折叠不会丢 key。差异仅出现在 **ajax（数据源切换）** 场景（§9 S14 登记）。
+ *    preserve=true 时两侧行为严格一致（key 原样保留）。
  * 3. **rowSelection.onSelect（决策 3 第二步未补齐）**：antd demo 含 `onSelect`；data-grid 仅
  *    `onChange`（功能等价）。
  *
@@ -232,9 +234,11 @@ export default function TreeTablePreserveSelectedRowKeysDemo() {
               共享 state（初值 false），规避差异。
             </li>
             <li>
-              <strong>preserve=false 语义差异（§9 S14）</strong>：data-grid 走**全树存在性判定**
-              （合法父行仅被分页/折叠时 key 仍保留，比 antd 宽松）；antd preserve=false 翻页后
-              丢不可见 key。preserve=true 时两侧一致。
+              <strong>preserve=false 语义（§9 S14）</strong>：对<em>本 demo 固定树形数据</em>两侧
+              行为一致——antd <code>getRecordByKey</code>（useLazyKVMap dig 递归 <code>rawData</code>
+              全树）与 data-grid 全树存在性判定（<code>filteredDataSource</code> 递归 walk）覆盖
+              等价，翻页/折叠不丢 key。差异仅出现在 <strong>ajax（数据源切换）</strong>场景（§9 登记）。
+              preserve=true 时严格一致。
             </li>
             <li>
               <strong>onSelect 差异</strong>：antd demo 含 <code>onSelect</code>；data-grid 仅

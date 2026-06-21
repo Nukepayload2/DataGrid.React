@@ -111,28 +111,42 @@ export interface SelectionItem {
 /**
  * 内置哨兵：全选（S9）。挂为 `Table.SELECTION_ALL` + 命名导出。
  * `onSelect` 占位（真正行为在 `useRowSelection.applySelection` 中按 key='all' 执行）。
+ *
+ * `text` 对齐 antd 6.4.4 默认文案（enUS `Table.selectionAll = 'Select all data'`，
+ * 见 `ant-design/components/locale/en_US.ts:34`；引擎渲染见
+ * `useSelection.tsx:302` `text: tableLocale.selectionAll`）。**已知简化**：data-grid 暂未
+ * 把 Table locale 透传到 selections（与 filter-in-tree `Select all items`/filter-search
+ * `Search in filters` 同款 enUS 硬编码处理）；后续若接入 locale 需同步替换三处 text。
  */
 export const SELECTION_ALL: SelectionItem = {
   key: 'all',
-  text: 'Select All',
+  text: 'Select all data',
   onSelect: () => {},
 }
 
 /**
  * 内置哨兵：反选（S9）。挂为 `Table.SELECTION_INVERT` + 命名导出。
+ *
+ * `text` 对齐 antd 6.4.4 默认文案（enUS `Table.selectInvert = 'Invert current page'`，
+ * 见 `ant-design/components/locale/en_US.ts:32`；引擎渲染见 `useSelection.tsx:320`）。
+ * 注：antd 文案用 "current page" 字眼但实际作用于 changeableRowKeys（全数据范围），
+ * 属 antd 历史文案，data-grid 对齐文案而不改语义。
  */
 export const SELECTION_INVERT: SelectionItem = {
   key: 'invert',
-  text: 'Select Invert',
+  text: 'Invert current page',
   onSelect: () => {},
 }
 
 /**
  * 内置哨兵：清空（S9）。挂为 `Table.SELECTION_NONE` + 命名导出。
+ *
+ * `text` 对齐 antd 6.4.4 默认文案（enUS `Table.selectNone = 'Clear all data'`，
+ * 见 `ant-design/components/locale/en_US.ts:33`；引擎渲染见 `useSelection.tsx:348`）。
  */
 export const SELECTION_NONE: SelectionItem = {
   key: 'none',
-  text: 'Select None',
+  text: 'Clear all data',
   onSelect: () => {},
 }
 

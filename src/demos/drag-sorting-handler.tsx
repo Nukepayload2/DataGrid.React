@@ -10,8 +10,10 @@
  *   与 custom-filter-panel/nested-table 约定一致——避免引入未声明的直接依赖）。
  *   **不依赖 @dnd-kit/***。
  * - **右栏（antd Table）**：忠实复刻 antd 官方 `drag-sorting-handler.tsx`——
- *   `@dnd-kit/*` + <code>@ant-design/icons</code> HolderOutlined + RowContext.Provider 透传
- *   setActivatorNodeRef/listeners 到 DragHandle，仅手柄触发拖拽（Name/Age/Address 不触发）。
+ *   `@dnd-kit/*` + RowContext.Provider 透传 setActivatorNodeRef/listeners 到 DragHandle，
+ *   仅手柄触发拖拽（Name/Age/Address 不触发）。★ 图标同样用内联 SVG（见下 AntdDragHandle 注释，
+ *   项目未直接声明 @ant-design/icons 依赖，右栏也走 InlineHolderOutlined——视觉与官方
+ *   HolderOutlined 逐字节一致，仅图标实现方式不同）。
  * - **共享控制条**：`Bordered` 开关同时驱动两侧（原 antd demo 无控制条，此处加最小开关便于对照）。
  *   拖拽是局部交互，两栏各自独立维护 dataSource（各自排序便于对照）。
  * - **共享数据**：`RecordType` + `initialData` 见 `_compare/drag-sorting-handler.shared.ts`。
@@ -23,8 +25,11 @@
  * 2. **手柄触发机制**：左栏通过外层容器事件委托 + `handleSelector: '.dg-drag-handle'` 命中
  *    （DragHandle 仅作命中标识，加 .dg-drag-handle class）；右栏 dnd-kit 用
  *    RowContext.Provider 透传 setActivatorNodeRef/listeners 到 DragHandle。
- * 3. **手柄图标**：左栏自绘 HolderOutlined SVG（与项目约定一致）；右栏用
- *    `@ant-design/icons` 的 HolderOutlined（antd 直接依赖）。
+ * 3. **手柄图标**：两栏均用 `InlineHolderOutlined`（内联 SVG，viewBox + path 取自
+ *    `@ant-design/icons-svg` HolderOutlined——逐字节一致）。仅图标实现方式不同（内联 SVG vs
+ *    官方 @ant-design/icons 组件），**视觉完全相同**——因 pnpm 严格隔离项目未直接声明
+ *    @ant-design/icons 依赖（仅 antd 间接依赖不可访问），故右栏也走内联 SVG（与
+ *    custom-filter-panel/nested-table 约定一致）。
  */
 
 import { createContext, useContext, useMemo, useRef, useState } from 'react'
@@ -54,21 +59,22 @@ import { initialData, type RecordType } from './_compare/drag-sorting-handler.sh
 // ---------------------------------------------------------------------------
 
 /**
- * 内联 HolderOutlined（拖拽手柄"六点"图标）——避免直接依赖 @ant-design/icons（仅 antd 间接依赖）。
- * 与 antd HolderOutlined 视觉一致；size 跟随父节点 font-size（1em）。
- * 路径取自 antd icons HolderOutlined（fill="currentColor"）。
+ * 内联 HolderOutlined（拖拽手柄"七点"图标）——避免直接依赖 @ant-design/icons（仅 antd 间接依赖）。
+ * 与 antd HolderOutlined **逐字节一致**（viewBox + path 取自
+ * `@ant-design/icons-svg/es/asn/HolderOutlined.js`：viewBox "64 64 896 896"，
+ * 7 个圆点 path）；size 跟随父节点 font-size（1em）。
  */
 function InlineHolderOutlined({ style }: { style?: CSSProperties }): ReactNode {
   return (
     <svg
-      viewBox="0 0 1024 1024"
+      viewBox="64 64 896 896"
       width="1em"
       height="1em"
       fill="currentColor"
       aria-hidden="true"
       style={{ display: 'inline-block', verticalAlign: '-0.125em', ...style }}
     >
-      <path d="M300 276.5a56 56 0 1 0 56-96.99 56 56 0 0 0-56 96.99Zm0 404.31a56 56 0 1 0 56 96.99 56 56 0 0 0-56-96.99ZM404 512a56 56 0 1 0 112 0 56 56 0 0 0-112 0ZM300 109.5a56 56 0 1 0 56-96.99 56 56 0 0 0-56 96.99ZM652.5 56a56 56 0 1 0-56 96.99 56 56 0 0 0 56-96.99Zm0 768a56 56 0 1 0-56 96.99 56 56 0 0 0 56-96.99ZM640 416a56 56 0 1 0 112 0 56 56 0 0 0-112 0ZM724 180.5a56 56 0 1 0 56 96.99 56 56 0 0 0-56-96.99ZM724 680.81a56 56 0 1 0 56-96.99 56 56 0 0 0-56 96.99Z" />
+      <path d="M300 276.5a56 56 0 1056-97 56 56 0 00-56 97zm0 284a56 56 0 1056-97 56 56 0 00-56 97zM640 228a56 56 0 10112 0 56 56 0 00-112 0zm0 284a56 56 0 10112 0 56 56 0 00-112 0zM300 844.5a56 56 0 1056-97 56 56 0 00-56 97zM640 796a56 56 0 10112 0 56 56 0 00-112 0z" />
     </svg>
   )
 }
@@ -310,9 +316,10 @@ export default function DragSortingHandlerDemo() {
               setActivatorNodeRef/listeners 到 DragHandle。
             </li>
             <li>
-              <strong>手柄图标</strong>：左栏<strong>自绘 HolderOutlined SVG</strong>（与项目约定一致，
-              不引入 @ant-design/icons 直接依赖）；右栏用 <code>@ant-design/icons</code> HolderOutlined
-              （antd 直接依赖）。
+              <strong>手柄图标</strong>：两栏均用<strong>内联 HolderOutlined SVG</strong>（viewBox + path
+              逐字节取自 <code>@ant-design/icons-svg</code>——7 个圆点），<strong>视觉完全一致</strong>。
+              因 pnpm 严格隔离项目未直接声明 @ant-design/icons 依赖（仅 antd 间接依赖不可访问），
+              故右栏也走内联 SVG（与 custom-filter-panel/nested-table 约定一致）。
             </li>
             <li>
               <strong>Bordered 开关</strong>：同时切换两侧表格边框，对照两侧行为是否一致。

@@ -11,11 +11,13 @@
  * - **共享控制条**：`Bordered` 开关（antd demo 原本无控制条，此处加最小开关便于对照）。
  * - **共享数据**：`RecordType` + `data` 见 `_compare/ellipsis-custom-tooltip.shared.ts`。
  *
- * === 两侧保留并如实呈现的差异（同 §9 ellipsis 视觉 gap，登记不修）===
+ * === 两侧列宽策略（C1 后已对齐）===
  *
- * 同 S20 ellipsis demo：两侧列宽策略不同（data-grid #34 tableLayout:fixed + minmax 收缩
- * vs antd width+flex fill），省略号视觉生效程度在边界宽度下可能不同。S21 核心验证 showTitle
- * 开关 + Tooltip hover，不依赖省略号视觉 100% 生效——如实保留，对照价值。
+ * C1 列宽策略（§11 第 0 步）落地后：任一 ellipsis 列（对象 `{ showTitle: false }` 也算 truthy）
+ * → 派生 `tableLayout:'fixed'` → grid-template-columns 用 `minmax(width,1fr)` / 无 width 列
+ * `minmax(0,1fr)`，与 antd `<table width:100%>`+tableLayout:fixed 等效 → 省略号 `...` 生效
+ * （scrollWidth>clientWidth，与 antd 一致）。之前 §9 记的 ellipsis 视觉 gap（auto 模式）在本 demo
+ * 已消除。S21 核心验证 showTitle 开关 + Tooltip hover，C1 后省略号视觉亦对齐。
  *
  * === S21 验证点（回归）===
  *
@@ -228,9 +230,11 @@ export default function EllipsisCustomTooltipDemo() {
               hover 单元格显示 antd Tooltip（placement topLeft）。
             </li>
             <li>
-              <strong>§9 ellipsis 视觉 gap（登记不修）</strong>：同 ellipsis demo，两侧列宽策略不同
-              （data-grid minmax 收缩 vs antd width+flex fill），省略号视觉在边界宽度下可能不同。
-              S21 核心验证 showTitle 开关 + Tooltip hover，不依赖省略号 100% 生效。
+              <strong>省略号视觉（C1 后对齐）</strong>：任一 ellipsis 列（含 <code>{'{' + ' showTitle: false }'}</code>
+              对象形式）→ 派生 <code>tableLayout:'fixed'</code> → grid <code>minmax(width,1fr)</code> /
+              无 width 列 <code>minmax(0,1fr)</code>，与 antd <code>&lt;table width:100%&gt;</code>+
+              tableLayout:fixed 等效 → 省略号 <code>...</code> 生效（§11 C1 第 0 步落地，原 §9 ellipsis
+              视觉 gap 在本 demo 已消除）。
             </li>
             <li>
               <strong>非 ellipsis 列</strong>：Name（render <code>&lt;a&gt;</code>，width 150）+ Age

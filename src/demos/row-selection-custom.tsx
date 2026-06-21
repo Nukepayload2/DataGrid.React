@@ -45,10 +45,11 @@
  *
  * 【两侧 selections 菜单】
  * 1. 两侧表头全选 checkbox 旁均有下拉箭头（caret-down）。
- * 2. 点箭头 → 弹出菜单，列出 5 项（Select All / Select Invert / Select None /
- *    Select Odd Row / Select Even Row）。
- * 3. 点 Select All → 两侧所有 46 行全选；点 Select None → 两侧全清；
- *    点 Select Invert → 两侧反选。**两侧共享同一 selectedRowKeys state → 同步生效**。
+ * 2. 点箭头 → 弹出菜单，列出 5 项（Select all data / Invert current page /
+ *    Clear all data / Select Odd Row / Select Even Row）。前三项文案对齐 antd 6.4.4
+ *    默认 enUS（selectionAll/selectInvert/selectNone）。
+ * 3. 点 Select all data → 两侧所有 46 行全选；点 Clear all data → 两侧全清；
+ *    点 Invert current page → 两侧反选。**两侧共享同一 selectedRowKeys state → 同步生效**。
  * 4. 点 Select Odd Row → 两侧选中 index 0,2,4,...（changeableRowKeys 中偶数 index）；
  *    点 Select Even Row → 两侧选中 index 1,3,5,...。**两侧同步**。
  * 5. onChange 触发 console.log（内置项触发；自定义项 demo 内自行 setState 不走 onChange）。
@@ -210,7 +211,7 @@ export default function RowSelectionCustomDemo() {
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>selections 菜单</strong>：两侧表头全选框旁均有下拉箭头，点开列 5 项
-              （Select All / Invert / None / Odd Row / Even Row）。
+              （Select all data / Invert current page / Clear all data / Odd Row / Even Row）。
             </li>
             <li>
               <strong>odd/even 逻辑</strong>：与 antd demo 逐字一致——
@@ -248,7 +249,7 @@ export default function RowSelectionCustomDemo() {
           <code>[{selectedRowKeys.join(', ')}]</code>
         )}
         <div style={{ marginTop: 4, color: 'rgba(0,0,0,0.65)', fontSize: 12 }}>
-          点表头全选框旁的下拉箭头，选择 Select All / Invert / None / Odd Row / Even Row。
+          点表头全选框旁的下拉箭头，选择 Select all data / Invert current page / Clear all data / Odd Row / Even Row。
           两侧共享同一 selectedRowKeys → 点任一侧菜单项两侧勾选同步。
           打开浏览器 console 可看到 onChange 回调日志（内置项触发；自定义 odd/even 由 demo 内 setState）。
           分页属 S11，本 demo 46 行全显。

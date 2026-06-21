@@ -14,9 +14,26 @@
 
 .dg-wrapper {
   font-size: var(--dg-font-size);
+  /* ★ §11 C2 tree-data 种子 #2 修复：antd `.ant-table` 经 `resetComponent(token)`（components/
+     style/index.tsx:12-23）设 `color: colorText`，全表 body cell 通过继承拿到 rgba(0,0,0,0.88)。
+     data-grid 原本未声明 color，body 文字继承浏览器默认纯黑 (rgb(0,0,0))——与 antd 不符
+     （且污染 `.dg-expand-icon { color: inherit }` 的解析值）。这里显式消费 --ant-color-text 对齐。
+     表头格 `.dg-cell-header` 另用 `--dg-header-color`（colorTextHeading）覆盖，不受影响。 */
+  color: var(--ant-color-text);
   background: var(--dg-body-bg);
   border-radius: var(--dg-radius) var(--dg-radius) 0 0;
-  overflow: hidden; /* 圆角裁剪 */
+  /* C1 列宽策略（§11 第 0 步）：`overflow-x:auto`（原 `hidden`）——配合 `.dg-grid{width:100%}`
+   * + auto 模式 `max-content` track，当内容总宽 > 容器（basic demo 的 Action 列场景）时，
+   *   `.dg-wrapper` 自身提供横向滚动条（与 antd `<table width:100%>` 在内容溢出时产生滚动的
+   *   等效行为；antd 因外层均不 overflow 会滚动到页面，data-grid 选择容器内滚动更整洁）。
+   *   内容不溢出时不显示滚动条（与 hidden 视觉等价），圆角裁剪仍生效（overflow-x:auto 仍裁剪）。
+   *   `overflow-y:hidden` 维持原行为（不产生容器内纵向滚动——纵向滚动由 scroll.y 数据区域模式
+   *   的 .dg-scroll 处理，或 sticky 模式页面滚动，.dg-wrapper 自身不纵向滚）。
+   * ★ S34 sticky / data-area / bordered 圆角：dg-sticky 修饰类覆盖为 overflow:visible（见下），
+   *   dg-data-area 不覆盖 overflow（其内部 .dg-scroll 处理滚动，.dg-wrapper 自身不溢出），
+   *   圆角裁剪对 overflow-x:auto 仍生效。 */
+  overflow-x: auto;
+  overflow-y: hidden;
   width: 100%;
 }
 
@@ -86,6 +103,42 @@
   padding: var(--dg-cell-padding-block) var(--dg-cell-padding-inline);
 }
 
+/* === S11 分页器外层容器（对齐 antd `.ant-table-pagination`）===
+ *
+ * data-grid 在 antd `<Pagination>` 外多一层 `.dg-pagination` div（grid 布局需要 flex 容器
+ * 承载对齐）。样式对齐 antd `components/table/style/pagination.ts`：
+ *   - `margin: var(--ant-margin) 0`（antd `${unit(margin)} 0`，margin 默认 16；主题可改）。
+ *   - `display:flex; flex-wrap:wrap; row-gap: var(--ant-padding-xs)`（窄容器换行 + 行间距，
+ *     antd 用 paddingXS 默认 8——注意 tokens.css 里 --ant-padding-xs fallback 为 4 是选择列
+ *     的特殊复用，这里消费同名 alias token，主题注入后由 Table.tsx aliasTokenVars 覆盖为真值）。
+ *   - `> *` flex:none（分页器不收缩，靠外层 justify 对齐）。
+ *   - `.dg-pagination-start/center/end` → justify-content（对齐 antd `&-start/center/end`）。
+ *
+ * ★ 共享改动（影响所有启用 pagination 的 demo：pagination/ajax/dynamic-settings/style-class/
+ *   component-token）。未启用 pagination 的 demo 不渲染 `.dg-pagination`（Table.tsx
+ *   topPaginationNode/bottomPaginationNode 为 null），零回归。
+ * ★ 主题注入已把全套 alias token（含 --ant-margin / --ant-padding-xs）注入 .dg-wrapper，
+ *   故此处直接消费 var(--ant-*)；未接主题时 tokens.css fallback 兜底（margin 无 fallback，
+ *   需补；见下）。 */
+.dg-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: var(--ant-padding-xs, 8px);
+  margin: var(--ant-margin, 16px) 0;
+}
+.dg-pagination > * {
+  flex: none;
+}
+.dg-pagination-start {
+  justify-content: flex-start;
+}
+.dg-pagination-center {
+  justify-content: center;
+}
+.dg-pagination-end {
+  justify-content: flex-end;
+}
+
 .dg-title {
   /* 与 antd 一致：title 无额外背景 */
 }
@@ -98,6 +151,36 @@
 .dg-grid {
   /* 行列模板由 GridTable inline style 注入 */
   text-align: start;
+  /* ★ §11 component-token cellFontSize 对齐修复（BLOCKER）：显式重置 font-size。
+   *
+   * 对齐 antd `components/table/style/index.ts` genSizeStyle：`.ant-table` 根节点显式声明
+   *   `font-size: tableFontSize`（= cellFontSize，默认 14，component-token demo 注入 16），
+   *   所有 td/th 通过继承拿到该值（antd cell 自身不声明 font-size，靠 .ant-table 重置下推）。
+   *
+   * data-grid 原本只有 `.dg-wrapper { font-size: var(--dg-font-size) }`（table.css:16）一处消费
+   *   --dg-font-size，`.dg-grid` 未声明 → 靠继承 .dg-wrapper 拿值。**非 loading 场景下**这条继承链
+   *   正常（.dg-wrapper → .dg-grid → cell，值 = --dg-font-size）。
+   *
+   * **loading（Spin 包裹）场景下**这条链断裂：Table.tsx 在 loading 时用 antd `<Spin>` 包裹
+   *   tableContent，DOM 变为 `.dg-wrapper → .ant-spin → .ant-spin-container → .dg-grid → cell`。
+   *   antd Spin 根 `.ant-spin` 显式 `font-size: var(--ant-font-size)`（= 14，基础字号，不随 Table
+   *   component token 变），落在 .dg-wrapper 与 .dg-grid 之间——`.dg-grid` 未声明 font-size 时
+   *   继承最近的祖先 `.ant-spin` 的 14px（而非 .dg-wrapper 的 --dg-font-size），cell 沿继承拿 14。
+   *   → component-token demo cellFontSize=16 时，左栏 data-grid cell 实际 14px，右栏 antd=16px，
+   *   差 2px（Large/Medium 档均复现，Small 档 14=14 伪对齐）。
+   *
+   * 修复：`.dg-grid` 显式 `font-size: var(--dg-font-size)`，等效 antd `.ant-table` 的 font-size 重置，
+   *   不再依赖跨 .ant-spin 的继承。--dg-font-size 桥接 --ant-table-cell-font-size[-md|-sm]（tokens.css:160/206/212），
+   *   随 size 与主题跟随。
+   *
+   * ★ 零回归论证：
+   *   - 非 Spin demo（basic 等）：.dg-grid 原本继承 .dg-wrapper 的 var(--dg-font-size)，现在显式声明
+   *     同一 var(--dg-font-size)，**计算值不变**（都是 --dg-font-size 的解析值），零视觉变化。
+   *   - Spin 包裹 demo（component-token/ajax loading 等）：.dg-grid 从被 .ant-spin 截胡的 14px 修正为
+   *     --dg-font-size（如 component-token Large=16），修复 2px gap，对齐 antd。
+   *   - size 切换（dg-size-middle/small）：--dg-font-size 在 .dg-wrapper.dg-size-* 上覆写，.dg-grid 消费
+   *     同名 var，自动跟随（与原继承语义一致，无 size 回归）。 */
+  font-size: var(--dg-font-size);
   /* M6 隐藏列 0fr↔原宽 过渡 + M9 行展开 0fr↔1fr 过渡：lun 同款思路。
      `grid-template-columns` / `grid-template-rows` 都是可动画化的 grid 属性（track size 列表逐项插值）：
        - M6 隐藏列：track 从 `0fr` 过渡到其原宽（数字 px / 0fr→1fr）即得到隐藏/显示的平滑动画。
@@ -193,26 +276,51 @@
   border-bottom: 0;
 }
 
-/* 表头分割竖线（仅叶子表头格），对齐 antd 6.4.4 的 ::before 实现。
-   antd 源码（components/table/style/index.ts）的规则是：
-     thead th:not(:last-child):not(${componentCls}-selection-column)
-            :not(${componentCls}-row-expand-icon-cell):not([colspan])::before
-   —— 即只有"无 colspan 的表头格"（叶子表头格）才画右侧分割竖线，
-   且**排除选择列与展开列**（antd 视觉：勾选格/展开格右侧无竖线）+ 分组表头格（带 colspan）不画。
+/* ★ §11 colspan-rowspan 对齐：跨列叶子表头格（data-header-colspan，headerColSpan>=2）默认居中，
+   对齐 antd `thead th[colspan]:not([colspan='1']) { textAlign: 'center' }`（index.ts:318-320）。
+   antd 无条件给所有跨列表头格居中；data-grid 仅在列未显式声明 align 时居中（:not([data-align])）——
+   列显式 align 优先（.dg-cell[data-align='...'] 的 justify-content 规则在上面 line 139-145，
+   同特异性 (0,2,0) 但源顺序：data-align 规则在文件前部、本规则在此处，**本规则在后会覆盖 data-align**，
+   故需 :not([data-align]) 把本规则限制为"无显式 align"才不破坏显式 align 列）。
+   仅作用于表头格（.dg-cell-header）；表体合并格（如第 2 行 Name colSpan:5）遵循列 align，不受此规则影响。
+   影响：colspan-rowspan demo 的 Home phone 表头格（colSpan:2、无 align）→ 居中，对齐 antd。
+   无跨列表头格的 demo 零命中（无 data-header-colspan 属性）。 */
+.dg-cell-header[data-header-colspan]:not([data-align]) {
+  justify-content: center;
+}
 
-   data-grid 复刻：用 `[data-leaf-index]` 标识叶子表头格——两条渲染路径（单层快速路径
-   GridTable.tsx:2521 + 多级表头路径 GridTable.tsx:2207）的叶子格都设此属性，分组格不设。
-   （不使用 `data-leaf='1'`：单层快速路径不设该属性，会导致 basic 等单层 demo 表头竖线缺失。）
-   排除 selection/expand 列：它们的 data-column-key 固定为 '__dg_selection__' / '__dg_expand__'
-   （Table.tsx buildSelectionColumnNode / buildExpandColumnNode），用属性选择器排除。
+/* 表头分割竖线（仅叶子表头格），对齐 antd 的 ::before 实现。
+   antd 源码（components/table/style/index.ts:322）的规则是：
+     `${componentCls}-thead > tr > th, > tr > td` 下
+     `&:not(:last-child):not(${componentCls}-selection-column)
+            :not(${componentCls}-row-expand-icon-cell):not([colspan])::before`
+   —— 即只有"无 colspan 的表头格"（叶子表头格）才画右侧（inset-inline-end:0）分割竖线，
+   且**排除选择列与展开列**（antd 视觉：勾选格/展开格右侧无竖线）+ 分组表头格（带 colspan）不画，
+   + `:not(:last-child)` 排除**该 th 在其父 <tr> 中的最后一个**（antd 多级表头叶子层末列、
+     分组右边界处的叶子、antd 单层末列均不画）。
 
-   ★ Round 2：修正选择器（之前 [data-leaf='1'] 在单层路径不匹配 → 表头竖线缺失）+
-     补全 antd 排除规则（selection/expand 列竖线）。
+   data-grid 复刻差异（grid 容器扁平，不能直接照搬 :last-child）：
+   - 用 `[data-leaf-index]` 标识叶子表头格——两条渲染路径（单层快速路径 GridTable.tsx
+     ColumnCells + 多级表头路径 GridTable.tsx HeaderCell）的叶子格都设此属性，分组格不设。
+     （不使用 `data-leaf='1'`：单层快速路径不设该属性，会导致 basic 等单层 demo 表头竖线缺失。）
+   - 排除 selection/expand 列：它们的 data-column-key 固定为 '__dg_selection__' / '__dg_expand__'
+     （Table.tsx buildSelectionColumnNode / buildExpandColumnNode），用属性选择器排除。
+   - ★ **不能用 `:not(:last-child)`**：data-grid 的 `.dg-grid` 容器扁平（表头格 + 表体格同为
+     直接子节点），`:last-child` 恒指最后一个**表体格**，对表头格永远为真 → 末列表头格会误画。
+     故由引擎在叶子表头格上打两个标记，CSS 用 `:not()` 排除（等价 antd 的 `:not(:last-child)` 语义）：
+       · `data-leaf-last`：全局末列（单层末列 + 多级表头叶子层末列）。
+         多级路径由 columnTree.markLastLeaves 算 cell.isLastLeaf → GridTable HeaderCell 设属性；
+         单层路径由 ColumnCells 的 isLastLeaf prop（colIdx === leafColumns.length-1）设属性。
+       · `data-group-last`：多级表头分组右边界（某跨越 >=2 叶子的分组表头格的最右叶子）。
+         由 columnTree.markLastLeaves 算 cell.isGroupLastLeaf → GridTable HeaderCell 设属性。
+         单层无分组，不设（零回归）。对应 antd 多级表头视觉：分组最右叶子右缘不画分隔线
+         （jsx demo：Name 分组下 Last Name 不画；First Name/Age/Address/Tags 画 = 4 条）。
 
-   注：多级表头路径下表头格为显式定位、DOM 非按列连续，:last-child 不可靠，
-   但最右叶子格右侧是否有线对视觉无影响（紧贴容器右边缘/滚动区），
-   故沿用 :not(:last-child) 退化为"除最后一个 DOM 节点外都画线"。 */
-.dg-cell-header[data-leaf-index]:not(:last-child):not([data-column-key='__dg_selection__']):not([data-column-key='__dg_expand__'])::before {
+   ★ §11 colspan-rowspan 对齐：`:not([data-header-colspan])` 排除跨列叶子表头格
+     （如 colspan-rowspan demo 的 Home phone colSpan:2）——对齐 antd `:not([colspan])`。
+     data-header-colspan 由 GridTable 在 headerColSpan>=2 的叶子表头格上设置（多级表头分组格
+     本就走 .dg-cell-header-group 无 ::before，此处只补叶子跨列格）。 */
+.dg-cell-header[data-leaf-index]:not([data-leaf-last]):not([data-group-last]):not([data-column-key='__dg_selection__']):not([data-column-key='__dg_expand__']):not([data-header-colspan])::before {
   content: '';
   position: absolute;
   inset-inline-end: 0;
@@ -239,13 +347,120 @@
   background: var(--dg-row-hover-bg);
 }
 
-/* bordered：表格外边框 + 单元格竖边框 */
+/* === M5 行选择：选中行背景色（§11 C2 tree-data 种子问题 #3 修复，共享 CSS）===
+ *
+ * antd `components/table/style/selection.ts:97-108`：
+ *   - `.ant-table-row-selected > .ant-table-cell { background: tableSelectedRowBg }`
+ *     （行选中态 normal 背景，= --ant-table-row-selected-bg，默认 #e6f4ff）
+ *   - `.ant-table-row-selected > .ant-table-cell-row-hover { background: tableSelectedRowHoverBg }`
+ *     （行选中 + hover 态，= --ant-table-row-selected-hover-bg，默认 #bae0ff）
+ *
+ * data-grid 等效：GridTable 在选中行的所有 body cell 上加 `dg-row-selected` 类（由 isSelected
+ * 驱动，见 GridTable.tsx BodyCell/ColumnCells）。CSS 消费 antd token：
+ *   - normal 选中：--ant-table-row-selected-bg
+ *   - 选中 + hover（dg-row-hover）：--ant-table-row-selected-hover-bg
+ *
+ * ★ CSS 顺序：本规则在 dg-row-hover 之后（单类选择器同优先级，后者覆盖前者），故选中+hover 态
+ *   覆盖普通 hover 态，与 antd `.ant-table-cell-row-hover`（在 row-selected 下用 selected-hover-bg）一致。
+ *   排序列的 sort-bg（dg-column-sort）在更后面声明，仍优先（排序列维持 sort 底色——非本场景冲突）。
+ *
+ * ★ 共享改动（影响所有用 rowSelection 的 demo）：row-selection / row-selection-and-operation /
+ *   row-selection-custom / order-column / tree-data / tree-table-preserveSelectedRowKeys /
+ *   nested-table / virtual-list / grouping-columns / dynamic-settings / debug 类。
+ *   之前这些 demo 选中行**无任何背景色**（bug：用户实测 row-selection 系列选中行色与 antd 不符同因）。
+ */
+.dg-cell-body.dg-row-selected {
+  background: var(--ant-table-row-selected-bg);
+}
+
+/* 选中行 hover：切到 selected-hover-bg（覆盖上方 dg-row-hover 的普通 hover 色）。
+   优先级：单类选择器，靠 CSS 顺序（本规则在 dg-row-hover 之后）覆盖。 */
+.dg-cell-body.dg-row-selected.dg-row-hover,
+.dg-cell-body.dg-row-selected:hover {
+  background: var(--ant-table-row-selected-hover-bg);
+}
+
+/* 固定列也要应用选中态背景（覆盖透明，避免固定列透出底色不一致）——与 dg-row-hover 同款。 */
+.dg-cell-fixed-start.dg-row-selected,
+.dg-cell-fixed-end.dg-row-selected {
+  background: var(--ant-table-row-selected-bg);
+}
+.dg-cell-fixed-start.dg-row-selected.dg-row-hover,
+.dg-cell-fixed-start.dg-row-selected:hover,
+.dg-cell-fixed-end.dg-row-selected.dg-row-hover,
+.dg-cell-fixed-end.dg-row-selected:hover {
+  background: var(--ant-table-row-selected-hover-bg);
+}
+
+/* bordered：表格外边框 + 单元格竖边框
+ *
+ * antd `components/table/style/bordered.ts:39-52`：bordered 模式外框由三部分拼成（非整框）：
+ *   - title：`border: tableBorder; borderBottom: 0`（顶 + 左 + 右，无底——title 与表体之间靠 container 的 borderTop）
+ *   - container：`borderInlineStart: tableBorder; borderTop: tableBorder`（仅左 + 顶）
+ *   - footer：`border: tableBorder; borderTop: 0`（底 + 左 + 右，无顶）
+ *   组合：顶（title 或 container）+ 左 + 右 + 底（footer 或末行 cell border-bottom）——完整外框。
+ *
+ * data-grid 等效方案（更简洁）：直接给 .dg-wrapper 整框 `border: var(--dg-border)`。
+ *   - 内部 .dg-title / .dg-footer 仅画「与表体之间的分隔线」（border-bottom / border-top），
+ *     左/右/顶/底边缘靠 .dg-wrapper 自身的整框。
+ *   - 末行 cell 的 border-bottom 与 wrapper 底框在 border-box 下重叠（视觉 1px，无双线）。
+ *   - 末列 cell 的 border-inline-end 与 wrapper 右框同理重叠。
+ *   视觉等价 antd 组合方案，但 DOM 结构更简洁（grid 无 antd 三层 container/title/footer 包裹）。
+ *
+ * ★ token 对齐（bordered.ts:18 `tableBorder = ${lineWidth} ${lineType} ${tableBorderColor}`）：
+ *   - lineWidth = --ant-line-width（默认 1px）。
+ *   - lineType = --ant-line-type（默认 solid）。
+ *   - tableBorderColor = --ant-table-border-color（index.ts:463/550 派生 = colorBorderSecondary = 默认 #f0f0f0）。
+ *   data-grid --dg-border 已桥接（tokens.css:164），跟随主题（dark/自定义边框色统一）。 */
 .dg-wrapper.dg-bordered {
   border: var(--dg-border);
 }
 
+/* bordered 单元格竖线（border-inline-end）。
+ *
+ * antd bordered.ts:57-60：所有 th/td（含末列）均设 `borderInlineEnd: tableBorder`。
+ *   - 表头竖线 + 表体竖线统一 token（无单独表头/表体竖线 token，均 = tableBorderColor）。
+ *   - **末列 cell 的 borderInlineEnd** 即表格右边缘（antd 无独立 container borderInlineEnd，
+ *     右边缘由末列 cell 提供）。
+ *
+ * data-grid 等效：每个 .dg-cell（含末列）加 border-inline-end。
+ *   - 末列 cell 的 border-inline-end 与 .dg-wrapper 右框在 border-box 下重叠（视觉 1px）。
+ *   - 选择器 .dg-cell 涵盖表头格（.dg-cell-header）+ 表体格（.dg-cell-body）+ summary 格
+ *     （.dg-cell-summary）+ 固定列格（.dg-cell-fixed-*）——所有 grid item 统一竖线。
+ *   - .dg-title / .dg-footer 非 .dg-cell（块级 div），不画竖线（与 antd 一致：title/footer 无竖线，
+ *     仅水平分隔线）。 */
 .dg-wrapper.dg-bordered .dg-cell {
   border-inline-end: var(--dg-border);
+}
+
+/* ★ §11 D1 嵌套表隔离修复：主表 bordered 后代选择器泄漏到嵌套子表 cell。
+ *
+ * 【真 bug】（nest-table-border-debug B 组合：主表 bordered + 子表非 bordered）：
+ *   上方 `.dg-wrapper.dg-bordered .dg-cell` 是**后代选择器**，匹配任何 bordered wrapper 下的
+ *   `.dg-cell` 后代——而嵌套子表整体位于主 bordered wrapper 内部（是其后代）。子表自身 wrapper
+ *   虽无 dg-bordered 类，但其 cell 仍被主表后代选择器命中，错误地拿到 border-inline-end=0.8px
+ *   （实测子表 cell borderRight=0.8px，antd 同组合子表 cell=0px——子表非 bordered 不该有竖线）。
+ *
+ * 【仅 B 组合暴露】：
+ *   - A（主 ON + 子 ON）：子表 bordered 合法有竖线（子表自身 .dg-bordered .dg-cell 命中）。
+ *   - B（主 ON + 子 OFF）：本规则修复——重置子表非 bordered 的 cell 竖线为 0。
+ *   - C（主 OFF + 子 ON）：主表非 bordered，外层 .dg-bordered 选择器不匹配→无影响。
+ *   - D（都 OFF）：都不匹配→无影响。
+ *
+ * 【antd 行为依据】antd bordered.ts：子表 bordered=false 时，其 th/td 无 borderInlineEnd
+ *   （即 0px）——与主表是否 bordered 无关。data-grid 必须隔离嵌套非 bordered 子表。
+ *
+ * 【特异性论证】`.dg-wrapper.dg-bordered .dg-wrapper:not(.dg-bordered) .dg-cell` = (0,5,0)（5 类）
+ *   > 原 `.dg-wrapper.dg-bordered .dg-cell` (0,3,0)，重置胜出。
+ *   - B 组合：:not(.dg-bordered) 命中（子表无 dg-bordered）→ border-inline-end=0 ✓。
+ *   - A 组合：:not(.dg-bordered) 不命中（子表有 dg-bordered）→ 不重置；子表自身
+ *     `.dg-wrapper.dg-bordered .dg-cell` 合法命中→保留竖线 ✓。
+ *   - C/D 组合：主表非 bordered，外层 .dg-bordered 选择器不匹配→无影响 ✓。
+ *
+ * 【零回归】非嵌套 bordered demo（bordered/colspan-rowspan 等无嵌套子表）：DOM 无嵌套 .dg-wrapper
+ *   后代，本重置选择器不匹配→无任何变化。 */
+.dg-wrapper.dg-bordered .dg-wrapper:not(.dg-bordered) .dg-cell {
+  border-inline-end: 0;
 }
 
 /* bordered 模式下抑制表头分割竖线（::before），由上方 .dg-cell 的 border-inline-end
@@ -258,20 +473,77 @@
   background-color: transparent !important;
 }
 
+/* bordered title 底部分隔线（title 与表体之间）。
+ *
+ * antd bordered.ts:43-46：title `border: tableBorder; borderBottom: 0`——title 自身有顶/左/右
+ *   边框（无底），其底部分隔线由 container 的 borderTop 提供。
+ * data-grid 简化：.dg-wrapper 自身整框提供顶/左/右；title 仅画 border-bottom 作 title↔表体分隔。
+ *   视觉等价（title 内容与表体之间一条 1px 分隔线）。
+ * ★ title padding 对齐 antd（size.ts:17-28 title/cell/cell 共享 tablePaddingVertical/Horizontal，
+ *   随 size 变化）——.dg-title 的 padding 已在 line 103 用 var(--dg-cell-padding-*) 消费。 */
 .dg-wrapper.dg-bordered .dg-title {
   border-bottom: var(--dg-border);
 }
 
+/* bordered footer 顶部分隔线（表体与 footer 之间）。
+ *
+ * antd bordered.ts:129-132：footer `border: tableBorder; borderTop: 0`——footer 自身有底/左/右
+ *   边框（无顶），其顶部分隔线由表体末行 cell 的 border-bottom 提供（container 无 borderTop
+ *   继承到 footer 上方）。
+ * data-grid：footer 仅画 border-top 作表体↔footer 分隔（末行 cell 的 border-bottom 在非 bordered
+ *   也存在，bordered 下与 wrapper 底框重叠，故 footer 自身只需补顶部分隔线）。
+ * ★ footer 背景 --dg-footer-bg（= --ant-table-footer-bg，footerBg = colorFillAlterSolid = #fafafa）
+ *   已在 line 113 消费。 */
 .dg-wrapper.dg-bordered .dg-footer {
   border-top: var(--dg-border);
 }
 
+/* === §11 bordered 圆角补全：有 footer 时整体表格底部圆角 ===
+ *
+ * antd radius.ts:61-63：`.ant-table-footer { borderRadius: 0 0 ${tableRadius} ${tableRadius} }`，
+ * 配合 `.ant-table`（index.ts:275）`borderRadius: ${tableRadius} ${tableRadius} 0 0`——
+ * **顶圆 + 底圆 = 完整圆角矩形**（当存在 footer 时）。
+ *
+ * data-grid .dg-wrapper 默认 `border-radius: var(--dg-radius) var(--dg-radius) 0 0`（顶圆底直）——
+ * 顶部圆角由 title 区域（或无 title 时首行表头）的 wrapper overflow 裁剪实现；但底部恒为直角。
+ * 有 footer 时，antd 的表格底边（即 footer 底沿）是圆角的，data-grid 此前为直角——**视觉差异**。
+ *
+ * 修复：用 :has(.dg-footer) 检测 footer 存在，把 .dg-wrapper 的 border-radius 补全为四角圆。
+ *   - 有 footer 时：四角圆（border-radius: var(--dg-radius)），对齐 antd 顶圆+底圆组合。
+ *   - 无 footer 时：保持顶圆底直（与 antd 无 footer 时底部直角一致——末行 cell 直角）。
+ *
+ * ★ :has() 宽松选择器（任意后代，非仅直接子节点）：兼容 loading 模式（Spin 包裹 tableContent 时，
+ *   .dg-footer 不再是 .dg-wrapper 直接子节点，但仍是后代）——loading + footer 也保留底圆角。
+ *   :has() 现代浏览器支持（Chrome 105+/Safari 15.4+/Firefox 121+），table.css 已多处使用。
+ *
+ * ★ 共享改动（影响所有有 footer 的 demo，bordered 与非 bordered 均受益）：
+ *   bordered / component-token / dynamic-settings / style-class / nest-table-border-debug。
+ *   无 footer 的 demo（绝大多数）:has 不命中，零回归。
+ * ★ 与 dg-sticky（overflow:visible）正交：sticky 模式不消费 footer（sticky demo 无 footer），
+ *   即便命中 :has，sticky 下 overflow:visible 不裁剪圆角（S34 已知圆角降级，非本任务引入）。 */
+.dg-wrapper:has(.dg-footer) {
+  border-radius: var(--dg-radius);
+}
+
 /* bordered 模式下固定列组合边框（S26）：
-   fixed-end 侧最左格（.dg-sticky-shadow-end）悬浮于可滚动普通列之上，
-   其左侧可见边缘靠下方普通列的 border-inline-end 不可靠（被 fixed 列不透明背景遮挡
-   + 横向滚到尽头时下方无可对齐的边框）。显式给该格补 border-inline-start，
-   保证 bordered + fixed 组合下右 sticky 列左边缘完整（避免 lun 的右 sticky 列缺左 border 缺陷）。
-   fixed-start 侧最右格（.dg-sticky-shadow-start）右边缘同理补 border-inline-end。 */
+ *
+ * antd bordered.ts:74-78：固定列组合边框仅给 **fix-right-first（右固定第一列）** 补
+ *   `${componentCls}-cell-fix-right-first::after { borderInlineEnd: tableBorder }`。
+ *   ——右固定集群的左边缘（fix-right-first 的左边）由下方普通列的 border-inline-end 不可靠提供
+ *   （被 fixed 列不透明背景遮挡 + 横向滚到尽头时下方无对齐边框），故 antd 用 ::after 显式补。
+ *   **左固定集群的右边缘（fix-left-last 的右边）** antd 未补——因 fix-left-last 作为普通 cell，
+ *   其 borderInlineEnd 已由 bordered.ts:57-60 通用规则提供（不需 ::after 特殊处理）。
+ *
+ * data-grid 等效（避免 lun 「右 sticky 列缺左 border」缺陷）：
+ *   - .dg-sticky-shadow-end（右固定第一列）：补 border-inline-start（右固定集群左边缘）——
+ *     对齐 antd fix-right-first::after 的 borderInlineEnd 补全（data-grid 用 border-inline-start
+ *     而非 ::after，因 grid cell 无 ::after 阴影机制，直接 border 更简洁；视觉等价）。
+ *   - .dg-sticky-shadow-start（左固定最后一列）：补 border-inline-end（左固定集群右边缘）——
+ *     data-grid 与 antd 此处有冗余（fix-left-last 作为 .dg-cell 已从通用规则拿到 border-inline-end），
+ *     这里再补一次是 border 重叠（视觉 1px，无双线）。保留为防御性：确保横向滚到尽头时左固定
+ *     集群右边缘一定有边框（不依赖下方普通列是否对齐）。视觉与 antd 一致。
+ *
+ * ★ token 对齐：bordered.ts:75 `borderInlineEnd: tableBorder` = --dg-border（同外框/竖线 token）。 */
 .dg-wrapper.dg-bordered .dg-sticky-shadow-end {
   border-inline-start: var(--dg-border);
 }
@@ -336,16 +608,34 @@
   background: var(--dg-row-hover-bg);
 }
 
-/* 边缘阴影（start 侧最右一列的右沿，向内容方向投射）。
-   antd fixed-columns demo 视觉：右固定列右沿有一条很淡的阴影分界线。
-   这里给 start 侧边界格的右沿画 box-shadow。
-   ★ Round 2：阴影颜色走 --ant-color-split（antd fixed.ts getShadowStyle 用 colorSplit，跟随主题）。 */
+/* 固定列边缘阴影（start 侧最右一列的右沿 / end 侧最左一列的左沿，向内容方向投射）。
+ *
+ * ★ §11 fixed-columns 对齐 antd 6.4.4 `components/table/style/fixed.ts:6-16` getShadowStyle：
+ *   - antd leftShadowStyle  = `inset 10px 0 8px -8px ${colorSplit}` （inset 内阴影，投向右）
+ *   - antd rightShadowStyle = `inset -10px 0 8px -8px ${colorSplit}`（inset 内阴影，投向左）
+ *   方向（10px / -10px 偏移）与颜色（colorSplit = --ant-color-split）原本已对，
+ *   仅缺 `inset` 关键字——Round 2 写成外投影（outset），antd 是内投影（inset）。
+ *   修正：两侧都加 `inset`，与 antd 视觉一致（阴影落在固定列内侧、更含蓄）。
+ *
+ * 方向语义（与 antd 对照）：
+ *   - `.dg-sticky-shadow-start`（start 侧最右一列）→ 右沿阴影 → `inset 10px 0 ...`（偏右）
+ *     对齐 antd `&-start:after { insetInlineStart: 100% }` + `&-start-shadow-show:after { leftShadowStyle }`
+ *     （antd 把 :after 放在 start 集群右边缘，leftShadowStyle 的 inset 右投影）。
+ *   - `.dg-sticky-shadow-end`（end 侧最左一列）→ 左沿阴影 → `inset -10px 0 ...`（偏左）
+ *     对齐 antd `&-end:after { insetInlineEnd: 100% }` + `&-end-shadow-show:after { rightShadowStyle }`。
+ *
+ * ★ 已知差异（unfixable，CSS Grid 范围内不修）：
+ *   antd 的 shadow-show class 由 rc-table 的横向 scroll 监听动态切换——滚到最左时 start 阴影隐藏、
+ *   滚到最右时 end 阴影隐藏（`react-component/table/src/Table.tsx:825-826` shadowStart/shadowEnd）。
+ *   data-grid 两侧阴影恒显（纯 CSS，不脚本监听 scrollLeft）。视觉上 data-grid 滚到尽头时固定列
+ *   边缘仍有一道极淡阴影线（antd 没有），属可接受差异——阴影很淡（8px 模糊 + colorSplit 0.06 alpha），
+ *   不破坏视觉，反而始终提示固定列边界。如需完全一致须加 scrollLeft 监听（违反"不脚本监听"约束）。 */
 .dg-sticky-shadow-start {
-  box-shadow: 10px 0 8px -8px var(--ant-color-split);
+  box-shadow: inset 10px 0 8px -8px var(--ant-color-split);
 }
 
 .dg-sticky-shadow-end {
-  box-shadow: -10px 0 8px -8px var(--ant-color-split);
+  box-shadow: inset -10px 0 8px -8px var(--ant-color-split);
 }
 
 /* === M4 虚拟滚动 / M8 固定表头 共用的表头纵向 sticky ===
@@ -408,6 +698,10 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  /* ★ §11 ellipsis 对齐 antd：`genEllipsisStyle` 在 textEllipsis 之上额外加 wordBreak:'keep-all'
+   *   (ant-design/components/table/style/ellipsis.ts:13)。CJK/长复合 token 不在单词内折行，
+   *   与 antd 行为一致（nowrap + keep-all 组合）。 */
+  word-break: keep-all;
   max-width: 100%;
 }
 
@@ -415,6 +709,9 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  /* 同上：对齐 antd `ant-table-column-title` 在 cell-ellipsis 下加 wordBreak:'keep-all'
+   *   (ellipsis.ts:27-30)。 */
+  word-break: keep-all;
 }
 
 /* === M5 行选择（决策 6 统一化：改用 antd Checkbox/Radio）===
@@ -440,16 +737,101 @@
   /* 选择列内 inline-flex 居中由父 .dg-cell[data-align='center'] 提供。 */
 }
 
+/* === §11 row-selection-custom：表头 selections 下拉触发器（caret-down）===
+ *
+ * 对齐 antd `components/table/style/selection.ts:77-95` 的 `.ant-table-selection-extra` icon：
+ *   - 默认色 `headerIconColor`（=colorIcon*opacityLoading，默认 rgba(0,0,0,0.45)）。
+ *   - hover 色 `headerIconHoverColor`（=colorIconHover*opacityLoading，默认 rgba(0,0,0,0.88)）。
+ *   - 过渡 `transition: all ${motionDurationSlow}`（≈0.3s）。
+ *
+ * ★ 布局差异（不强制修）：antd 用 `position:absolute; marginInlineStart:100%` 把箭头放在
+ *   checkbox 之外（列宽随之 +fontSizeIcon+padding/4 = 48px）；data-grid 用 inline-flex gap:4
+ *   把箭头放在 checkbox 旁（列宽恒 32px）。两种布局功能等价（箭头可见 + 点击弹菜单），data-grid
+ *   不改用 absolute（会牵连列宽策略 + 选择列 padding 规则），仅在颜色/对齐层对齐 antd。
+ *
+ * ★ 共享改动（影响所有 rowSelection.selections 非空的 demo）：row-selection-custom 系列。
+ *   其它无 selections 的 demo（row-selection/row-selection-and-operation/order-column 等）
+ *   不渲染此触发器（Table.tsx SelectionsDropdown 仅在 resolvedSelections 非空时挂载），零回归。
+ *
+ * ★ tokens.css 已桥接 --dg-header-icon-color / --dg-header-icon-hover-color（上方 head 注释块）。
+ *   未接入主题时 var() 回退到 antd 默认色（第二参数）。 */
+.dg-selection-dropdown-trigger {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 0 2px;
+  color: var(--dg-header-icon-color, rgba(0, 0, 0, 0.45));
+  transition: color 0.3s;
+}
+
+.dg-selection-dropdown-trigger:hover {
+  color: var(--dg-header-icon-hover-color, rgba(0, 0, 0, 0.88));
+}
+
+/* === §11 row-selection：选择列单元格 padding 对齐 antd ===
+ *
+ * antd `components/table/style/selection.ts:49-61` 给选择列单元格（th/td.ant-table-selection-column）
+ * 单独设 padding：
+ *     paddingInlineEnd: token.paddingXS;   // 默认主题 = 4px
+ *     paddingInlineStart: token.paddingXS; // 默认主题 = 4px
+ *     textAlign: 'center'
+ * **不随 size 变化**——paddingXS 是 alias token（非 Table component token），large/middle/small
+ * 三档 size 不改它（size.ts 的 getSizeStyle 只改普通 cell padding，不动 selection-column 规则）。
+ * 故 antd 选择列在所有 size 下都是 `paddingXS paddingXS`（4px/4px）。
+ *
+ * data-grid 之前选择列沿用普通 cell padding（large 16/16、middle 8/8、small 8/8）——列宽 32px 下
+ * 左右各 16px padding 把 16px 勾选框挤到只剩 0px 内容区（实际靠 box-sizing/overflow 勉强显示），
+ * 且左右 padding 远大于 antd 的 4px。本规则修正：选择列表头/表体单元格 padding-inline 改为
+ * `var(--ant-padding-xs)`（默认 4px；接入主题时由 Table.tsx aliasTokenVars 注入覆盖）。
+ *
+ * ★ 选择器：`.dg-cell[data-column-key='__dg_selection__']`——data-column-key 由 GridTable 在
+ *   表头格（GridTable.tsx:2282/2604）+ 表体格（§11 本任务新增，BodyCell:1793 + ColumnCells:2800）
+ *   统一标注。`__dg_selection__` 是 Table.tsx buildSelectionColumnNode 设的选择列稳定 key，
+ *   不会与真实列 dataIndex 冲突。
+ *
+ * ★ 共享改动（影响所有用 rowSelection 的 demo）：row-selection / row-selection-and-operation /
+ *   row-selection-custom / order-column / tree-data / tree-table-preserveSelectedRowKeys /
+ *   nested-table / virtual-list / grouping-columns / dynamic-settings / debug 类。
+ *   修复方向是收敛 padding（16→4），视觉上勾选框更居中、列更紧凑——与 antd 一致。无反向回归风险
+ *   （选择列本就只有勾选框，padding 收紧不影响内容展示）。
+ *
+ * ★ tokens.css 暂无 --ant-padding-xs fallback；接入 antd 主题时由 aliasTokenVars 注入。未接入时
+ *   var() 回退到 4px 硬编码（第二参数），保证独立运行视觉正确。
+ */
+.dg-cell[data-column-key='__dg_selection__'] {
+  padding-inline-start: var(--ant-padding-xs, 4px);
+  padding-inline-end: var(--ant-padding-xs, 4px);
+}
+
 /* === M3 合并单元格 ===
  *
  * grid 布局下合并用 `grid-column` / `grid-row` 的 span（非 HTML colspan/rowspan 属性）。
  * 合并区域左上角格设 span N，被覆盖格**不渲染 DOM**（由 GridTable 跳过），避免空洞/重叠。
  *
  * rowScope（antd column.rowScope='row'）：行标题列语义。antd 中该列单元格渲染为 <th scope="row">
- * 并加粗（参考 antd colspan-rowspan demo 第一列视觉）。这里用 class 标记，视觉加粗对齐。
- */
+ * （rc-table `BodyRow.tsx:207` scopeCellComponent=th）。antd `components/table/style/index.ts:371-379`
+ * 给 `tbody > tr > th` 整套表头视觉：`background: tableHeaderBg`（=#fafafa 默认）+
+ * `color: tableHeaderTextColor`（=colorTextHeading）+ `fontWeight: fontWeightStrong` +
+ * `borderBottom: tableBorder`（border-bottom 已由 .dg-cell-body 通用规则提供，这里不重复）。
+ *
+ * ★ §11 colspan-rowspan 对齐修复：原实现仅 `font-weight: 600`，缺 headerBg 背景 + headerColor 文字色，
+ *   与 antd `<th scope="row">` 视觉不符（antd RowHead 列单元格灰底，data-grid 白底）。补 background+color
+ *   消费 `--dg-header-bg` / `--dg-header-color`（桥接 --ant-table-header-bg / --ant-table-header-color，
+ *   跟随主题）。font-weight 由 600 改为 var(--dg-font-weight-strong)？——保持 600（fontWeightStrong 默认值，
+ *   且 data-grid 未桥接该 alias token，硬编码 600 与 antd 默认一致）。
+ *
+ * ★ hover/selected 优先级：本规则 (0,1,0) 低于 .dg-cell-body.dg-row-hover (0,2,0) /
+ *   .dg-cell-body.dg-row-selected (0,2,0)，故行 hover（rowHoverBg）/ 选中（selectedBg）状态
+ *   自动覆盖 rowScope 的 headerBg 背景——与 antd 行为一致（antd `.ant-table-cell-row-hover` 优先级
+ *   高于 `tbody > tr > th` 的 headerBg，hover 时 rowScope 单元格也变 rowHoverBg）。
+ *
+ * ★ 共享改动（影响所有用 rowScope='row' 的 demo）：当前仅 colspan-rowspan（RowHead 列）。
+ *   RowHead 列单元格从白底→灰底，视觉对齐 antd。无反向回归风险（rowScope 列本就是行标题，
+ *   灰底是其语义）。 */
 .dg-cell.dg-cell-rowscope {
   font-weight: 600;
+  background: var(--dg-header-bg);
+  color: var(--dg-header-color);
 }
 
 /* === M7 列宽拖拽调整 resizable ===
@@ -582,17 +964,38 @@
   display: inline-flex;
   /* 17→16 微缩（antd expandIconScale）。 */
   transform: scale(0.9412);
-  /* antd expand icon color:inherit（继承表头文字色 = headerColor）。 */
-  color: var(--dg-header-color);
+  /* ★ §11 C2 tree-data 种子问题 #1 修复：antd expand.ts 用 `color: 'inherit'`——
+     继承所在 <td>（body cell）的文字色。antd cell 文字色来自 resetComponent(colorText)
+     （= alias token colorText，非 headerColor/colorTextHeading）。
+     data-grid `.dg-wrapper` 已显式 `color: var(--ant-color-text)`（见上方 .dg-wrapper 规则，
+     种子 #2 修复），故 `inherit` 在 data-grid 解析为 colorText（与 antd 一致）。
+     ★ 配合下方 `:hover/:focus/:active` 规则：antd operationUnit（expand.ts 第 55 行展开注入）
+     在伪类上设 `color: colorLinkHover/colorLinkActive`，currentcolor 解析为该蓝；data-grid
+     在下方伪类规则同步设 color，border-color: currentcolor 同色，与 antd 逐像素对齐。 */
+  color: inherit;
   transition:
     border-color 0.2s ease,
     transform 0.2s ease;
 }
 
-/* hover/active/focus：border 变 currentColor（对齐 antd `&:focus,&:hover,&:active { borderColor: currentcolor }`）。 */
+/* hover/active/focus：border 变 currentColor（对齐 antd `&:focus,&:hover,&:active { borderColor: currentcolor }`）。
+   ★ §11 C2 种子 #1 修复（返工）：antd expand.ts 第 55 行 `...operationUnit(token)` 先于 `color: 'inherit'`
+   注入 hover/focus/active 的 color——`operationUnit`（components/style/index.tsx:169-198）规则：
+     `:hover/:focus { color: colorLinkHover }`、`:active { color: colorLinkActive }`。
+   默认主题 colorLinkHover=#69b1ff（genColorMapToken.ts:111 linkColors[4]，实测验证者比对值）、
+   colorLinkActive=#0958d9（linkColors[7]）。
+   expand.ts 第 60 行 `color: 'inherit'` 覆盖默认态 color，但**不覆盖** hover/focus/active 的 color
+   （后者在 operationUnit 展开对象内，与 `&:focus,&:hover,&:active { borderColor }` 同为伪类规则）。
+   → hover 时 currentcolor 解析为 colorLinkHover（#69b1ff），borderColor 同色，与 antd 一致。
+   旧实现漏掉 hover/focus/active 的 color 声明，currentcolor 仍解析为 inherit 的 colorText（深灰），
+   导致 hover 边框色为深灰而非 antd 蓝。修复：补 color，保留 border-color: currentcolor。 */
 .dg-expand-icon:not(:disabled):hover,
-.dg-expand-icon:not(:disabled):focus,
+.dg-expand-icon:not(:disabled):focus {
+  color: var(--ant-color-link-hover);
+  border-color: currentcolor;
+}
 .dg-expand-icon:not(:disabled):active {
+  color: var(--ant-color-link-active);
   border-color: currentcolor;
 }
 
@@ -672,6 +1075,44 @@
 }
 
 /* 展开列单元格（与选择列类似，居中）。dg-cell[data-align='center'] 已提供 justify-content。 */
+
+/* === S13 树形缩进 + 展开图标（dg-tree-indent 容器，渲染在 Name 列单元格 .dg-cell-inner 内）===
+ *
+ * ★ §11 C2 tree-data 种子问题 #2 修复（展开图标垂直居中）：
+ *
+ * antd tree-data（`BodyRow.tsx` 的 appendNode + `Cell/index.tsx`）把 `indent span + expand-icon`
+ * 作为 `<td>` 的直接子元素（与 cell 内容并列），展开图标走 `.ant-table-row-expand-icon` 基础规则：
+ *   - `float: left`（tree-data 内非 expand-icon-cell，故未走 `verticalAlign: sub` 覆盖）
+ *   - `.ant-table-row-indent + .ant-table-row-expand-icon { marginTop: expandIconMarginTop }`
+ *     （expandIconMarginTop ≈ 2.5px，对齐 icon 与同行文字的视觉中线）
+ *   - `<td>` 默认 `vertical-align: middle`（td baseline 行为）
+ *
+ * data-grid 用 CSS Grid，无 `<td>`/`<tr>`，展开图标在 .dg-cell-inner（block div）内，与文字并列。
+ * .dg-cell（grid item）已 `display:flex; align-items:center` 让 .dg-cell-inner 整体垂直居中，
+ * 但 .dg-cell-inner 内部需要单独让"图标 + 文字"行内对齐。
+ *
+ * 实现（CSS Grid 范围内等效 antd）：
+ *   - `.dg-tree-indent`：inline-flex 容器（缩进 + 图标 + 间距），与文字并列。
+ *   - `vertical-align: middle`：让 inline-flex 的几何中线对齐文字 x-height 中线
+ *     （等效 antd td `vertical-align: middle` + expandIconMarginTop 视觉效果）。
+ *   - `.dg-cell-inner` 含 tree-indent 时变 flex 容器（`:has`，现代浏览器支持）：
+ *     图标 + 文字水平排列、垂直居中——最稳的 grid 布局等效。
+ *   - 无 `:has` 支持时退化到 inline-flex + vertical-align:middle（视觉略次，可接受）。
+ */
+.dg-tree-indent {
+  /* 由 GridTable inline style 设：display:inline-flex + alignItems:center + paddingLeft:indent + flexShrink:0。
+     这里补 vertical-align 让它与文字基线对齐（inline-flex 默认 baseline → 图标下沿贴文字基线，
+     视觉偏低；middle 让图标中线贴文字 x-height 中线）。 */
+  vertical-align: middle;
+}
+
+/* 含 tree-indent 的 .dg-cell-inner：改为 flex 容器（图标 + 文字水平并列、整体垂直居中）。
+   仅作用于树形首列数据单元格内容容器，非树形 demo 无 dg-tree-indent 子节点 → 不触发（零回归）。
+   现代浏览器支持 :has（Chrome 105+/Safari 15.4+/Firefox 121+），data-grid 目标浏览器覆盖。 */
+.dg-cell-inner:has(> .dg-tree-indent) {
+  display: flex;
+  align-items: center;
+}
 
 /* === S1 单列排序（决策 6 统一化：caret 改用 @ant-design/icons CaretUpOutlined/CaretDownOutlined）===
  *
@@ -809,8 +1250,13 @@
 
 /* === S2 多列排序优先级序号 ===
  *
- * 多列模式下激活的排序列表头 caret 旁显示一个优先级数字（1/2/3…，按 multiple 升序），
- * 对齐 antd multiple-sorter demo。仅当该列激活（order 非 null）且处于多列模式时渲染。
+ * 多列模式下激活的排序列表头 caret 旁显示一个优先级数字徽标（1/2/3…）。
+ * ★ **data-grid 增强，非 antd 对齐项**：antd 6.4.4 官方 multiple-sorter demo 与 sorter.ts 样式均
+ *   无此徽标；此为 data-grid SortIndicator 自带渲染（见 SortIndicator.tsx）。
+ * 编号语义：1 = 最高优先级 = `sorter.multiple` **最大**（对齐 antd `getSortData` 的
+ * `b.multiplePriority - a.multiplePriority` 实际比较顺序，multiple 大者先比较 = 主排序键）。
+ * 即 Chinese(multiple=3) 激活显示 1、Math(multiple=2) 显示 2、English(multiple=1) 显示 3。
+ * 仅当该列激活（order 非 null）且处于多列模式时由适配层传入 priority；其它情况不渲染（零回归）。
  * 视觉：小字号、淡色（headerIconColor），与 caret 内联；hover 表头时变深（与 caret 同步）。
  */
 .dg-column-sorter-priority {
@@ -861,32 +1307,103 @@
   margin-inline-start: 0;
 }
 
-/* 漏斗触发器：默认灰（headerIconColor）；hover 表头时变深；激活（有筛选值）主色高亮。
-   对齐 antd `.ant-table-filter-trigger`（color: headerIconColor；active: colorPrimary）。
-   pointer cursor 提示可点击；padding 增大点击区。
-   ★ Round 2：--dg-header-icon-color / --dg-header-icon-hover-color / --dg-primary-color 已桥接 antd token。 */
+/* 漏斗触发器：默认灰（headerIconColor）；hover 时变深（colorIcon）+ 浅灰底；激活（有筛选值）主色高亮。
+   对齐 antd `.ant-table-filter-trigger`（filter.ts:51-74）逐字段：
+     - 默认 color: headerIconColor（= colorIcon * opacityLoading）。
+     - 默认 fontSize: fontSizeSM（=14，非 12）；borderRadius: tableRadius；cursor: pointer。
+     - padding: `0 paddingXXS`（= 0 4px）；marginBlock: -paddingXXS（-4px，让 trigger 上下溢出表头 padding
+       边界以对齐 antd trigger 在 cell padding 之外的视觉位置）；marginInline: `${paddingXXS} ${-tablePaddingHorizontal/2}`
+       （左 4px + 右 -8px，让 trigger 贴 cell 右边界）。
+     - hover（trigger 自身 hover，**非表头格 hover**）：color: colorIcon（非 headerIconHoverColor，
+       filter 与 sorter hover 语义不同）+ background: tableHeaderFilterActiveBg（= headerFilterHoverBg）。
+     - active（有 applied filter）：color: colorPrimary（优先级高于 hover）。
+
+   ★ §11 head 修复（task 对齐 head demo）：原实现「hover 整表头格时漏斗变色」与 antd 不符——
+     antd 漏斗只在鼠标进入 trigger 自身时变色（filter.ts:66 选择器是 `.ant-table-filter-trigger:hover`，
+     非 thead th:hover .filter-trigger）。data-grid 改为 trigger 自身 :hover，对齐 antd。
+     原实现 hover 色用 `--dg-header-icon-hover-color`（headerIconHoverColor = colorIconHover*opacityLoading）
+     也错——antd filter.ts:67 hover 色是 `colorIcon`（无 opacityLoading 折扣，实色更深）。
+     原实现漏 hover background，antd filter.ts:68 给 trigger hover 加 `tableHeaderFilterActiveBg` 浅灰底。
+     原实现 font-size 12 / padding 2px 不符，antd 是 14 / 0 4px。
+
+   ★ 共享改动影响：所有有筛选列的 demo（head / reset-filter / custom-filter-panel /
+     filter-search / filter-in-tree / multiple-sorter（无 filter 但 selector 命中））。
+     这些 demo 的漏斗触发器视觉都会变：字号 12→14、padding 2→0 4px、hover 行为从表头格 hover 改为
+     trigger 自身 hover + 加浅灰底。视觉更精确对齐 antd，无反向回归风险（原 hover 表头漏斗变色本就
+     非 antd 行为，修复后正确）。
+
+   ★ Round 2：--dg-header-icon-color / --dg-primary-color 已桥接 antd token。filter hover 色用
+     alias `--ant-color-icon`（filter.ts:67 colorIcon）。
+   ★ §11 head 返工：filter hover bg 原用 `--ant-table-header-filter-active-bg`（filter.ts:68 源 token），
+     但该 Table 组件 token 默认 = colorFillContent（alias），antd getComponentToken 删除与 alias 同值键
+     → DOM 不输出此 var → 解析为空 → hover bg 透明（FAIL）。改用 alias `--ant-color-fill-content`（恒输出）。
+     详见下方 `.dg-filter-trigger:hover` 规则注释。 */
 .dg-filter-trigger {
-  display: inline-flex;
+  position: relative;
+  display: flex;
   align-items: center;
   justify-content: center;
+  /* antd filter.ts:55-58 marginBlock: -paddingXXS；marginInline: paddingXXS + (-tablePaddingHorizontal/2)。
+     data-grid 表头 paddingInline 由 --dg-cell-padding-inline（= cellPaddingInline = 16）消费，
+     这里复刻：marginBlock -4px / marginInline 4px -8px。负右 margin 让 trigger 右沿贴齐 cell 右内边距，
+     负上下 margin 让 trigger 高度越过 cell padding 上下沿（视觉上 trigger 在 cell 右侧 padding 区内居中）。 */
+  margin-block: calc(var(--ant-padding-xxs, 4px) * -1);
+  margin-inline: var(--ant-padding-xxs, 4px)
+    calc(var(--dg-cell-padding-inline, 16px) / 2 * -1);
+  padding: 0 var(--ant-padding-xxs, 4px);
   color: var(--dg-header-icon-color);
-  cursor: pointer;
-  padding: 2px;
-  font-size: 12px;
+  /* antd filter.ts:61 fontSize: fontSizeSM（默认 14，非 12）。 */
+  font-size: var(--ant-font-size-sm, 14px);
   line-height: 1;
-  transition: color 0.2s ease;
+  /* ★ antd filter.ts:62 `borderRadius`（解构的是**基础 borderRadius** token，非 tableRadius）：
+     `borderRadius` 默认 = 6px（基础 alias token），而 tableRadius = headerBorderRadius =
+     borderRadiusLG = 8px（仅 .ant-table 外框圆角用）。漏斗 trigger 用**基础** borderRadius=6。
+     data-grid 之前误用 `--dg-radius`（= --ant-table-header-border-radius = 8），导致 8 vs antd 6。
+     修：改用 `--ant-border-radius`（基础 alias token，antd aliasTokenVars 恒注入；tokens.css:135
+     fallback 6px）。**不改 `--dg-radius`**——它供 .dg-wrapper 表格外框圆角（= tableRadius=8，正确），
+     仅漏斗 trigger 这一消费者需用基础 borderRadius。 */
+  border-radius: var(--ant-border-radius);
+  cursor: pointer;
+  transition: color 0.3s ease, background-color 0.3s ease;
 }
 
-/* hover 表头格时漏斗变深（与 sorter caret 同步；对齐 antd filter-trigger:hover）。 */
-.dg-cell-header.dg-column-has-sorters:hover .dg-filter-trigger,
-.dg-cell-header.dg-column-has-filter:hover .dg-filter-trigger {
-  color: var(--dg-header-icon-hover-color);
+/* hover trigger 自身（非表头格 hover）时变深 + 浅灰底（对齐 antd filter.ts:66-69）。
+   ★ 关键：antd 是 `.ant-table-filter-trigger:hover`（trigger 自身 :hover），data-grid 同款选择器。
+   不再用 `dg-cell-header:hover .dg-filter-trigger`（那是表头格 hover，与 antd 语义不符）。
+   ★ hover background token 修正（§11 head 返工）：
+     antd filter.ts:68 `background: tableHeaderFilterActiveBg`，该 Table 组件 token 在
+     index.ts:560 派生为 `headerFilterHoverBg`，后者在 prepareComponentToken（index.ts:472）派生为
+     `colorFillContent`。**关键**：因默认主题下 `tableHeaderFilterActiveBg === colorFillContent`（alias），
+     antd getComponentToken 会删除与 alias 同值的键（最小化输出）→ **antd DOM 实际不输出
+     `--ant-table-header-filter-active-bg`**（空），只输出 alias `--ant-color-fill-content`。
+     之前 data-grid 用 `var(--ant-table-header-filter-active-bg)` → 实测解析为空 → hover bg 透明（FAIL）。
+     修：改用 alias `--ant-color-fill-content`（antd aliasTokenVars 恒注入；tokens.css:112 fallback
+     `rgba(0,0,0,0.06)`——验证者实测 antd 右栏 hover bg 即此值）。 */
+.dg-filter-trigger:hover {
+  color: var(--ant-color-icon);
+  background: var(--ant-color-fill-content);
 }
 
-/* 激活态：有筛选值时漏斗主色高亮（对齐 antd filter-trigger.active）。
-   优先级高于 hover 灰（声明在后）。 */
+/* 激活态：有筛选值时漏斗主色高亮（对齐 antd filter.ts:71-73 `&.active { color: colorPrimary }`）。
+   ★ active:hover 组合态分析（§11 head 返工，复核 antd filter.ts:51-74 源码）：
+     antd filter.ts 仅声明两条规则——
+       L66-69 `&:hover { color: colorIcon; background: tableHeaderFilterActiveBg }`
+       L71-73 `&.active { color: colorPrimary }`（**无 background**、**无单独 active:hover 规则**）
+     当 .active 与 :hover 同时命中（已筛选列 hover 漏斗），两条规则都级联：
+       - 选择器特异性：`.filter-trigger:hover` 与 `.filter-trigger.active` 均为 (0,2,0)，**相同**。
+       - 同特异性 → CSS **源顺序**决胜：hover 规则在先（L66）、active 规则在后（L71）→ **active 胜出**。
+     故 active:hover 实际值：
+       - color = colorPrimary（active 的 colorPrimary 覆盖 hover 的 colorIcon）
+       - background = tableHeaderFilterActiveBg（active 规则未声明 background，不覆盖 hover 的 bg）
+     data-grid 复刻：`.dg-filter-trigger-active:hover` 显式声明 color=colorPrimary + background 同 hover。
+     （不依赖源顺序——显式声明更稳，且与 antd 最终计算值一致。） */
 .dg-filter-trigger.dg-filter-trigger-active {
   color: var(--dg-primary-color);
+}
+.dg-filter-trigger.dg-filter-trigger-active:hover {
+  color: var(--dg-primary-color);
+  /* 同普通 hover 的 background（见上 :hover 规则注释：走 alias colorFillContent）。 */
+  background: var(--ant-color-fill-content);
 }
 
 /* 筛选下拉面板（antd Dropdown overlay 内容容器）。
@@ -948,12 +1465,19 @@
   border-top: 1px solid var(--dg-border-color);
 }
 
-/* 可筛选列表头格 hover 背景（对齐 antd tableHeaderFilterHoverBg；
-   token 与 sort hover 共用 header-sort-hover-bg，视觉一致）。
-   ★ Round 2：--dg-header-sort-hover-bg 已桥接（跟随主题）。 */
-.dg-cell-header.dg-column-has-filter:hover {
-  background: var(--dg-header-sort-hover-bg);
-}
+/* === §11 head demo 修复：纯 filter 列表头格 hover 无 background ===
+ *
+ * antd sorter.ts:17-23 的 `thead th.column-has-sorters:hover { background: tableHeaderSortHoverBg }`
+ * 只作用于**同时有 sorter 的列表头**（has-sorters 类）。纯 filter 列（无 sorter，只有 has-filters 类）
+ * 的表头格 hover **antd 不应用任何 background**——filter trigger 自身 hover 的 bg（filter.ts:68）独立。
+ *
+ * 旧实现（line 已删）让纯 filter 列表头 hover 也变 sort-hover-bg，与 antd 不符（head demo Address 列
+ * 表头 hover 不应变色）。修复：删除该规则，对齐 antd。
+ *
+   共享影响：head（Address 列纯 filter）/ reset-filter / custom-filter-panel / filter-search /
+   filter-in-tree 的纯 filter 列表头 hover 不再变色（更精确对齐 antd）。同时有 sorter+filter 的列
+ （head Name 列）cell hover 仍由 .dg-column-has-sorters:hover 提供 sort-hover-bg（不变）。 */
+/* （删除原 .dg-cell-header.dg-column-has-filter:hover 规则，对齐 antd 行为） */
 
 /* === S22 汇总 summary ===
  *
@@ -1121,6 +1645,36 @@
 .dg-floating-scrollbar-thumb-h:hover {
   height: 8px;
   background: var(--ant-color-text-heading);
+}
+
+/* === S34 页面级 StickyScrollBar thumb hover（对齐 antd sticky.ts:55-57）===
+ *
+ * antd sticky.ts 的 fake scrollbar thumb：`&:hover, &-active → backgroundColor: tableScrollThumbBgHover`
+ * （= colorTextHeading，深色）。data-grid StickyScrollBar（GridTable.tsx）的 thumb 加
+ * `.dg-sticky-scroll-bar-thumb` 类，此处 hover 变色（与 antd 同款交互）。
+ *
+ * ★ 仅 sticky 启用时渲染（零回归：非 sticky demo 无 .dg-sticky-scroll-bar-thumb 元素）。 */
+.dg-sticky-scroll-bar-thumb:hover {
+  background: var(--ant-table-scroll-thumb-bg-hover, rgba(0, 0, 0, 0.88));
+}
+
+/* ============================================================================
+ * ★ S29 style-class demo 专用：`.dg-style-class-root`（root classNames 注入演示）
+ *
+ * 对齐 antd style-class demo 的 `createStaticStyles({ root })` 生成的 root class 样式
+ * （`G:\Projects\ant-design\components\table\demo\style-class.tsx:6-12`）：
+ *   color: #e0e0e0; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+ *
+ * data-grid 侧：`.dg-wrapper.dg-style-class-root`（root class 注入到根容器，见 Table.tsx:1680
+ * `classNamesResolved?.root`）。antd 侧：`.ant-table-wrapper.dg-style-class-root`。
+ *
+ * 仅 style-class demo 使用（classNames.root 注入），引擎默认不消费，零回归。
+ * 深色主题（#e0e0e0 文字 + 深阴影）是 antd 官方 demo 原样，逐字复刻。
+ * ============================================================================ */
+.dg-style-class-root {
+  color: #e0e0e0;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 

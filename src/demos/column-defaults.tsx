@@ -23,10 +23,25 @@
  * === 两侧保留的差异 ===
  *
  * - **Align 字面量**：左栏 data-grid 用 'start'/'center'/'end'（对齐 CSS logical）；右栏 antd
- *   用 'left'/'center'/'right'（antd v6 物理方向）。
- * - **视觉省略号 gap（§9）**：data-grid grid 列宽 `max-content`，ellipsis 列 track=content 宽 →
- *   cell-inner 不溢出 → 视觉无 `...`；antd 用 `table-layout:fixed` + `width:100%`，ellipsis 列
- *   视觉省略号生效。两侧差异对照（API 与合并逻辑正确，缺列宽约束）。
+ *   用 'left'/'center'/'right'（antd v6 物理方向）。语义等价（'start'='left'），类型系统不同。
+ *
+ * === §11 外观/行为对齐 核对结论 ===
+ *
+ * 1. **Table 级 column 默认生效**：`column={{ align:'center', ellipsis:true }}` →
+ *    applyColumnDefaults（Table.tsx:632-664）浅合并（列自身优先 + 哨兵豁免 + children 递归），
+ *    对齐 antd `useFilledColumns`（hooks/useFilledColumns.ts:9-47，`mergeProps(default, col)` 同语义）。
+ *    Name/Description 继承 center+ellipsis；Address 自身 `align:'start'` 覆盖默认 center。
+ * 2. **单列覆盖**：Address `align:'start'` → data-grid `merge` 函数列自身字段后于 base 展开，
+ *    覆盖 base.align='center'（Table.tsx:645-658）；与 antd `mergeProps(default, col)` 同。
+ * 3. **ellipsis 默认**：所有列默认 ellipsis（`column.ellipsis:true`）→ `derivedTableLayout` 派生
+ *    `'fixed'`（Table.tsx:1818-1839，对齐 antd rc-table `Table.tsx:613-627`）→ fixed 模式下 width
+ *    列 `minmax(width,1fr)`（GridTable colTracks）→ track 受限 → `.dg-cell-inner` 溢出 → `...` 生效
+ *    （§9 S20 ellipsis 视觉 gap 已由 #34 tableLayout:fixed 修复闭合）。
+ * 4. **ellipsis `...` + keep-all**：`.dg-cell-ellipsis .dg-cell-inner`（table.css:667-676）含
+ *    `text-overflow:ellipsis; white-space:nowrap; overflow:hidden; word-break:keep-all`，
+ *    对齐 antd `style/ellipsis.ts:11-13`（textEllipsis + wordBreak:'keep-all'）。表头/表体同款。
+ * 5. **行 hover / 表头 hover / 分隔线 / 边框 / padding / 列宽**：共享 CSS 消费 `--ant-*` token
+ *    （theme-injection-antd 已落地），column-defaults 无特殊覆盖需求 → 自动对齐。
  */
 
 import { useState } from 'react'
@@ -150,9 +165,11 @@ export default function ColumnDefaultsDemo() {
               右栏 antd 用 <code>align:'left'</code>（两侧语义等价，类型系统不同）。
             </li>
             <li>
-              <strong>Ellipsis 视觉 gap（§9）</strong>：左栏 data-grid 列宽 max-content → 视觉无
-              <code>...</code>；右栏 antd <code>table-layout:fixed</code> → 省略号生效。关掉
-              Ellipsis 开关两侧均无省略号（对照基线）。
+              <strong>Ellipsis 省略号</strong>：开启时两侧均显示 <code>...</code>（对齐：data-grid
+              <code>derivedTableLayout</code> 派生 <code>fixed</code> + <code>minmax(width,1fr)</code>
+              限 track 宽 + <code>.dg-cell-ellipsis</code> CSS <code>text-overflow:ellipsis</code>
+              <code>word-break:keep-all</code>，对齐 antd <code>table-layout:fixed</code> +
+              <code>style/ellipsis.ts</code>）。关掉 Ellipsis 开关两侧均无省略号（对照基线）。
             </li>
           </ul>
         </div>

@@ -18,6 +18,7 @@
  *     * spaced（disabled/不可展开）：`::before/::after { display:none; content:none }`，
  *       background transparent，border 0，visibility:hidden → 空 cell。
  *   - hover/active：border-color: currentcolor（与 antd `&:focus,&:hover,&:active` 一致）。
+ *     color: inherit（继承 body cell colorText，非 headerColor——§11 C2 种子 #1 修复）。
  *
  * 用户可通过 `expandable.expandIcon` 自定义替换。
  *

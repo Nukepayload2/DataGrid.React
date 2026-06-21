@@ -9,11 +9,12 @@
  *  - **左 data-grid**：方案 B 自研 pointer（复用 S17 `useRowDragSort` + `handleSelector: '.dg-drag-handle'`
  *    限定手柄列触发）。DragHandle 用 antd `<Button>` + 自绘 HolderOutlined SVG（不 import
  *    @ant-design/icons，与 custom-filter-panel/nested-table 约定一致）。
- *  - **右 antd**：忠实复刻官方 `drag-sorting-handler.tsx`（`@dnd-kit/*` + HolderOutlined 图标 +
- *    RowContext.Provider 透传 setActivatorNodeRef/listeners 到 DragHandle，仅手柄触发）。
+ *  - **右 antd**：忠实复刻官方 `drag-sorting-handler.tsx`（`@dnd-kit/*` + RowContext.Provider 透传
+ *    setActivatorNodeRef/listeners 到 DragHandle，仅手柄触发）。图标同样用内联 HolderOutlined SVG
+ *    （项目未直接声明 @ant-design/icons 依赖，与左栏共用 InlineHolderOutlined，视觉与官方逐字节一致）。
  *
  *  两侧各自维护一份 dataSource（独立的 useState），拖拽互相不影响，便于对照差异（左指示线 /
- *  右 transform 平移整行；左侧手柄列自绘 SVG，右侧用 @ant-design/icons HolderOutlined）。
+ *  右 transform 平移整行；两栏手柄图标均为内联 SVG，视觉一致）。
  */
 
 /** antd drag-sorting-handler demo 的记录类型。两侧共用。 */

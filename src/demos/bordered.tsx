@@ -17,14 +17,18 @@
  * - **示例 2**（data-grid S26 新增对照）：bordered + fixed 组合——Full Name+Age 左固定、
  *   Column 1..5 中间、Action 右固定 + scroll.x。验证固定列在 bordered 模式下竖向边框完整。
  *
- * === 两侧保留并如实呈现的差异 ===
+ * === 两侧保留并如实呈现的差异（含 §9 B4 遗留 .column-money 注释失真更正）===
  *
- * - **示例 1 Cash Assets 列**：antd demo 用 `className: 'column-money'`（CSS 类金额高亮）+ `align:'right'`。
- *   - 左栏 data-grid：接口全兼容阶段已支持 `column.className`（透传到数据格 + 表头格），但 demo demo
- *     CSS 未定义 `.column-money` 样式 → 无视觉高亮（className 透传但无对应 CSS）。`align` 用 'end'
- *     （data-grid 逻辑属性，等价 antd 'right'）。
- *   - 右栏 antd：原生 `className` + `align:'right'`，金额列有 antd 内置 `.column-money` 样式高亮。
- *   - 如实保留：左栏金额列无高亮（CSS 缺），右栏有；对照价值（className 透传 vs CSS 消费）。
+ * - **示例 1 Cash Assets 列**：antd demo 用 `className: 'column-money'`（demo 自定义 CSS 类）+
+ *   `align:'right'`。
+ *   - ★ **§9 B4 注释失真更正**：此前注释称「右栏 antd 金额列有 antd 内置 `.column-money` 样式高亮」，
+ *     经 antd 源码核实为**误判**——antd Table **未定义任何 `.column-money` CSS 规则**
+ *     （`G:\Projects\ant-design` 全仓搜 `column-money` 仅命中本 bordered demo 源码 + snapshot，无 style
+ *     定义）。该 className 是 antd demo **示例性 placeholder**（演示 `column.className` 透传机制），
+ *     antd 自身不消费它——**两栏均无视觉高亮**（右栏 antd 也无）。原注释「左栏无/右栏有」对照点不存在。
+ *   - 两栏实际行为：`.column-money` className 在两侧都透传到 DOM（antd 原生 + data-grid 接口全兼容
+ *     阶段已支持 column.className），但都无对应 CSS → **两侧均无视觉高亮**，**无差异**。
+ *   - `align` 差异：data-grid 用逻辑属性 `'end'`（等价 antd `'right'`，RTL 自动适配），两栏视觉等价。
  * - **示例 2 固定列边框**：data-grid S26 主动补 border-inline-start 修正 lun 缺陷；antd 原生正确。
  *   两侧均应边框完整，对照验证 data-grid 修正生效。
  */
@@ -50,8 +54,10 @@ const dgColumnsExample1: ColumnType<RowType>[] = [
   },
   {
     title: 'Cash Assets',
-    // 注：antd demo 此列带 className:'column-money'（CSS 类金额高亮）。
-    // data-grid 支持 column.className 透传，但本 demo CSS 未定义 .column-money → 无视觉高亮（对照点）。
+    // 注：antd demo 此列带 className:'column-money'（demo 自定义 placeholder，非 antd 内置 CSS）。
+    // ★ §9 B4 更正：antd Table 未定义 .column-money CSS 规则（全仓搜仅命中 demo 源码 + snapshot），
+    //   该 className 是演示 column.className 透传的 placeholder，antd 自身不消费——两栏均无视觉高亮。
+    // data-grid 接口全兼容阶段已支持 column.className 透传（数据格 + 表头格），此处透传与 antd 等价。
     className: 'column-money',
     dataIndex: 'money',
     // 注：antd demo 此处为 align:'right'；data-grid 用逻辑属性 'end'（等价 right，RTL 自动适配）。
@@ -198,19 +204,41 @@ export default function BorderedDemo() {
             <strong>对照说明（示例 1，决策 9 T1）：</strong>bordered + title/footer。
             <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
               <li>
-                <strong>bordered</strong>：表格外边框 + 单元格竖线 + 表头 ::before 抑制（避免双线）。
-                两侧均应边框完整。
+                <strong>bordered 外边框</strong>：data-grid <code>.dg-wrapper.dg-bordered</code> 整框
+                <code>var(--dg-border)</code>（= antd <code>tableBorder = 1px solid #f0f0f0</code>，
+                桥接 <code>--ant-line-width</code>/<code>--ant-line-type</code>/<code>--ant-table-border-color</code>，
+                跟随主题）。antd 外框由 title/container/footer 三部分拼成（bordered.ts:43-52），data-grid 简化为
+                整框 + title/footer 仅画分隔线，视觉等价。两侧外框 color/width/style 一致。
               </li>
               <li>
-                <strong>title/footer</strong>：上方 dg-title（bordered 加底边框）+ 下方 dg-footer
-                （bordered 加顶边框）。两侧均应渲染 'Header' / 'Footer'。
+                <strong>bordered 单元格竖线</strong>：每个 cell（含末列）<code>border-inline-end</code> = 同
+                <code>--dg-border</code> token（antd bordered.ts:57-60 所有 th/td 均设 borderInlineEnd）。
+                表头竖线与表体竖线统一 token（无单独表头/表体竖线 token）。两侧竖线 color/width 一致。
               </li>
               <li>
-                <strong>Cash Assets 列差异</strong>：antd demo <code>className:'column-money'</code>
-                + <code>align:'right'</code>。右栏 antd 金额列有内置 .column-money 样式高亮；
-                左栏 data-grid 已透传 className（接口全兼容阶段支持）但本 demo CSS 未定义该类
-                → <strong>无视觉高亮</strong>（对照点：className 透传 vs CSS 消费）。align 两栏等价
-                （data-grid 'end' = antd 'right'）。
+                <strong>表头 ::before 抑制</strong>：bordered 模式表头分隔竖线（非 bordered 的
+                <code>[data-leaf-index]::before</code>）被抑制（<code>background-color: transparent !important</code>，
+                对齐 antd bordered.ts:68-71），避免与 cell border-inline-end 双线。两侧表头仅 cell border 竖线。
+              </li>
+              <li>
+                <strong>title/footer 边框</strong>：上方 dg-title（bordered 加 border-bottom 分隔线）+ 下方 dg-footer
+                （bordered 加 border-top 分隔线）。两侧均应渲染 'Header' / 'Footer'，中间分隔线 color/width 一致。
+              </li>
+              <li>
+                <strong>★ 有 footer 时底部圆角</strong>（§11 bordered 修复）：antd radius.ts:61-63
+                <code>.ant-table-footer {'{'} borderRadius: 0 0 tableRadius tableRadius {'}'}</code> 配合
+                <code>.ant-table</code> 顶圆角，有 footer 时表格**四角圆角**。data-grid 此前 .dg-wrapper 仅顶圆
+                （<code>border-radius: var(--dg-radius) var(--dg-radius) 0 0</code>），有 footer 时底部直角与 antd 不符。
+                修复：<code>.dg-wrapper:has(.dg-footer) {'{'} border-radius: var(--dg-radius) {'}'}</code>（四角圆）。
+                示例 1 有 footer → 两侧底边均应圆角 8px（= tableRadius = borderRadiusLG）。
+              </li>
+              <li>
+                <strong>Cash Assets 列（.column-money）</strong>：antd demo <code>className:'column-money'</code>
+                + <code>align:'right'</code>。★ <strong>§9 B4 注释失真更正</strong>：antd Table 未定义
+                <code>.column-money</code> CSS 规则（全仓搜仅命中 demo 源码 + snapshot），该 className 是演示
+                <code>column.className</code> 透传机制的 placeholder，antd 自身不消费——<strong>两栏均无视觉高亮</strong>
+                （原注释「左栏无/右栏有」对照点不存在，已更正）。className 在两栏都正常透传到 DOM，
+                仅无对应 CSS 消费（两侧等价无差异）。align 两栏等价（data-grid <code>'end'</code> = antd <code>'right'</code>）。
               </li>
             </ul>
           </div>
@@ -249,9 +277,13 @@ export default function BorderedDemo() {
             <strong>对照说明（示例 2，决策 9 T1）：</strong>bordered + fixed 组合。
             <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
               <li>
-                <strong>固定列边框</strong>：Full Name+Age 左固定、Action 右固定，bordered 模式下
-                竖向边框完整。左栏 data-grid S26 主动补 <code>border-inline-start</code> 给 fixed-end
-                边界格（修正 lun 「右 sticky 列缺左 border」缺陷）；右栏 antd 原生正确。两侧均应完整。
+                <strong>固定列组合边框</strong>：Full Name+Age 左固定、Action 右固定，bordered 模式下
+                竖向边框完整。<strong>左栏 data-grid</strong>：S26 主动补 <code>border-inline-start</code>
+                给 fixed-end 边界格（.dg-sticky-shadow-end，修正 lun 「右 sticky 列缺左 border」缺陷）+
+                <code>border-inline-end</code> 给 fixed-start 边界格（.dg-sticky-shadow-start，防御性）。
+                <strong>右栏 antd</strong>：bordered.ts:74-78 仅给 fix-right-first::after 补 borderInlineEnd
+                （fix-left-last 作为普通 cell 已有 borderInlineEnd，不需特殊处理）。data-grid 的 fixed-start
+                补全为冗余（border 重叠），视觉等价 antd。两侧均应边界完整。
               </li>
               <li>
                 <strong>fixed 取值差异</strong>：data-grid 用逻辑属性 <code>'start'/'end'</code>
@@ -259,8 +291,12 @@ export default function BorderedDemo() {
               </li>
               <li>
                 <strong>横向滚动</strong>：<code>scroll: {'{ x: "max-content" }'}</code>，两侧均可横滚，
-                固定列 sticky。横滚到尽头边界完整（对照 §9 narrow gap：task #38 暴露的右固定列脱离
-                容器问题——本示例列宽不同可能不触发，登记观察）。
+                固定列 sticky。横滚到尽头边界完整（左固定集群右边缘 + 右固定集群左边缘均有竖线）。
+              </li>
+              <li>
+                <strong>无 footer 时底部直角</strong>（与示例 1 对照）：本示例无 footer，表格底部
+                = 末行 cell border-bottom + .dg-wrapper 底框（border-box 重叠，1px），无圆角（:has(.dg-footer)
+                不命中）。与 antd 无 footer 时底部直角一致（radius.ts 的 footer 圆角规则不触发）。
               </li>
             </ul>
           </div>

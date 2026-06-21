@@ -446,6 +446,23 @@ export interface EngineHeaderCell<RecordType = any> {
   isLeaf: boolean
   /** 对应的叶子列索引（仅叶子表头格有值，用于关联数据单元格的对齐/列宽）。 */
   leafIndex?: number
+  /**
+   * 该叶子表头格是否为**全局末列**（所有叶子中 leafIndex 最大者）。
+   * 仅叶子表头格有值。用于 CSS ::before 表头分隔线排除——对齐 antd
+   * `thead th:not(:last-child)::before`（antd 末列不画右侧分隔线）。
+   * data-grid 因 grid 容器扁平（表头/表体格同为 `.dg-grid` 子节点），
+   * `:last-child` 恒指表体格，无法用 CSS 排除末列表头格，故由引擎打标记
+   * `data-leaf-last`，CSS 用 `:not([data-leaf-last])` 排除。详见 table.css 注释。
+   */
+  isLastLeaf?: boolean
+  /**
+   * 该叶子表头格是否为**其所属分组（含 >=2 叶子的祖先分组）的最右叶子**。
+   * 仅叶子表头格有值。用于 CSS ::before 表头分隔线排除——多级表头下分组右边界
+   * （即分组最右叶子的右缘）不画分隔线，对齐 antd 视觉（jsx demo：Name 分组下
+   * Last Name 不画；单层表头无分组则全部 false）。由 `gridColumnEnd` 命中某分组
+   * 表头格的 `gridColumnEnd`（且该分组跨越 >=2 叶子）判定。详见 table.css 注释。
+   */
+  isGroupLastLeaf?: boolean
   /** 原始 antd column（透传，供后续 onHeaderCell 等使用）。 */
   raw?: unknown
   /** 关联的 EngineColumnNode（用于 render 等访问）。 */
@@ -673,24 +690,30 @@ export interface EngineTableProps<RecordType = any> {
    */
   treeState?: EngineTreeState
   /**
-   * ★ §9 列宽策略 tableLayout（对齐 antd `TableProps.tableLayout`，简化版）。
+   * ★ §9 / C1 列宽策略 tableLayout（对齐 antd `TableProps.tableLayout` + rc-table mergedTableLayout）。
    *
    * **语义**：
-   *   - `'auto'`（默认）：维持现状——grid 列 track 走 `max-content`（无 width 列 = 内容宽），
-   *     `.dg-grid` 无额外 width 约束。零回归（所有无 ellipsis 的 demo 视觉不变）。
+   *   - `'auto'`：grid 列 track 走 `max-content`（无 width 列）/ `minmax(width, max-content)`（绝对 width 列）；
+   *     `.dg-grid` 加 `width:100%`（对齐 antd `<table>` CSS）+ `.dg-wrapper{overflow-x:auto}`：
+   *     内容>容器时 grid 撑宽 → `.dg-wrapper` 出横向滚动条（修 basic Action 截断）；内容<容器时撑满不留白。
    *   - `'fixed'`：约束模式——
-   *       * `.dg-grid` 加 `width:100%`（约束=容器宽，修表格溢出 S27 narrow gap）；
-   *       * 无 width 列 track 改为 `minmax(0, 1fr)`（均分剩余，`min:0` 允许收缩 < content →
-   *         触发 ellipsis 视觉生效，修 S20 gap）。
-   *       * hidden 列仍 `0fr`（M6 不变）；resized 列仍 px（M7 不变）；有 width 列仍 `toTrack(width)`。
+   *       * `.dg-grid` 加 `width:100%`（约束=容器宽）；
+   *       * 无 width 列 track 改为 `minmax(0, 1fr)`（均分剩余，`min:0` 允许收缩 < content → ellipsis 视觉生效）；
+   *       * 绝对 width 列 track 改为 `minmax(width, 1fr)`（min=width 保底 + 1fr 比例分剩余，§11「最小绝对+比例」语义）。
+   *       * hidden 列仍 `0fr`（M6 不变）；resized 列仍 px（M7 不变，不参与 1fr）。
    *
-   * **派生位置**：由适配层 Table.tsx 派生（显式 tableLayout > ellipsis 列隐式 fixed > auto）后传入。
-   *   引擎层只消费、不派生（保持单一真理源）。
+   * **派生位置**：由适配层 Table.tsx 派生（对齐 antd mergedTableLayout：显式 tableLayout >
+   *   fixColumn ? (scroll.x==='max-content' ? 'auto' : 'fixed') > (fixHeader||sticky||ellipsis ? 'fixed' : 'auto')）
+   *   后传入。引擎层只消费、不派生（保持单一真理源）。
    *
    * **与 scroll.x/M2 固定列/M4 虚拟/S34 sticky 的关系**：
-   *   - 这些场景列宽依赖 max-content 测量（固定列 sticky 偏移累加、虚拟列 track）；
-   *     派生策略**仅 ellipsis 触发 fixed**，避免在这些场景误切 fixed 破坏测量（详见 Table.tsx 注释）。
-   *   - 若用户显式传 `tableLayout:'fixed'`，则覆盖这些场景的列宽策略（用户自负）。
+   *   - C1 完整版派生**包含 fixColumn/fixHeader/sticky 触发 fixed**（对齐 antd，修 §9 task#38 virtual-list
+   *     fixed-end 脱离：fixed 模式下无 width 列 minmax(0,1fr) 填满 scrollX，fixed-end 始终贴右）；
+   *     max-content scroll.x 下 fixColumn 保持 auto（让内容自然撑宽）。
+   *   - M2 固定列偏移不受影响（useStickyColumns 用 ResizeObserver 实测 DOM 宽度，不依赖 col.width 数值）。
+   *   - S34 sticky 模式：`.dg-grid` 不加 width:100%（保留 width:auto，让 min-width:scrollX 撑宽页面），
+   *     1fr track 在 auto-sized grid 中退化为 max-content（视觉等价原 auto 行为）。
+   *   - 若用户显式传 `tableLayout:'fixed'`，则覆盖派生（用户自负）。
    */
   tableLayout?: 'auto' | 'fixed'
   /**
@@ -825,6 +848,20 @@ export interface EngineTableProps<RecordType = any> {
    * TableProps.rowHoverable。未提供（undefined）时默认 true（保持现有 hover 行为不变，零回归）。
    */
   rowHoverable?: boolean
+  /**
+   * ★ §11 C2 tree-data 种子 #3（共享改动）：行选中态判定回调。
+   *
+   * 适配层（Table.tsx）传 `selection.isSelected`（M5 useRowSelection）→ 引擎在命中选中行的
+   * **所有 body cell** 上加 `dg-row-selected` 类，CSS 消费 `--ant-table-row-selected-bg`
+   * （normal）+ `--ant-table-row-selected-hover-bg`（hover），对齐 antd `.ant-table-row-selected`。
+   *
+   * 对齐 antd `components/table/style/selection.ts:97-108`：
+   *   `.ant-table-row-selected > .ant-table-cell { background: tableSelectedRowBg }`
+   *   `.ant-table-row-selected > .ant-table-cell-row-hover { background: tableSelectedRowHoverBg }`
+   *
+   * 未提供（undefined）时不加 dg-row-selected 类（无 rowSelection 的 demo 零回归）。
+   */
+  isRowSelected?: (record: RecordType) => boolean
 }
 
 /**

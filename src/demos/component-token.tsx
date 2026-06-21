@@ -36,12 +36,31 @@
  *   默认开启分页不同，但 demo 行为等价）。
  * - scroll.y：决策 7——data-grid 用 `true`（CSS 自适应，父容器 240px）；antd 用 240（数字）。
  *
- * === ★ §9 S30 cellFontSize 已知 gap（如实保留对照）===
+ * === ★ §9 S30 cellFontSize 消费（已对齐 antd）===
  *
- * `cellFontSize`/`cellFontSizeMD`/`cellFontSizeSM` token 已通过 useToken 注入 `.dg-wrapper`
- * inline `--ant-cell-font-size` 变量，但 data-grid 表头/表体字号样式**未消费该变量**
- * （computed fontSize 14px 非 token 16）→ 左栏 ConfigProvider theme cellFontSize 视觉不生效
- * （变量在，子样式未读），右栏 antd 原生消费 → **字号对照可见差异**（左 14 / 右 16）。
+ * 历史背景：主题注入重构（task #26/#27）前，cellFontSize token 虽注入但表头/表体字号
+ * 未消费该变量（旧 demo 注释曾记「computed fontSize 14 非 token 16」gap）。重构后已对齐：
+ *
+ * 注入链（Table.tsx `tableTokenToCssVars`，逐 antd 源码复刻）：
+ *   `cellFontSize` 在 antd `prepareComponentToken` 默认输出
+ *   （`ant-design/components/table/style/index.ts:467`）→ `prefixToken` 重命名为
+ *   `TableCellFontSize` → `transformToken` + `token2CSSVar` 产出
+ *   `--ant-table-cell-font-size`（注意：是 `--ant-table-cell-font-size`，非旧注释误记的
+ *   `--ant-cell-font-size`——cellFontSize 在 prepareComponentToken 默认输出故经 prefixToken 加
+ *   `Table` 前缀，与 cellPaddingBlock → `--ant-table-cell-padding-block` 同款）。MD/SM 同理产出
+ *   `--ant-table-cell-font-size-md` / `-sm`。
+ *
+ * 消费链（tokens.css + table.css）：
+ *   `.dg-wrapper { font-size: var(--dg-font-size) }`（table.css:16）→
+ *   `--dg-font-size: var(--ant-table-cell-font-size)`（tokens.css:160，base/large）；
+ *   `.dg-wrapper.dg-size-middle` 覆盖 `--dg-font-size: var(--ant-table-cell-font-size-md)`
+ *   （tokens.css:206）；`.dg-size-small` 覆盖为 `-sm`（tokens.css:212）。
+ *   `.dg-cell` / `.dg-cell-header` 无 font-size 声明 → 继承 `.dg-wrapper` 的字号。
+ *
+ * 结论：本 demo `cellFontSize:16` / `cellFontSizeMD:16` / `cellFontSizeSM:14` →
+ *   左栏 data-grid 表头/表体 computed fontSize=16（large/medium），small=14（与右栏 antd 一致）。
+ *   antd `genSizeStyle`（style/size.ts:13-28）同样以 `tableFontSize`/`tableFontSizeMiddle`/
+ *   `tableFontSizeSmall` 设 `.ant-table[-medium|-small] { font-size }`，单元格继承——机制等价。
  */
 
 import { useState } from 'react'
@@ -431,13 +450,16 @@ export default function ComponentTokenDemo() {
                 <code> scroll:&#123;y:240&#125;</code>（数字）。
               </li>
               <li>
-                <strong>★ §9 S30 cellFontSize 已知 gap</strong>：cellFontSize token 已通过
-                useToken 注入 <code>.dg-wrapper</code> inline
-                <code> --ant-cell-font-size</code> 变量，但 data-grid 表头/表体字号样式
-                <strong> 未消费该变量</strong>（computed fontSize 14px 非 token 16）→ 左栏
-                cellFontSize 视觉不生效（变量在，子样式未读），右栏 antd 原生消费 →
-                <strong> 字号对照可见差异</strong>（左 14 / 右 16）。padding/bg/color/border 等
-                其他 token 两栏均消费生效，视觉一致。
+                <strong>★ §9 S30 cellFontSize 消费（已对齐）</strong>：ConfigProvider theme
+                <code> cellFontSize:16</code>（large）/ <code>cellFontSizeMD:16</code>（medium）/
+                <code>cellFontSizeSM:14</code>（small）→ 经 <code>tableTokenToCssVars</code> 注入
+                <code>.dg-wrapper</code> inline <code>--ant-table-cell-font-size[-md|-sm]</code>
+                变量 → <code>.dg-wrapper&#123;font-size:var(--dg-font-size)&#125;</code>（<code>--dg-font-size</code>
+                按 size 桥接 <code>--ant-table-cell-font-size[-md|-sm]</code>）→ 表头/表体格继承 →
+                <strong> 左右两栏 computed fontSize 均为 16（large/medium）/ 14（small），逐值一致</strong>。
+                antd <code>genSizeStyle</code>（style/size.ts）同款机制（<code>.ant-table&#123;font-size:tableFontSize&#125;</code>
+                + <code>.ant-table-medium/-small</code> 覆盖，单元格继承）。旧 §9「未消费」gap
+                在主题注入重构（task #26/#27）后已闭合，本 demo 字号现已对齐。
               </li>
               <li>
                 <strong>pagination</strong>（已知差异）：data-grid 默认不分页；本 demo 显式传
