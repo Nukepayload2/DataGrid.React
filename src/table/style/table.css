@@ -87,6 +87,27 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  /* ★ 任务 O（数据区域重复滚动条防御）：
+   *
+   * 数据区域模式（scroll.y===true）下显式抑制 `.dg-wrapper` 自身的原生横向滚动条，
+   * 把横向滚动交给内部 `.dg-scroll`（FloatingScrollBar 包装，悬浮条独占视觉）。
+   *
+   * 【防御性 no-op 论证】：当前 flex 链完整时（`.dg-wrapper.dg-data-area` flex column →
+   *   `.dg-scroll-wrap` flex:1; min-height:0 → `.dg-scroll` flex:1; overflow:auto），内部
+   *   `.dg-scroll` 吸收所有横向溢出（其 width:100% 不撑宽父链），`.dg-wrapper` 自身
+   *   scrollWidth === clientWidth，`overflow-x:auto` 与 `overflow-x:hidden` 视觉等价（都不出条）——
+   *   即本规则在正常模式下是 no-op，零视觉风险。
+   *
+   * 【为何仍显式声明 hidden】：若 flex 链被破坏（如 loading Spin 包裹 tableContent 破坏
+   *   `.dg-data-area` 的 flex item 结构，见 Table.tsx:82-84 注释 + loading Spin 包裹风险），
+   *   或后续重构误改 flex 链，`.dg-wrapper` 可能重新承担横向溢出 → 冒出重复原生条（与内部
+   *   FloatingScrollBar 双条）。显式 `overflow-x:hidden` 阻止该退化，符合用户规则"数据区域
+   *   有悬浮滚动条时表格本体不应再有原生滚动条"。即便 flex 链完整，hidden 也比 auto 更明确表达
+   *   "wrapper 不承担横向滚动"的语义（auto 是"可能出条"的歧义声明）。
+   *
+   * 【零回归】：非数据区域模式（无 scroll.y）的 `.dg-wrapper` 不命中本规则，保留 line 35 的
+   *   `overflow-x:auto`（basic/head 等 demo 的横向滚动行为不变）。 */
+  overflow-x: hidden;
 }
 /* data-area 下 GridTable 渲染的 .dg-scroll-wrap（FloatingScrollBar 包装）填满剩余空间。
    wrap 内部 .dg-scroll 由 GridTable inline style 设 flex:1 + overflow-y:auto。
@@ -96,6 +117,34 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* === 任务 E：pagination/footer 滚动条出框修复（内容区滚动模式）===
+ *
+ * `.dg-wrapper.dg-content-scrolled`：存在 pagination（top/bottom）或 footer 且非数据区域、
+ * 非 sticky 时，由 Table.tsx 加此类。把 `.dg-wrapper` 的横向滚动交给内部 `.dg-scroll`
+ * （Table 组装层包在 `<GridTable>` 外的 `<div class="dg-scroll">`，overflow-x:auto），
+ * wrapper 自身改 overflow-x:hidden 抑制外层出条。
+ *
+ * 【修复目标】：窄视口下表格内容（`.dg-grid`）横向溢出时，滚动条落在**表格内容区内**
+ *   （`.dg-scroll` 底沿，圆角框内、pagination/footer **之上**），对齐 antd 范式（antd 滚动条
+ *   在 `.ant-table-content` 内、pagination 之上）。原 C1 的 `.dg-wrapper{overflow-x:auto}`
+ *   把滚动条挂在 wrapper 底沿——wrapper 含 pagination/footer，底沿在它们之下、圆角框外，出框。
+ *
+ * 【零回归论证】：
+ *   - 非 content-scrolled 模式（basic/head/ellipsis/row-selection 等无 pagination/footer 的 demo）：
+ *     `.dg-wrapper` 不加 dg-content-scrolled 类，保留 line 35 的 `overflow-x:auto`（C1 现状），
+ *     滚动行为不变（wrapper 出条，紧贴表格底，无出框问题）。
+ *   - content-scrolled 模式：Table.tsx 同步在 `<GridTable>` 外包 `.dg-scroll`（overflow-x:auto），
+ *     该 `.dg-scroll` 承担横向滚动，wrapper hidden 不出条，滚动条在内容区内。
+ *
+ * 【与 dg-sticky 互斥】：sticky 模式走页面级滚动（`.dg-wrapper.dg-sticky` overflow:visible，
+ *   line 59-62），Table.tsx 的 contentScrolledEnabled 判定已排除 stickyClassEnabled，两者不同时触发。
+ * 【与 dg-data-area 互斥】：数据区域模式（scroll.y）的横向滚动由内部 `.dg-scroll`（FloatingScrollBar）
+ *   处理（见上方 dg-data-area 块的 overflow-x:hidden + 任务 O），contentScrolledEnabled 判定
+ *   已排除 dataAreaClassEnabled，两者不同时触发。 */
+.dg-wrapper.dg-content-scrolled {
+  overflow-x: hidden;
 }
 
 .dg-title,
@@ -199,6 +248,30 @@
   position: relative;
   display: flex;
   align-items: center;
+  /* ★ P2 任务（cell line-height 对齐 antd）：显式声明 line-height 跟随 antd。
+   *
+   * antd 源码依据（已读，不猜）：`.ant-table-cell` / `thead>tr>th` / `tbody>tr>td` 等 cell 选择器
+   *   （components/table/style/index.ts:288-300）**自身不声明 line-height**——它们靠 `.ant-table` 根节点
+   *   经 `resetComponent(token)`（components/style/index.tsx:12-23 第 19 行）设 `lineHeight: token.lineHeight`
+   *   下推，所有 td/th 通过继承拿到。antd 全局 lineHeight = (fontSize+8)/fontSize（genFontSizes.ts:1-3），
+   *   默认主题 14px → 1.5715 unitless → @14px 解析 ≈ 22px。
+   *
+   * data-grid 原本 cell 未声明 line-height（继承浏览器默认 `normal` ≈ 18px@14px）——每行矮 4px，
+   * 三档 size 行高均偏矮（N13 回归，memory「候选全局修」）。本规则显式消费 `var(--ant-line-height)`
+   * （unitless，跟随主题字号缩放；未接入主题时 tokens.css fallback 1.5715 兜底）对齐 antd。
+   *
+   * ★ 为何不破坏：
+   *   - **ellipsis 列**（.dg-cell-ellipsis .dg-cell-inner）：`white-space:nowrap` 单行，line-height 不影响
+   *     单行高度计算（nowrap 下 line-height 只影响行内基线，cell 高度仍由 padding + flex 决定）。
+   *   - **表头格**（.dg-cell-header）：antd 表头 cell 同样通过 resetComponent 继承 lineHeight（无独立表头
+   *     line-height），故表头 line-height 也应是 1.5715——本规则作用在 .dg-cell（表头/表体共同的基类），
+   *     表头同步对齐，正确。
+   *   - **size 切换**（dg-size-middle/small）：antd size 只改 padding + fontSize（genSizeStyle size.ts:17-28），
+   *     line-height 恒为全局 token（1.5715 unitless，不随 size 变）——本规则用 unitless var，随 size 字号
+   *     自动按比例缩放（@middle/small 仍 1.5715×字号），与 antd 一致。
+   *   - **行高对齐 antd 实测**（验证者核对值）：large 55 / medium 47 / small 39（padding + line-height 22）。
+   *     原 line-height:normal(18px) 下 large 51 / medium 43 / small 35——本规则 +4px 对齐 antd。 */
+  line-height: var(--ant-line-height);
   /* 默认不拉伸子节点，让内容自然分布 */
 }
 
@@ -267,13 +340,30 @@
    分组格通常居中（由 JS 内联 textAlign=center 实现）。
    M6：overflow:hidden 作为防御性裁剪——当分组格的子叶子全部隐藏（track 全为 0fr）时，
    父格内容需被裁剪，避免溢出到邻格。正常分组格内容不会超过自身 track 宽度，不受影响。
-   ★ Round 2 表头分隔线复刻：分组格**无底边框**（对齐 antd `> tr:not(:last-child) > th[colspan]
-     { borderBottom: 0 }`）——antd 多级表头中间无横线，仅最底层叶子表头底部一条分隔线。
-     旧实现继承 .dg-cell-header 的 border-bottom，导致分组行与叶子行之间多出一条横线，与 antd 不符。 */
+   ★ 任务 U（分组格底边框分 bordered/非 bordered 对齐 antd）：
+     - **非 bordered 模式**：分组格无底边（对齐 antd `index.ts:336-338`
+       `> tr:not(:last-child) > th[colspan] { borderBottom: 0 }`）——antd 多级表头中间无横线，
+       仅最底层叶子表头底部一条分隔线。本规则显式 `border-bottom: 0` 抹掉继承自
+       `.dg-cell-header { border-bottom: var(--dg-border) }`（line 333）的底边。
+     - **bordered 模式**：antd `bordered.ts:64-66` `> thead > tr:not(:last-child) > th { borderBottom: tableBorder }`
+       重新给**所有非末行表头格**（含 colspan 分组格）画底边——bordered.ts 源序在 index.ts 之后，
+       bordered 规则覆盖 index 的 borderBottom:0，故 bordered 分组格有底边。data-grid 同步：下方
+       `.dg-wrapper.dg-bordered .dg-cell-header-group` 规则画回底边。 */
 .dg-cell-header-group {
   justify-content: center;
   overflow: hidden;
+  /* 非 bordered：分组格无底边（对齐 antd index.ts:336-338）。bordered 模式由下方 .dg-bordered 规则补回。*/
   border-bottom: 0;
+}
+
+/* ★ 任务 U：bordered 模式分组格补回底边（对齐 antd bordered.ts:64-66）。
+   antd `> thead > tr:not(:last-child) > th { borderBottom: tableBorder }` 给所有非末行表头格
+   （含 colspan 分组格）画底边。data-grid `.dg-cell-header-group` 恒在非末行（末行是叶子
+   `.dg-cell-header[data-leaf-index]`），故无条件给所有分组格画底边，符合 :not(:last-child) 语义。
+   源序：本规则在 .dg-cell-header-group { border-bottom: 0 } 之后，特异性 (0,3,0) > (0,1,0)，
+   bordered 下双重覆盖胜出。 */
+.dg-wrapper.dg-bordered .dg-cell-header-group {
+  border-bottom: var(--dg-border);
 }
 
 /* ★ §11 colspan-rowspan 对齐：跨列叶子表头格（data-header-colspan，headerColSpan>=2）默认居中，
@@ -608,33 +698,73 @@
   background: var(--dg-row-hover-bg);
 }
 
-/* 固定列边缘阴影（start 侧最右一列的右沿 / end 侧最左一列的左沿，向内容方向投射）。
+/* 固定列边缘阴影（start 侧最右一列右沿 / end 侧最左一列左沿，画在**固定列外侧的中间区域**，
+ * 从固定列边缘向中间扩散——暗的是中间列，不是固定列自己）。
  *
- * ★ §11 fixed-columns 对齐 antd 6.4.4 `components/table/style/fixed.ts:6-16` getShadowStyle：
- *   - antd leftShadowStyle  = `inset 10px 0 8px -8px ${colorSplit}` （inset 内阴影，投向右）
- *   - antd rightShadowStyle = `inset -10px 0 8px -8px ${colorSplit}`（inset 内阴影，投向左）
- *   方向（10px / -10px 偏移）与颜色（colorSplit = --ant-color-split）原本已对，
- *   仅缺 `inset` 关键字——Round 2 写成外投影（outset），antd 是内投影（inset）。
- *   修正：两侧都加 `inset`，与 antd 视觉一致（阴影落在固定列内侧、更含蓄）。
+ * ★★★ 返工 B（第三次，镜像问题根治）：精确复刻 antd 6.4.4 `components/table/style/fixed.ts`
+ *   的 `::after` 浮层机制。此前两次返工方向都错：
+ *     - 第一次：data-grid 直接在 cell 上用 `inset` box-shadow。但 inset 阴影**恒裁在 cell 盒子内**
+ *       （无论 ±10px，都画在 cell 自己内部），暗的是 Name/Gender 自己——与 antd 镜像。
+ *     - 第二次：翻转 inset 符号（start `inset -10px`、end `inset +10px`）。符号翻转无用，inset
+ *       仍在 cell 内部作画——用户清缓存刷新后仍镜像。
  *
- * 方向语义（与 antd 对照）：
- *   - `.dg-sticky-shadow-start`（start 侧最右一列）→ 右沿阴影 → `inset 10px 0 ...`（偏右）
- *     对齐 antd `&-start:after { insetInlineStart: 100% }` + `&-start-shadow-show:after { leftShadowStyle }`
- *     （antd 把 :after 放在 start 集群右边缘，leftShadowStyle 的 inset 右投影）。
- *   - `.dg-sticky-shadow-end`（end 侧最左一列）→ 左沿阴影 → `inset -10px 0 ...`（偏左）
- *     对齐 antd `&-end:after { insetInlineEnd: 100% }` + `&-end-shadow-show:after { rightShadowStyle }`。
+ * ★ antd 真机制（fixed.ts 源码逐行确认）：
+ *   1. `sharedShadowStyle`（fixed.ts:24-32）：一个 30px 宽的 `::after` 绝对定位浮层——
+ *      `position:absolute; top:0; bottom:-lineWidth; width:30px; content:'""'; pointer-events:none`。
+ *   2. 浮层定位（把浮层放在固定列**外侧** = 中间区域）：
+ *      - `&-start:after { insetInlineStart: 100% }`（fixed.ts:51-53）：start 浮层左边界 = cell
+ *        右边界（Name 右沿），浮层向**右**延伸 30px 到中间区域。
+ *      - `&-end:after { insetInlineEnd: 100% }`（fixed.ts:55-57）：end 浮层右边界 = cell 左边界
+ *        （Gender 左沿），浮层向**左**延伸 30px 到中间区域。
+ *   3. 阴影方向（box-shadow inset 作用在**浮层**上，不是 cell 上）：
+ *      - `leftShadowStyle = inset 10px 0 8px -8px`（fixed.ts:9）：浮层**左内沿**作画（朝 Name），
+ *        阴影从 Name 右沿向**中间区域**扩散。
+ *      - `rightShadowStyle = inset -10px 0 8px -8px`（fixed.ts:11-12）：浮层**右内沿**作画（朝 Gender），
+ *        阴影从 Gender 左沿向**中间区域**扩散。
+ *   ⇒ 阴影画在中间区域（暗中间列），固定列自身不暗。
+ *
+ * ★★★ §11 当年把 antd outset 等效解读成 data-grid cell `inset` 是误读——antd 的 `inset` 作用在
+ *   `::after` 浮层上（浮层在 cell 外侧），而 data-grid 直接套到 cell 上时 inset 语义变为"cell 内部"。
+ *   正确复刻须用 `::after` 浮层（选项 B），不能用 cell outset（选项 A 虽可行但 antd 用浮层，B 更精确，
+ *   且不受未来 cell 加 overflow:hidden 裁剪影响——`.dg-cell-inner` 已 overflow:hidden，未来若把阴影
+ *   移到 inner 上 outset 会被裁，::after 浮层独立于 cell overflow 永远安全）。
+ *
+ * ★ data-grid 复刻（::after 浮层）：
+ *   `.dg-cell` 已 `position: relative`（table.css:248）→ `::after` 绝对定位以 cell 为上下文。
+ *   `.dg-sticky-shadow-start/end` 与 `.dg-cell-fixed-start/end` 同元素（shadowClass 返回类名加到
+ *   edge cell 上），故 `::after` 直接挂在 `.dg-sticky-shadow-*` 上（等同于挂在固定列 edge cell 上）。
+ *   浮层定位用 `left:100%`（start）/ `right:100%`（end）等价 antd 的 `insetInlineStart/End:100%`
+ *   （data-grid 暂不 RTL，left/right 显式即可；若后续支持 RTL 改 inset-inline-*）。
  *
  * ★ 已知差异（unfixable，CSS Grid 范围内不修）：
- *   antd 的 shadow-show class 由 rc-table 的横向 scroll 监听动态切换——滚到最左时 start 阴影隐藏、
- *   滚到最右时 end 阴影隐藏（`react-component/table/src/Table.tsx:825-826` shadowStart/shadowEnd）。
+ *   antd 的 `-shadow-show` class 由 rc-table 的横向 scroll 监听动态切换——滚到最左时 start 阴影
+ *   隐藏、滚到最右时 end 阴影隐藏（`react-component/table/src/Table.tsx:825-826` shadowStart/shadowEnd）。
  *   data-grid 两侧阴影恒显（纯 CSS，不脚本监听 scrollLeft）。视觉上 data-grid 滚到尽头时固定列
  *   边缘仍有一道极淡阴影线（antd 没有），属可接受差异——阴影很淡（8px 模糊 + colorSplit 0.06 alpha），
  *   不破坏视觉，反而始终提示固定列边界。如需完全一致须加 scrollLeft 监听（违反"不脚本监听"约束）。 */
-.dg-sticky-shadow-start {
+.dg-sticky-shadow-start::after,
+.dg-sticky-shadow-end::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 30px;
+  content: '';
+  pointer-events: none;
+  transition: box-shadow 0.3s ease;
+  z-index: 2;
+}
+
+/* start 侧最右一列（如 Name）：浮层定位在 cell 右沿外侧（中间区域），左边界对齐 Name 右沿。
+ *   `left:100%` 等价 antd `insetInlineStart:100%`（fixed.ts:52）。 */
+.dg-sticky-shadow-start::after {
+  left: 100%;
   box-shadow: inset 10px 0 8px -8px var(--ant-color-split);
 }
 
-.dg-sticky-shadow-end {
+/* end 侧最左一列（如 Gender）：浮层定位在 cell 左沿外侧（中间区域），右边界对齐 Gender 左沿。
+ *   `right:100%` 等价 antd `insetInlineEnd:100%`（fixed.ts:56）。 */
+.dg-sticky-shadow-end::after {
+  right: 100%;
   box-shadow: inset -10px 0 8px -8px var(--ant-color-split);
 }
 
@@ -1408,10 +1538,16 @@
 
 /* 筛选下拉面板（antd Dropdown overlay 内容容器）。
    对齐 antd `.ant-table-filter-dropdown`：min-width、背景、圆角、内边距。
-   ★ Round 2：背景走 --ant-table-filter-dropdown-bg（跟随主题）；圆角走 --ant-border-radius。 */
+   ★ 任务 H：背景走 --ant-color-bg-container（存活 alias）。
+     antd `tableFilterDropdownBg` 默认值 = `filterDropdownBg` = `colorBgContainer`
+    （components/table/style/index.ts L474/L532/L561），getComponentToken 剪枝
+     「默认值===alias 同值」的 component token → 原 `--ant-table-filter-dropdown-bg`
+     在 DOM 上为空 → 解析为空 → 背景错/透明（与任务 L stickyScrollBarBg 同款 bug 模式）。
+     改消费存活 alias `--ant-color-bg-container`（light #ffffff / dark #141414，跟随主题）。
+     圆角走 --ant-border-radius（alias，未被剪枝）。 */
 .dg-filter-dropdown {
   min-width: 120px;
-  background: var(--ant-table-filter-dropdown-bg);
+  background: var(--ant-color-bg-container);
   border-radius: var(--ant-border-radius);
   box-sizing: border-box;
   /* antd Dropdown 默认会包一层 popup 容器（带阴影/边框）；这里只管面板内部布局。 */
@@ -1542,21 +1678,20 @@
  *
  * 3. **悬浮条 hit 容器** `.dg-floating-scrollbar`：
  *    - 绝对定位：top/bottom 由 JS 注入（=表头高/summary 高，限制在数据区），right:0，width:24px。
- *    - width = thumb 最大宽(hover 8px) + 左 8px + 右 8px = 24px（thumb 周围各 8px hit 区）。
- *      thumb 在 hit 容器内水平居中（left:50% + translateX(-50%)），故 thumb 任何状态（默认 2px /
- *      hover 8px）左右两侧均至少 8px hit 区——鼠标进入 thumb 周围 8px 即视为 hover thumb。
+ *    - width = 24px（hit 区）。★ 任务 K：thumb 贴右边缘（right:0），hit 区是 thumb 左侧 22px 透明扩展
+ *      （默认 2px thumb + 左侧 22px = 24px；hover 8px thumb + 左侧 16px = 24px）。鼠标进入 thumb 左侧
+ *      22px 即视为 hover thumb。原位贴边（非内移），与 antd 原生滚动条位置感一致。
  *    - z-index 高于单元格（盖在内容上但不阻挡——pointer-events 由 thumb 控制）。
  *    - 自身 pointer-events:auto 且 background 透明（仅作 hover 触发器，不阻挡视觉）。
  *      ★ 注意：hit 容器 pointer-events:auto 会阻挡其下方 24px 区域的表格交互（右边缘 24px 列内容
- *        点击被拦截）。权衡：24px（thumb 居中 + 周围各 8px）是 macOS 风格宽 hit 区的常规代价，
- *        可接受。若需更窄 hit，可减小周围 hit 区（如左右各 4px → 总宽 16px）。
+ *        点击被拦截）。权衡：24px 是 macOS 风格宽 hit 区的常规代价，可接受。
  *
  * 4. **thumb** `.dg-floating-scrollbar-thumb`：
- *    - 默认：width 2px，半透明灰 rgba(0,0,0,0.25)，水平居中在 hit 容器（left:50% + translateX(-50%)）。
- *    - hit 容器 :hover 或 thumb :hover / 拖动时：width 8px，实色 rgba(0,0,0,0.45)（仍居中）。
+ *    - 默认：width 2px，半透明灰（= colorTextPlaceholder，light≈rgba(0,0,0,0.25)），贴右边缘。
+ *    - hit 容器 :hover 或 thumb :hover / 拖动时：width 8px，向左生长（右边缘不动），实色 colorTextHeading。
  *    - transition: width/background 0.2s。
- *    - 高度/垂直位置由 JS 注入（height + transform: translateX(-50%) translateY(...)）。
- *    - cursor: pointer（提示可拖动）；border-radius 圆角（macOS 同款胶囊）。
+ *    - 高度/垂直位置由 JS 注入（height + transform: translateY(...)，无 translateX）。
+ *    - cursor: pointer（提示可拖动）；border-radius 圆角（antd stickyScrollBarBorderRadius=100，胶囊）。
  */
 .dg-scroll-wrap {
   position: relative;
@@ -1582,22 +1717,29 @@
 }
 
 /* === 纵向悬浮条（scroll.y）===
-   hit 容器：右侧，width = thumb 最大宽(hover 8px) + 左 8px + 右 8px = 24px（thumb 周围各 8px hit 区）。 */
+   hit 容器：右侧，width 24px（thumb 贴右边缘，左侧 22px 透明 hit 区向内扩展；hover 8px 时左侧 16px）。
+   ★ 任务 V：z-index 抬到 11（高于横 hit 容器的 10），让竖在右下角 24×24 重叠区胜出——
+     滚到底 thumb 在角落时悬停激活竖（非横）。竖是数据区域主导滚动条，角落优先级最高。 */
 .dg-floating-scrollbar-v {
   right: 0;
   width: 24px;
+  z-index: 11;
 }
 
-/* 纵向 thumb：默认细线（2px 宽），hover/拖动时变粗（8px 宽）。水平居中在 hit 容器（left:50% +
-   translateX(-50%)），故 thumb 任何状态左右两侧均至少 8px hit 区。
-   ★ Round 2：默认色走 --ant-table-sticky-scroll-bar-bg（= colorTextPlaceholder，跟随主题），
-     圆角走 --ant-table-sticky-scroll-bar-border-radius（antd 同款胶囊圆角）。 */
+/* 纵向 thumb：默认细线（2px 宽），hover/拖动时变粗（8px 宽）。★ 任务 K：贴右边缘（right:0;
+   left:auto），transform 仅 translateY（JS 注入，无 translateX）——hover 变粗时向左生长，
+   右边缘不动（原位贴边，非内移）。hit 容器 24px 透明 hit 区在 thumb 左侧（向内扩展）。
+   ★ 任务 L：默认色走 --ant-color-text-placeholder（antd stickyScrollBarBg/tableScrollThumbBg 同源
+     alias——getComponentToken 剪枝同值键，原 --ant-table-sticky-scroll-bar-bg 在 DOM 上为空，
+     故消费存活的 alias token；light≈rgba(0,0,0,0.25)，dark 可见）。
+     圆角走 --ant-table-sticky-scroll-bar-border-radius（=100，antd 同款胶囊圆角，非 alias 引用未被剪枝）。 */
 .dg-floating-scrollbar-thumb {
   position: absolute;
   top: 0;
-  left: 50%;
+  right: 0;
+  left: auto;
   width: 2px;
-  background: var(--ant-table-sticky-scroll-bar-bg);
+  background: var(--ant-color-text-placeholder);
   border-radius: var(--ant-table-sticky-scroll-bar-border-radius);
   cursor: pointer;
   pointer-events: auto;
@@ -1607,8 +1749,9 @@
   will-change: transform, height;
 }
 
-/* 纵向 hit 容器 hover（鼠标进入 thumb 周围 8px hit 区）→ thumb 变粗变实色（仍居中）。
-   ★ Round 2：hover 色走 --ant-color-text-heading（antd tableScrollThumbBgHover 同源，跟随主题）。 */
+/* 纵向 hit 容器 hover（鼠标进入 thumb 左侧 hit 区）→ thumb 变粗变实色（向左生长，右边缘不动）。
+   ★ 任务 L：hover 色走 --ant-color-text-heading（antd tableScrollThumbBgHover 同源 alias，
+     getComponentToken 剪枝后存活；light/dark 均 0.88 文字色，明显可见）。 */
 .dg-floating-scrollbar-v:hover .dg-floating-scrollbar-thumb,
 .dg-floating-scrollbar-thumb:hover {
   width: 8px;
@@ -1616,21 +1759,23 @@
 }
 
 /* === 横向悬浮条（决策 8，scroll.x）===
-   hit 容器：底部（summary 上方），height = thumb 最大高(hover 8px) + 上 8px + 下 8px = 24px
-   （thumb 周围各 8px hit 区）。left/right 由 JS 注入（默认 0/0，撑满数据区宽）。 */
+   hit 容器：底部（summary 上方），height 24px（thumb 贴底边缘，上方 22px 透明 hit 区向内扩展；
+   hover 8px 时上方 16px）。left/right 由 JS 注入（默认 0/0，撑满数据区宽）。 */
 .dg-floating-scrollbar-h {
   height: 24px;
 }
 
-/* 横向 thumb：默认细线（2px 高），hover/拖动时变粗（8px 高）。垂直居中在 hit 容器（top:50% +
-   translateY(-50%)），故 thumb 任何状态上下两侧均至少 8px hit 区。
-   ★ Round 2：颜色/圆角跟随主题（与纵向 thumb 同源 token）。 */
+/* 横向 thumb：默认细线（2px 高），hover/拖动时变粗（8px 高）。★ 任务 K：贴底边缘（bottom:0;
+   top:auto），transform 仅 translateX（JS 注入，无 translateY）——hover 变粗时向上生长，
+   底边缘不动（原位贴边，非内移）。hit 容器 24px 透明 hit 区在 thumb 上方（向内扩展）。
+   ★ 任务 L：默认色/圆角与纵向 thumb 同源（详见 .dg-floating-scrollbar-thumb 注释）。 */
 .dg-floating-scrollbar-thumb-h {
   position: absolute;
-  top: 50%;
+  bottom: 0;
+  top: auto;
   left: 0;
   height: 2px;
-  background: var(--ant-table-sticky-scroll-bar-bg);
+  background: var(--ant-color-text-placeholder);
   border-radius: var(--ant-table-sticky-scroll-bar-border-radius);
   cursor: pointer;
   pointer-events: auto;
@@ -1640,7 +1785,7 @@
   will-change: transform, width;
 }
 
-/* 横向 hit 容器 hover（鼠标进入 thumb 周围 8px hit 区）→ thumb 变粗变实色（仍居中）。 */
+/* 横向 hit 容器 hover（鼠标进入 thumb 上方 hit 区）→ thumb 变粗变实色（向上生长，底边缘不动）。 */
 .dg-floating-scrollbar-h:hover .dg-floating-scrollbar-thumb-h,
 .dg-floating-scrollbar-thumb-h:hover {
   height: 8px;

@@ -59,15 +59,22 @@ import {
   type ReactElement,
   type ReactNode,
 } from 'react'
+import { stickyCellStyle, type LeafStickyInfo } from './useStickyColumns'
 
 /**
- * Row → Cell 的上下文：传递当前行的 grid-row 线号 + fixed 标志。
+ * Row → Cell 的上下文：传递当前行的 grid-row 线号 + fixed 标志 + 叶子列 sticky 信息。
  */
 export interface SummaryRowContextValue {
   /** 该行的 grid-row 起始线号（1-based grid line）。 */
   rowLine: number
   /** 是否 sticky bottom（来自 Summary.fixed，经引擎注入）。 */
   fixed: boolean
+  /**
+   * 叶子列横向 sticky 信息（任务 J）：长度 === 叶子列数，每项含 side/offset/width/isEdge。
+   * 来自引擎 cloneElement 注入（与表体固定列同源 useStickyColumns.leafSticky）。
+   * Cell 按 `index` 取对应项，叠加横向 sticky left/right，使 summary 固定列横滚时贴边。
+   */
+  leafSticky?: Array<LeafStickyInfo | undefined>
 }
 
 export const SummaryRowContext = createContext<SummaryRowContextValue | null>(null)
@@ -125,13 +132,20 @@ export interface SummaryRowProps {
   __rowLine?: number
   /** 引擎内部注入：是否 sticky bottom。调用方不传。 */
   __fixed?: boolean
+  /**
+   * 引擎内部注入：叶子列横向 sticky 信息（任务 J）。调用方不传。
+   * 与表体固定列同源（useStickyColumns.leafSticky），透传给 Cell 实现横向 sticky。
+   */
+  __leafSticky?: Array<LeafStickyInfo | undefined>
 }
 
 export function SummaryRow(props: SummaryRowProps): ReactNode {
-  const { children, __rowLine, __fixed } = props
+  const { children, __rowLine, __fixed, __leafSticky } = props
   if (__rowLine === undefined) return children
   return (
-    <SummaryRowContext.Provider value={{ rowLine: __rowLine, fixed: !!__fixed }}>
+    <SummaryRowContext.Provider
+      value={{ rowLine: __rowLine, fixed: !!__fixed, leafSticky: __leafSticky }}
+    >
       {children}
     </SummaryRowContext.Provider>
   )
@@ -170,6 +184,20 @@ export function SummaryCell(props: SummaryCellProps): ReactNode {
       cellStyle.position = 'sticky'
       cellStyle.bottom = '0'
       cellStyle.zIndex = 2
+    }
+    // 任务 J：固定列横向 sticky —— summary 固定列 cell 横滚时贴左/右边缘，与表体固定列一致。
+    // info 取自 Context 的 leafSticky[index]（与表体固定列同源 useStickyColumns.leafSticky）。
+    // colSpan > 1 的合并格不加横向 sticky：跨固定/非固定边界时 sticky 会错位（antd 行为是合并格不 sticky）。
+    if (colSpan === 1) {
+      const info = rowCtx.leafSticky?.[index]
+      const stickyH = stickyCellStyle(info) // {position:'sticky', left/right:offset, zIndex:2} 或 {}
+      if (stickyH.position) {
+        // 与纵向 sticky bottom 合并：position 一次（同为 'sticky'），left/right + bottom 共存。
+        cellStyle.position = 'sticky'
+        if ('left' in stickyH) cellStyle.left = stickyH.left
+        if ('right' in stickyH) cellStyle.right = stickyH.right
+        // zIndex 取 stickyCellStyle 给的 2，与现有纵向 zIndex 2 一致（不冲突）。
+      }
     }
   }
   return (

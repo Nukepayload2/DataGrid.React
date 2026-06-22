@@ -174,7 +174,7 @@ export function FloatingScrollBar({
   const vHitRef = useRef<HTMLDivElement | null>(null)
   const [vThumbStyle, setVThumbStyle] = useState<CSSProperties>({
     height: 0,
-    transform: 'translateX(-50%) translateY(0)',
+    transform: 'translateY(0)',
     display: 'none',
   })
   const [trackInset, setTrackInset] = useState<{ top: number; bottom: number }>({
@@ -192,7 +192,7 @@ export function FloatingScrollBar({
   const hHitRef = useRef<HTMLDivElement | null>(null)
   const [hThumbStyle, setHThumbStyle] = useState<CSSProperties>({
     width: 0,
-    transform: 'translateY(-50%) translateX(0)',
+    transform: 'translateX(0)',
     display: 'none',
   })
   const [hTrackInset, setHTrackInset] = useState<{ left: number; right: number; bottom: number }>({
@@ -242,7 +242,7 @@ export function FloatingScrollBar({
     const thumbOffset = ratio * thumbMaxOffset
     setVThumbStyle({
       height: thumbHeight,
-      transform: `translateX(-50%) translateY(${thumbOffset}px)`,
+      transform: `translateY(${thumbOffset}px)`,
       display: 'block',
     })
   }, [])
@@ -280,7 +280,7 @@ export function FloatingScrollBar({
     const thumbOffset = ratio * thumbMaxOffset
     setHThumbStyle({
       width: thumbWidth,
-      transform: `translateY(-50%) translateX(${thumbOffset}px)`,
+      transform: `translateX(${thumbOffset}px)`,
       display: 'block',
     })
   }, [])
@@ -308,9 +308,7 @@ export function FloatingScrollBar({
           const thumbHeight = Math.max(24, trackHeight * (clientHeight / scrollHeight))
           const thumbMaxOffset = Math.max(0, trackHeight - thumbHeight)
           const ratio = container.scrollTop / maxScroll
-          vThumb.style.transform = `translateX(-50%) translateY(${
-            ratio * thumbMaxOffset
-          }px)`
+          vThumb.style.transform = `translateY(${ratio * thumbMaxOffset}px)`
         }
       } else {
         recomputeVertical()
@@ -327,9 +325,7 @@ export function FloatingScrollBar({
             const thumbWidth = Math.max(24, trackWidth * (clientWidth / scrollWidth))
             const thumbMaxOffset = Math.max(0, trackWidth - thumbWidth)
             const ratio = container.scrollLeft / maxScroll
-            hThumb.style.transform = `translateY(-50%) translateX(${
-              ratio * thumbMaxOffset
-            }px)`
+            hThumb.style.transform = `translateX(${ratio * thumbMaxOffset}px)`
           }
         } else {
           recomputeHorizontal()
@@ -458,8 +454,8 @@ export function FloatingScrollBar({
       </div>
       {/* 纵向悬浮滚动条 hit 容器：绝对定位数据区右侧（top=表头高，bottom=summary 高，right=0，width=24px）。
           hit 容器宽度 = thumb 最大宽(hover 8px) + 左 8px + 右 8px = 24px（thumb 周围各 8px hit 区）。
-          thumb 在 hit 容器内水平居中（left:50% + translateX(-50%)），默认 width 2px 细线，
-          hit 容器 :hover 时 width 8px 变粗（CSS）。 */}
+          ★ 任务 K：thumb 贴右边缘（CSS right:0; left:auto），transform 仅 translateY（无 translateX），
+            hover 变粗时向左生长（右边缘不动，原位贴边）。默认 width 2px，hit 容器 :hover 时 8px（CSS）。 */}
       <div
         ref={vHitRef}
         className="dg-floating-scrollbar dg-floating-scrollbar-v"
@@ -477,8 +473,8 @@ export function FloatingScrollBar({
       </div>
       {/* 横向悬浮滚动条（决策 8）：绝对定位数据区底部（summary 上方）。
           hit 容器高度 = thumb 最大高(hover 8px) + 上 8px + 下 8px = 24px（thumb 周围各 8px hit 区）。
-          thumb 在 hit 容器内垂直居中（top:50% + translateY(-50%)），默认 height 2px 细线，
-          hit 容器 :hover 时 height 8px 变粗（CSS）。 */}
+          ★ 任务 K：thumb 贴底边缘（CSS bottom:0; top:auto），transform 仅 translateX（无 translateY），
+            hover 变粗时向上生长（底边缘不动，原位贴边）。默认 height 2px，hit 容器 :hover 时 8px（CSS）。 */}
       {horizontal ? (
         <div
           ref={hHitRef}

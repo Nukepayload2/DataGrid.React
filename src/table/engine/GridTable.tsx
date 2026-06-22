@@ -238,6 +238,7 @@ import {
   useStickyColumns,
   type LeafStickyInfo,
 } from './useStickyColumns'
+import { useHeaderRowHeights } from './useHeaderRowHeights'
 import {
   useVirtualList,
 } from './useVirtualList'
@@ -846,6 +847,14 @@ function GridTableInner<RecordType = any>(
 
   const { mode, maxDepth, leafColumns, headerCells } = resolved
 
+  // === 任务 A：多级表头逐行累计 sticky 偏移 ===
+  // 多行表头（maxDepth>1，如 grouping-columns）启用 headerStickyTop 时，若所有表头格都 sticky top:0，
+  // 多行表头会堆叠在同一 y 重叠。本 hook 运行时测量每行高度，返回按行号升序的累计偏移数组
+  // （index k = grid-row-start k+1 的 sticky top）。表头格按其 gridRowStart 取对应偏移，逐行分层 sticky。
+  // 零回归：单行表头（maxDepth=1）→ [0] → 所有格 top:0，行为不变；showHeader=false → [] → 无影响。
+  // 仅在表头纵向 sticky 启用时才有意义（否则不消费），但 hook 本身低成本，无条件调用保持引用稳定。
+  const headerRowOffsets = useHeaderRowHeights(gridRef, showHeader ? maxDepth : 0)
+
   // ★ 接口全兼容（决策 3 第二步）：为 onHeaderRow(columns, index) 准备 columns 参数。
   // antd onHeaderRow 传入"当前表头行涉及的列"——单层表头即全部 columns；多级表头按层。
   // data-grid 简化：统一传**顶层列**（columnTree.raw 或 columns.raw）作为 columns 参数（调用方
@@ -1071,28 +1080,56 @@ function GridTableInner<RecordType = any>(
       //   - mergedTableLayout：显式 > (fixColumn ? (scroll.x==='max-content' ? 'auto' : 'fixed'))
       //     > (fixHeader||sticky||ellipsis ? 'fixed' : 'auto')（`Table.tsx:612-627`）。
       //
-      // grid-track 等效（min/max 双约束模拟 `<col width>` + `table-layout` 的「min-width=width，剩余按比例」语义）：
+      // grid-track 等效（模拟 `<col width>` + `table-layout` 的「绝对 width 列=绝对宽不参与 fr 分配、
+      // 无 width 列分剩余空间」语义）：
       //   - **绝对 width 列**（number / 非百分比字符串如 `'100px'`）：
-      //     · fixed 模式 → `minmax(width, 1fr)`：min=width（保底，总 min>容器 出横滚 / <容器 撑满不留空），
-      //       max=1fr 按比例分剩余。这正是 §11 需求「最小绝对宽度 + 比例宽」（等效 `flex:1 1 width`）。
-      //     · auto 模式 → `minmax(width, max-content)`：min=width（保底），max=content（可随内容增长，
-      //       与 antd `table-layout:auto` 下 `<col width>` 列宽=content 但至少 width 语义一致）。
+      //     · ★ 任务 Q（fixed 列严格 width，优先级最高）：**fixed 列**（column.fixed 存在）不论
+      //       tableLayout 一律 `${width}`（严格 track，内容超 clip/ellipsis）。对齐 antd 6.4.4 实测：
+      //       fixed 列恒严格 width，即便 mergedTableLayout 派生为 'auto'（fixColumn + scroll.x===
+      //       'max-content' 场景，如 fixed-columns-header demo）也不被长内容撑开。详见下方 `if (col.fixed)`
+      //       分支注释 + align-polish-tasks 任务 Q。
+      //     · fixed 模式（非 fixed 列）→ `${width}`（**绝对 track，不参与 fr 分配**）——对齐 antd
+      //       `table-layout:fixed` 下 `<col style="width:Npx">` 的语义：width 列锁定为绝对宽，剩余空间
+      //       由无 width 列分。（历史：曾用 `minmax(width, 1fr)`，结果所有列平等参与 1fr 分配 →
+      //       virtual-list 9 列全等分为 222px，而 antd 是 width 列绝对宽 + 无 width 列分剩余。
+      //       详见 align-polish-tasks 任务 D。）
+      //     · auto 模式（非 fixed 列）→ `minmax(width, max-content)`：min=width（保底），max=content
+      //       （可随内容增长，与 antd `table-layout:auto` 下 `<col width>` 列宽=content 但至少 width 语义一致）。
       //   - **百分比 width 列**（如 `'20%'`）：**原样作为 track**（不包 minmax）——antd 不转换，
       //     `<col style="width:'20%'">` 相对表格宽 20%；grid `grid-template-columns: 20%` 相对容器 20%，
       //     语义一致。minmax 包装百分比在 grid 里 min/max 同为百分比无意义，故保留原样。
-      //   - **无 width 列**：fixed → `minmax(0, 1fr)`（min:0 收缩触发 ellipsis，修 S20 gap）；
-      //     auto → `max-content`（内容宽）。
-      //   - 配合 `.dg-grid{width:100%}`（见 gridStyle）约束表格总宽=容器宽：总 min>容器 出滚动条，
-      //     总 min<容器 minmax 的 1fr/max-content 撑满容器（修 basic Action 截断 + narrow 均分）。
+      //   - **无 width 列**：fixed → `minmax(0, 1fr)`（min:0 收缩触发 ellipsis，修 S20 gap；
+      //     max=1fr 均分 width 列锁定后的剩余空间——对齐 antd `table-layout:fixed` 下无 width 列分剩余语义）；
+      //     auto → `minmax(max-content, 1fr)`（min=max-content 内容宽保底，max=1fr 拉伸填满剩余空间）。
+      //     ★ 任务 F（tree-data 列宽对齐）：原 auto 无 width 列为 `max-content`，但 CSS grid 中
+      //     `max-content` track 不会拉伸填满容器——antd `table-layout:auto`+`<table width:100%>` 行为
+      //     下无 width 列被拉伸吃掉剩余空间（实测 tree-data Name: antd 381 拉伸填满 vs data-grid 142.7 内容宽不填满）。
+      //     改为 `minmax(max-content, 1fr)`：min 保底内容宽（对齐 antd auto 语义），max=1fr 在容器有剩余时
+      //     拉伸填满（对齐 antd `<table width:100%>` 拉伸无 width 列填满语义）。
+      //   - 配合 `.dg-grid{width:100%}`（见 gridStyle）约束表格总宽=容器宽：width 列绝对 track 之和
+      //     >容器 时出横滚；<容器 时剩余由无 width 列的 1fr 撑满（修 basic Action 截断 + narrow 均分）。
       const w = toTrack(col.width)
       if (w !== undefined) {
         // 百分比 width（含 '%'）：原样 track（antd `<col style="width:xx%">` 等效）。
         if (typeof col.width === 'string' && col.width.includes('%')) return w
-        // 绝对 width：minmax 策略（fixed=1fr 比例 / auto=max-content 可增长）。
-        return tableLayout === 'fixed' ? `minmax(${w}, 1fr)` : `minmax(${w}, max-content)`
+        // ★ 任务 Q（fixed 列严格 width）：fixed 列（column.fixed 存在）**不论 tableLayout 一律严格
+        //   `${width}` track**（不包 minmax，内容超出 clip/ellipsis）。对齐 antd 6.4.4 实测：fixed 列
+        //   恒严格 width，与 tableLayout 模式无关——mergedTableLayout 即便派生为 'auto'（fixColumn +
+        //   scroll.x==='max-content' 场景，如 fixed-columns-header demo），antd fixed 列仍严格 100/100/100，
+        //   长内容 "Edward King 0" 被裁剪而非撑开（N2 回归：dg 原 auto 模式 `minmax(width,max-content)`
+        //   把 FullName 撑到 128.1px，Column1-7 非 fixed 撑到 187px——其中 Column1-7 非 fixed 不在本任务
+        //   范围，本任务只对齐 fixed 列）。
+        //   · 任务 D（fixed 模式）下 fixed 列本就是 `${width}`，此处统一后行为不变（幂等）。
+        //   · 非 fixed 的 width 列保持模式行为（fixed→`${w}` / auto→`minmax(width,max-content)`）。
+        if (col.fixed) return `${w}`
+        // 绝对 width（非 fixed）：fixed=绝对 track（不参与 fr）/ auto=minmax(width,max-content) 可增长。
+        return tableLayout === 'fixed' ? `${w}` : `minmax(${w}, max-content)`
       }
-      // 无 width：fixed → minmax(0,1fr) 收缩（ellipsis 视觉）；auto → max-content（零回归）。
-      return tableLayout === 'fixed' ? 'minmax(0, 1fr)' : 'max-content'
+      // 无 width：fixed → minmax(0,1fr) 收缩（ellipsis 视觉，分剩余）；
+      // auto → minmax(max-content,1fr) 拉伸填满容器（对齐 antd auto+width:100% 拉伸，任务 F）。
+      // ★ 任务 Q：无 width 的 fixed 列（如 fixed-gapped-columns 的 Column1 fixed:start 无 width）仍走此
+      //   分支（保持原 minmax 行为）——antd 该列实际也按内容/auto 布局，无声明 width 不可严格。
+      return tableLayout === 'fixed' ? 'minmax(0, 1fr)' : 'minmax(max-content, 1fr)'
     })
 
     // S22：summary 区 tracks（grid-template-rows 末尾追加，每行一条 'auto' track）。
@@ -1149,12 +1186,14 @@ function GridTableInner<RecordType = any>(
     // ★ C1 列宽策略（§11 第 0 步）：`.dg-grid` 恒定 `width:100%`（对齐 antd `<table>` CSS
     //   `.ant-table table{width:100%}`，见 `ant-design/components/table/style/index.ts:280-286`）。
     //   这是修 basic Action 截断 + 该出的横滚条出现的核心——
-    //   - auto 模式：列取 `max-content`/`minmax(width,max-content)`，width:100% 让 grid 总宽
-    //     = max(100%, Σmax-content)：内容>容器时 grid 撑宽（溢出 → 外层 .dg-scroll/.dg-wrapper
-    //     overflow 出滚动条，即 antd `<table>` 在 auto 下内容溢出容器的等效行为）；内容<容器时
-    //     grid=容器宽（撑满，不留白）。配合 `max-content` track，列宽仍=内容宽（行为与 antd auto 一致）。
-    //   - fixed 模式：列 `minmax(0,1fr)`/`minmax(width,1fr)`，width:100% 让 1fr 均分容器剩余，
-    //     minmax(width,..) 的 Σmin>容器 时溢出滚动（修 S27 narrow 均分 + S20 ellipsis）。
+    //   - auto 模式：列取 `minmax(max-content,1fr)`（无 width）/ `minmax(width,max-content)`（有 width），
+    //     width:100% 让 grid 总宽=容器宽（撑满）：无 width 列的 1fr 拉伸填满剩余空间（对齐 antd auto+
+    //     width:100% 拉伸无 width 列填满语义，任务 F）；有 width 列 max-content 增长，内容>容器时
+    //     grid 因 max-content 撑宽溢出 → 外层 .dg-scroll/.dg-wrapper overflow 出滚动条（即 antd `<table>`
+    //     在 auto 下内容溢出容器的等效行为）。
+    //   - fixed 模式：绝对 width 列锁定为绝对 track（不参与 fr 分配），无 width 列 `minmax(0,1fr)`
+    //     分剩余空间；width:100% 让无 width 列的 1fr 撑满 width 列锁定后的剩余，
+    //     width 列绝对宽之和>容器 时溢出滚动（修 S27 narrow 均分 + S20 ellipsis）。
     //   - 与 scrollMinWidth（scroll.x 下 min-width:scrollX）正交：min-width 仍生效（至少 scrollX 宽），
     //     width:100% 在容器更宽时撑满（fixed 列宽策略在容器约束下均分）。
     //   ★ S34 sticky 例外：sticky 模式下**不加** width:100%（保留 width:auto）——sticky 需页面级
@@ -1225,6 +1264,12 @@ function GridTableInner<RecordType = any>(
                     sticky={headerSticky.get(cell.key)}
                     headerStickyTop={headerStickyTop}
                     stickyHeaderOffset={stickyHeaderOffset}
+                    // 任务 A：按 cell.gridRowStart 取逐行累计偏移，多级表头分层 sticky 避免堆叠。
+                    headerStickyTopOffset={
+                      cell.gridRowStart >= 1
+                        ? headerRowOffsets[cell.gridRowStart - 1] ?? 0
+                        : 0
+                    }
                     resizeEnabled={resizeEnabled}
                     onResizerPointerDown={onResizerPointerDown}
                     resizingKey={resizingKey}
@@ -1321,9 +1366,10 @@ function GridTableInner<RecordType = any>(
           ) : null}
           {/* S22 汇总 summary 区：grid 末尾的 summary 行。
               summaryParsed.rows 为解析得到的 Summary.Row 元素列表；引擎对每个 Row cloneElement
-              注入 __rowLine（grid-row 起始线号 = summaryStartLine + rowIndex）+ __fixed（sticky bottom）。
-              Row 内部通过 Context 把 rowLine/fixed 传给其 Cell 子节点，Cell 据此设 grid-row +
-              gridColumn + sticky bottom。 */}
+              注入 __rowLine（grid-row 起始线号 = summaryStartLine + rowIndex）+ __fixed（sticky bottom）
+              + __leafSticky（任务 J：固定列横向 sticky 信息，与表体固定列同源 leafSticky）。
+              Row 内部通过 Context 把 rowLine/fixed/leafSticky 传给其 Cell 子节点，Cell 据此设 grid-row +
+              gridColumn + sticky bottom + 横向 sticky left/right。 */}
           {summaryParsed && summaryStartLine > 0
             ? summaryParsed.rows.map((row, rowIndex) => {
                 const rowLine = summaryStartLine + rowIndex
@@ -1331,6 +1377,7 @@ function GridTableInner<RecordType = any>(
                   key: `dg-summary-row-${rowIndex}`,
                   __rowLine: rowLine,
                   __fixed: summaryParsed.fixed,
+                  __leafSticky: leafSticky,
                 } as Partial<typeof row.props>)
               })
             : null}
@@ -1358,6 +1405,8 @@ function GridTableInner<RecordType = any>(
             sticky={leafSticky[colIdx]}
             headerStickyTop={headerStickyTop}
             stickyHeaderOffset={stickyHeaderOffset}
+            // 任务 A：flat 单行表头 → headerRowOffsets=[0]，表头格 top:0，零回归。
+            headerStickyTopOffset={headerRowOffsets[0] ?? 0}
             resizeEnabled={resizeEnabled}
             onResizerPointerDown={onResizerPointerDown}
             resizingKey={resizingKey}
@@ -2092,6 +2141,7 @@ function HeaderCell<RecordType>({
   sticky,
   headerStickyTop,
   stickyHeaderOffset,
+  headerStickyTopOffset,
   resizeEnabled,
   onResizerPointerDown,
   resizingKey,
@@ -2135,6 +2185,18 @@ function HeaderCell<RecordType>({
    * 与 M2 横向 sticky 共存（corner cell 双 sticky，与 M4/M8 同款）。
    */
   stickyHeaderOffset?: number
+  /**
+   * 任务 A：表头纵向 sticky 的**逐行累计偏移**（px）。
+   *
+   * 多级表头（maxDepth>1）启用 `headerStickyTop`/`stickyHeaderOffset` 时，各表头行需**分层** sticky：
+   *   - grid-row-start=1 的格 → 偏移 0
+   *   - grid-row-start=2 的格 → 偏移 h1（row1 高度）
+   *   - grid-row-start=N 的格 → 偏移 Σ h[0..N-2]
+   * 由 `useHeaderRowHeights` 运行时测量，按 cell.gridRowStart 索引取值。未传 / 0 时退回原行为。
+   * 单行表头（maxDepth=1）传 0，零回归。与 `stickyHeaderOffset`（页面级偏移）叠加：
+   * S34 sticky 多行表头同样逐行分层（top = stickyHeaderOffset + headerStickyTopOffset）。
+   */
+  headerStickyTopOffset?: number
   /** M7：是否启用列宽拖拽（仅在叶子表头格渲染 resizer）。 */
   resizeEnabled?: boolean
   /** M7：resizer pointerdown 回调（参数为列 key）。 */
@@ -2231,10 +2293,15 @@ function HeaderCell<RecordType>({
   const hasHorizontalSticky = !!sticky?.side // M2 固定列（左/右）
   // S34：stickyHeaderOffset（页面级，相对 viewport）优先于 headerStickyTop（容器内，top:0）。
   //   两者互斥（sticky 启用时 headerStickyTop 恒 false），这里防御性取优先级。
+  // 任务 A：叠加逐行偏移 headerStickyTopOffset——多级表头各表头行按 gridRowStart 分层 sticky
+  //   （row1 top:0、row2 top:h1、rowN top:Σh[0..N-2]），避免多行表头全堆叠在 top:0 重叠。
+  //   S34 sticky 多行表头同样逐行分层（top = stickyHeaderOffset + headerStickyTopOffset）。
+  //   单行表头 headerStickyTopOffset=0，行为与改造前一致（零回归）。
+  const rowTopOffset = headerStickyTopOffset ?? 0
   const verticalSticky: CSSProperties = stickyHeaderOffset !== undefined
-    ? { position: 'sticky', top: `${stickyHeaderOffset}px`, zIndex: 4 }
+    ? { position: 'sticky', top: `${stickyHeaderOffset + rowTopOffset}px`, zIndex: 4 }
     : headerStickyTop
-      ? { position: 'sticky', top: 0, zIndex: 4 }
+      ? { position: 'sticky', top: `${rowTopOffset}px`, zIndex: 4 }
       : {}
   const hasVerticalSticky = stickyHeaderOffset !== undefined || !!headerStickyTop
   // ★ corner cell（表头 × 固定列交叉格，双 sticky）：横向+纵向同时存在时，该格需要
@@ -2470,6 +2537,11 @@ interface ColumnCellsProps<RecordType> {
    * sticky prop 启用时表头格相对 viewport 固定（top: offsetHeader）。
    */
   stickyHeaderOffset?: number
+  /**
+   * 任务 A：表头纵向 sticky 的逐行累计偏移（px）。详见 HeaderCell 同名 prop。
+   * flat 路径为单行表头，恒传 0（零回归）；与 HeaderCell 共用同一套 verticalSticky 逻辑。
+   */
+  headerStickyTopOffset?: number
   /** M7：是否启用列宽拖拽。 */
   resizeEnabled?: boolean
   /** M7：resizer pointerdown 回调（参数为列 key）。 */
@@ -2526,6 +2598,7 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
     sticky,
     headerStickyTop,
     stickyHeaderOffset,
+    headerStickyTopOffset,
     resizeEnabled,
     onResizerPointerDown,
     resizingKey,
@@ -2589,10 +2662,12 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
   const horizontalSticky = stickyHeaderCellStyle(sticky)
   const hasHorizontalSticky = !!sticky?.side // M2 固定列（左/右）
   // S34：stickyHeaderOffset（页面级）优先于 headerStickyTop（容器内 top:0）。
+  // 任务 A：叠加逐行偏移 headerStickyTopOffset（flat 单行表头恒 0，零回归）；与 HeaderCell 同款逻辑。
+  const rowTopOffsetFlat = headerStickyTopOffset ?? 0
   const verticalSticky: CSSProperties = stickyHeaderOffset !== undefined
-    ? { position: 'sticky', top: `${stickyHeaderOffset}px`, zIndex: 4 }
+    ? { position: 'sticky', top: `${stickyHeaderOffset + rowTopOffsetFlat}px`, zIndex: 4 }
     : headerStickyTop
-      ? { position: 'sticky', top: 0, zIndex: 4 }
+      ? { position: 'sticky', top: `${rowTopOffsetFlat}px`, zIndex: 4 }
       : {}
   const hasVerticalSticky = stickyHeaderOffset !== undefined || !!headerStickyTop
   // ★ corner cell（表头 × 固定列交叉格，双 sticky）：与 HeaderCell 同款——

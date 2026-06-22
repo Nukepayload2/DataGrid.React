@@ -82,7 +82,7 @@
 - **lint**：0 error。**build**：成功（tsc -b + vite build）。
 - **已知简化**：scroll.y:true + loading（Spin 包裹）共存时，Spin 包裹层破坏 .dg-data-area flex 链（高度自适应可能不完美，用户自行处理 Spin 高度；该组合场景少）。S34 sticky + scroll.x 走页面级 StickyScrollBar（不消费横向悬浮条，S34 原设计）。
 
-**进行中**：—。所有主体（F1-F4 + M1-M9 + S1-S34 + D1 + 接口全兼容 + 全量回归）+ 架构改进（tableLayout:fixed 列宽策略 + scroll.y:true CSS 自适应 + 纵/横悬浮滚动条）+ bug 修复（corner cell z-index）+ **task #38 demo 左右对比框架（决策 9，框架 + virtual-list 试点）**全部完成。
+**进行中**：**§11 查漏补缺**（`docs/align-polish-tasks.md` A-N + O/P，2026-06-22 启动）——用户复检发现 §11 验证遗漏交互态/翻页器/滚动条定位/固定列/dark mode，登记查漏补缺任务接力执行（工作模式：main 调度不改代码，实施↔验证交替 background agent，验证者直用 chrome-devtools 不 spawn 子 agent）。进度详见 memory `data-grid-project`「§11 查漏补缺执行进度」段（M/K/L/A/E/O/C/D/I/F ✓；G/H/J 进行中；N 全量回归拆 N1-N17 各≤3 demo；B 阻塞等用户复现；P 预先存在待定）。**★ C1 列宽策略已修订**（任务 D/F，原 §9 决策被纠正）：fixed 绝对 width 列 `minmax(width,1fr)`→**`${width}`**（绝对 track，对齐 antd table-layout:fixed）；auto 无 width 列 `max-content`→**`minmax(max-content,1fr)`**（内容保底+1fr 填满容器，对齐 antd auto+width:100% 拉伸）；详见 memory「列宽策略（C1）」段。主体（F1-F4 + M1-M9 + S1-S34 + D1 + 接口全兼容 + 全量回归）+ 架构改进（scroll.y:true CSS 自适应 + 纵/横悬浮滚动条）+ bug 修复（corner cell z-index）+ **task #38 demo 左右对比框架（决策 9，49 demo 全 compare）**此前已完成。
 
 **task #38（决策 9）demo 左右对比框架 收尾记录**（验证通过；本轮 = 框架 + virtual-list 试点，其余 demo 后续分批迁移）：
 - **SplitDemo 外壳**（`src/demos/_compare/SplitDemo.tsx`）+ `compare.css`：左右两栏卡片（各带标题）+ 全宽底部说明区（`children` 为 `.dg-compare` 兄弟节点 `.dg-compare__note`，横竖排恒居底）。

@@ -1678,6 +1678,8 @@ function TableInner<RecordType = any>(
     className ?? '',
     // S29：语义化 root 部位 className（合并到根容器）。
     classNamesResolved?.root ?? '',
+    // ★ 任务 E：dg-content-scrolled 类在下方 contentScrolledEnabled 计算后动态拼接
+    //   （依赖 topPaginationNode/bottomPaginationNode，它们在 paginationInfo/placement 之后声明）。
   ]
     .filter(Boolean)
     .join(' ')
@@ -2112,6 +2114,42 @@ function TableInner<RecordType = any>(
       ? renderPaginationNode(placement.bottom)
       : null
 
+  // ★ 任务 E（pagination/footer 滚动条出框修复）：内容区滚动模式判定。
+  //
+  // 【背景】antd 范式：横向滚动条落在表格**内容区**内（`.ant-table-content`，圆角框内、
+  //   pagination 之上）。data-grid 原 `.dg-wrapper{overflow-x:auto}`（C1 line 35）把滚动条
+  //   挂在 wrapper 底沿——当存在 pagination/footer 时，wrapper 底沿在 pagination/footer **之下**、
+  //   表格圆角框**外**，滚动条视觉出框（任务 E 实测 bug）。
+  //
+  // 【修复】引入"内容区滚动模式"（dg-content-scrolled）：
+  //   - 触发条件：存在 pagination（top 或 bottom）或 footer，**且**非数据区域模式（scroll.y）
+  //     **且**非 sticky 模式（sticky 走页面级滚动，不适用容器内出条）。
+  //   - 行为：`.dg-wrapper` 改 overflow-x:hidden（抑制外层出条），由内部 `.dg-scroll`
+  //     （overflow-x:auto，Table 组装层包在 `<GridTable>` 外）承载横向滚动——该 `.dg-scroll`
+  //     只含 `<GridTable>`（表格内容区），不含 pagination/footer（它们仍是 `.dg-wrapper`
+  //     直接子节点，在 `.dg-scroll` 之外）。滚动条落在表格内容区内（圆角框内、pagination 之上）。
+  //
+  // 【与 GridTable 内部 .dg-scroll 的协调】：GridTable 在 scroll.x 或 hasFixed 时内部自包
+  //   `.dg-scroll`（GridTable.tsx:1468/1511）。本任务外层再包一层 `.dg-scroll` 时：
+  //   - 内层 `.dg-scroll`（width:100%）不撑宽外层 → 外层 scrollWidth===clientWidth → 外层不出条。
+  //   - 固定列 sticky 相对**最近的**可滚动祖先（内层 `.dg-scroll`）工作，行为正确。
+  //   - 故"有固定列 + 有 pagination"组合：内层出条（正确），外层不出条（wrapper hidden），
+  //     无副作用、无 sticky 上下文破坏。
+  //
+  // 【零回归】：basic/head/ellipsis/row-selection 等无 pagination/footer 的 demo
+  //   contentScrolledEnabled===false，不包外层 `.dg-scroll`、wrapper 保留 overflow-x:auto（C1 现状）。
+  //
+  // 【为何此处才计算】：依赖 topPaginationNode/bottomPaginationNode（上方刚声明），它们又依赖
+  //   paginationInfo/placement/showPagination（更后置），无法在上面的 wrapperClass 原地处计算，
+  //   故采用 finalWrapperClass 二次拼接 dg-content-scrolled 类。
+  const contentScrolledEnabled =
+    (!!topPaginationNode || !!bottomPaginationNode || !!footer) &&
+    !dataAreaClassEnabled &&
+    !stickyClassEnabled
+  const finalWrapperClass = contentScrolledEnabled
+    ? `${wrapperClass} dg-content-scrolled`
+    : wrapperClass
+
   // === S12 loading 态（决策 6：Spin 用 antd）===
   // 把 loading prop 归一化为 antd `<Spin>` 的 props（对齐 antd InternalTable.spinProps）：
   //   - boolean：{ spinning: <bool> }。
@@ -2147,49 +2185,107 @@ function TableInner<RecordType = any>(
           {title(flattenedDataSource)}
         </div>
       ) : null}
-      <GridTable<RecordType>
-        ref={engineRef as unknown as React.Ref<TableEngineHandle>}
-        columnTree={columnTreeWithSortAndFilter}
-        dataSource={pagedDataSource}
-        rowKey={rowKeyResolved}
-        rowHeight={rowHeight}
-        headerHeight={headerHeight}
-        showHeader={showHeader}
-        scroll={scroll}
-        virtual={virtual}
-        resizable={resizable}
-        resizableMinWidth={resizableMinWidth}
-        resizableMaxWidth={resizableMaxWidth}
-        expandState={engineExpandState}
-        treeState={engineTreeState}
-        tableLayout={derivedTableLayout}
-        onSorterClick={onSorterClick}
-        onFilterApply={setFilterValue}
-        components={components}
-        summary={summaryNode}
-        emptyText={emptyText}
-        semantic={engineSemantic}
-        sticky={engineSticky}
-        onHeaderRow={onHeaderRow}
-        onRow={onRow}
-        rowClassName={
-          rowClassName === undefined
-            ? undefined
-            : typeof rowClassName === 'string'
-              ? rowClassName
-              : (record: RecordType, index: number) => rowClassName(record, index)
-        }
-        getPopupContainer={getPopupContainer}
-        rowHoverable={rowHoverable}
-        // ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定 → 引擎加 dg-row-selected 类（CSS 消费
-        //   --ant-table-row-selected-bg / row-selected-hover-bg）。仅 rowSelection 启用时提供
-        //   （无选择 demo 零回归，避免每 cell 多一次回调）；record→key 用 canonical getRowKey（与引擎一致）。
-        isRowSelected={
-          rowSel
-            ? (record: RecordType) => selection.isSelected(getRowKey(record, rowKeyResolved))
-            : undefined
-        }
-      />
+      {/*
+        ★ 任务 E：内容区滚动模式（contentScrolledEnabled）下把 `<GridTable>` 包一层 `.dg-scroll`
+        （overflow-x:auto），让横向滚动条落在表格内容区内（圆角框内、pagination 之上），
+        而非 `.dg-wrapper` 底沿出框。该 `.dg-scroll` 只含 `<GridTable>`，不含 pagination/footer
+        （它们在 `.dg-scroll` 之外，仍是 `.dg-wrapper` 直接子节点）。
+
+        不启用时（basic/head 等无 pagination/footer 的 demo）直接渲染 `<GridTable>`，零 DOM 变化。
+
+        包裹层复用 GridTable 内部同款 `.dg-scroll` 类（overflow-x:auto; width:100%），
+        不新造并行滚动路径——若 GridTable 内部因 scroll.x/hasFixed 自包 `.dg-scroll`，
+        外层 `.dg-scroll` 嵌套但不出条（内层 width:100% 不撑宽外层），固定列 sticky 相对
+        内层最近的 `.dg-scroll` 工作，行为正确。
+      */}
+      {contentScrolledEnabled ? (
+        <div className="dg-scroll" style={{ overflowX: 'auto' }}>
+          <GridTable<RecordType>
+            ref={engineRef as unknown as React.Ref<TableEngineHandle>}
+            columnTree={columnTreeWithSortAndFilter}
+            dataSource={pagedDataSource}
+            rowKey={rowKeyResolved}
+            rowHeight={rowHeight}
+            headerHeight={headerHeight}
+            showHeader={showHeader}
+            scroll={scroll}
+            virtual={virtual}
+            resizable={resizable}
+            resizableMinWidth={resizableMinWidth}
+            resizableMaxWidth={resizableMaxWidth}
+            expandState={engineExpandState}
+            treeState={engineTreeState}
+            tableLayout={derivedTableLayout}
+            onSorterClick={onSorterClick}
+            onFilterApply={setFilterValue}
+            components={components}
+            summary={summaryNode}
+            emptyText={emptyText}
+            semantic={engineSemantic}
+            sticky={engineSticky}
+            onHeaderRow={onHeaderRow}
+            onRow={onRow}
+            rowClassName={
+              rowClassName === undefined
+                ? undefined
+                : typeof rowClassName === 'string'
+                  ? rowClassName
+                  : (record: RecordType, index: number) => rowClassName(record, index)
+            }
+            getPopupContainer={getPopupContainer}
+            rowHoverable={rowHoverable}
+            isRowSelected={
+              rowSel
+                ? (record: RecordType) => selection.isSelected(getRowKey(record, rowKeyResolved))
+                : undefined
+            }
+          />
+        </div>
+      ) : (
+        <GridTable<RecordType>
+          ref={engineRef as unknown as React.Ref<TableEngineHandle>}
+          columnTree={columnTreeWithSortAndFilter}
+          dataSource={pagedDataSource}
+          rowKey={rowKeyResolved}
+          rowHeight={rowHeight}
+          headerHeight={headerHeight}
+          showHeader={showHeader}
+          scroll={scroll}
+          virtual={virtual}
+          resizable={resizable}
+          resizableMinWidth={resizableMinWidth}
+          resizableMaxWidth={resizableMaxWidth}
+          expandState={engineExpandState}
+          treeState={engineTreeState}
+          tableLayout={derivedTableLayout}
+          onSorterClick={onSorterClick}
+          onFilterApply={setFilterValue}
+          components={components}
+          summary={summaryNode}
+          emptyText={emptyText}
+          semantic={engineSemantic}
+          sticky={engineSticky}
+          onHeaderRow={onHeaderRow}
+          onRow={onRow}
+          rowClassName={
+            rowClassName === undefined
+              ? undefined
+              : typeof rowClassName === 'string'
+                ? rowClassName
+                : (record: RecordType, index: number) => rowClassName(record, index)
+          }
+          getPopupContainer={getPopupContainer}
+          rowHoverable={rowHoverable}
+          // ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定 → 引擎加 dg-row-selected 类（CSS 消费
+          //   --ant-table-row-selected-bg / row-selected-hover-bg）。仅 rowSelection 启用时提供
+          //   （无选择 demo 零回归，避免每 cell 多一次回调）；record→key 用 canonical getRowKey（与引擎一致）。
+          isRowSelected={
+            rowSel
+              ? (record: RecordType) => selection.isSelected(getRowKey(record, rowKeyResolved))
+              : undefined
+          }
+        />
+      )}
       {footer ? (
         <div
           className={['dg-footer', footerClassName].filter(Boolean).join(' ')}
@@ -2203,7 +2299,7 @@ function TableInner<RecordType = any>(
   )
 
   return (
-    <div className={wrapperClass} style={wrapperStyle} ref={rootRef}>
+    <div className={finalWrapperClass} style={wrapperStyle} ref={rootRef}>
       {spinProps !== undefined ? (
         <Spin spinning={false} {...spinProps}>
           {tableContent}

@@ -40,6 +40,11 @@
  * 2. **rowSelection.onSelect（决策 3 第二步未补齐）**：antd demo 含 `onSelect`（单行勾选回调）
  *    console.log；data-grid `TableRowSelection` 尚未声明 onSelect（仅 onChange），右栏 antd 保留
  *    onSelect、左栏 data-grid 用 onChange 观察勾选变化（功能等价）。
+ * 3. **pagination 默认值（§9 S11，任务 G 已对齐）**：data-grid 引擎层 `pagination` 默认
+ *    **undefined=不分页**（全显），antd Table 默认 **pagination 开启**（defaultPageSize=10 /
+ *    placement=bottomEnd）。本 demo 左栏 data-grid **显式传 `pagination={{}}`** 复刻 antd 默认分页
+ *    行为，故两侧翻页器渲染与配置一致（antd demo 未传 pagination → 默认开启，等价于左栏显式 `{}`）。
+ *    本 demo 顶层仅 2 行 → pageSize=10 → 单页，但翻页器会渲染（total=2，single page，两侧一致）。
  *
  * === 决策 2 ===
  *
@@ -154,13 +159,23 @@ export default function TreeDataDemo() {
       <SplitDemo
         minPaneWidth={480}
         left={
+          // ★ 翻页器对齐（任务 G）：
+          // antd tree-data demo 不传 pagination → antd 默认 pagination 开启
+          // （defaultPageSize=10 / defaultCurrent=1 / placement=bottomEnd，antd Table 默认）。
+          // data-grid 默认不分页（§9 S11：pagination 默认 undefined=全显），故**左栏需显式
+          // 传 pagination={{}}** 复刻 antd 默认分页行为（启用 + antd Pagination 默认配置）。
+          // 本 demo 顶层仅 2 行（John Brown sr. + Joe Black，分页基于**顶层记录**而非展开后总数），
+          // pageSize=10 → 单页即可容纳，但翻页器**会渲染**（total=2，single page）——与 antd 一致。
           <Table<RecordType>
             columns={dgColumns}
             rowSelection={{ ...dgRowSelectionBase, checkStrictly }}
             dataSource={data}
+            pagination={{}}
           />
         }
         right={
+          // 右栏 antd Table 忠实复刻 antd tree-data demo：不传 pagination → antd 默认开启分页
+          // （与左栏 data-grid 显式 pagination={{}} 等价，两侧行为一致）。
           <AntdTable<RecordType>
             columns={antdColumns}
             rowSelection={{ ...antdRowSelectionBase, checkStrictly }}

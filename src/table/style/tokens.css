@@ -153,6 +153,15 @@
      antd selection.ts:54-55 给选择列单元格设 paddingXS（=4px 默认主题，不随 size 变化）。
      接入 antd 主题时由 Table.tsx aliasTokenVars 注入覆盖。 */
   --ant-padding-xs: 4px;
+  /* lineHeight（alias token，unitless；P2 任务 cell line-height 对齐 antd）。
+     antd cell（th/td）不显式声明 line-height——通过 `.ant-table` 根节点的 `resetComponent(token)`
+     （components/style/index.tsx:12-23 第 19 行）`lineHeight: token.lineHeight` 下推到所有 td/th。
+     antd 全局 lineHeight 由 `genFontMapToken` → `getLineHeight(fontSize)` 算出
+     （components/theme/themes/shared/genFontSizes.ts:1-3）：`(fontSize + 8) / fontSize`。
+     默认主题 fontSize=14 → lineHeight = (14+8)/14 = 22/14 ≈ 1.5715（unitless，@14px 解析 ≈ 22px）。
+     data-grid cell 原本 line-height:normal（≈18px@14px），每行矮 4px。本 fallback 给独立运行兜底；
+     接入 antd 主题时 Table.tsx aliasTokenVars 注入真值（同 antd transformToken unitless 白名单输出）。 */
+  --ant-line-height: 1.5715;
 
   /* —— data-grid 自身布局变量（非 antd token）——
      直接消费 antd 带单位值（去掉旧 calc(*1px) 换算，与 antd 注入格式一致）。
