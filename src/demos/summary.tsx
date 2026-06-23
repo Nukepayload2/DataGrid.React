@@ -41,8 +41,8 @@
  *
  * === 两侧保留的差异 ===
  *
- * 1. **scroll.y**：示例2 左栏 data-grid `scroll.y:true`（决策 7 CSS 自适应高度，父容器 height:300）；
- *    右栏 antd 数字 `scroll.y:500`（忠实官方）。
+ * 1. **scroll.y**：示例2 左栏 data-grid `scroll.y:true`（决策 7 CSS 自适应高度，父容器 height:550，
+ *    对齐右栏 antd scroll.y:500 表体 + 表头 ~50 总高）；右栏 antd 数字 `scroll.y:500`（忠实官方）。
  * 2. **antd-style 细滚动条**：antd 官方 demo 用 antd-style 自定义细滚动条；data-grid 项目未装
  *    antd-style（决策 6），两侧均用浏览器默认（data-grid 侧走 #35 悬浮滚动条）。
  * 3. **DOM 结构**：antd summary 是 `<tfoot><tr><td colspan>`；data-grid 是 div + CSS Grid（无 tfoot）。
@@ -192,7 +192,8 @@ export default function SummaryDemo() {
 
         {/*
           示例 2（fixed sticky bottom）：两侧并排对照。
-          左栏 data-grid scroll.y:true（决策 7 CSS 自适应高度，父容器 height:300）。
+          左栏 data-grid scroll.y:true（决策 7 CSS 自适应高度，父容器 height:550，
+          对齐右栏 antd scroll.y:500 表体 + 表头 ~50 总高）。
           右栏 antd scroll.y:500（忠实官方数字）。
           minPaneWidth=600（2 列，scroll.x:2000 宽表）→ 横排阈值 ≈ 1216。
         */}
@@ -209,9 +210,12 @@ export default function SummaryDemo() {
           <SplitDemo
             minPaneWidth={600}
             left={
-              /* 决策 7：父容器需有明确 height（300px）。scroll.y:true 数据区域模式，
-                 表体 flex:1 填满容器剩余空间。 */
-              <div style={{ height: 300 }}>
+              /* 决策 7：父容器需有明确 height。scroll.y:true 数据区域模式，
+                 表体 flex:1 填满容器剩余空间。
+                 ★ 高度对齐右栏：右栏 antd scroll.y:500（表体 500px）+ 表头 ~50px ≈ 550px 总高。
+                   此前左栏 height:300 与右栏 550 视觉不等（表体可滚动区域高度不同），
+                   现统一为 550，两侧表体可视行数/滚动条位置一致。 */
+              <div style={{ height: 550 }}>
                 <Table<FixedDataType>
                   columns={dgFixedColumns}
                   dataSource={fixedDataSource}
@@ -275,7 +279,8 @@ export default function SummaryDemo() {
         </p>
         <p style={{ margin: 0 }}>
           - 示例 2：<code>&lt;Table.Summary fixed&gt;</code> sticky bottom——表体纵向滚动时 summary
-          固定底部；左 data-grid <code>scroll.y:true</code>（决策 7 CSS 自适应高度，父容器 height:300）；
+          固定底部；左 data-grid <code>scroll.y:true</code>（决策 7 CSS 自适应高度，父容器 height:550，
+          对齐右栏 antd scroll.y:500 表体 + 表头 ~50 总高）；
           右 antd <code>scroll.y:500</code>（忠实官方数字）。
         </p>
         <p style={{ margin: 0 }}>

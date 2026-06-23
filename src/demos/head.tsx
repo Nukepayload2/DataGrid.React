@@ -3,8 +3,8 @@
  *
  * === 决策 9 双栏对照 ===
  *
- * - **左栏（data-grid Table）**：行为与改造前一致（Name sorter+filters / Age sorter+defaultSortOrder /
- *   Address filters+filterMultiple:false / Table 级 showSorterTooltip / onChange console.log）。
+ * - **左栏（data-grid Table）**：行为对齐 antd（Name sorter+filters / Age sorter+defaultSortOrder /
+ *   Address filters 默认多选 / Table 级 showSorterTooltip / onChange console.log / pagination={{}}）。
  * - **右栏（antd Table）**：忠实复刻 antd head demo（antd 原生 sorter/filters/onFilter/filterMultiple +
  *   antd 原生 filter 下拉 Checkbox/Radio + 确定/重置）。
  * - **共享控制条**：`Bordered` 开关 + `Reset` 按钮（antd head demo 原本无控制条，此处加最小开关便于对照
@@ -22,7 +22,7 @@
  * - Age 列：`sorter: (a,b) => a.age - b.age`（数值排序），`defaultSortOrder: 'descend'`（初始降序）。
  *   无筛选。
  * - Address 列：带 `filters`（London/New York）+ `onFilter`（按地址起始匹配），无 sorter。
- *   `filterMultiple: false` 演示**单选筛选**（Radio）——与 Name 列的默认多选（Checkbox）对比。
+ *   默认多选（Checkbox）——与官方 antd demo 逐字一致（官方 head.tsx 此列无 filterMultiple）。
  * - Table 级 `showSorterTooltip: { target: 'sorter-icon' }`（默认 tooltip 绑定到排序图标）。
  * - `onChange(pagination, filters, sorter, extra)`：点击排序/应用筛选触发，console.log 各参数。
  *
@@ -58,7 +58,7 @@
  *
  * 【S3 筛选】
  * 6. Name 列漏斗：默认灰；勾选 Joe+Jim 后变 Filled 高亮，表格只剩名字以 Joe/Jim 开头的行（OR）。
- * 7. Address 列漏斗（单选 Radio）：选 London → 只剩 London 起始地址行；切换 New York → 单选互斥。
+ * 7. Address 列漏斗（默认多选 Checkbox）：勾 London+New York → 两地起始地址行并集（OR）。
  * 8. filterOnClose=true（默认）：勾选后点外部/ESC 关闭下拉即应用。
  * 9. 确定按钮：点 OK 也应用；重置按钮：清空当前勾选（草稿），需再关闭/确定才生效（S5 经验 1）。
  * 10. onChange 回调：console.log filters（{ name: [...], address: [...] | null }），extra.action='filter'。
@@ -109,13 +109,12 @@ const dgColumns: ColumnType<RecordType>[] = [
   {
     title: 'Address',
     dataIndex: 'address',
-    // S3：筛选 + filterMultiple=false（单选 Radio 演示）。
+    // S3：筛选（默认多选 Checkbox，与 antd 官方 head demo 逐字一致——官方此列无 filterMultiple）。
     filters: [
       { text: 'London', value: 'London' },
       { text: 'New York', value: 'New York' },
     ],
     onFilter: (value, record) => record.address.indexOf(value as string) === 0,
-    filterMultiple: false,
   },
 ]
 
@@ -220,6 +219,7 @@ export default function HeadDemo() {
             onChange={onChange}
             showSorterTooltip={{ target: 'sorter-icon' }}
             bordered={bordered}
+            pagination={{}}
           />
         }
         right={
@@ -247,9 +247,8 @@ export default function HeadDemo() {
               <strong>Age</strong>：<code>sorter</code> 数值 + <code>defaultSortOrder: 'descend'</code>（初始降序）。
             </li>
             <li>
-              <strong>Address</strong>：<code>filters</code>（London/New York）+ <code>filterMultiple: false</code>
-              （单选 Radio）+ <code>onFilter</code>。★ 右栏 antd demo 此列未声明 filterMultiple:false（默认多选），
-              但 data-grid 左栏保留 filterMultiple:false 单选演示——两侧如实差异（右栏照搬 antd demo 原样）。
+              <strong>Address</strong>：<code>filters</code>（London/New York）+ <code>onFilter</code>，
+              默认多选 Checkbox（与官方 antd demo 逐字一致——两侧均无 filterMultiple）。
             </li>
             <li>
               <strong>filterOnClose=true</strong>（默认）：勾选后点外部/ESC 关闭即应用；确定按钮也应用；

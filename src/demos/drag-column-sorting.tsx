@@ -158,6 +158,8 @@ function DataGridPane({ bordered }: { bordered: boolean }) {
         columns={columns}
         dataSource={data}
         bordered={bordered}
+        // 对齐右栏 antd 默认分页（antd 对任意数据都渲染 .ant-pagination，data-grid 不传=无分页条）。
+        pagination={{}}
       />
       {/* 垂直拖拽指示线：绝对定位蓝色竖线，跨表头+表体高度。
           非 grid item（是 container 子元素），不影响 grid-template-columns 计算。 */}

@@ -15,10 +15,7 @@
  * === 两侧保留并如实呈现的差异（对照修 bug 的意义所在）===
  *
  * 1. **sorter**：antd 官方 demo 的 Age 列含 `sorter: true`（点击排序）。
- *    - 右栏 antd：忠实保留 Age sorter（点击表头排序图标三态切换）。
- *    - 左栏 data-grid：**去掉** sorter 字段（与改造前一致——S1 单列排序自研任务覆盖范围，
- *      此 demo 聚焦 M2 固定列；排序 × 固定列组合留 S1 验证）。
- *    - 如实保留：左栏 Age 表头无排序图标，右栏有；对照价值（固定列与排序正交组合）。
+ *    - 两侧均保留 Age sorter（点击表头排序图标三态切换）——已对齐（左栏补回 sorter:true）。
  * 2. **fixed 逻辑属性**：两侧均用 antd v6 逻辑属性 `fixed:'start'/'end'`（等价 'left'/'right'，
  *    RTL 自动适配）。data-grid 与 antd demo 同款写法，无需转换。
  * 3. **pagination**：右栏 antd 显式 `pagination={false}`（取消 antd 默认分页，2 行全显）；
@@ -57,11 +54,11 @@ import { SplitDemo } from './_compare/SplitDemo'
 import { dataSource, type DataType } from './_compare/fixed-columns.shared'
 
 // ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 与 antd demo 列结构逐字一致，仅去掉 Age sorter
+// 左栏（data-grid）列定义 —— 与 antd demo 列结构逐字一致（含 Age sorter:true）
 // ---------------------------------------------------------------------------
 
-// 注：与改造前一致——data-grid ColumnType 暂未含 sorter 字段（S1 任务），故 Age 列略去 sorter:true。
-// fixed 用 antd v6 逻辑属性 'start'/'end'（等价 'left'/'right'，RTL 自动适配）。
+// 注：已对齐 antd 官方 demo——Age 列含 sorter:true（点击排序）。fixed 用 antd v6 逻辑属性
+// 'start'/'end'（等价 'left'/'right'，RTL 自动适配）。
 const dgColumns: ColumnType<DataType>[] = [
   {
     title: 'Full Name',
@@ -76,6 +73,7 @@ const dgColumns: ColumnType<DataType>[] = [
     dataIndex: 'age',
     key: 'age',
     fixed: 'start',
+    sorter: true,
   },
   { title: 'Column 1', dataIndex: 'address', key: '1' },
   { title: 'Column 2', dataIndex: 'address', key: '2' },
@@ -243,9 +241,8 @@ export default function FixedColumnsDemo() {
               两侧结构一致。
             </li>
             <li>
-              <strong>sorter 差异</strong>：右栏 antd Age 列含 <code>sorter:true</code>（点击表头
-              排序图标三态切换）；左栏 data-grid <strong>去掉</strong> sorter（S1 排序任务范围，
-              此 demo 聚焦 M2 固定列）。如实保留：左栏 Age 表头无排序图标。
+              <strong>sorter</strong>：两侧 Age 列均含 <code>sorter:true</code>（点击表头
+              排序图标三态切换）。已对齐。
             </li>
             <li>
               <strong>fixed 逻辑属性</strong>：两侧均用 antd v6 <code>fixed:'start'/'end'</code>

@@ -33,7 +33,8 @@
  * - data-grid pagination 默认不分页；本 demo 显式传 { placement:[top,bottom] } 启用分页
  *   （与 antd 默认开启分页不同，但 demo 行为等价）。
  * - scroll.y：决策 7——data-grid 用 `true`（CSS 自适应，父容器 240px）；antd 用 240（数字）。
- * - scroll.x：antd demo 用 '120vw'，data-grid 用 '100vw'（视觉等价，data-grid 默认约定）。
+ * - scroll.x：两侧统一 '120vw'（对齐 antd dynamic-settings.tsx 官方原值；此前 data-grid
+ *   用 '100vw'，现已统一）。
  *
  * === 验证点（S33 集成验收 + 决策 9）===
  *
@@ -212,8 +213,10 @@ export default function DynamicSettingsDemo() {
     antdScroll.y = 240
   }
   if (xScroll !== 'unset') {
-    dgScroll.x = '100vw'
-    antdScroll.x = '120vw' // antd demo 原值（对齐 antd dynamic-settings.tsx）。
+    // ★ scroll.x 两侧统一为 '120vw'（对齐右栏 antd/官方 dynamic-settings.tsx 原值）。
+    //   此前左栏用 '100vw'，两侧视口宽度撑开不同 → 横向滚动范围不一致；现统一对齐。
+    dgScroll.x = '120vw'
+    antdScroll.x = '120vw'
   }
 
   const dgTableColumns = (dgColumns as ColumnType<RecordType>[]).map((item) => ({
@@ -386,8 +389,8 @@ export default function DynamicSettingsDemo() {
               <code> scroll:&#123;y:240&#125;</code>（数字）。
             </li>
             <li>
-              <strong>scroll.x</strong>：antd demo 用 '120vw'，data-grid 用 '100vw'
-              （视觉等价）。
+              <strong>scroll.x</strong>：两侧统一 '120vw'（对齐 antd dynamic-settings.tsx
+              官方原值；此前 data-grid 用 '100vw'，现已统一）。
             </li>
             <li>
               <strong>pagination</strong>（已知差异）：data-grid 默认不分页；本 demo 显式传

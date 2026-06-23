@@ -8,7 +8,10 @@
  * === 决策 9 双栏对照 ===
  *
  * - **左栏（data-grid Table）**：3 列 + `scroll={{ y: true }}`（决策 7 数据区域模式，表头固定 +
- *   表体滚动 + 纵向悬浮滚动条）+ 父容器 height:300（CSS 自适应高度）。
+ *   表体滚动 + 纵向悬浮滚动条）+ 父容器 height:394（CSS 自适应高度，实测换算：stickyHeader 54.8 +
+ *   表体可见 275.2（= 5×55 + 余量，对齐 antd y:55*5=275，可显 6 行）= scroll 330，再加 scroll 外的
+ *   分页条区 64（dg-pagination 32 + 上下间距 32）= wrapper 394）+ `pagination={{ pageSize: 50 }}`
+ *   （对齐 antd 官方 demo 同款分页）。
  * - **右栏（antd Table）**：忠实复刻 antd 官方 fixed-header demo（同列结构 +
  *   `scroll={{ y:55*5 }}` + `pagination={{ pageSize:50 }}` + 100 行）。
  * - **共享控制条**：`Bordered` 开关同时驱动两侧表格。antd demo 原本无控制条，此处加最小开关便于对照。
@@ -16,11 +19,13 @@
  *
  * === 两侧保留并如实呈现的差异（对照修 bug 的意义所在）===
  *
- * 1. **scroll.y**：左栏 data-grid `scroll.y:true`（决策 7 CSS 自适应高度，父容器 height:300）；
- *    右栏 antd 数字 `scroll.y:55*5`（忠实官方）。两侧表体均可纵向滚动、表头钉顶。
- * 2. **pagination**：右栏 antd 官方 demo 含 `pagination={{ pageSize: 50 }}`（每页 50 条）；
- *    左栏 data-grid 默认不分页（全显 100 行）——如实保留作为对照点（S11 已知简化，data-grid
- *    默认不分页 vs antd 默认分页，登记 §9）。
+ * 1. **scroll.y**：左栏 data-grid `scroll.y:true`（决策 7 CSS 自适应高度，父容器 height:394≈
+ *    stickyHeader 54.8 + 表体可见 275.2（对齐 antd y:55*5=275，显 6 行）+ 分页条区 64，总可见高对齐
+ *    antd 且行数一致）；右栏 antd 数字 `scroll.y:55*5`（忠实官方）。两侧表体均可纵向滚动、表头钉顶。
+ *    ★ 分页条(.dg-pagination)是 .dg-wrapper.dg-data-area flex column 的末尾 flex item（在 .dg-scroll
+ *    之外、wrapper 之内），占用 wrapper 垂直空间 → wrapper 需含分页条高，否则表体 flex:1 被挤、可见行
+ *    少于右栏（回归实测：380 时左 5 行 / 右 6 行；394 后对齐 6=6）。
+ * 2. **pagination**：两侧均 `pagination={{ pageSize: 50 }}`（每页 50 条）——已对齐（左栏补齐同款）。
  * 3. **createStyles 细滚动条**：antd 官方 demo 用 antd-style 自定义细滚动条；data-grid 项目未装
  *    antd-style（决策 6），左侧走 #35 悬浮滚动条（macOS 风格），右侧用浏览器默认。
  */
@@ -87,14 +92,19 @@ export default function FixedHeaderDemo() {
       <SplitDemo
         minPaneWidth={600}
         left={
-          // 左栏 data-grid：决策 7 父容器需有明确 height（300px，约等价 antd y:55*5=275）。
-          // scroll.y:true 数据区域模式，表体 flex:1 填满容器剩余空间（表头之外）。
-          <div style={{ height: 300 }}>
+          // 左栏 data-grid：决策 7 父容器需有明确 height（394，实测换算见文件头）。scroll.y:true 数据
+          // 区域模式，表体 flex:1 填满 wrapper 扣除表头与分页条后的剩余空间。
+          // pagination={{ pageSize: 50 }}：对齐 antd 官方 demo 同款分页。
+          // ★ 分页条(.dg-pagination)是 .dg-wrapper.dg-data-area flex column 末尾 flex item（在 .dg-scroll
+          // 之外、wrapper 之内），占用 wrapper 垂直空间 → wrapper 必须把分页条区(64)算进去，否则表体
+          // flex:1 被挤、可见行少于右栏（380 → 左 5 行/右 6 行；394 后对齐 6=6）。
+          <div style={{ height: 394 }}>
             <Table<DataType>
               columns={dgColumns}
               dataSource={dataSource}
               bordered={bordered}
               scroll={{ y: true }}
+              pagination={{ pageSize: 50 }}
             />
           </div>
         }
@@ -120,13 +130,13 @@ export default function FixedHeaderDemo() {
             </li>
             <li>
               <strong>scroll.y 差异</strong>：左栏 data-grid <code>scroll.y:true</code>
-              （决策 7 数据区域模式 + CSS 自适应高度，父容器 height:300，表体 flex:1 填满容器）；
-              右栏 antd 数字 <code>scroll.y:55*5</code>（忠实官方）。
+              （决策 7 数据区域模式 + CSS 自适应高度，父容器 height:394 = stickyHeader 54.8 +
+              表体可见 275.2（对齐 antd 275、显 6 行）+ 分页条区 64，表体 flex:1 填满 wrapper 扣除
+              表头/分页条后的剩余空间）；右栏 antd 数字 <code>scroll.y:55*5</code>（忠实官方）。
             </li>
             <li>
-              <strong>pagination 差异</strong>：右栏 antd 显式 <code>pagination={'{ pageSize:50 }'}</code>
-              （每页 50 条，翻页看固定表头）；左栏 data-grid 默认不分页（全显 100 行，S11 已知简化，
-              §9 登记：data-grid 默认不分页 vs antd 默认分页）。
+              <strong>pagination</strong>：两侧均 <code>pagination={'{ pageSize:50 }'}</code>
+              （每页 50 条，翻页看固定表头）。已对齐。
             </li>
             <li>
               <strong>createStyles 滚动条差异</strong>：antd 官方 demo 用 antd-style 自定义细滚动条；

@@ -246,6 +246,7 @@ export default function FilterInTreeDemo() {
             dataSource={data}
             onChange={onChange}
             bordered={bordered}
+            pagination={{}}
           />
         }
         right={

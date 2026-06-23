@@ -140,6 +140,7 @@ export default function ExpandDemo() {
             columns={dgColumns}
             expandable={dgExpandable}
             dataSource={data}
+            pagination={{}}
           />
         }
         right={

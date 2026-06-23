@@ -203,6 +203,8 @@ function DataGridPane({ bordered }: { bordered: boolean }) {
         columns={dgColumns}
         dataSource={dataSource}
         bordered={bordered}
+        // 对齐右栏 antd 默认分页（antd 对任意数据都渲染 .ant-pagination，data-grid 不传=无分页条）。
+        pagination={{}}
       />
       {indicator.visible ? (
         <div

@@ -113,6 +113,7 @@ export default function OrderColumnDemo() {
             rowSelection={dgRowSelection}
             expandable={expandable}
             dataSource={data}
+            pagination={{}}
           />
         }
         right={

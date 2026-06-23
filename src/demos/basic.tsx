@@ -188,7 +188,16 @@ export default function BasicDemo() {
       */}
       <SplitDemo
         minPaneWidth={480}
-        left={<Table<RecordType> columns={dgColumns} dataSource={data} bordered={bordered} />}
+        left={
+          <Table<RecordType>
+            columns={dgColumns}
+            dataSource={data}
+            bordered={bordered}
+            /* pagination={{}}：对齐 antd 默认分页条（antd 6.4.4 对任意行数都渲染 .ant-pagination，
+               即便行数 ≤ pageSize 也会渲染 disabled 态分页条；data-grid 不传=不渲染）。 */
+            pagination={{}}
+          />
+        }
         right={
           <AntdTable<RecordType> columns={antdColumns} dataSource={data} bordered={bordered} />
         }

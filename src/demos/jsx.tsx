@@ -83,7 +83,10 @@ export default function JsxDemo() {
       <SplitDemo
         minPaneWidth={480}
         left={
-          <Table<RecordType> dataSource={data} bordered={bordered}>
+          // ★ 对齐右栏 antd 默认分页（校准事实 1：antd 对任意行数都渲染 .ant-pagination
+          //   disabled 态分页条；data-grid omit=不渲染）。补 pagination={{}} 启用默认分页器，
+          //   两侧分页条存在性一致。
+          <Table<RecordType> dataSource={data} bordered={bordered} pagination={{}}>
             <ColumnGroup title="Name">
               <Column title="First Name" dataIndex="firstName" key="firstName" />
               <Column title="Last Name" dataIndex="lastName" key="lastName" />

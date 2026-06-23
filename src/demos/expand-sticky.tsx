@@ -170,6 +170,7 @@ export default function ExpandStickyDemo() {
             columns={dgColumns}
             expandable={dgExpandable}
             dataSource={data}
+            pagination={{}}
           />
         }
         right={

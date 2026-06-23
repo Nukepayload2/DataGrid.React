@@ -252,6 +252,8 @@ function DgEditCellPane() {
         bordered
         dataSource={dataSource}
         columns={columns as DgColumnTypes}
+        // 对齐右栏 antd 默认分页（antd 对任意数据都渲染 .ant-pagination，data-grid 不传=无分页条）。
+        pagination={{}}
       />
     </div>
   )

@@ -16,18 +16,15 @@
  * === 两侧保留并如实呈现的差异（对照修 bug 的意义所在）===
  *
  * 1. **filters / sorter**：antd 官方 demo 的 Name 列含 `filters/onFilter`、Age 列含 `sorter`。
- *    - 右栏 antd：忠实保留 filters（Joe/John）+ Age sorter（点击排序）。
- *    - 左栏 data-grid：**去掉** filters/sorter 字段（与改造前一致——M1 demo 仅演示多级表头结构，
- *      排序/筛选属 S1/S3 自研任务的覆盖范围；组合多级表头 × filters 留 S1/S3 验证）。
- *    - 如实保留：左栏无漏斗/排序图标，右栏有；对照价值（多级表头与排序/筛选正交组合）。
+ *    - 两侧均保留 filters（Joe/John）+ Age sorter（点击排序）——已对齐（左栏补回 filters/onFilter/sorter）。
  * 2. **size**：antd demo 用 `size="medium"`（v6 中等行高）。
  *    - 两侧均通过共享控制条切换 size（medium / large）。
  * 3. **scroll**：antd demo 用 `scroll={{x:'calc(700px + 50%)', y:47*5}}`（固定表头 + 表体 max-height 235px 纵滚）。
  *    - 右栏 antd：忠实复刻该 scroll（x 含 calc 公式）；y:235 是**表体滚动 max-height**，antd 整表
  *      撑满父容器，表体高度 = min(内容自然高, 235)。
  *    - 左栏 data-grid：用 `scroll={{x:'calc(700px + 50%)', y:true}}`（决策 7：y:true 数据区域模式，
- *      CSS 自动适应高度；父容器填满 SplitDemo body）。父容器 height:100% 填满 body（~423px =
- *      表头 ~188 + 表体 ~235），表体 ~235px 对齐 antd y:235。
+ *      CSS 自动适应高度；父容器填满 SplitDemo body）。父容器 height:100% 填满 body（~473px =
+ *      表头 ~188 + 表体 ~235 + 分页条 ~50），表体 ~235px 对齐 antd y:235。
  *    - ★ 任务 S：旧实现误用 `height:240≈antd y` 把整表硬限 240px（误把表体 max-height 当整表高），
  *      表体仅 ~52px；已改为 height:100% 填满 body，表体对齐 antd。
  * 4. **★ §9 右固定列脱离已修（C1 列宽策略落地后）**：左栏含 scroll.x + Gender fixed 'end' +
@@ -50,9 +47,9 @@ import { getData, type DataType } from './_compare/grouping-columns.shared'
 // 左栏（data-grid）列定义
 // ---------------------------------------------------------------------------
 
-// 多级表头列定义（任意深度嵌套 children）+ 固定列。
-// 与 antd 官方 demo 的列结构逐字一致（title/dataIndex/key/width/children 嵌套），
-// 仅去掉 filters/onFilter/sorter（M1 demo 范围：仅多级表头，排序/筛选留 S1/S3）。
+// 多级表头列定义（任意深度嵌套 children）+ 固定列 + filters/sorter。
+// 与 antd 官方 demo 的列结构逐字一致（title/dataIndex/key/width/children 嵌套，
+// 含 Name filters/onFilter、Age sorter），已对齐右栏 antd。
 // fixed 用 data-grid 逻辑属性 'start'/'end'（等价 antd 'left'/'right'，RTL 自动适配）。
 const dgColumns: ColumnType<DataType>[] = [
   {
@@ -61,6 +58,17 @@ const dgColumns: ColumnType<DataType>[] = [
     key: 'name',
     width: 100,
     fixed: 'start',
+    filters: [
+      {
+        text: 'Joe',
+        value: 'Joe',
+      },
+      {
+        text: 'John',
+        value: 'John',
+      },
+    ],
+    onFilter: (value, record) => record.name.indexOf(value as string) === 0,
   },
   {
     title: 'Other',
@@ -70,6 +78,7 @@ const dgColumns: ColumnType<DataType>[] = [
         dataIndex: 'age',
         key: 'age',
         width: 150,
+        sorter: (a, b) => a.age - b.age,
       },
       {
         title: 'Address',
@@ -275,7 +284,7 @@ export default function GroupingColumnsDemo() {
       <SplitDemo
         minPaneWidth={900}
         left={
-          /* ★★★ 任务 S（数据区域高度返工，第二次）：
+          /* ★★★ 任务 S（数据区域高度返工，第三次 — 补 pagination 后再加 50）：
              **问题历史**：
                - 原始：`height: 240` → wrapper 仅 240px，扣多级表头 4 行(~188px)后表体仅 ~52px(1 行)。
                - 第一次返工：改 `height: '100%'` 期望填满 SplitDemo body。但 `.dg-compare__body`
@@ -283,25 +292,33 @@ export default function GroupingColumnsDemo() {
                  flex-direction:column`——它的高度依赖父链 `.dg-compare__pane → .dg-compare` 的
                  显式高度，而 demo 在文档流里无视口约束（.dg-compare 无固定高）→ height:100% 解析成
                  内容自然高(100 行全展开 4869px)，外溢无滚动条。用户："数据区非常高，全 100 行"。
-             **目标**：表体 ~235px（对齐 antd `scroll.y:47*5=235`，5 行可见），不是 4869(全行)也不是
-               53(原 240 卡死)。
-             **修复**：直接给左栏 wrapper `<div>` 设**固定像素高** `423px`，不再依赖 flex 链传递。
-               423 = 表头 4 行 medium(~47px×4 ≈ 188) + 表体 235。`.dg-wrapper.dg-data-area`
-               (`table.css:86-89` height:100% + flex column) 解析成 423，内部 flex 链：
-               wrapper 423 → `.dg-scroll-wrap` flex:1 → `.dg-scroll` flex:1 + overflow-y:auto，
-               表头 sticky 钉顶(188)后表体可见区 = 423 − 188 = 235px ≈ 5 行，精确对齐 antd。
+               - 第二次返工：固定像素 `423px`（= 表头 188 + 表体 235），表体精确对齐 antd y:235(5 行)。
+               - 第三次返工（本轮）：补 `pagination={{}}` 对齐 antd 默认分页条后，分页条(.dg-pagination)
+                 作为 `.dg-wrapper.dg-data-area` flex column 末尾 flex item（在 .dg-scroll 之外、wrapper
+                 之内）占用 wrapper 垂直空间(~50px)，挤占表体 flex:1 → 可见行从 5 掉到 4（左 4 / 右 5）。
+                 故 wrapper 再 +50 → 473。
+             **目标**：表体 ~235px（对齐 antd `scroll.y:47*5=235`，5 行可见），且分页条可见不挤表体。
+             **修复**：固定像素高 `473px` = 表头 4 行 medium(~47×4 ≈ 188) + 表体 235 + 分页条 ~50。
+               `.dg-wrapper.dg-data-area` (`table.css:86-89` height:100% + flex column) 解析成 473，
+               内部 flex 链：wrapper 473 → .dg-pagination(bottom,~50) + `.dg-scroll-wrap` flex:1 →
+               `.dg-scroll` flex:1 + overflow-y:auto，表头 sticky 钉顶(188)后表体可见区 =
+               473 − 188 − 50 = 235px ≈ 5 行，精确对齐 antd。
              **为何不用 height:100%**：SplitDemo body 无视口约束 → 100% 无限高(4869)。
-             **为何不用 height:240**：表头占 188 后表体仅 52(1 行)。
+             **为何不用 height:240/423**：240 表头占 188 后表体仅 52(1 行)；423 在有分页条时表体被挤
+               到 ~185(4 行)。
              **fragility 说明**：表头高随 size 变（large 更高），medium 下 4 行 ≈ 188 是经验值。
                若切 large 需重测（large 表头更高，wrapper 应相应加大）。当前 demo 默认 medium，
-               423 精确对齐 antd medium 下 y:235 表体。 */
-          <div style={{ height: '423px' }}>
+               473 精确对齐 antd medium 下 y:235 表体 + 分页条。 */
+          <div style={{ height: '473px' }}>
             <Table<DataType>
               columns={dgColumns}
               dataSource={data}
               bordered={bordered}
               size={size === 'medium' ? 'middle' : 'large'}
               scroll={{ x: 'calc(700px + 50%)', y: true }}
+              /* pagination={{}}：对齐 antd 默认分页条（antd 6.4.4 对任意行数都渲染 .ant-pagination）。
+                 两侧分页器存在性对齐，便于对照。 */
+              pagination={{}}
             />
           </div>
         }
@@ -328,9 +345,8 @@ export default function GroupingColumnsDemo() {
               grid-row span N 实现多级表头；antd 原生 children 嵌套。两侧结构应一致。
             </li>
             <li>
-              <strong>filters / sorter 差异</strong>：右栏 antd Name 列含 filters（Joe/John）+ Age 列含 sorter
-              （点击排序）；左栏 data-grid <strong>去掉</strong> filters/sorter（M1 范围仅多级表头，组合留
-              S1/S3 验证）。如实保留：左栏无漏斗/排序图标。
+              <strong>filters / sorter</strong>：两侧 Name 列均含 filters（Joe/John）+ onFilter；
+              Age 列均含 sorter（点击排序）。已对齐，两侧均显示漏斗/排序图标。
             </li>
             <li>
               <strong>固定列差异</strong>：左栏 data-grid 用 <code>fixed:'start'/'end'</code>（逻辑属性，
@@ -339,7 +355,7 @@ export default function GroupingColumnsDemo() {
             <li>
               <strong>scroll 差异</strong>：右栏 antd <code>scroll: {'{ x:"calc(700px+50%)", y:47*5 }'}</code>；
               左栏 data-grid <code>scroll: {'{ x:"calc(700px+50%)", y:true }'}</code>（决策 7：y:true 数据区域
-              模式 + 父容器 height:100% 填满 SplitDemo body）。
+              模式 + 父容器固定高 473px = 表头 ~188 + 表体 ~235 + 分页条 ~50）。
             </li>
             <li>
               <strong>size 差异</strong>：右栏 antd <code>size="medium"</code>（v6 中等行高）；左栏 data-grid

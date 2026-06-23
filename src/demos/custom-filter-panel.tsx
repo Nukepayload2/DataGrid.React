@@ -442,7 +442,12 @@ export default function CustomFilterPanelDemo() {
       <SplitDemo
         minPaneWidth={480}
         left={
-          <Table<RecordType> columns={dgColumns} dataSource={data} bordered={bordered} />
+          <Table<RecordType>
+            columns={dgColumns}
+            dataSource={data}
+            bordered={bordered}
+            pagination={{}}
+          />
         }
         right={
           <AntdTable<RecordType>

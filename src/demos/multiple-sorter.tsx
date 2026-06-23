@@ -187,6 +187,7 @@ export default function MultipleSorterDemo() {
             dataSource={data}
             onChange={onChange}
             bordered={bordered}
+            pagination={{}}
           />
         }
         right={

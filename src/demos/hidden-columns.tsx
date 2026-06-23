@@ -105,7 +105,7 @@ export default function HiddenColumnsDemo() {
       <SplitDemo
         minPaneWidth={480}
         left={
-          <Table<RecordType> columns={dgNewColumns} dataSource={data} />
+          <Table<RecordType> columns={dgNewColumns} dataSource={data} pagination={{}} />
         }
         right={
           <AntdTable<RecordType> columns={antdNewColumns} dataSource={data} />

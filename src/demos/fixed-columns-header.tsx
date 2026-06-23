@@ -10,7 +10,7 @@
  *
  * - **左栏（data-grid Table）**：固定列（Name/Age fixed start + Action fixed end）+
  *   `scroll={{ x: 'max-content', y: true }}`（决策 7 数据区域模式，表头固定 + 表体滚动 +
- *   纵/横悬浮滚动条）+ 父容器 height:300（CSS 自适应高度）。
+ *   纵/横悬浮滚动条）+ 父容器 height:330（CSS 自适应高度，对齐 antd y:55*5=275 表体 + 表头 ~55）。
  * - **右栏（antd Table）**：忠实复刻 antd 官方 fixed-columns-header demo（同列结构 +
  *   `scroll={{ x:'max-content', y:55*5 }}` + 100 行）。
  * - **共享控制条**：`Bordered` 开关同时驱动两侧表格。antd demo 原本无控制条，此处加最小
@@ -27,8 +27,8 @@
  *
  * === 两侧保留并如实呈现的差异（对照修 bug 的意义所在）===
  *
- * 1. **scroll.y**：左栏 data-grid `scroll.y:true`（决策 7 CSS 自适应高度，父容器 height:300）；
- *    右栏 antd 数字 `scroll.y:55*5`（忠实官方）。
+ * 1. **scroll.y**：左栏 data-grid `scroll.y:true`（决策 7 CSS 自适应高度，父容器 height:330≈
+ *    antd y:55*5=275 表体 + 表头 ~55）；右栏 antd 数字 `scroll.y:55*5`（忠实官方）。
  * 2. **createStyles 细滚动条**：antd 官方 demo 用 antd-style 自定义细滚动条；data-grid 项目未装
  *    antd-style（决策 6），两侧均用浏览器默认滚动条（data-grid 侧走 #35 悬浮滚动条）。
  * 3. **★ §9 右固定列脱离观察**（task #38 同源 narrow gap）：左栏含 `scroll.x:'max-content'` +
@@ -152,9 +152,10 @@ export default function FixedColumnsHeaderDemo() {
       <SplitDemo
         minPaneWidth={900}
         left={
-          /* 左栏 data-grid：决策 7 父容器需有明确 height（300px）。
+          /* 左栏 data-grid：决策 7 父容器需有明确 height。
+             height 330 ≈ antd y:55*5=275 表体 + 表头 ~55，对齐右栏可视高度。
              scroll.y:true 数据区域模式，表体 flex:1 填满容器剩余空间。 */
-          <div style={{ height: 300 }}>
+          <div style={{ height: 330 }}>
             <Table<DataType>
               columns={dgColumns}
               dataSource={dataSource}
@@ -188,8 +189,8 @@ export default function FixedColumnsHeaderDemo() {
             </li>
             <li>
               <strong>scroll.y 差异</strong>：左栏 data-grid <code>scroll.y:true</code>
-              （决策 7 数据区域模式 + CSS 自适应高度，父容器 height:300）；右栏 antd 数字
-              <code> scroll.y:55*5 </code>（忠实官方）。两侧表体均可纵向滚动、表头钉顶。
+              （决策 7 数据区域模式 + CSS 自适应高度，父容器 height:330≈ antd 表体 275 + 表头 ~55）；
+              右栏 antd 数字 <code> scroll.y:55*5 </code>（忠实官方）。两侧表体均可纵向滚动、表头钉顶。
             </li>
             <li>
               <strong>createStyles 滚动条差异</strong>：antd 官方 demo 用 antd-style 自定义细滚动条；

@@ -61,6 +61,48 @@
   width: auto;
 }
 
+/* === 共享修复 A：表内 `<a>` 链接色对齐 antd ===
+ *
+ * .dg-wrapper 非 antd 组件根（data-grid 自研渲染），不继承 antd 全局 `a` 链接样式
+ * （antd `components/style/index.tsx:79` genLinkStyle 只挂在其 `.ant-*` 组件根下）。
+ * data-grid 表内 `<a>` 默认继承 body 文字色（rgba(0,0,0,0.88)），而 antd 表内 `<a>` = #1677ff
+ * （colorLink）。此处复刻 genLinkStyle，消费已注入的 `--ant-*` alias token，让 data-grid
+ * 表内 action 超链接与 antd 视觉一致（蓝链 + hover/active/focus/disabled 各态）。
+ *
+ * ★ 共享改动（惠及所有含 `<a>` 的 demo：basic/virtual-list/summary 等的 Action 列）。
+ *   无 `<a>` 的 demo 选择器不命中，零回归。
+ * ★ 主题注入（Table.tsx aliasTokenVars）已把 --ant-color-link[-hover|-active] /
+ *   --ant-link-decoration[-hover|-focus] / --ant-color-text-disabled 注入 .dg-wrapper，
+ *   未接主题时 tokens.css fallback 兜底。 */
+.dg-wrapper a {
+  color: var(--ant-color-link);
+  text-decoration: var(--ant-link-decoration, none);
+  background-color: transparent;
+  outline: none;
+  cursor: pointer;
+  transition: color var(--ant-motion-duration-slow, 0.3s);
+  -webkit-text-decoration-skip: objects;
+}
+.dg-wrapper a:hover {
+  color: var(--ant-color-link-hover);
+}
+.dg-wrapper a:active {
+  color: var(--ant-color-link-active);
+}
+.dg-wrapper a:hover,
+.dg-wrapper a:active {
+  text-decoration: var(--ant-link-hover-decoration, underline);
+  outline: 0;
+}
+.dg-wrapper a:focus {
+  text-decoration: var(--ant-link-focus-decoration, none);
+  outline: 0;
+}
+.dg-wrapper a[disabled] {
+  color: var(--ant-color-text-disabled);
+  cursor: not-allowed;
+}
+
 /* === 决策 7：scroll.y===true 数据区域模式（CSS 自动适应高度）===
  *
  * `.dg-wrapper.dg-data-area`：把表格容器转为 flex column + height:100%，

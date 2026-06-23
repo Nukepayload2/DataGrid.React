@@ -212,7 +212,14 @@ export default function ColspanRowspanDemo() {
       <SplitDemo
         minPaneWidth={480}
         left={
-          <Table<DataType> columns={dgColumns} dataSource={data} bordered={bordered} />
+          /* pagination={{}}：对齐 antd 默认分页条（antd 6.4.4 即便 5 行也渲染 disabled 态分页条）。
+             data-grid 不传=不渲染，故补齐使两侧分页器存在性一致。 */
+          <Table<DataType>
+            columns={dgColumns}
+            dataSource={data}
+            bordered={bordered}
+            pagination={{}}
+          />
         }
         right={
           <AntdTable<DataType>

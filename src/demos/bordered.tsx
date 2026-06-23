@@ -188,6 +188,10 @@ export default function BorderedDemo() {
               bordered={bordered}
               title={() => 'Header'}
               footer={() => 'Footer'}
+              // ★ 对齐右栏 antd 默认分页（校准事实 1：antd 对任意行数都渲染 .ant-pagination
+              //   disabled 态分页条；data-grid omit=不渲染）。补 pagination={{}} 启用默认分页器，
+              //   两侧分页条存在性一致（disabled 态在 ≤pageSize 行时无视觉可点页码）。
+              pagination={{}}
             />
           }
           right={
@@ -262,6 +266,8 @@ export default function BorderedDemo() {
               dataSource={fixedData}
               bordered={bordered}
               scroll={{ x: 'max-content' }}
+              // ★ 对齐右栏 antd 默认分页（同示例 1：antd 默认渲染分页条，data-grid omit=无）。
+              pagination={{}}
             />
           }
           right={

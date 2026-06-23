@@ -282,6 +282,7 @@ export default function ResetFilterDemo() {
             dataSource={data}
             onChange={handleChange}
             bordered={bordered}
+            pagination={{}}
           />
         }
         right={
@@ -324,13 +325,8 @@ export default function ResetFilterDemo() {
               data-grid/antd 均如此，非 bug（已知，不修）。
             </li>
             <li>
-              <strong>两侧保留的差异（§9 S11 已知，非本 demo 引入）</strong>：本 demo 两栏均<strong>未传</strong>
-              <code>pagination</code>。antd <code>&lt;Table&gt;</code> 默认<strong>开启分页</strong>（底部出现分页器，
-              4 行数据默认单页 10 条故仍显示「1 / 1」），data-grid 默认<strong>不分页</strong>（全显，无分页器）。
-              故右栏（antd）表底会有一条分页器，左栏（data-grid）无——这是 data-grid 故意保留的默认差异
-              （§9 S11：data-grid 默认 <code>pagination: undefined</code> = 全显，避免破坏既有全显 demo；
-              接口全兼容阶段再评估对齐 antd 默认）。<strong>与受控筛选/排序/重置无关</strong>，验证者勿判为
-              reset-filter 的 bug。如需对照消除，可两侧显式传 <code>pagination=&#123;false&#125;</code>。
+              <strong>分页对齐</strong>：两栏均显式 <code>pagination=&#123;&#123;&#125;&#125;</code>（antd 默认分页器），
+              两侧表底一致出现 disabled 态分页条（4 行 ≤ pageSize）。与受控筛选/排序/重置无关。
             </li>
           </ul>
         </div>

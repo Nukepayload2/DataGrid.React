@@ -30,10 +30,10 @@
  *
  * === 两侧保留的差异（对照价值）===
  *
- * 1. **checkStrictly 默认值（§9 S13/S25）**：data-grid 引擎层 `rowSelection.checkStrictly`
- *    默认 **true**（父子独立），antd 默认 **false**（父子联动）。本 demo 未传 checkStrictly
- *    （antd demo 也未传），故**两侧行为不同**——左 data-grid 父子独立勾选、右 antd 父子联动。
- *    如实保留对照（这正是决策 9 的意义，登记 §9 不修）。
+ * 1. **checkStrictly 默认值（§9 S13/S25，已核对）**：antd 6.4.4 `rowSelection.checkStrictly`
+ *    默认 **true**（父子独立勾选）。本 demo 两侧 rowSelection 均**未显式传 checkStrictly**
+ *    （antd 官方 `tree-table-ellipsis.tsx:110` 与本 demo 左右两栏均只传 `columnWidth:100`），
+ *    故两侧都走默认 true → **行为一致**（父子独立），无需两侧显式同传对齐。
  * 2. **ellipsis 视觉对齐**（§11 第 0 步 C1 列宽策略修复后已对齐）：data-grid `derivedTableLayout`
  *    完整复刻 antd mergedTableLayout——首列 `ellipsis:true` 隐式派生 `tableLayout:'fixed'` +
  *    `.dg-grid{width:100%}` + 无 width 列 `minmax(0,1fr)`（min:0 收缩），ellipsis 列 track<content
@@ -144,6 +144,8 @@ export default function TreeTableEllipsisDemo() {
             rowSelection={{ columnWidth: 100 }}
             expandable={{ defaultExpandAllRows: true }}
             dataSource={data}
+            // pagination={{}} 对齐右栏 antd 默认分页（antd 对任意数据都渲染 .ant-pagination）。
+            pagination={{}}
           />
         }
         right={
@@ -173,9 +175,10 @@ export default function TreeTableEllipsisDemo() {
               true/false，横向滚动时观察两侧固定行为是否一致。
             </li>
             <li>
-              <strong>checkStrictly 默认差异（§9 S13/S25）</strong>：本 demo 未传 checkStrictly
-              （antd demo 也未传）→ 左 data-grid 默认 <strong>true</strong>（父子独立勾选）、
-              右 antd 默认 <strong>false</strong>（父子联动）。如实保留对照，登记 §9 不修。
+              <strong>checkStrictly 默认（§9 S13/S25，已核对）</strong>：antd 6.4.4 默认
+              <strong> true</strong>（父子独立勾选）。本 demo 两侧 rowSelection 均未显式传
+              checkStrictly（官方 demo 与左右两栏均只传 <code>columnWidth:100</code>）→ 两侧都走
+              默认 true，<strong>行为一致</strong>，无需显式同传对齐。
             </li>
             <li>
               <strong>ellipsis 视觉对齐</strong>（§11 第 0 步 C1 修复后已对齐）：data-grid

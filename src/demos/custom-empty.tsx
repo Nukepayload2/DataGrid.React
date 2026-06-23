@@ -63,7 +63,9 @@ export default function App() {
     setDataSource(dataSource.length ? [] : genFakeData(Math.floor(Math.random() * 10)))
   }
 
-  // ----- 左栏（data-grid）列定义（行为与改造前一致）-----
+  // ----- 左栏（data-grid）列定义 -----
+  // ★ Age 列只 filters 无 onFilter（对齐 antd 官方 custom-empty.tsx:39-49——官方 demo 原样只有 filters）。
+  // 改造前左栏多加了 onFilter 致「左可筛右不可筛」不等价，此处删 onFilter 与右栏一致。
   const dgColumns: ColumnType<RecordType>[] = [
     { title: 'Name', dataIndex: 'name', key: 'name' },
     {
@@ -78,11 +80,6 @@ export default function App() {
             { text: '<18', value: 'lt18' },
           ]
         : [],
-      onFilter: (value, record) => {
-        if (value === 'gte35') return record.age >= 35
-        if (value === 'lt18') return record.age < 18
-        return false
-      },
     },
     { title: 'Address', dataIndex: 'address', key: 'address' },
   ]
@@ -153,6 +150,8 @@ export default function App() {
               dataSource={dataSource}
               columns={dgColumns}
               locale={{ emptyText }}
+              // pagination={{}} 对齐右栏 antd 默认分页（antd 对任意数据都渲染 .ant-pagination）。
+              pagination={{}}
             />
           }
           right={

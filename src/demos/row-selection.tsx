@@ -250,6 +250,7 @@ export default function RowSelectionDemo() {
               rowSelection={dgRowSelection}
               columns={dgColumns}
               dataSource={data}
+              pagination={{}}
             />
           </div>
         }

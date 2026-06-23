@@ -161,7 +161,15 @@ export default function EllipsisDemo() {
       */}
       <SplitDemo
         minPaneWidth={600}
-        left={<Table<RecordType> columns={dgColumns} dataSource={data} bordered={bordered} />}
+        left={
+          // pagination={{}} 对齐右栏 antd 默认分页（antd 对任意数据都渲染 .ant-pagination）。
+          <Table<RecordType>
+            columns={dgColumns}
+            dataSource={data}
+            bordered={bordered}
+            pagination={{}}
+          />
+        }
         right={
           <AntdTable<RecordType> columns={antdColumns} dataSource={data} bordered={bordered} />
         }

@@ -16,10 +16,11 @@
  *
  * === 两侧保留并如实呈现的差异（对照修 bug 的意义所在）===
  *
- * 1. **rowSelection**：
+ * 1. **rowSelection**（已对齐，原为对照点）：
  *    - 右栏 antd：展开关闭时 `rowSelection={{ type: 'radio', columnWidth: 48 }}`（忠实 antd demo）。
- *    - 左栏 data-grid：**不加 rowSelection**（与改造前一致——data-grid virtual-list 历来不演示
- *      radio 选择列，保留这一简化作为对照点）。两者切换 Expandable 时左栏不受影响。
+ *    - 左栏 data-grid：**现已补齐同款 radio 行选择**（展开关闭时 `{ type:'radio', columnWidth:48 }`，
+ *      展开时 `undefined`），与右栏像素/行为对齐。原「不加 rowSelection 作对照点」已被
+ *      demo 配置等价修复任务推翻。
  *
  * 2. **Merged（合并）开关**：
  *    - 右栏 antd：merged 行为由 `fixed + !expanded` 推导（fixed 时展开关闭即合并、展开即清 onCell）。
@@ -49,9 +50,10 @@
  *
  * === data-grid 侧行为与改造前一致（回归不破）===
  *
- * - virtual + scroll={{ x: 2000, y: true }}（决策 7：CSS 自适应高度，父容器 height:400）。
+ * - virtual + scroll={{ x: 2000, y: true }}（决策 7：CSS 自适应高度，父容器 height:440 对齐右栏表体 y:400）。
  * - rowKey="id"、rowHeight={40} headerHeight={40}、mergedColumns/plainColumns 切换。
  * - Expandable 开关（验证决策 2 虚拟 × 展开），展开时强制 plainColumns（合并与展开互斥）。
+ * - rowSelection：展开关闭时 radio 单选列（对齐右栏），展开时关闭。
  */
 
 import { useMemo, useRef, useState } from 'react'
@@ -179,7 +181,9 @@ const antdFixedColumns: NonNullable<TableProps<RecordType>['columns']> = [
     fixed: 'start',
   },
   {
-    title: 'FistName',
+    // 官方 antd virtual-list demo 此处为 'FistName'（笔误）。两侧统一为正确拼写「FirstName」
+    // 以消除标题层面的可见差异（列定义对齐任务要求）。
+    title: 'FirstName',
     dataIndex: 'firstName',
     width: 120,
     fixed: 'start',
@@ -241,7 +245,8 @@ const antdShortColumns: NonNullable<TableProps<RecordType>['columns']> = [
     width: 100,
   },
   {
-    title: 'FistName',
+    // 同 antdFixedColumns：官方 demo 此处亦为 'FistName' 笔误，统一改为 'FirstName'。
+    title: 'FirstName',
     dataIndex: 'firstName',
     width: 120,
   },
@@ -398,9 +403,12 @@ export default function VirtualListDemo() {
       <SplitDemo
         minPaneWidth={1000}
         left={
-          /* ★ 决策 7：父容器需有明确 height（400px，约等价 antd y:400）。
-             虚拟滚动窗口高度由容器 clientHeight 实时测量（ResizeObserver），CSS 自动适应。 */
-          <div style={{ height: 400 }}>
+          /* ★ 决策 7：父容器需有明确 height。
+             对齐右栏 antd `scroll.y:400`：右栏 400 是**表体高**，整表=表头(~40)+表体(400)≈440。
+             左栏 `height` 是**整表高**（含表头），故取 440 与右栏表体区像素级对齐。
+             虚拟滚动窗口高度由容器 clientHeight 实时测量（ResizeObserver），CSS 自动适应。
+             （验证者实测后如发现表头实际高≠40，微调此处。） */
+          <div style={{ height: 440 }}>
             <Table<RecordType>
               ref={dgRef}
               bordered={bordered}
@@ -410,6 +418,11 @@ export default function VirtualListDemo() {
               rowKey="id"
               dataSource={empty ? [] : data}
               expandable={dgExpandable}
+              // 对齐右栏 antd：展开关闭时显示 radio 单选列（columnWidth:48），
+              // 展开时关闭（避免展开图标列与选择列并存的视觉拥挤，忠实 antd demo）。
+              rowSelection={
+                expanded ? undefined : { type: 'radio', columnWidth: 48 }
+              }
               // 行高约定：每行 40px（决策 2：虚拟窗口按此约定算，不测量真实 DOM 高）。
               rowHeight={40}
               headerHeight={40}
@@ -439,8 +452,8 @@ export default function VirtualListDemo() {
           virtual-list，方便对照修 bug。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>rowSelection</strong>：右栏 antd 展开关闭时显示 radio 选择列（忠实 antd
-              demo）；左栏 data-grid 不加（与改造前一致，作为对照点）。
+              <strong>rowSelection</strong>：两侧均展开关闭时显示 radio 单选列、展开时关闭
+              （{`{ type:'radio', columnWidth:48 }`}），已对齐。
             </li>
             <li>
               <strong>Merged 开关</strong>：左栏 data-grid 专属（直接对照有/无合并的虚拟渲染）；

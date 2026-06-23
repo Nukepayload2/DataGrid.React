@@ -247,6 +247,9 @@ export default function NestedTableDemo() {
             expandable={dgExpandable}
             dataSource={dataSource}
             size={size}
+            // 主表 pagination={{}} 对齐右栏 antd 默认分页（antd 对任意数据都渲染 .ant-pagination）。
+            // 子表（dgExpandable.expandedRowRender）pagination={false} 与右栏 antd 子表一致，不动。
+            pagination={{}}
           />
         }
         right={
