@@ -641,7 +641,8 @@ function StickyScrollBar({
         bottom: `${offsetScroll}px`,
         // antd sticky.ts:34,38 height = tableScrollThumbSize(8) + background = tableScrollBg(浅)。
         height: 'var(--ant-table-scroll-thumb-size, 8px)',
-        zIndex: 5,
+        // ★ 任务 T：z5→z6，避免与表头 corner（z5）同级；几何不重叠时无视觉变化，防未来回归。
+        zIndex: 6,
         background: 'var(--ant-table-scroll-bg, rgba(5, 5, 5, 0.06))',
         // antd sticky.ts:39 borderTop: tableBorder（1px solid tableBorderColor）。data-grid 同款，
         // 用 --ant-table-border-color（= #f0f0f0，与 antd tableBorderColor 一致）。
@@ -777,6 +778,11 @@ function GridTableInner<RecordType = any>(
     return { fixed, rows, count: rows.length }
   }, [summary])
   const summaryEnabled = !!summaryParsed
+
+  // ★ 任务 W：sticky 模式 + summary 存在时，summary 行从主 grid 提取为独立兄弟 grid，
+  //   渲染顺序 grid(数据) → StickyScrollBar → summary-grid，使横向滚动条落在 summary 上方（数据区末尾）。
+  //   非 sticky 模式 / 无 summary → false（summary 留在主 grid 内，零回归）。详见 sticky 分支。
+  const extractSummary = stickyEnabled && !!summaryParsed
 
   // 解析列：优先 columnTree（多级表头），否则退化到 columns（单层）。
   // M3：若任一叶子列声明了 onCell（单元格合并）或 colSpan 字段（表头横向合并），
@@ -1369,8 +1375,12 @@ function GridTableInner<RecordType = any>(
               注入 __rowLine（grid-row 起始线号 = summaryStartLine + rowIndex）+ __fixed（sticky bottom）
               + __leafSticky（任务 J：固定列横向 sticky 信息，与表体固定列同源 leafSticky）。
               Row 内部通过 Context 把 rowLine/fixed/leafSticky 传给其 Cell 子节点，Cell 据此设 grid-row +
-              gridColumn + sticky bottom + 横向 sticky left/right。 */}
-          {summaryParsed && summaryStartLine > 0
+              gridColumn + sticky bottom + 横向 sticky left/right。
+              ★ 任务 W：sticky 模式启用且 summary 存在时，summary 行从此 grid 内挪出，改在 sticky 分支
+                作为独立 grid 渲染（顺序 grid(数据) → StickyScrollBar → summary-grid），使横向滚动条落在
+                summary **上方**（数据区末尾）。此处 skip 渲染；summaryStartLine 对应的 'auto' track 无
+                grid item → 折叠为 0 高，主 grid 末尾即为表体。 */}
+          {summaryParsed && summaryStartLine > 0 && !extractSummary
             ? summaryParsed.rows.map((row, rowIndex) => {
                 const rowLine = summaryStartLine + rowIndex
                 return cloneElement(row, {
@@ -1457,6 +1467,42 @@ function GridTableInner<RecordType = any>(
   // ★ 与 M2 固定列组合：固定列 grid item 的 position: sticky; left/right 与表头的 position: sticky; top
   //   在同一元素上叠加（corner cell 双 sticky，浏览器原生支持，与 M4/M8 同款）。
   if (stickyEnabled) {
+    // ★ 任务 W：summary 存在时从主 grid 提取为独立兄弟 grid，渲染顺序
+    //   grid(数据) → StickyScrollBar → summary-grid，使横向滚动条落在 summary 上方（数据区末尾）。
+    //   修复前 StickyScrollBar 是主 grid（含 summary 末尾）的后继兄弟 → 落 summary 下方。
+    //
+    //   独立 summary grid 复用主 grid 的 grid-template-columns（列对齐）+ min-width:scrollX（横向滚动
+    //   时与主 grid 同宽），grid-template-rows 仅含 summary tracks（每行 'auto'）。summary Cell 的
+    //   grid-row 重置为 rowIndex+1（独立 grid 第 1 track）；fixed bottom（position:sticky;bottom:0）
+    //   相对页面滚动容器仍生效（与主 grid 内行为一致）。横向 sticky（任务 X）通过 __leafSticky 透传
+    //   同样生效。
+    const renderExtractedSummary = () => {
+      if (!summaryParsed) return null
+      // summary 行 track（每行一条 'auto'），独立 grid 的 grid-template-rows。
+      const summaryOnlyRows = Array.from({ length: summaryParsed.count }, () => 'auto').join(' ')
+      return (
+        <div
+          className={gridClassName}
+          style={{
+            display: 'grid',
+            gridTemplateRows: summaryOnlyRows || 'none',
+            gridTemplateColumns,
+            // 与主 grid 同宽（scroll.x 撑宽页面时 summary grid 跟随，列对齐）。
+            ...(scrollMinWidth ? { minWidth: scrollMinWidth } : null),
+          }}
+        >
+          {summaryParsed.rows.map((row, rowIndex) =>
+            cloneElement(row, {
+              key: `dg-summary-row-${rowIndex}`,
+              // 独立 grid：第 1 track = rowIndex+1（1-based grid line）。
+              __rowLine: rowIndex + 1,
+              __fixed: summaryParsed.fixed,
+              __leafSticky: leafSticky,
+            } as Partial<typeof row.props>),
+          )}
+        </div>
+      )
+    }
     return (
       <>
         {renderGrid()}
@@ -1465,6 +1511,8 @@ function GridTableInner<RecordType = any>(
           getContainer={stickyGetContainer}
           gridRef={gridRef}
         />
+        {/* 任务 W：summary 提取到 StickyScrollBar 之后 → 横向滚动条落在 summary 上方。 */}
+        {extractSummary ? renderExtractedSummary() : null}
       </>
     )
   }

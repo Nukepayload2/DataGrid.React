@@ -37,7 +37,9 @@
  * === fixed（sticky bottom）===
  *
  * `Table.Summary fixed` → summary 区整体 sticky 到滚动容器底部（配合 scroll.y）。
- * 实现：每个 summary Cell 加 `position: sticky; bottom: 0; z-index: 2`（与表体固定列同 z 级）。
+ * 实现：每个 summary Cell 加 `position: sticky; bottom: 0`（钉底，不透明背景由 CSS 保证，
+ * 不需 z-index）。固定列 summary 格另由横向 sticky 补 `z-index: 2`（与表体固定列同 z 级，
+ * 任务 T），横滚时盖住同栈 summary 普通格（z-auto）。
  * fixed 标志经 Summary（适配层解析）→ 引擎 cloneElement → Row Context → Cell。
  *
  * sticky bottom 需要 summary 与表体在**同一滚动容器**内（即 .dg-scroll / .dg-grid 同容器）。
@@ -159,7 +161,7 @@ export function SummaryRow(props: SummaryRowProps): ReactNode {
  * - `index`（0-based 列索引）：`gridColumn` 起始线 = `index + 1`。
  * - `colSpan`（默认 1）：`gridColumn: <index+1> / span <colSpan>`。
  * - `gridRow`：来自 SummaryRowContext（Row 注入）。脱离 Row 时缺失，退化为不设（auto-flow 放置）。
- * - fixed（来自 Context）：`position: sticky; bottom: 0; z-index: 2`。
+ * - fixed（来自 Context）：`position: sticky; bottom: 0`（钉底，不设 z-index，普通格保持 z-auto）。
  * - `align`：对齐方式（inline textAlign + data-align 供 CSS）。
  */
 export interface SummaryCellProps {
@@ -183,20 +185,53 @@ export function SummaryCell(props: SummaryCellProps): ReactNode {
     if (rowCtx.fixed) {
       cellStyle.position = 'sticky'
       cellStyle.bottom = '0'
-      cellStyle.zIndex = 2
+      // ★ 任务 T：不再统一设 zIndex=2。普通 summary 格保持 z-auto（同表体普通格），
+      //   仅 sticky bottom 钉底（不透明背景由 CSS 保证）。固定列 summary 格由改动 A 拿 z2 盖普通格。
     }
-    // 任务 J：固定列横向 sticky —— summary 固定列 cell 横滚时贴左/右边缘，与表体固定列一致。
+    // 任务 J + 任务 X：固定列横向 sticky —— summary 固定列 cell 横滚时贴左/右边缘，与表体固定列一致。
     // info 取自 Context 的 leafSticky[index]（与表体固定列同源 useStickyColumns.leafSticky）。
-    // colSpan > 1 的合并格不加横向 sticky：跨固定/非固定边界时 sticky 会错位（antd 行为是合并格不 sticky）。
-    if (colSpan === 1) {
-      const info = rowCtx.leafSticky?.[index]
-      const stickyH = stickyCellStyle(info) // {position:'sticky', left/right:offset, zIndex:2} 或 {}
-      if (stickyH.position) {
-        // 与纵向 sticky bottom 合并：position 一次（同为 'sticky'），left/right + bottom 共存。
-        cellStyle.position = 'sticky'
-        if ('left' in stickyH) cellStyle.left = stickyH.left
-        if ('right' in stickyH) cellStyle.right = stickyH.right
-        // zIndex 取 stickyCellStyle 给的 2，与现有纵向 zIndex 2 一致（不冲突）。
+    //
+    // ★ 任务 X 修正：原 J 实现用 `colSpan === 1` 守卫一刀切跳过所有 colSpan>1 合并格，但 antd 对
+    //   覆盖同侧固定列的合并格照样 sticky（实测 antd sticky demo summary idx0 colSpan=2 覆盖 Full Name+Age
+    //   两个 fixed-start → sticky left:0）。读 antd rc-table 源码确认：
+    //     - Footer/Cell.js:25 `getCellFixedInfo(index, index+mergedColSpan-1, ...)` 传 [colStart, colEnd] 区间。
+    //     - utils/fixUtil.js:6-10 `startColumn.fixed==='left'` → fixLeft=offsets[colStart]（起始 leaf offset）；
+    //       `endColumn.fixed==='right'` → fixRight=offsets[colEnd]（末 leaf offset）。
+    //   即合并格只要起始列 fixed-start 或末列 fixed-end 就 sticky（offset 取边界 leaf）。
+    //
+    //   本实现采用「区间全同侧」判定（比 antd 边界判定更严格，避免合并格跨固定/非固定边界时 sticky
+    //   错位的边缘情况），与 useStickyColumns 多级表头分组格判定（177-225 行）一致——summary 合并格
+    //   与表头分组格行为对称。对 antd 官方所有 demo（sticky idx0 全 fixed-start / summary 示例2 Balance
+    //   全非固定）结果与 antd 完全一致；仅「合并格跨固定/非固定边界」的合成场景本实现更保守（不 sticky）。
+    //
+    //   判定：扫描 [index, index+colSpan) 区间 leafSticky，全存在且全同 side（全 start 或全 end）→ sticky。
+    const info = rowCtx.leafSticky?.[index]
+    if (info?.side) {
+      let allSameSide = true
+      for (let i = index; i < index + colSpan; i++) {
+        const ci = rowCtx.leafSticky?.[i]
+        if (!ci || ci.side !== info.side) {
+          allSameSide = false
+          break
+        }
+      }
+      if (allSameSide) {
+        // offset 取边界 leaf（对齐 antd fixUtil）：
+        //   - start 侧：起始 leaf offset（`stickyOffsets.left[colStart]`）—— info 即 leafSticky[index]。
+        //   - end 侧：末 leaf offset（`stickyOffsets.right[colEnd]`）—— 取 leafSticky[index+colSpan-1]。
+        // start 侧直接用 info；end 侧末 leaf = 区间最后一项（全同侧已保证 side 一致，仅 offset 不同）。
+        const edgeInfo =
+          info.side === 'end' ? rowCtx.leafSticky?.[index + colSpan - 1] ?? info : info
+        const stickyH = stickyCellStyle(edgeInfo)
+        if (stickyH.position) {
+          // 与纵向 sticky bottom 合并：position 一次（同为 'sticky'），left/right + bottom 共存。
+          cellStyle.position = 'sticky'
+          if ('left' in stickyH) cellStyle.left = stickyH.left
+          if ('right' in stickyH) cellStyle.right = stickyH.right
+          // ★ 任务 T：固定列横向 sticky 显式赋 z-index（=2，stickyCellStyle 给的），
+          //   与表体固定列（z2）对齐，横滚时盖住同栈 summary 普通格（z-auto）。
+          cellStyle.zIndex = stickyH.zIndex
+        }
       }
     }
   }
