@@ -352,11 +352,12 @@ export function FloatingScrollBar({
     }
   }, [recompute])
 
-  // 纵向 thumb 拖动：pointerdown → capture → move 换算 → 容器 scrollTop。
-  const onVThumbPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+  // 纵向拖动（pointerdown 绑在 hit 容器，整个 8px hit 区可靠抓取，不依赖 thumb 先 hover 展开）：
+  // pointerdown → capture（hit 容器自身）→ move 换算 → 容器 scrollTop。
+  // thumb 仅用于几何计算 + transform 同步，其 ref 仍保留（vThumbRef）但不再绑 pointerdown。
+  const onVHitPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const container = innerScrollRef.current
-    const thumb = vThumbRef.current
-    if (!container || !thumb) return
+    if (!container) return
     e.preventDefault()
     e.stopPropagation()
     const scrollHeight = container.scrollHeight
@@ -373,7 +374,7 @@ export function FloatingScrollBar({
       startY: e.clientY,
       startScrollTop: container.scrollTop,
     }
-    thumb.setPointerCapture(e.pointerId)
+    e.currentTarget.setPointerCapture(e.pointerId)
     const onMove = (ev: PointerEvent) => {
       const ds = vDragStateRef.current
       if (!ds || ds.pointerId !== ev.pointerId) return
@@ -385,7 +386,7 @@ export function FloatingScrollBar({
       const ds = vDragStateRef.current
       if (!ds || ds.pointerId !== ev.pointerId) return
       vDragStateRef.current = null
-      thumb.releasePointerCapture(ds.pointerId)
+      e.currentTarget.releasePointerCapture(ds.pointerId)
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onUp)
@@ -395,11 +396,11 @@ export function FloatingScrollBar({
     window.addEventListener('pointercancel', onUp)
   }
 
-  // 横向 thumb 拖动：pointerdown → capture → move 换算 → 容器 scrollLeft（决策 8）。
-  const onHThumbPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+  // 横向拖动（pointerdown 绑在 hit 容器，整个 8px hit 区可靠抓取）：pointerdown → capture
+  // （hit 容器自身）→ move 换算 → 容器 scrollLeft（决策 8）。thumb ref 保留但不绑 pointerdown。
+  const onHHitPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const container = innerScrollRef.current
-    const thumb = hThumbRef.current
-    if (!container || !thumb) return
+    if (!container) return
     e.preventDefault()
     e.stopPropagation()
     const scrollWidth = container.scrollWidth
@@ -414,7 +415,7 @@ export function FloatingScrollBar({
       startX: e.clientX,
       startScrollLeft: container.scrollLeft,
     }
-    thumb.setPointerCapture(e.pointerId)
+    e.currentTarget.setPointerCapture(e.pointerId)
     const onMove = (ev: PointerEvent) => {
       const ds = hDragStateRef.current
       if (!ds || ds.pointerId !== ev.pointerId) return
@@ -426,7 +427,7 @@ export function FloatingScrollBar({
       const ds = hDragStateRef.current
       if (!ds || ds.pointerId !== ev.pointerId) return
       hDragStateRef.current = null
-      thumb.releasePointerCapture(ds.pointerId)
+      e.currentTarget.releasePointerCapture(ds.pointerId)
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onUp)
@@ -452,8 +453,9 @@ export function FloatingScrollBar({
       >
         {children}
       </div>
-      {/* 纵向悬浮滚动条 hit 容器：绝对定位数据区右侧（top=表头高，bottom=summary 高，right=0，width=24px）。
-          hit 容器宽度 = thumb 最大宽(hover 8px) + 左 8px + 右 8px = 24px（thumb 周围各 8px hit 区）。
+      {/* 纵向悬浮滚动条 hit 容器：绝对定位数据区右侧（top=表头高，bottom=summary 高，right=0，width=8px）。
+          hit 容器宽度 = 8px（= thumb 展开后宽度，整个 8px 都是抓取/hover 区；pointer-events:auto 使该
+          8px 可抓可 hover，区外点击穿透）。onPointerDown 绑在 hit 容器，整个 8px 区可靠抓取。
           ★ 任务 K：thumb 贴右边缘（CSS right:0; left:auto），transform 仅 translateY（无 translateX），
             hover 变粗时向左生长（右边缘不动，原位贴边）。默认 width 2px，hit 容器 :hover 时 8px（CSS）。 */}
       <div
@@ -463,16 +465,17 @@ export function FloatingScrollBar({
           top: `${trackInset.top}px`,
           bottom: `${trackInset.bottom}px`,
         }}
+        onPointerDown={onVHitPointerDown}
       >
         <div
           ref={vThumbRef}
           className="dg-floating-scrollbar-thumb"
           style={vThumbStyle}
-          onPointerDown={onVThumbPointerDown}
         />
       </div>
       {/* 横向悬浮滚动条（决策 8）：绝对定位数据区底部（summary 上方）。
-          hit 容器高度 = thumb 最大高(hover 8px) + 上 8px + 下 8px = 24px（thumb 周围各 8px hit 区）。
+          hit 容器高度 = 8px（= thumb 展开后高度，整个 8px 都是抓取/hover 区；pointer-events:auto 使该
+          8px 可抓可 hover，区外点击穿透）。onPointerDown 绑在 hit 容器，整个 8px 区可靠抓取。
           ★ 任务 K：thumb 贴底边缘（CSS bottom:0; top:auto），transform 仅 translateX（无 translateY），
             hover 变粗时向上生长（底边缘不动，原位贴边）。默认 height 2px，hit 容器 :hover 时 8px（CSS）。 */}
       {horizontal ? (
@@ -484,12 +487,12 @@ export function FloatingScrollBar({
             right: `${hTrackInset.right}px`,
             bottom: `${hTrackInset.bottom}px`,
           }}
+          onPointerDown={onHHitPointerDown}
         >
           <div
             ref={hThumbRef}
             className="dg-floating-scrollbar-thumb-h"
             style={hThumbStyle}
-            onPointerDown={onHThumbPointerDown}
           />
         </div>
       ) : null}

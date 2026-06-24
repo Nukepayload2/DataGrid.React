@@ -1728,13 +1728,14 @@
  *
  * 3. **悬浮条 hit 容器** `.dg-floating-scrollbar`：
  *    - 绝对定位：top/bottom 由 JS 注入（=表头高/summary 高，限制在数据区），right:0，width:24px。
- *    - width = 24px（hit 区）。★ 任务 K：thumb 贴右边缘（right:0），hit 区是 thumb 左侧 22px 透明扩展
- *      （默认 2px thumb + 左侧 22px = 24px；hover 8px thumb + 左侧 16px = 24px）。鼠标进入 thumb 左侧
- *      22px 即视为 hover thumb。原位贴边（非内移），与 antd 原生滚动条位置感一致。
- *    - z-index 高于单元格（盖在内容上但不阻挡——pointer-events 由 thumb 控制）。
- *    - 自身 pointer-events:auto 且 background 透明（仅作 hover 触发器，不阻挡视觉）。
- *      ★ 注意：hit 容器 pointer-events:auto 会阻挡其下方 24px 区域的表格交互（右边缘 24px 列内容
- *        点击被拦截）。权衡：24px 是 macOS 风格宽 hit 区的常规代价，可接受。
+ *    - width = 8px（hit 区，= thumb 展开后宽度）。★ 任务 K：thumb 贴右边缘（right:0），整个 8px 都是
+ *      抓取区/hover 区（默认 2px thumb + 左侧 6px 透明扩展；hover 8px thumb 填满整个 8px hit 区）。
+ *      原位贴边（非内移），与 antd 原生滚动条位置感一致。
+ *    - z-index 高于单元格（盖在内容上）。
+ *    - 自身 pointer-events:auto（让 8px hit 区可抓/可 hover），background 透明。区外（hit 8px 之外）
+ *      点击穿透到下方表格内容。被挡点击从原 24px 降到 8px。
+ *      ★ hit 容器 :hover 分支（`.dg-floating-scrollbar-v:hover .thumb`）现在生效（auto 元素触发
+ *        mouse hover）——进入 8px hit 区即展开 thumb 2px→8px 填满该 8px。
  *
  * 4. **thumb** `.dg-floating-scrollbar-thumb`：
  *    - 默认：width 2px，半透明灰（= colorTextPlaceholder，light≈rgba(0,0,0,0.25)），贴右边缘。
@@ -1758,7 +1759,8 @@
 }
 
 /* 悬浮条 hit 容器基类：绝对定位（top/bottom/left/right 由 JS 注入），
-   z-index 高于单元格，pointer-events:auto 接收 hover，背景透明不阻挡视觉。 */
+   z-index 高于单元格，pointer-events:auto 让 8px hit 区可抓/可 hover（区外点击穿透到下方内容）；
+   thumb 自身 pointer-events:auto 仍可 hover/拖动。背景 transparent（不阻挡视觉）。 */
 .dg-floating-scrollbar {
   position: absolute;
   z-index: 10;
@@ -1767,18 +1769,19 @@
 }
 
 /* === 纵向悬浮条（scroll.y）===
-   hit 容器：右侧，width 24px（thumb 贴右边缘，左侧 22px 透明 hit 区向内扩展；hover 8px 时左侧 16px）。
-   ★ 任务 V：z-index 抬到 11（高于横 hit 容器的 10），让竖在右下角 24×24 重叠区胜出——
+   hit 容器：右侧，width 8px（= thumb 展开后宽度，整个 8px 都是抓取/hover 区；thumb 贴右边缘，
+   默认 2px thumb + 左侧 6px 透明 hit 区，hover 8px thumb 填满整个 8px）。
+   ★ 任务 V：z-index 抬到 11（高于横 hit 容器的 10），让竖在右下角重叠区胜出——
      滚到底 thumb 在角落时悬停激活竖（非横）。竖是数据区域主导滚动条，角落优先级最高。 */
 .dg-floating-scrollbar-v {
   right: 0;
-  width: 24px;
+  width: 8px;
   z-index: 11;
 }
 
 /* 纵向 thumb：默认细线（2px 宽），hover/拖动时变粗（8px 宽）。★ 任务 K：贴右边缘（right:0;
    left:auto），transform 仅 translateY（JS 注入，无 translateX）——hover 变粗时向左生长，
-   右边缘不动（原位贴边，非内移）。hit 容器 24px 透明 hit 区在 thumb 左侧（向内扩展）。
+   右边缘不动（原位贴边，非内移）。hit 容器 8px 透明 hit 区在 thumb 左侧（向内扩展）。
    ★ 任务 L：默认色走 --ant-color-text-placeholder（antd stickyScrollBarBg/tableScrollThumbBg 同源
      alias——getComponentToken 剪枝同值键，原 --ant-table-sticky-scroll-bar-bg 在 DOM 上为空，
      故消费存活的 alias token；light≈rgba(0,0,0,0.25)，dark 可见）。
@@ -1799,25 +1802,32 @@
   will-change: transform, height;
 }
 
-/* 纵向 hit 容器 hover（鼠标进入 thumb 左侧 hit 区）→ thumb 变粗变实色（向左生长，右边缘不动）。
+/* 纵向 thumb 直悬 → 变粗变实色（向左生长，右边缘不动）。
    ★ 任务 L：hover 色走 --ant-color-text-heading（antd tableScrollThumbBgHover 同源 alias，
      getComponentToken 剪枝后存活；light/dark 均 0.88 文字色，明显可见）。 */
-.dg-floating-scrollbar-v:hover .dg-floating-scrollbar-thumb,
 .dg-floating-scrollbar-thumb:hover {
   width: 8px;
   background: var(--ant-color-text-heading);
 }
 
+/* ★ 纵向 hit 容器 hover → thumb 展开（hit 容器 pointer-events:auto，进入 8px hit 区即触发）。
+     thumb 2px→8px 向左生长填满整个 8px hit 区（右边缘不动）。 */
+.dg-floating-scrollbar-v:hover .dg-floating-scrollbar-thumb {
+  width: 8px;
+  background: var(--ant-color-text-heading);
+}
+
 /* === 横向悬浮条（决策 8，scroll.x）===
-   hit 容器：底部（summary 上方），height 24px（thumb 贴底边缘，上方 22px 透明 hit 区向内扩展；
-   hover 8px 时上方 16px）。left/right 由 JS 注入（默认 0/0，撑满数据区宽）。 */
+   hit 容器：底部（summary 上方），height 8px（= thumb 展开后高度，整个 8px 都是抓取/hover 区；
+   thumb 贴底边缘，默认 2px thumb + 上方 6px 透明 hit 区，hover 8px thumb 填满整个 8px）。
+   left/right 由 JS 注入（默认 0/0，撑满数据区宽）。 */
 .dg-floating-scrollbar-h {
-  height: 24px;
+  height: 8px;
 }
 
 /* 横向 thumb：默认细线（2px 高），hover/拖动时变粗（8px 高）。★ 任务 K：贴底边缘（bottom:0;
    top:auto），transform 仅 translateX（JS 注入，无 translateY）——hover 变粗时向上生长，
-   底边缘不动（原位贴边，非内移）。hit 容器 24px 透明 hit 区在 thumb 上方（向内扩展）。
+   底边缘不动（原位贴边，非内移）。hit 容器 8px 透明 hit 区在 thumb 上方（向内扩展）。
    ★ 任务 L：默认色/圆角与纵向 thumb 同源（详见 .dg-floating-scrollbar-thumb 注释）。 */
 .dg-floating-scrollbar-thumb-h {
   position: absolute;
@@ -1835,9 +1845,15 @@
   will-change: transform, width;
 }
 
-/* 横向 hit 容器 hover（鼠标进入 thumb 上方 hit 区）→ thumb 变粗变实色（向上生长，底边缘不动）。 */
-.dg-floating-scrollbar-h:hover .dg-floating-scrollbar-thumb-h,
+/* 横向 thumb 直悬 → 变粗变实色（向上生长，底边缘不动）。 */
 .dg-floating-scrollbar-thumb-h:hover {
+  height: 8px;
+  background: var(--ant-color-text-heading);
+}
+
+/* ★ 横向 hit 容器 hover → thumb 展开（hit 容器 pointer-events:auto，进入 8px hit 区即触发）。
+     thumb 2px→8px 向上生长填满整个 8px hit 区（底边缘不动）。 */
+.dg-floating-scrollbar-h:hover .dg-floating-scrollbar-thumb-h {
   height: 8px;
   background: var(--ant-color-text-heading);
 }

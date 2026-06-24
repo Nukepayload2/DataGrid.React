@@ -25,6 +25,11 @@ export interface DemoMeta {
    * opt-in：未声明时当作 false（其它 demo 不受影响）。列表页会显示「对比」徽章。
    */
   compare?: boolean
+  /**
+   * 首页分组类别（必填）。用于 HomePage 按类别分组渲染卡片网格。
+   * 取值见 src/demos/index.ts（如 '基础'、'列'、'固定列与表头' 等）。
+   */
+  category: string
 }
 
 /** 解析当前 hash 为路径段数组。 */

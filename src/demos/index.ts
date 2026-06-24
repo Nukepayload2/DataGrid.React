@@ -10,6 +10,7 @@ export const demos: DemoMeta[] = [
     description: '最简表格，对齐 antd basic demo（F1/F2/F3/F4 验收基线）+ 决策 9 双栏对照。',
     element: () => import('./basic'),
     compare: true,
+    category: '基础',
   },
   {
     name: 'grouping-columns',
@@ -18,6 +19,7 @@ export const demos: DemoMeta[] = [
       '多级表头，任意深度嵌套 children + 固定列 + scroll.x（M1 移植任务）+ 决策 9 双栏对照。',
     element: () => import('./grouping-columns'),
     compare: true,
+    category: '多级表头与合并',
   },
   {
     name: 'fixed-columns',
@@ -26,6 +28,7 @@ export const demos: DemoMeta[] = [
       '左右固定列 + 横向滚动 sticky（M2 移植任务）+ 决策 9 双栏对照。',
     element: () => import('./fixed-columns'),
     compare: true,
+    category: '固定列与表头',
   },
   {
     name: 'fixed-gapped-columns',
@@ -34,6 +37,7 @@ export const demos: DemoMeta[] = [
       '分散固定列堆叠 + bordered（M2 移植任务）+ 决策 9 双栏对照。',
     element: () => import('./fixed-gapped-columns'),
     compare: true,
+    category: '固定列与表头',
   },
   {
     name: 'fixed-columns-header',
@@ -42,6 +46,7 @@ export const demos: DemoMeta[] = [
       '固定列 + 表头纵向固定（列固定 M2 + 表头固定 M8，corner cell 双 sticky）+ 决策 9 双栏对照。',
     element: () => import('./fixed-columns-header'),
     compare: true,
+    category: '固定列与表头',
   },
   {
     name: 'fixed-header',
@@ -50,6 +55,7 @@ export const demos: DemoMeta[] = [
       '固定表头：scroll.y 表体限高纵向滚动、表头 sticky top 钉顶（M8 移植任务）+ 决策 9 双栏对照。',
     element: () => import('./fixed-header'),
     compare: true,
+    category: '固定列与表头',
   },
   {
     name: 'colspan-rowspan',
@@ -58,6 +64,7 @@ export const demos: DemoMeta[] = [
       '合并单元格：表头列合并 + 单元格行/列合并（M3 移植任务）+ 决策 9 双栏对照。',
     element: () => import('./colspan-rowspan'),
     compare: true,
+    category: '多级表头与合并',
   },
   {
     name: 'virtual-list',
@@ -66,6 +73,7 @@ export const demos: DemoMeta[] = [
       '万行虚拟滚动 + 固定列 + scrollTo + 合并（M4 移植任务）+ 决策 9 左右对比试点（data-grid / antd 并排）。',
     element: () => import('./virtual-list'),
     compare: true,
+    category: '虚拟与汇总',
   },
   {
     name: 'row-selection',
@@ -74,6 +82,7 @@ export const demos: DemoMeta[] = [
       '行选择状态机：checkbox/radio 切换、getCheckboxProps 禁用、onChange（M5 移植任务）+ 决策 9 双栏对照。',
     element: () => import('./row-selection'),
     compare: true,
+    category: '行选择',
   },
   {
     name: 'row-selection-and-operation',
@@ -82,6 +91,7 @@ export const demos: DemoMeta[] = [
       '受控 selectedRowKeys + 批量操作清空（S8 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./row-selection-and-operation'),
     compare: true,
+    category: '行选择',
   },
   {
     name: 'row-selection-custom',
@@ -90,6 +100,7 @@ export const demos: DemoMeta[] = [
       'rowSelection.selections 自定义选择项菜单（S9 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./row-selection-custom'),
     compare: true,
+    category: '行选择',
   },
   {
     name: 'hidden-columns',
@@ -98,6 +109,7 @@ export const demos: DemoMeta[] = [
       '隐藏列 column.hidden + grid track 0fr↔原宽 过渡（M6 移植任务）+ 决策 9 双栏对照。',
     element: () => import('./hidden-columns'),
     compare: true,
+    category: '列',
   },
   {
     name: 'resizable',
@@ -106,6 +118,7 @@ export const demos: DemoMeta[] = [
       '列宽拖拽调整 resizable + pointer 拖拽 + min/max 约束（M7 移植任务）+ 决策 9 双栏对照（右栏 antd 无原生对应，显示说明 + 静态基线）。',
     element: () => import('./resizable'),
     compare: true,
+    category: '列',
   },
   {
     name: 'expand',
@@ -114,6 +127,7 @@ export const demos: DemoMeta[] = [
       '行展开 expandable：grid 0fr↔1fr 过渡 + 展开图标列 + rowExpandable 禁用（M9 移植任务）+ 决策 9 双栏对照。',
     element: () => import('./expand'),
     compare: true,
+    category: '展开与嵌套',
   },
   {
     name: 'expand-sticky',
@@ -122,6 +136,7 @@ export const demos: DemoMeta[] = [
       '展开列位置（Table.EXPAND_COLUMN）+ 合并行 × 展开组合（M9 移植任务）+ 决策 9 双栏对照。',
     element: () => import('./expand-sticky'),
     compare: true,
+    category: '展开与嵌套',
   },
   {
     name: 'order-column',
@@ -130,6 +145,7 @@ export const demos: DemoMeta[] = [
       'Table.EXPAND_COLUMN + Table.SELECTION_COLUMN 哨兵控制展开/选择列位置（M9 + M5）+ 决策 9 双栏对照。',
     element: () => import('./order-column'),
     compare: true,
+    category: '行选择',
   },
   {
     name: 'head',
@@ -138,6 +154,7 @@ export const demos: DemoMeta[] = [
       '单列排序 sorter + 基础列筛选 filters/onFilter/filterMultiple/filterOnClose（S1 + S3 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./head'),
     compare: true,
+    category: '排序与筛选',
   },
   {
     name: 'multiple-sorter',
@@ -146,6 +163,7 @@ export const demos: DemoMeta[] = [
       '多列排序 sorter.multiple 优先级 + 表头优先级序号 + onChange 数组（S2 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./multiple-sorter'),
     compare: true,
+    category: '排序与筛选',
   },
   {
     name: 'reset-filter',
@@ -154,6 +172,7 @@ export const demos: DemoMeta[] = [
       '受控 filteredValue/sortOrder 组合 + 外部按钮一键重置（须指定 column.key）（S4 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./reset-filter'),
     compare: true,
+    category: '排序与筛选',
   },
   {
     name: 'custom-filter-panel',
@@ -162,6 +181,7 @@ export const demos: DemoMeta[] = [
       'filterDropdown（自定义下拉 + Input 搜索 + 高亮）+ filterIcon + filterDropdownProps + confirm/clearFilters（S5 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./custom-filter-panel'),
     compare: true,
+    category: '排序与筛选',
   },
   {
     name: 'filter-search',
@@ -170,6 +190,7 @@ export const demos: DemoMeta[] = [
       'filterSearch（true 默认 contains / 函数自定义）：内置 menu 面板顶部搜索框实时过滤筛选项（S6 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./filter-search'),
     compare: true,
+    category: '排序与筛选',
   },
   {
     name: 'filter-in-tree',
@@ -178,6 +199,7 @@ export const demos: DemoMeta[] = [
       'filterMode=tree 树形筛选 + children + filterSearch（S7 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./filter-in-tree'),
     compare: true,
+    category: '排序与筛选',
   },
   {
     name: 'pagination',
@@ -186,6 +208,7 @@ export const demos: DemoMeta[] = [
       '分页集成 + placement 位置（S11 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./pagination'),
     compare: true,
+    category: '分页与远程',
   },
   {
     name: 'ajax',
@@ -194,6 +217,7 @@ export const demos: DemoMeta[] = [
       '远程数据 loading + 服务端分页/排序/筛选 + preserveSelectedRowKeys（S12 自研任务，本地 mock）+ 决策 9 双栏对照。',
     element: () => import('./ajax'),
     compare: true,
+    category: '分页与远程',
   },
   {
     name: 'tree-data',
@@ -202,6 +226,7 @@ export const demos: DemoMeta[] = [
       '树形数据 childrenColumnName + 缩进展开 + checkStrictly 父子联动（S13 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./tree-data'),
     compare: true,
+    category: '树形数据',
   },
   {
     name: 'tree-table-preserveSelectedRowKeys',
@@ -210,6 +235,7 @@ export const demos: DemoMeta[] = [
       '树形×分页×checkStrictly×preserveSelectedRowKeys（issue #50621，S14 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./tree-table-preserveSelectedRowKeys'),
     compare: true,
+    category: '树形数据',
   },
   {
     name: 'edit-cell',
@@ -218,6 +244,7 @@ export const demos: DemoMeta[] = [
       'components.body.cell/row + onCell 编辑 + 增删行 + shouldCellUpdate（S15 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./edit-cell'),
     compare: true,
+    category: '编辑',
   },
   {
     name: 'edit-row',
@@ -226,6 +253,7 @@ export const demos: DemoMeta[] = [
       '行级编辑 editingKey + Edit/Save/Cancel + InputNumber(age)/Input + 100行分页 + Form外层（S16 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./edit-row'),
     compare: true,
+    category: '编辑',
   },
   {
     name: 'drag-sorting',
@@ -234,6 +262,7 @@ export const demos: DemoMeta[] = [
       '行拖拽排序（S17 自研任务；方案 B 自研 pointer，不依赖 @dnd-kit/*，指示线 + arrayMove）+ 决策 9 双栏对照。',
     element: () => import('./drag-sorting'),
     compare: true,
+    category: '拖拽排序',
   },
   {
     name: 'drag-sorting-handler',
@@ -242,6 +271,7 @@ export const demos: DemoMeta[] = [
       '手柄列拖拽排序（S18 自研任务，复用 S17 useRowDragSort + handleSelector 限定手柄列触发）+ 决策 9 双栏对照。',
     element: () => import('./drag-sorting-handler'),
     compare: true,
+    category: '拖拽排序',
   },
   {
     name: 'drag-column-sorting',
@@ -250,6 +280,7 @@ export const demos: DemoMeta[] = [
       '列拖拽排序（S19 自研任务，列方向 useColumnDragSort）+ 决策 9 双栏对照。',
     element: () => import('./drag-column-sorting'),
     compare: true,
+    category: '拖拽排序',
   },
   {
     name: 'ellipsis',
@@ -258,6 +289,7 @@ export const demos: DemoMeta[] = [
       'column.ellipsis 省略号 + 默认 title 提示（S20 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./ellipsis'),
     compare: true,
+    category: '列',
   },
   {
     name: 'ellipsis-custom-tooltip',
@@ -266,6 +298,7 @@ export const demos: DemoMeta[] = [
       'ellipsis showTitle:false + 自定义 Tooltip（S21 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./ellipsis-custom-tooltip'),
     compare: true,
+    category: '列',
   },
   {
     name: 'summary',
@@ -274,6 +307,7 @@ export const demos: DemoMeta[] = [
       'summary 总结栏 + Table.Summary/Row/Cell + fixed sticky bottom（S22 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./summary'),
     compare: true,
+    category: '虚拟与汇总',
   },
   {
     name: 'custom-empty',
@@ -282,6 +316,7 @@ export const demos: DemoMeta[] = [
       'locale.emptyText + ConfigProvider.renderEmpty 自定义空状态（S23 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./custom-empty'),
     compare: true,
+    category: '虚拟与汇总',
   },
   {
     name: 'nested-table',
@@ -290,6 +325,7 @@ export const demos: DemoMeta[] = [
       '展开行嵌套子 Table + defaultExpandedRowKeys + 多 size（S24 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./nested-table'),
     compare: true,
+    category: '展开与嵌套',
   },
   {
     name: 'tree-table-ellipsis',
@@ -298,6 +334,7 @@ export const demos: DemoMeta[] = [
       '树形首列 ellipsis+fixed 组合（issue #36583，S25 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./tree-table-ellipsis'),
     compare: true,
+    category: '树形数据',
   },
   {
     name: 'bordered',
@@ -306,6 +343,7 @@ export const demos: DemoMeta[] = [
       'bordered 边框 + title/footer + 固定列组合边框（S26 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./bordered'),
     compare: true,
+    category: '尺寸响应与样式',
   },
   {
     name: 'size',
@@ -314,6 +352,7 @@ export const demos: DemoMeta[] = [
       '尺寸 size：large/medium/small 行高 padding 对照（S27 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./size'),
     compare: true,
+    category: '尺寸响应与样式',
   },
   {
     name: 'narrow',
@@ -322,6 +361,7 @@ export const demos: DemoMeta[] = [
       '窄容器（width:300）+ 200 行 + size=small + pagination defaultCurrent:13（S27 自研任务；窄容器列宽属 §9 gap）+ 决策 9 双栏对照。',
     element: () => import('./narrow'),
     compare: true,
+    category: '尺寸响应与样式',
   },
   {
     name: 'responsive',
@@ -330,6 +370,7 @@ export const demos: DemoMeta[] = [
       'column.responsive 按断点显隐列（S28 自研任务；Grid.useBreakpoint 检测视口）+ 决策 9 双栏对照。',
     element: () => import('./responsive'),
     compare: true,
+    category: '尺寸响应与样式',
   },
   {
     name: 'style-class',
@@ -338,6 +379,7 @@ export const demos: DemoMeta[] = [
       'classNames/styles 语义化样式（对象/函数，S29 自研任务）。作用于 root/header.{cell,row,wrapper}/body.{cell,row,wrapper}/title/footer/pagination.{root,item}/section/content + 决策 9 双栏对照。',
     element: () => import('./style-class'),
     compare: true,
+    category: '尺寸响应与样式',
   },
   {
     name: 'component-token',
@@ -346,6 +388,7 @@ export const demos: DemoMeta[] = [
       'ConfigProvider theme.components.Table token → CSS variables + 动态面板（S30 自研任务；useToken 读取 + .dg-wrapper inline 注入）+ 决策 9 双栏对照。',
     element: () => import('./component-token'),
     compare: true,
+    category: '尺寸响应与样式',
   },
   {
     name: 'jsx',
@@ -354,6 +397,7 @@ export const demos: DemoMeta[] = [
       'Table.Column/ColumnGroup JSX 子元素声明列（S31 自研任务；children → columns 转换，ColumnGroup 嵌套复用 M1）+ 决策 9 双栏对照。',
     element: () => import('./jsx'),
     compare: true,
+    category: '列',
   },
   {
     name: 'column-defaults',
@@ -361,6 +405,7 @@ export const demos: DemoMeta[] = [
     description: 'Table 级 column 默认属性，单列覆盖（S32 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./column-defaults'),
     compare: true,
+    category: '列',
   },
   {
     name: 'dynamic-settings',
@@ -368,6 +413,7 @@ export const demos: DemoMeta[] = [
     description: '综合集成验收：全量动态切换（S33 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./dynamic-settings'),
     compare: true,
+    category: '尺寸响应与样式',
   },
   {
     name: 'sticky',
@@ -376,6 +422,7 @@ export const demos: DemoMeta[] = [
       'sticky 页面级表头固定 + offsetHeader + 横向滚动条（S34 自研任务）+ 决策 9 双栏对照。',
     element: () => import('./sticky'),
     compare: true,
+    category: '固定列与表头',
   },
   {
     name: 'nest-table-border-debug',
@@ -384,6 +431,7 @@ export const demos: DemoMeta[] = [
       '嵌套表格父子 bordered 隔离（主表 + expandedRowRender 子 Table 各自 Switch，D1 边缘任务）+ 决策 9 双栏对照。',
     element: () => import('./nest-table-border-debug'),
     compare: true,
+    category: '展开与嵌套',
   },
   {
     name: 'row-selection-custom-debug',
@@ -392,5 +440,6 @@ export const demos: DemoMeta[] = [
       'rowSelection.renderCell 自定义勾选格 + rowSpan 合并行（接入 M3 cellMerge，D1 边缘任务）+ 决策 9 双栏对照。',
     element: () => import('./row-selection-custom-debug'),
     compare: true,
+    category: '行选择',
   },
 ]
