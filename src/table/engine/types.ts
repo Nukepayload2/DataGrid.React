@@ -509,8 +509,26 @@ export interface EngineHeaderCell<RecordType = any> {
    */
   showSorterTooltip?: boolean | { target?: 'full-header' | 'sorter-icon' }
   /**
+   * 该列的**排序标识**（仅叶子表头格有值，由 flattenHeaderCells 从 node.raw 经
+   * `resolveColumnSortKey` 解析填入）。
+   *
+   * 与 `key`（= 完整路径，如嵌套叶子 `Other.Age`）区分：`key` 用作 React key / CSS track 关联，
+   * 内部唯一即可；`sortKey` 是**对外排序语义标识**（column.key ?? dataIndex，如 `'age'`），
+   * 与 useSorter.onSorterClick 的入参契约一致。表头格点击排序时传 `sortKey` 而非 `key`——
+   * 否则多级表头下嵌套叶子（key=`Other.Age`）的 sortKey（`'age'`）不匹配，点击无响应
+   * （useSorter 按 `resolveColumnSortKey(c) === columnKey` 查找列）。
+   */
+  sortKey?: string | number
+  /**
+   * 该列的**筛选标识**（仅叶子表头格有值，由 flattenHeaderCells 从 node.raw 经
+   * `resolveFilterKey` 解析填入）。与 sortKey 同算法（column.key ?? dataIndex），
+   * 与 useFilter.onFilterApply 的入参契约一致。筛选应用时传 `filterKey` 而非 `key`，
+   * 避免嵌套叶子列的筛选失效（与 sortKey 同款根因）。
+   */
+  filterKey?: string
+  /**
    * 该列是否可筛选（S3，仅叶子表头格有值）。
-   * `true`：表头格渲染筛选漏斗图标（FilterOutlined/FilterFilled）+ 绑定点击打开筛选下拉。
+   * `true`：表头格渲染筛选漏斗图标（FilterFilled）+ 绑定点击打开筛选下拉。
    * 由 `filters` 非空 + `onFilter` 存在派生。
    */
   filterable?: boolean

@@ -698,6 +698,35 @@ function hasChildren<RecordType>(
 }
 
 /**
+ * 把原始 antd `ColumnType[]`（可能含 children 嵌套分组）递归展开为**扁平叶子列**。
+ *
+ * ★ 用途（grouping-columns 嵌套叶子排序/筛选修复）：useSorter / useFilter 的 `columns` 入参
+ *   必须是扁平叶子列——内部 `columns.find(c => resolveColumnSortKey(c) === key)` 只扫一层，
+ *   传嵌套列会让多级表头的嵌套叶子（如 Other.Age）找不到 → onSorterClick/setFilterValue 静默失效。
+ *   对齐 antd：antd InternalTable 也是先 flattenColumns 再喂给 useSorter/useFilter。
+ *
+ * 哨兵列（SELECTION_COLUMN/EXPAND_COLUMN）由调用方在传入前已过滤；本函数只处理普通 ColumnType。
+ * 空子节点（children 为空数组或仅含哨兵）的列视为叶子（与 isLeafColumn 语义一致）。
+ */
+function flattenLeafColumns<RecordType>(
+  columns: Array<ColumnType<RecordType>>,
+): Array<ColumnType<RecordType>> {
+  const out: Array<ColumnType<RecordType>> = []
+  const walk = (list: Array<ColumnType<RecordType>>): void => {
+    for (const col of list) {
+      if (col.children && col.children.length > 0) {
+        walk(col.children)
+      } else {
+        out.push(col)
+      }
+    }
+  }
+  walk(columns)
+  return out
+}
+
+
+/**
  * 把 useSorter 派生的 sortOrderMap + sortPriorityMap 回填到列树节点（S1 + S2）。
  *
  * 规则：
@@ -1312,9 +1341,18 @@ function TableInner<RecordType = any>(
 
   const sortableColumns = useMemo(
     () =>
-      (visibleColumns as Array<ColumnOrSentinel<RecordType>>).filter(
-        (c): c is ColumnType<RecordType> =>
-          c !== SELECTION_COLUMN && c !== EXPAND_COLUMN,
+      // ★ 嵌套叶子排序/筛选修复（grouping-columns）：useSorter/useFilter 的 columns 入参必须是
+      //   **扁平叶子列**。原实现直接传顶层 visibleColumns（保留 children 嵌套），导致 onSorterClick/
+      //   setFilterValue 内的 `columns.find(c => resolveColumnSortKey(c) === key)` 仅扫顶层列——
+      //   多级表头下嵌套叶子（如 Other.Age，sortKey='age'）找不到（顶层只有 Other，sortKey='other'）
+      //   → 点击排序/应用筛选静默失效（useSorter.ts:493 / useFilter.ts:324 的 find 命中不了）。
+      //   修复：递归展开 children 取叶子列传入。对齐 antd（antd InternalTable 用 flattenColumns
+      //   扁平化后给 useSorter/useFilter）。顶层叶子 demo（head 等）扁平化后仍是自身，零回归。
+      flattenLeafColumns(
+        (visibleColumns as Array<ColumnOrSentinel<RecordType>>).filter(
+          (c): c is ColumnType<RecordType> =>
+            c !== SELECTION_COLUMN && c !== EXPAND_COLUMN,
+        ),
       ),
     [visibleColumns],
   )

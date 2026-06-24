@@ -1526,7 +1526,15 @@
   color: var(--dg-header-icon-color);
   /* antd filter.ts:61 fontSize: fontSizeSM（默认 14，非 12）。 */
   font-size: var(--ant-font-size-sm, 14px);
-  line-height: 1;
+  /* ★ §11 触发器高度对齐 antd：实测 antd `.ant-table-filter-trigger` 在表头中 used height=30px
+     （font-size 12、line-height 1.5715×12=18.86，但 flex 容器最终渲染盒高 30——含其 strut +
+     图标布局）。旧 data-grid 设 `line-height:1` 把 trigger 压成 12px（仅图标高），hover 高亮区
+     远小于 antd（antd hover bg 覆盖 30px 高，dg 仅 12px）。
+     修复：给 trigger 显式 height（对齐 antd used-height），让 hover 背景区与 antd 像素一致。
+     值取 antd 同上下文实测 30px；fallback 走 antd lineHeight(1.5715)×font-size-sm(12)≈22px
+     仍比 12 合理。30 来自 antd 该上下文的 strut+布局渲染（非显式 CSS height，见 filter.ts 无 height），
+     此处用 px 直接复刻其最终渲染盒。 */
+  min-height: 30px;
   /* ★ antd filter.ts:62 `borderRadius`（解构的是**基础 borderRadius** token，非 tableRadius）：
      `borderRadius` 默认 = 6px（基础 alias token），而 tableRadius = headerBorderRadius =
      borderRadiusLG = 8px（仅 .ant-table 外框圆角用）。漏斗 trigger 用**基础** borderRadius=6。

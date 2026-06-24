@@ -23,6 +23,8 @@
  */
 
 import type { EngineColumnNode, EngineHeaderCell, EngineLeafColumn } from './types'
+import { resolveColumnSortKey } from './useSorter'
+import { resolveFilterKey } from './useFilter'
 
 /** 节点是否为叶子（无有效 children）。 */
 export function isLeafColumn<RecordType>(
@@ -216,6 +218,13 @@ export function flattenHeaderCells<RecordType>(
       sortOrder: leaf ? node.sortOrder : undefined,
       sortPriority: leaf ? node.sortPriority : undefined,
       showSorterTooltip: leaf ? node.showSorterTooltip : undefined,
+      // ★ 嵌套叶子排序/筛选修复：表头格 key = 完整路径（如 `Other.Age`），但排序/筛选引擎按
+      //   column.key ?? dataIndex（如 `'age'`）匹配。多级表头下嵌套叶子两者不同 → 点击/筛选无响应。
+      //   故在表头格额外携带 sortKey/filterKey（解析自 node.raw），GridTable 点击排序/应用筛选时
+      //   传 sortKey/filterKey 而非 key。顶层叶子（无 parentPath）两者恰好相等，零回归。
+      //   仅叶子表头格有值（分组格无 sorter/filter）。
+      sortKey: leaf && node.raw ? resolveColumnSortKey(node.raw as any) : undefined,
+      filterKey: leaf && node.raw ? resolveFilterKey(node.raw as any) : undefined,
       // S3/S5/S12：筛选信息透传（仅叶子表头格有值；分组表头格无筛选）。
       //   filterable 与 useFilter.isFilterable 对齐（放宽为 antd `useFilter/index.tsx:38`）：
       //   filters 非空 || filterDropdown 存在 || onFilter 是函数——任一即 filterable（渲染漏斗）。

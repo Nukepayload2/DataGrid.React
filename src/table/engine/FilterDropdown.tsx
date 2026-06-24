@@ -60,6 +60,13 @@
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { Button, Checkbox, Dropdown, Empty, Input, Radio, Tree } from 'antd'
 import type { DropdownProps } from 'antd'
+// ★ 决策 6 统一化：filter 图标改用 `@ant-design/icons`（与 SortIndicator 的
+// CaretUp/DownOutlined 一致；该包已是 package.json 直接依赖 ^6.2.5）。
+// antd Table 默认 filterIcon = `<FilterFilled />`（见 antd
+// components/table/hooks/useFilter/FilterDropdown.tsx:549），**默认/激活态都用同一个
+// FilterFilled**——激活视觉差异纯由 `.dg-filter-trigger-active`（color: colorPrimary）驱动，
+// **不切换图标**。旧实现自绘 FilterIcon（Outlined↔Filled 切换）与 antd 不符（默认态多画了线框）。
+import { FilterFilled } from '@ant-design/icons'
 // ConfigContext 从 antd 内部 es 路径导入（与 Table.tsx 一致；antd 主入口不导出 ConfigContext）。
 // renderEmpty 签名：RenderEmptyHandler = (componentName: string) => ReactNode。
 import { ConfigContext } from 'antd/es/config-provider/context'
@@ -71,44 +78,26 @@ import type {
 } from '../types'
 
 /**
- * 漏斗图标（自绘 SVG，对齐 antd FilterOutlined/FilterFilled 视觉）。
+ * 漏斗图标（默认渲染）。
  *
- * 决策 6 注：表格特有交互元素（勾选框、展开/排序图标）暂保留自绘，可选后续统一化。
- * 筛选漏斗属表格特有图标，故自绘（避免引入 @ant-design/icons 作为直接依赖；
- * 该包当前仅作为 antd 间接依赖存在于 node_modules，未在 package.json 声明）。
+ * ★ §11 视觉统一化（对齐 antd 6.4.4）：直接渲染 `@ant-design/icons` 的 `FilterFilled`，
+ * 与 antd Table 默认 filterIcon 完全一致（FilterDropdown.tsx:549）。
+ *   - **默认态与激活态都用同一个 FilterFilled**——antd 不切换 Outlined/Filled。
+ *   - 激活视觉差异由外层 `.dg-filter-trigger-active`（color: colorPrimary）驱动（filter.ts:71-73）。
+ *   - color 由父级 `.dg-filter-trigger` 的 color 控制（currentColor，icon 设 fontSize 继承触发器）。
  *
- * - `activated`：是否激活（有筛选值）。激活时用实心填充（对应 antd FilterFilled）；
- *   非激活时用线条（对应 antd FilterOutlined）。
- * - color 由父级 `.dg-filter-trigger` 的 color 控制（currentColor）。
+ * 旧实现自绘 SVG 并在 activated 时切换 Filled/Outlined，默认态渲染了线框漏斗，与 antd
+ * 右栏的实心漏斗不一致；已废弃。`activated` 参数保留仅用于自定义 `customIcon`/`triggerRender`
+ * 回调签名兼容（antd filterIcon 也接收 `filtered: boolean`）。
  */
-function FilterIcon({ activated }: { activated: boolean }) {
-  // antd FilterOutlined/FilterFilled 的 SVG path（取自 @ant-design/icons-svg asn）。
-  // 漏斗形状：上宽下窄，下方一圆柱。
-  return (
-    <svg
-      viewBox="64 64 896 896"
-      width="1em"
-      height="1em"
-      fill="currentColor"
-      aria-hidden="true"
-      style={{ fontSize: 12, display: 'block' }}
-    >
-      {activated ? (
-        // FilterFilled：实心漏斗（antd path）。
-        <path d="M349 838c0 17.7 14.2 32 31.8 32h262.4c17.6 0 31.8-14.3 31.8-32V642H349v196zm531.1-684H143.9c-24.5 0-39.8 26.7-27.5 48l221.3 376h348.8l221.3-376c12.1-21.3-3.2-48-27.7-48z" />
-      ) : (
-        // FilterOutlined：线条漏斗（antd path）。
-        <path d="M880.1 154H143.9c-24.5 0-39.8 26.7-27.5 48L349 606.4V838c0 17.7 14.2 32 31.8 32h262.4c17.6 0 31.8-14.3 31.8-32V606.4L907.7 202c12.2-21.3-3.1-48-27.6-48zM602 592v196h-180V592L262 250h500L602 592z" />
-      )}
-    </svg>
-  )
-}
 
 /**
  * 放大镜图标（自绘 SVG，对齐 antd SearchOutlined 视觉）。
  *
- * 用于 S6 筛选项搜索框前缀。自绘而非引入 @ant-design/icons 的原因与 FilterIcon 相同：
- * @ant-design/icons 未在 package.json 声明（仅 antd 间接依赖），表格特有图标暂保留自绘（决策 6 注）。
+ * 用于 S6 筛选项搜索框前缀。自绘而非引入 @ant-design/icons 的 SearchOutlined：
+ * 该图标仅在 filter 搜索框前缀这一处使用（非表格核心交互元素），且与 FilterFilled 不同，
+ * antd FilterDropdown 内部也用 `<SearchOutlined />` 组件——但为保持本文件搜索前缀视觉与
+ * antd filter 搜索框一致，自绘 path 取自 @ant-design/icons-svg asn（与 antd 渲染结果一致）。
  */
 function SearchOutlined() {
   return (
@@ -687,15 +676,17 @@ export function FilterDropdown({
     builtinPanel
   )
 
-  // 触发器图标优先级：triggerRender（S3 内置 API）> customIcon（S5 filterIcon）> 默认 FilterIcon。
+  // 触发器图标优先级：triggerRender（S3 内置 API）> customIcon（S5 filterIcon）> 默认 FilterFilled。
   // 注：GridTable 不会同时传 triggerRender 与 customIcon；这里 triggerRender 优先仅为兼容。
+  // ★ 默认图标对齐 antd：始终渲染 `<FilterFilled />`（antd FilterDropdown.tsx:549），
+  //   不随 activated 切换 Outlined/Filled；激活高亮由外层 .dg-filter-trigger-active 的 color 驱动。
   const triggerIcon = triggerRender
     ? triggerRender(activated)
     : customIcon !== undefined && customIcon !== null
       ? typeof customIcon === 'function'
         ? customIcon(activated)
         : customIcon
-      : <FilterIcon activated={activated} />
+      : <FilterFilled />
 
   // 触发器：默认漏斗图标（FilterOutlined 灰 / FilterFilled 高亮）；可由 triggerRender 覆盖。
   const trigger = (

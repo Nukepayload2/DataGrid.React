@@ -2490,7 +2490,11 @@ function HeaderCell<RecordType>({
               //   切断这种"幽灵点击"误触发排序（Bug-B 现象 3 的根因）。
               if (!e.currentTarget.contains(e.target as Node)) return
               e.stopPropagation()
-              onSorterClick(cell.key)
+              // ★ 嵌套叶子排序修复：传 sortKey（column.key ?? dataIndex，如 `'age'`）而非 key
+              //   （完整路径如 `Other.Age`）——useSorter.onSorterClick 按 sortKey 查列，传 key 会让
+              //   多级表头嵌套叶子的 columns.find 失败 → 不排序。sortKey 由 flattenHeaderCells 从
+              //   node.raw 解析填入；顶层叶子 sortKey 与 key 相等（零回归）。
+              onSorterClick((cell.sortKey ?? cell.key) as string)
               // ★ 接口全兼容（决策 3 第二步）：合并后的 onClick（onHeaderCell + onHeaderRow）在排序
               //   之后触发（与 antd 表头 onClick 行为一致：排序 + 用户自定义 click 都执行）。
               ;(headerEventProps.onClick as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)?.(e)
@@ -2523,7 +2527,7 @@ function HeaderCell<RecordType>({
                 filterMultiple={cell.filterMultiple ?? true}
                 filteredValue={cell.filteredValue ?? null}
                 filterOnClose={cell.filterOnClose ?? true}
-                onApply={(next) => onFilterApply(cell.key, next)}
+                onApply={(next) => onFilterApply((cell.filterKey ?? cell.key) as string, next)}
                 customDropdown={cell.filterDropdown}
                 customIcon={cell.filterIcon}
                 dropdownProps={cell.filterDropdownProps}
@@ -2812,6 +2816,9 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
                   // ★ Bug-B 防御：仅当点击 target 真正落在本表头格内部时才触发排序（同非虚拟分支）。
                   if (!e.currentTarget.contains(e.target as Node)) return
                   e.stopPropagation()
+                  // ★ 单层表头分支：column 是 EngineLeafColumn（collectLeaves 产物），无 parentPath
+                  //   → column.key === sortKey（column.key ?? dataIndex）恒成立，故直接用 key 即正确。
+                  //   多级表头嵌套叶子的 key≠sortKey 问题在上方 HeaderCell 分支用 cell.sortKey 解决。
                   onSorterClick(column.key)
                   // ★ 接口全兼容（决策 3 第二步）：合并后的 onClick 在排序之后触发。
                   ;(headerEventPropsFlat.onClick as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)?.(e)
