@@ -435,6 +435,18 @@ function resolveNumericRowHeight<RecordType>(
   return 0
 }
 
+/**
+ * 把 size 限制到 [min, max] 区间（Phase 4 有界行高模型）。
+ * min/max 任一为 undefined 时不约束该侧；返回取整（与 useRowMeasurements correctRowSize 一致，
+ * 避免 sizeTree 写入浮点抖动）。
+ */
+function clampSize(size: number, min?: number, max?: number): number {
+  let v = size
+  if (typeof min === 'number' && v < min) v = min
+  if (typeof max === 'number' && v > max) v = max
+  return Math.round(v)
+}
+
 /** 取 record 的字段值（支持 dataIndex 为 string/number/string[]）。 */
 export function getValueByDataIndex(
   record: any,
@@ -473,6 +485,8 @@ export interface GridTableHandle {
     scrollTop?: number
     offset?: number
     align?: 'start' | 'center' | 'end' | 'nearest'
+    /** Phase 5：'auto'（默认，瞬时）| 'smooth'（原生平滑动画 + 到达检测）。 */
+    behavior?: 'auto' | 'smooth'
   }) => void
 }
 
@@ -689,6 +703,7 @@ function GridTableInner<RecordType = any>(
     dataSource,
     rowKey,
     rowHeight,
+    gridOptions,
     headerHeight,
     showHeader = true,
     scroll,
@@ -916,12 +931,51 @@ function GridTableInner<RecordType = any>(
   // === M4 虚拟滚动：约定行高（数字/函数 → 每行数值 px）===
   // getRowHeight 是 useVirtualList 算 offset/totalSize 的唯一行高来源。
   // ★ 决策 2：此处只用"收起态"约定行高，不感知（M9）展开态。详见 useVirtualList 注释。
-  // 兜底默认 40px：用户未传 rowHeight 时给一个合理约定（避免行高 0 导致虚拟窗口退化）。
-  // 与 antd `listItemHeight`（默认 24）类似思路；data-grid 取 40（接近 large 行高）。
-  const resolvedRowHeight = rowHeight ?? (virtualEnabled ? 40 : undefined)
+  //
+  // === Phase 4 gridOptions 解析（有界行高模型）===
+  // 优先级：`gridOptions.rowHeight` > 顶层 `rowHeight`（向后兼容）> 虚拟默认 56（原 40）。
+  //   - 默认 56：Phase 4 对齐 antd virtual-list 表观行高（antd large ≈ 55）。
+  //   - 顶层 `rowHeight` 仍保留（老 demo 直接传 rowHeight 不破）。
+  // `boundedRowHeight`：minRowHeight 与 maxRowHeight **同时**为正数时启用「有界行高模型」
+  //   （行随内容在 [min,max] 变高，body track=auto + 行容器 min/max-height 约束）。
+  //   仅设其一或都未设 → 固定行高模型（body track = `${effectiveRowHeight}px`）。
+  const gridRowHeightOpt = gridOptions?.rowHeight
+  const minRowHeightRaw = gridOptions?.minRowHeight
+  const maxRowHeightRaw = gridOptions?.maxRowHeight
+  const resolvedRowHeight =
+    gridRowHeightOpt ?? rowHeight ?? (virtualEnabled ? 56 : undefined)
+  const boundedRowHeight =
+    typeof minRowHeightRaw === 'number' &&
+    minRowHeightRaw > 0 &&
+    typeof maxRowHeightRaw === 'number' &&
+    maxRowHeightRaw > 0 &&
+    minRowHeightRaw <= maxRowHeightRaw
+  const minRowHeight = boundedRowHeight ? (minRowHeightRaw as number) : undefined
+  const maxRowHeight = boundedRowHeight ? (maxRowHeightRaw as number) : undefined
   const getRowHeight = useCallback(
-    (index: number) => resolveNumericRowHeight(resolvedRowHeight, dataSource[index], index),
-    [resolvedRowHeight, dataSource],
+    (index: number) => {
+      // 有界模式下，未测行回退用 minRowHeight（而非 rowHeight），保证 track=auto + 行容器 min-height
+      // 时虚拟窗口初始 offset 与首屏一致（首测后由 sizeOf 实测接管）。
+      if (boundedRowHeight) {
+        const rec = dataSource[index]
+        const declared =
+          typeof gridRowHeightOpt === 'function'
+            ? gridRowHeightOpt(rec, index)
+            : typeof gridRowHeightOpt === 'number'
+              ? gridRowHeightOpt
+              : minRowHeight
+        return clampSize(declared, minRowHeight, maxRowHeight)
+      }
+      return resolveNumericRowHeight(resolvedRowHeight, dataSource[index], index)
+    },
+    [
+      boundedRowHeight,
+      gridRowHeightOpt,
+      minRowHeight,
+      maxRowHeight,
+      dataSource,
+      resolvedRowHeight,
+    ],
   )
 
   // 滚动容器 ref（虚拟下承载纵向滚动；非虚拟时不使用）。
@@ -945,7 +999,27 @@ function GridTableInner<RecordType = any>(
     containerRef: virtualScrollRef,
     enabled: virtualEnabled,
     contentOffset: headerHeightNum,
+    // Phase 4 gap：.dg-grid 默认 row-gap:0（CSS 未声明），故传 0；将来若 CSS 引入 row-gap，
+    // 此处读 CSS 变量 --dg-row-gap（默认 0）传入。data-grid 表格通常无行间距。
+    gap: 0,
   })
+
+  // === Phase 4 effectiveRowHeight：body track 行高取值 ===
+  //   - 有界模型（minRowHeight/maxRowHeight 均设）：实测优先（sizeOf 闭环），未测回退 getRowHeight；
+  //     clamp 到 [min,max]；body track 取该值（min-height/max-height 同样约束行容器，二者一致保对齐）。
+  //   - 固定模型（默认）：取 getRowHeight(i)（= resolvedRowHeight 数值化）。
+  // 该值同时回填到每行 cell 的 `data-known-size`（实测闭环，避免 useRowMeasurements 死循环）。
+  const effectiveRowHeight = useCallback(
+    (i: number): number => {
+      if (boundedRowHeight) {
+        const measured = virtualEnabled ? virtualState.sizeOf(i) : 0
+        const base = measured > 0 ? measured : getRowHeight(i)
+        return clampSize(base, minRowHeight, maxRowHeight)
+      }
+      return getRowHeight(i)
+    },
+    [boundedRowHeight, virtualEnabled, virtualState, getRowHeight, minRowHeight, maxRowHeight],
+  )
 
   // 暴露 scrollTo（仅在虚拟模式下有效；非虚拟调用为 no-op）。
   useImperativeHandle(
@@ -1002,7 +1076,7 @@ function GridTableInner<RecordType = any>(
   // 非虚拟：headerTracks + 全部数据行 tracks（含展开 track）（M0/M1 行为，无展开时退化为原逻辑）。
   // S22：summary 启用时末尾追加 summaryTracks（每行一条 'auto'），并返回 summaryStartLine
   //   供渲染时给 summary Row 注入 grid-row 线号。
-  const { gridTemplateRows, gridTemplateColumns, gridAutoFlow, summaryStartLine } = useMemo(() => {
+  const { gridTemplateRows, gridTemplateColumns, gridAutoFlow, summaryStartLine, paddingTopLine, paddingBottomLine } = useMemo(() => {
     const headerRows = showHeader ? maxDepth : 0
     const headerTrackUnit = toTrack(headerHeight) ?? 'auto'
     const headerTracks: string[] = []
@@ -1016,7 +1090,19 @@ function GridTableInner<RecordType = any>(
       //   展开会让实际 DOM 总高 > totalSize，浏览器滚动条位置可能轻微偏移，但窗口稳定不崩。
       const visibleTracks: string[] = []
       for (let i = virtualState.start; i < virtualState.end; i += 1) {
-        visibleTracks.push(`${getRowHeight(i)}px`)
+        // Phase 4 有界行高模型：
+        //   - 有界模式（min/max 均设）：track = `auto`（行随内容自适应），每行 cell 加
+        //     `min-height:minRowHeight; max-height:maxRowHeight`（dg-cell-bounded 类，见 table.css）。
+        //     ★ 不能用 `minmax(min,max)` track：grid 的 free-space 分配会把所有 minmax track 拉满到 max
+        //     （因为 paddingBottom track 撑大 grid 容器→grid 有大量 free space→minmax track 全部吸满）。
+        //     用 `auto` track 不吸 free space，cell 的 min/max-height 约束真实高，实测闭环正确。
+        //   - 固定模式（默认）：track = `${effectiveRowHeight(i)}px`（含 sizeOf 实测闭环；
+        //     measurement 跑但实测≈固定值，视觉不变）。
+        if (boundedRowHeight) {
+          visibleTracks.push('auto')
+        } else {
+          visibleTracks.push(`${effectiveRowHeight(i)}px`)
+        }
         // M9 展开内容 track（可展开行后紧跟一条）。
         if (expandEnabled && expandState) {
           const record = dataSource[i]
@@ -1028,23 +1114,38 @@ function GridTableInner<RecordType = any>(
           }
         }
       }
-      bodyTracks = [
-        `${virtualState.paddingTop}px`,
-        ...visibleTracks,
-        `${virtualState.paddingBottom}px`,
-      ]
+      // ★ Bug2 修复（spacer 解耦）：paddingTop/paddingBottom track 改为 **`'auto'`**，
+      // 由独立的 FillerRow grid item（grid-column:1/-1 + height=paddingTop/Bottom）撑高，
+      // 不再把数值 px 写进 grid-template-rows。
+      //
+      // 为什么：
+      //   - 原方案 `${paddingTop}px` track 在每次滚动/测量时数值变化 → 整串 grid-template-rows
+      //     重写 → 配合 flushSync 重渲染风暴出现瞬时 `0px`/异常 track → 视觉抖动。
+      //   - 改 `'auto'`：track 大小由其内 FillerRow 子元素 height 决定，grid-template-rows 字符串
+      //     恒定（只含 header `auto`/px + body tracks + 两条 `auto` padding track + summary `auto`），
+      //     不再随 scrollTop 变化重写。padding 偏移只通过 FillerRow 单元素的 height style 改变
+      //     （单 DOM 属性变更，浏览器布局增量更新，无整串重写抖动）。
+      //   - 行线号 / expandLayout / summaryStartLine 计算不变（paddingTop/Bottom track 仍存在，
+      //     仅 size 由子元素决定）；固定列/合并 cell 的 gridColumn/gridRow 定位不受影响
+      //     （FillerRow grid-column:1/-1 跨整行，不占用具体列线号，纯垂直撑高）。
+      //   - FillerRow 不打 `data-row-index` → useRowMeasurements 跳过它（与原 Phase 4 FillerRow
+      //     设计一致，见 useRowMeasurements.ts L46-50 注释）。
+      bodyTracks = ['auto', ...visibleTracks, 'auto']
     } else {
       // M9：非虚拟下数据行间穿插展开内容 track（可展开行后插一条 0fr/1fr）。
       //   无展开时退化为 dataSource.map（M0/M1 行为）。
       if (expandEnabled && expandState) {
         const tracks: string[] = []
         dataSource.forEach((record, index) => {
-          const baseTrack =
-            typeof rowHeight === 'function'
-              ? (toTrack(rowHeight(record, index)) ?? 'auto')
-              : rowHeight !== undefined
-                ? `${rowHeight}px`
-                : 'auto'
+          // Phase 4 有界行高模型（非虚拟分支同款）：有界模式用 auto track + cell min/max-height。
+          let baseTrack: string
+          if (boundedRowHeight) {
+            baseTrack = 'auto'
+          } else if (typeof rowHeight === 'function') {
+            baseTrack = toTrack(rowHeight(record, index)) ?? 'auto'
+          } else {
+            baseTrack = rowHeight !== undefined ? `${rowHeight}px` : 'auto'
+          }
           tracks.push(baseTrack)
           const key = getRowKey(record, rowKey)
           if (expandState.isExpandable(key)) {
@@ -1054,6 +1155,10 @@ function GridTableInner<RecordType = any>(
         bodyTracks = tracks
       } else {
         bodyTracks = dataSource.map((record, index) => {
+          // Phase 4 有界行高模型（非虚拟分支同款）：有界模式用 auto track + cell min/max-height。
+          if (boundedRowHeight) {
+            return 'auto'
+          }
           if (typeof rowHeight === 'function') {
             const v = rowHeight(record, index)
             return toTrack(v) ?? 'auto'
@@ -1150,6 +1255,15 @@ function GridTableInner<RecordType = any>(
       ? headerTracks.length + bodyTracks.length + 1
       : 0
 
+    // ★ Bug2 spacer 解耦：FillerRow（撑 paddingTop/Bottom 的独立 grid item）所在 grid-row 线号。
+    //   - paddingTop track 紧跟 headerTracks：其 1-based 起始线 = headerTracks.length + 1。
+    //   - paddingBottom track 是 bodyTracks 末条：起始线 = headerTracks.length + bodyTracks.length。
+    //     （summaryStartLine>0 时 = summaryStartLine - 1；summaryStartLine=0 时直接由 tracks 长度算。）
+    //   虚拟模式下 bodyTracks 首末恒为 'auto'（Bug2 修复），FillerRow 用 height 撑高其 auto track。
+    //   非虚拟下 bodyTracks 无 padding track（无 FillerRow），此处的线号仅虚拟场景使用。
+    const paddingTopLine = headerTracks.length + 1
+    const paddingBottomLine = headerTracks.length + bodyTracks.length
+
     // 多级表头路径：关闭 auto-flow（用显式 grid-column/grid-row 定位）。
     // 单层路径：保持 grid-auto-flow:column（M0 行为）。
     // ★ S22：summary 启用时强制关闭 auto-flow（用显式定位）——summary Cell 用 gridColumn/gridRow
@@ -1160,6 +1274,8 @@ function GridTableInner<RecordType = any>(
       gridTemplateColumns: colTracks.join(' ') || 'none',
       gridAutoFlow: mode === 'multi' || summaryEnabled ? undefined : ('column' as const),
       summaryStartLine,
+      paddingTopLine,
+      paddingBottomLine,
     }
   }, [
     mode,
@@ -1167,6 +1283,10 @@ function GridTableInner<RecordType = any>(
     leafColumns,
     dataSource,
     rowHeight,
+    boundedRowHeight,
+    minRowHeight,
+    maxRowHeight,
+    effectiveRowHeight,
     headerHeight,
     showHeader,
     virtualEnabled,
@@ -1189,6 +1309,14 @@ function GridTableInner<RecordType = any>(
     gridTemplateRows,
     gridTemplateColumns,
     ...(gridAutoFlow ? { gridAutoFlow } : null),
+    // ★ Phase 4 有界行高模型：注入 CSS 变量供 .dg-cell-body（dg-grid-bounded 下）消费
+    //   （cell min-height/max-height）。仅 boundedRowHeight 时设；不设时 CSS 规则不命中（零回归）。
+    ...(boundedRowHeight
+      ? ({
+          '--dg-row-min-h': `${minRowHeight}px`,
+          '--dg-row-max-h': `${maxRowHeight}px`,
+        } as CSSProperties)
+      : null),
     // ★ C1 列宽策略（§11 第 0 步）：`.dg-grid` 恒定 `width:100%`（对齐 antd `<table>` CSS
     //   `.ant-table table{width:100%}`，见 `ant-design/components/table/style/index.ts:280-286`）。
     //   这是修 basic Action 截断 + 该出的横滚条出现的核心——
@@ -1232,6 +1360,8 @@ function GridTableInner<RecordType = any>(
     // M7：拖拽进行中加 dg-grid-resizing 类，禁用 grid-template-columns 过渡
     // （否则拖拽时 0.3s 过渡会与实时更新叠加产生抖动/延迟）。
     resizingKey !== null ? 'dg-grid-resizing' : undefined,
+    // Phase 4 有界行高模型：加标记类，CSS 据此给 .dg-cell-body 加 min/max-height（约束 auto track）。
+    boundedRowHeight ? 'dg-grid-bounded' : undefined,
     className,
   ]
     .filter(Boolean)
@@ -1257,6 +1387,22 @@ function GridTableInner<RecordType = any>(
       }
       return (
         <div className={gridClassName} style={gridFinalStyleWithSemantic} ref={gridRef}>
+          {/* ★ Bug2 spacer 解耦：虚拟模式下渲染独立 FillerRow grid item 撑 paddingTop（替代原
+              grid-template-rows 的 `${paddingTop}px` track）。grid-template-rows 该 track 改 'auto'，
+              FillerRow 用 height 撑高（auto track 包裹子元素高）。FillerRow 不打 data-row-index，
+              useRowMeasurements 跳过它（见 useRowMeasurements.ts L46-50）。grid-column:1/-1 跨整行
+              不影响固定列/合并 cell 的列定位；grid-row 显式定位到 paddingTopLine。 */}
+          {virtualEnabled ? (
+            <div
+              className="dg-filler-row dg-filler-top"
+              style={{
+                gridColumn: '1 / -1',
+                gridRow: paddingTopLine,
+                height: virtualState.paddingTop,
+                pointerEvents: 'none',
+              }}
+            />
+          ) : null}
           {/* 表头区：显式定位的表头格（sticky 信息来自 headerSticky）。
               M3：跳过 covered 表头格（被前面的 colSpan>1 表头覆盖，不渲染 DOM）。
               M4 虚拟 / M8 非 virtual scroll.y：表头格额外 position:sticky; top:0（z-index 4），
@@ -1332,6 +1478,8 @@ function GridTableInner<RecordType = any>(
             rowHoverable,
             // ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定 → 加 dg-row-selected 类。
             isRowSelected,
+            // ★ Phase 4：首列写 data-known-size（实测闭环）。
+            effectiveRowHeight,
           })}
           {/* M9 行展开内容：每个可展开 + 展开中的数据行渲染一条展开内容 grid item，
               grid-column: 1 / -1 跨整行，grid-row 指向该行下方的展开内容 track。
@@ -1380,6 +1528,19 @@ function GridTableInner<RecordType = any>(
                 作为独立 grid 渲染（顺序 grid(数据) → StickyScrollBar → summary-grid），使横向滚动条落在
                 summary **上方**（数据区末尾）。此处 skip 渲染；summaryStartLine 对应的 'auto' track 无
                 grid item → 折叠为 0 高，主 grid 末尾即为表体。 */}
+          {/* ★ Bug2 spacer 解耦：虚拟模式下渲染独立 FillerRow grid item 撑 paddingBottom（同 paddingTop，
+              线号 paddingBottomLine）。放在 summary 之前（若有 summary，paddingBottom 在表体末、summary 前）。 */}
+          {virtualEnabled ? (
+            <div
+              className="dg-filler-row dg-filler-bottom"
+              style={{
+                gridColumn: '1 / -1',
+                gridRow: paddingBottomLine,
+                height: virtualState.paddingBottom,
+                pointerEvents: 'none',
+              }}
+            />
+          ) : null}
           {summaryParsed && summaryStartLine > 0 && !extractSummary
             ? summaryParsed.rows.map((row, rowIndex) => {
                 const rowLine = summaryStartLine + rowIndex
@@ -1435,6 +1596,8 @@ function GridTableInner<RecordType = any>(
             headerColumns={headerColumns}
             // ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定 → 加 dg-row-selected 类。
             isRowSelected={isRowSelected}
+            // ★ Phase 4 实测闭环：flat 路径表体首列写 data-known-size（与 multi 路径 BodyCell 同款）。
+            effectiveRowHeight={effectiveRowHeight}
           />
         ))}
       </div>
@@ -1756,6 +1919,8 @@ function BodyCell<RecordType>({
   rowHoverable = true,
   // ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定 → 加 dg-row-selected 类。
   isRowSelected,
+  // ★ Phase 4：首列 cell 写 data-known-size（实测闭环）。
+  effectiveRowHeight,
 }: {
   column: EngineLeafColumn<RecordType>
   colIdx: number
@@ -1784,6 +1949,8 @@ function BodyCell<RecordType>({
   rowHoverable?: boolean
   /** ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定回调。未提供时不加 dg-row-selected 类（零回归）。 */
   isRowSelected?: (record: RecordType) => boolean
+  /** ★ Phase 4：取本行最终/实测高（首列写 data-known-size，实测闭环）。 */
+  effectiveRowHeight?: (index: number) => number
 }) {
   const colSpan = merge?.colSpan ?? 1
   const text = getValueByDataIndex(record, column.dataIndex)
@@ -1875,6 +2042,9 @@ function BodyCell<RecordType>({
         'dg-cell',
         'dg-cell-body',
         column.rowScope === 'row' ? 'dg-cell-rowscope' : undefined,
+        // ★ Phase 4：rowSpan>1 的合并格标记，CSS 据此在有界行高模型下排除 min/max-height
+        //   （合并格需跨多 track，被 max-height 截断会破坏 rowSpan 对齐——见 table.css dg-grid-bounded 注释）。
+        rowSpanTracks > 1 ? 'dg-cell-rowspan' : undefined,
         fixedClass(column.fixed),
         shadowClass(info),
         column.hidden ? 'dg-cell-hidden' : undefined,
@@ -1897,6 +2067,10 @@ function BodyCell<RecordType>({
         .join(' ')}
       data-align={column.align ?? undefined}
       data-row-index={index}
+      // ★ Phase 4 实测闭环：写本行实测/最终高（effectiveRowHeight），避免 useRowMeasurements
+      //   每次报变化→死循环重渲染。仅在该行首个可见格（colIdx===0）写，减少冗余 attr。
+      //   有界模式下 effectiveRowHeight 走 sizeOf 实测（clamp [min,max]）；固定模式下 = rowHeight 约定值。
+      {...(colIdx === 0 && effectiveRowHeight ? { 'data-known-size': effectiveRowHeight(index) } : null)}
       // ★ §11 row-selection：表体格也标 data-column-key（与表头格 GridTable.tsx:2282/2604 对齐）。
       //   用于选择列（key='__dg_selection__'）专用样式定位——antd selection.ts:49-61 给选择列单元格
       //   单独设 paddingInlineStart/End = paddingXS(4px)（区别于普通列的 cellPaddingInline），CSS 需精确命中。
@@ -1995,6 +2169,8 @@ function renderBodyCells<RecordType>({
   rowHoverable = true,
   // ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定 → 加 dg-row-selected 类。
   isRowSelected,
+  // ★ Phase 4：首列 cell 写 data-known-size（实测闭环）。
+  effectiveRowHeight,
 }: {
   leafColumns: Array<EngineLeafColumn<RecordType>>
   dataSource: Array<RecordType>
@@ -2022,6 +2198,8 @@ function renderBodyCells<RecordType>({
   rowHoverable?: boolean
   /** ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定回调。 */
   isRowSelected?: (record: RecordType) => boolean
+  /** ★ Phase 4：取本行最终/实测高（首列写 data-known-size，实测闭环）。 */
+  effectiveRowHeight?: (index: number) => number
 }): Array<ReactNode> {
   // ★ 接口全兼容（决策 3 第二步）：按行预计算 onRow 返回值 + rowClassName（同行的每个单元格共享）。
   //   预计算避免在 BodyCell 内重复调用（onRow 是用户函数，重复调用既浪费也可能有副作用）。
@@ -2105,6 +2283,8 @@ function renderBodyCells<RecordType>({
             rowHoverable={rowHoverable}
             // ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定。
             isRowSelected={isRowSelected}
+            // ★ Phase 4：首列写 data-known-size（实测闭环）。
+            effectiveRowHeight={effectiveRowHeight}
           />,
         )
       }
@@ -2167,6 +2347,8 @@ function renderBodyCells<RecordType>({
           rowHoverable={rowHoverable}
           // ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定。
           isRowSelected={isRowSelected}
+          // ★ Phase 4：首列写 data-known-size（实测闭环）。
+          effectiveRowHeight={effectiveRowHeight}
         />,
       )
     }
@@ -2627,6 +2809,11 @@ interface ColumnCellsProps<RecordType> {
    * 未提供（undefined）时不加类（零回归）。详见 EngineTableProps.isRowSelected。
    */
   isRowSelected?: (record: RecordType) => boolean
+  /**
+   * ★ Phase 4：取第 index 行的最终/实测高（用于首列 cell 写 data-known-size，实测闭环）。
+   * flat 路径与 multi 路径 BodyCell 同款。undefined 时不写 data-known-size（零回归）。
+   */
+  effectiveRowHeight?: (index: number) => number
 }
 
 /** 单层路径（grid-auto-flow:column）的列渲染：表头格 + 每数据行格。
@@ -2667,6 +2854,8 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
     headerColumns,
     // ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定 → 加 dg-row-selected 类。
     isRowSelected,
+    // ★ Phase 4：首列 cell 写 data-known-size（实测闭环）。
+    effectiveRowHeight,
   } = props
 
   // ★ 接口全兼容（决策 3 第二步）：onHeaderCell 返回值（flat 路径表头格 props 注入）。
@@ -2982,6 +3171,9 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
               .join(' ')}
             data-align={column.align ?? undefined}
             data-row-index={index}
+            // ★ Phase 4 实测闭环：写本行实测/最终高（effectiveRowHeight），仅首列（colIdx===0）写。
+            //   与 multi 路径 BodyCell 同款（详见上方注释）。
+            {...(colIdx === 0 && effectiveRowHeight ? { 'data-known-size': effectiveRowHeight(index) } : null)}
             // ★ §11 row-selection：表体格也标 data-column-key（与上方 BodyCell 多级表头路径 + 表头格一致）。
             //   选择列（key='__dg_selection__'）专用样式定位——antd selection.ts:49-61 选择列 padding
             //   = paddingXS(4px)，区别于普通列 cellPaddingInline。详见 BodyCell 同款注释。

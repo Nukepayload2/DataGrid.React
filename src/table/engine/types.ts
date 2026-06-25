@@ -616,6 +616,15 @@ export interface EngineTableProps<RecordType = any> {
   rowKey: string | ((record: RecordType) => string | number)
   /** 行高约定（默认 'auto'，即不强制）。 */
   rowHeight?: RowHeight<RecordType>
+  /**
+   * data-grid 专属 grid 布局选项（Phase 4 有界行高模型）。
+   * 详见对外 types.ts `TableProps.gridOptions` 注释（data-grid 专属，与 antd 不兼容）。
+   */
+  gridOptions?: {
+    rowHeight?: number | ((record: RecordType, index: number) => number)
+    minRowHeight?: number
+    maxRowHeight?: number
+  }
   /** 表头行高约定（默认 'auto'）。
    *  多级表头下，所有表头行统一使用此高度。 */
   headerHeight?: number | string

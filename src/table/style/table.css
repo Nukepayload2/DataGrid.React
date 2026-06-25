@@ -471,6 +471,31 @@
   transition: background-color 0.2s ease;
 }
 
+/* === Phase 4 有界行高模型 ===
+ * 启用条件：`.dg-grid.dg-grid-bounded`（GridTable 在 gridOptions.minRowHeight/maxRowHeight
+ *   均设时加此类 + 注入 --dg-row-min-h / --dg-row-max-h CSS 变量）。
+ * 作用：body track 用 `auto`（随内容自适应）+ cell 加 min-height/max-height 约束。
+ *   ★ 不能用 `minmax(min,max)` track：grid free-space 分配会把所有 minmax track 拉满到 max
+ *   （paddingBottom track 撑大 grid 容器→大量 free space→minmax track 全部吸满到 max）。
+ *   auto track 不吸 free space，cell min/max-height 直接约束真实高，实测闭环正确。
+ *   overflow:hidden 配合 max-height 裁剪超出内容（与 antd ellipsis 语义一致：内容超高不撑破行）。 */
+.dg-grid.dg-grid-bounded .dg-cell-body {
+  min-height: var(--dg-row-min-h);
+  max-height: var(--dg-row-max-h);
+  overflow: hidden;
+}
+
+/* ★ Phase 4：rowSpan>1 的合并格**不**应用 min/max-height——合并格需跨多 track（如 rowSpan=4
+ *   跨 4 行），被 max-height 截断会让 grid 把它压回单 track 高度，破坏合并格对齐（实测：
+ *   Group rowSpan=4 在 [40,120] 有界下被 max-height:120 截到 120，只盖首行）。
+ *   合并格的高度由其跨越的多个 auto track 之和自然决定（仍受各行 cell 的 min/max 间接约束）。
+ *   overflow:hidden 也移除（合并格内容若超高应自然撑开跨 track，不裁剪）。 */
+.dg-grid.dg-grid-bounded .dg-cell-body.dg-cell-rowspan {
+  min-height: 0;
+  max-height: none;
+  overflow: visible;
+}
+
 /* 行 hover：grid-auto-flow:column 下"同行"DOM 不连续，纯 CSS 无法关联整行，
    故由 GridTable 的 hoveredRowIndex state 在命中行所有 body cell 上加 `dg-row-hover` 类。
    保留 `.dg-cell-body:hover` 作为单格 hover fallback（未接入 JS 也能有反馈）。 */

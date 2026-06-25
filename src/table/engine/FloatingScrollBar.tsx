@@ -54,45 +54,63 @@ import {
 } from 'react'
 
 /**
- * 测量 grid 内"表头区高度"（表头 sticky 区相对 grid 顶部的距离）。
+ * 测量"表头区高度"（表头 sticky 区相对**滚动容器**顶部的距离）。
  *
- * 表头区 = grid 内所有 `.dg-cell-header` 元素相对 grid 顶部的最大底部偏移。
+ * 表头区 = `.dg-cell-header` 元素相对**滚动容器**顶部的最大底部偏移。
  * showHeader=false 时无表头格 → 返回 0（悬浮条从顶部开始）。
+ *
+ * ★ Bug1 修复：参照系必须是**滚动容器**（container），不是 `.dg-grid`（grid）。
+ *   - `.dg-grid` 是全量内容（虚拟下高 40 万 px），其 `getBoundingClientRect().top`
+ *     随 scrollTop 变负（≈ -scrollTop）；
+ *   - 表头 sticky 相对**滚动容器顶**固定，视觉位置不动；
+ *   - 若参照 grid：`r.bottom - gridRect.top ≈ scrollTop + 40`，headerH 随 scrollTop 暴涨
+ *     → 悬浮条 hit 容器 top=headerH 被推出 wrap、thumb transform 锁 0 → 滚动条消失。
+ *   - 改参照 container：`r.bottom - containerRect.top ≈ 40`（恒定），headerH 稳定≈40。
  */
-function measureHeaderHeight(grid: HTMLElement | null): number {
-  if (!grid) return 0
-  const gridRect = grid.getBoundingClientRect()
+function measureHeaderHeight(
+  grid: HTMLElement | null,
+  container: HTMLElement | null,
+): number {
+  if (!grid || !container) return 0
+  const containerRect = container.getBoundingClientRect()
   let maxBottom = 0
   const headers = grid.querySelectorAll<HTMLElement>(
     '.dg-cell-header, .dg-cell-header-vsticky',
   )
   headers.forEach((h) => {
     const r = h.getBoundingClientRect()
-    const bottomRelativeToGrid = r.bottom - gridRect.top
-    if (bottomRelativeToGrid > maxBottom) maxBottom = bottomRelativeToGrid
+    const bottomRelativeToContainer = r.bottom - containerRect.top
+    if (bottomRelativeToContainer > maxBottom) maxBottom = bottomRelativeToContainer
   })
   return Math.max(0, maxBottom)
 }
 
 /**
- * 测量 grid 内"summary 区高度"（底部 summary 区占用的高度）。
+ * 测量"summary 区高度"（底部 summary 区占用的高度）。
  *
- * summary 区 = grid 内所有 `.dg-cell-summary` 元素的并集高度（顶部偏移最小值到底部偏移最大值的范围）。
+ * summary 区 = `.dg-cell-summary` 元素的并集高度（顶部偏移最小值到底部偏移最大值的范围）。
  * 无 summary → 返回 0（悬浮条延伸到底部）。
+ *
+ * ★ Bug1 修复（同 measureHeaderHeight）：参照系改为**滚动容器**（container）。
+ *   summary 是 `position: sticky; bottom: 0` 相对滚动容器底部固定；用 container 作参照
+ *   才能在任意 scrollTop 下稳定测得其高度（不随 grid 的 -scrollTop 偏移而漂移）。
  */
-function measureSummaryHeight(grid: HTMLElement | null): number {
-  if (!grid) return 0
-  const gridRect = grid.getBoundingClientRect()
+function measureSummaryHeight(
+  grid: HTMLElement | null,
+  container: HTMLElement | null,
+): number {
+  if (!grid || !container) return 0
+  const containerRect = container.getBoundingClientRect()
   const summaries = grid.querySelectorAll<HTMLElement>('.dg-cell-summary')
   if (summaries.length === 0) return 0
   let minTop = Infinity
   let maxBottom = -Infinity
   summaries.forEach((s) => {
     const r = s.getBoundingClientRect()
-    const topRelativeToGrid = r.top - gridRect.top
-    const bottomRelativeToGrid = r.bottom - gridRect.top
-    if (topRelativeToGrid < minTop) minTop = topRelativeToGrid
-    if (bottomRelativeToGrid > maxBottom) maxBottom = bottomRelativeToGrid
+    const topRelativeToContainer = r.top - containerRect.top
+    const bottomRelativeToContainer = r.bottom - containerRect.top
+    if (topRelativeToContainer < minTop) minTop = topRelativeToContainer
+    if (bottomRelativeToContainer > maxBottom) maxBottom = bottomRelativeToContainer
   })
   if (!Number.isFinite(minTop) || !Number.isFinite(maxBottom)) return 0
   return Math.max(0, maxBottom - minTop)
@@ -172,9 +190,10 @@ export function FloatingScrollBar({
   // === 纵向悬浮条 state ===
   const vThumbRef = useRef<HTMLDivElement | null>(null)
   const vHitRef = useRef<HTMLDivElement | null>(null)
+  // ★ 修复 C：state **不含 transform** —— transform 由 DOM 直接写（onScroll / recompute），
+  //   避免 React 重渲染用 state.transform 覆盖 DOM transform 造成滚动中闪烁。
   const [vThumbStyle, setVThumbStyle] = useState<CSSProperties>({
     height: 0,
-    transform: 'translateY(0)',
     display: 'none',
   })
   const [trackInset, setTrackInset] = useState<{ top: number; bottom: number }>({
@@ -190,9 +209,9 @@ export function FloatingScrollBar({
   // === 横向悬浮条 state（决策 8）===
   const hThumbRef = useRef<HTMLDivElement | null>(null)
   const hHitRef = useRef<HTMLDivElement | null>(null)
+  // ★ 修复 C（同纵向）：state 不含 transform，横向 thumb 位置由 DOM 直接写。
   const [hThumbStyle, setHThumbStyle] = useState<CSSProperties>({
     width: 0,
-    transform: 'translateX(0)',
     display: 'none',
   })
   const [hTrackInset, setHTrackInset] = useState<{ left: number; right: number; bottom: number }>({
@@ -214,8 +233,8 @@ export function FloatingScrollBar({
     if (!container || !thumb || !hit) return
 
     const grid = container.querySelector<HTMLElement>('.dg-grid')
-    const headerH = measureHeaderHeight(grid)
-    const summaryH = measureSummaryHeight(grid)
+    const headerH = measureHeaderHeight(grid, container)
+    const summaryH = measureSummaryHeight(grid, container)
     setTrackInset((prev) =>
       prev.top === headerH && prev.bottom === summaryH
         ? prev
@@ -233,18 +252,26 @@ export function FloatingScrollBar({
     }
     // track 高度 = clientHeight - headerH - summaryH（数据区可视高）。
     const trackHeight = Math.max(0, clientHeight - headerH - summaryH)
-    // thumb 高度 = clientHeight × (clientHeight / scrollHeight)，最少 24px。
-    const thumbHeight = Math.max(24, trackHeight * (clientHeight / scrollHeight))
+    // thumb 高度 = clientHeight × (clientHeight / scrollHeight)，最少 32px
+    // （修复 A：从 24 提高到 32，让 thumb 视觉更清晰，避免滚动中「滚到中途看不见」）。
+    const thumbHeight = Math.max(32, trackHeight * (clientHeight / scrollHeight))
     const maxScroll = scrollHeight - clientHeight
     const scrollTop = container.scrollTop
     const thumbMaxOffset = Math.max(0, trackHeight - thumbHeight)
     const ratio = maxScroll > 0 ? scrollTop / maxScroll : 0
     const thumbOffset = ratio * thumbMaxOffset
-    setVThumbStyle({
-      height: thumbHeight,
-      transform: `translateY(${thumbOffset}px)`,
-      display: 'block',
+    // ★ 修复 C：thumb **位置（transform）由 DOM 单一路径负责**。
+    //   recompute 与 onScroll 都通过 `thumb.style.transform = ...` 直接写 DOM，
+    //   state（vThumbStyle）**不携带 transform**，只管几何（height）+ 可见性（display）。
+    //   这样 React 重渲染时不会用 state.transform 覆盖 DOM 上 onScroll 刚写的 transform，
+    //   消除「state transform ↔ DOM transform 竞争覆盖」导致的滚动中 thumb 闪烁。
+    setVThumbStyle((prev) => {
+      // height/display 不变则跳过（避免 RO 频繁触发引起不必要重渲）。
+      if (prev.height === thumbHeight && prev.display === 'block') return prev
+      return { height: thumbHeight, display: 'block' }
     })
+    // 位置直接写 DOM（与 onScroll 同一路径，单源）。
+    thumb.style.transform = `translateY(${thumbOffset}px)`
   }, [])
 
   // 核心：重算横向 thumb 几何（决策 8）。
@@ -255,7 +282,7 @@ export function FloatingScrollBar({
     if (!container || !thumb || !hit) return
 
     const grid = container.querySelector<HTMLElement>('.dg-grid')
-    const summaryH = measureSummaryHeight(grid)
+    const summaryH = measureSummaryHeight(grid, container)
     // 横向 track 定位：left=0, right=0, bottom=summary 高度（summary 上方）。
     setHTrackInset((prev) =>
       prev.bottom === summaryH ? prev : { left: 0, right: 0, bottom: summaryH },
@@ -270,19 +297,20 @@ export function FloatingScrollBar({
       )
       return
     }
-    // thumb 宽度 = track 宽度 × (clientWidth / scrollWidth)，最少 24px。
+    // thumb 宽度 = track 宽度 × (clientWidth / scrollWidth)，最少 32px（与纵向一致，修复 A）。
     const trackWidth = clientWidth
-    const thumbWidth = Math.max(24, trackWidth * (clientWidth / scrollWidth))
+    const thumbWidth = Math.max(32, trackWidth * (clientWidth / scrollWidth))
     const maxScroll = scrollWidth - clientWidth
     const scrollLeft = container.scrollLeft
     const thumbMaxOffset = Math.max(0, trackWidth - thumbWidth)
     const ratio = maxScroll > 0 ? scrollLeft / maxScroll : 0
     const thumbOffset = ratio * thumbMaxOffset
-    setHThumbStyle({
-      width: thumbWidth,
-      transform: `translateX(${thumbOffset}px)`,
-      display: 'block',
+    // ★ 修复 C（同纵向）：state 不携带 transform，位置由 DOM 直接写（单一源）。
+    setHThumbStyle((prev) => {
+      if (prev.width === thumbWidth && prev.display === 'block') return prev
+      return { width: thumbWidth, display: 'block' }
     })
+    thumb.style.transform = `translateX(${thumbOffset}px)`
   }, [])
 
   const recompute = useCallback(() => {
@@ -305,7 +333,7 @@ export function FloatingScrollBar({
           const headerH = trackInset.top
           const summaryH = trackInset.bottom
           const trackHeight = Math.max(0, clientHeight - headerH - summaryH)
-          const thumbHeight = Math.max(24, trackHeight * (clientHeight / scrollHeight))
+          const thumbHeight = Math.max(32, trackHeight * (clientHeight / scrollHeight))
           const thumbMaxOffset = Math.max(0, trackHeight - thumbHeight)
           const ratio = container.scrollTop / maxScroll
           vThumb.style.transform = `translateY(${ratio * thumbMaxOffset}px)`
@@ -322,7 +350,7 @@ export function FloatingScrollBar({
           const maxScroll = scrollWidth - clientWidth
           if (maxScroll > 0) {
             const trackWidth = clientWidth
-            const thumbWidth = Math.max(24, trackWidth * (clientWidth / scrollWidth))
+            const thumbWidth = Math.max(32, trackWidth * (clientWidth / scrollWidth))
             const thumbMaxOffset = Math.max(0, trackWidth - thumbWidth)
             const ratio = container.scrollLeft / maxScroll
             hThumb.style.transform = `translateX(${ratio * thumbMaxOffset}px)`
@@ -367,7 +395,7 @@ export function FloatingScrollBar({
     const headerH = trackInset.top
     const summaryH = trackInset.bottom
     const trackHeight = Math.max(0, clientHeight - headerH - summaryH)
-    const thumbHeight = Math.max(24, trackHeight * (clientHeight / scrollHeight))
+    const thumbHeight = Math.max(32, trackHeight * (clientHeight / scrollHeight))
     const thumbMaxOffset = Math.max(0, trackHeight - thumbHeight)
     vDragStateRef.current = {
       pointerId: e.pointerId,
@@ -408,7 +436,7 @@ export function FloatingScrollBar({
     const maxScroll = scrollWidth - clientWidth
     if (maxScroll <= 0) return
     const trackWidth = clientWidth
-    const thumbWidth = Math.max(24, trackWidth * (clientWidth / scrollWidth))
+    const thumbWidth = Math.max(32, trackWidth * (clientWidth / scrollWidth))
     const thumbMaxOffset = Math.max(0, trackWidth - thumbWidth)
     hDragStateRef.current = {
       pointerId: e.pointerId,

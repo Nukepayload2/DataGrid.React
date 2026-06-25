@@ -1208,6 +1208,7 @@ function TableInner<RecordType = any>(
     title,
     footer,
     rowHeight,
+    gridOptions,
     headerHeight,
     scroll,
     virtual,
@@ -1901,6 +1902,8 @@ function TableInner<RecordType = any>(
             index: idx,
             offset: config.offset,
             align: config.align,
+            // Phase 5：data-grid 专属（antd 无），透传平滑行为。
+            behavior: config.behavior,
           })
           return
         }
@@ -1910,6 +1913,7 @@ function TableInner<RecordType = any>(
             scrollTop: config.top,
             offset: config.offset,
             align: config.align,
+            behavior: config.behavior,
           })
           return
         }
@@ -1918,6 +1922,7 @@ function TableInner<RecordType = any>(
           scrollTop: config.scrollTop,
           offset: config.offset,
           align: config.align,
+          behavior: config.behavior,
         })
       },
       nativeElement: rootRef.current,
@@ -2244,6 +2249,7 @@ function TableInner<RecordType = any>(
             dataSource={pagedDataSource}
             rowKey={rowKeyResolved}
             rowHeight={rowHeight}
+            gridOptions={gridOptions}
             headerHeight={headerHeight}
             showHeader={showHeader}
             scroll={scroll}
@@ -2286,6 +2292,7 @@ function TableInner<RecordType = any>(
           dataSource={pagedDataSource}
           rowKey={rowKeyResolved}
           rowHeight={rowHeight}
+          gridOptions={gridOptions}
           headerHeight={headerHeight}
           showHeader={showHeader}
           scroll={scroll}
@@ -2359,6 +2366,8 @@ interface TableEngineHandle {
     scrollTop?: number
     offset?: number
     align?: 'start' | 'center' | 'end' | 'nearest'
+    /** Phase 5：'auto'（默认，瞬时）| 'smooth'（原生平滑动画 + 到达检测）。 */
+    behavior?: 'auto' | 'smooth'
   }) => void
 }
 

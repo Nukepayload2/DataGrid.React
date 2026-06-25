@@ -1325,6 +1325,25 @@ export interface TableProps<RecordType = any> {
   tableLayout?: 'auto' | 'fixed'
   /** 行高约定（data-grid 扩展，非 antd 公共 API；便于虚拟/固定场景）。 */
   rowHeight?: number | ((record: RecordType, index: number) => number | string)
+  /**
+   * data-grid 专属 grid 布局选项（Phase 4 有界行高模型）。
+   *
+   * **与 antd 不兼容**：antd `Table` 没有 `rowHeight` / `minRowHeight` / `maxRowHeight`
+   * 概念（antd 行高随内容），此容器仅 data-grid 消费。顶层 `rowHeight` 仍保留以向后兼容
+   * （顶层优先级低于 `gridOptions.rowHeight`）。
+   *
+   * - `rowHeight`：行高约定（数字 → 固定 px；函数 → 按行返回 px）。默认 56（虚拟）。
+   * - `minRowHeight` / `maxRowHeight`：**同时设置**时启用「有界行高模型」——行高随内容
+   *   在 [min, max] 区间自适应（body track 用 auto + 行容器 min/max-height 约束），RO 实测
+   *   真实高度驱动虚拟窗口 offset/padding。**关键**：固定列/合并单元格/多级表头因仍由统一
+   *   grid track 定位，跨可变高行保持像素级对齐（与 auto-track 脱节无关，grid 显式定位）。
+   *   仅设其一（缺 min 或 max）→ 退化为固定行高（等同不设）。
+   */
+  gridOptions?: {
+    rowHeight?: number | ((record: RecordType, index: number) => number)
+    minRowHeight?: number
+    maxRowHeight?: number
+  }
   /** 表头行高约定。 */
   headerHeight?: number | string
   /**
@@ -1792,7 +1811,10 @@ export interface TableRef {
    *     - `scrollTop: number` / `top: number`：直接滚到指定 scrollTop。
    * - `offset`：目标行顶部对齐后再额外偏移（向下为正）。
    * - `align`：'start'（默认）| 'center' | 'end' | 'nearest'。虚拟模式下不支持 'center' 时
-   *   退化为 'start'（与 antd 行为一致）。
+   *   退化为 'start'（与 antd 行为一致）。'nearest'：目标行已完全在可视区时**不滚动**（不跳），
+   *   仅当上方不可见→按 start、下方不可见→按 end（对齐 react-virtuoso scrollIntoViewSystem）。
+   * - `behavior`：'auto'（默认，瞬时）| 'smooth'（原生平滑动画到位）。**data-grid 专属**
+   *   （antd 无此字段）；smooth 下内部启用到达检测（scrollTop≈target/触边界/1000ms fallback）。
    */
   scrollTo: (config: {
     index?: number
@@ -1802,6 +1824,8 @@ export interface TableRef {
     top?: number
     offset?: number
     align?: 'start' | 'center' | 'end' | 'nearest'
+    /** Phase 5（data-grid 专属）：平滑滚动行为。 */
+    behavior?: 'auto' | 'smooth'
   }) => void
   /** 最外层根 DOM 节点（占位，M4 起接入）。 */
   nativeElement?: HTMLDivElement | null
