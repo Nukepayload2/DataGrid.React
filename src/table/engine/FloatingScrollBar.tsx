@@ -402,7 +402,11 @@ export function FloatingScrollBar({
       startY: e.clientY,
       startScrollTop: container.scrollTop,
     }
-    e.currentTarget.setPointerCapture(e.pointerId)
+    // ★ 修复：onUp 注册在 window 上，触发时 pointerdown 事件对象 e 的 currentTarget 已为 null，
+    //   导致 `e.currentTarget.releasePointerCapture` 抛 null。这里在 pointerdown 入口
+    //   （e.currentTarget = hit 容器有效）把捕获目标元素引用存进闭包，set/release 都用同一元素。
+    const hitEl = e.currentTarget
+    hitEl.setPointerCapture(e.pointerId)
     const onMove = (ev: PointerEvent) => {
       const ds = vDragStateRef.current
       if (!ds || ds.pointerId !== ev.pointerId) return
@@ -414,7 +418,7 @@ export function FloatingScrollBar({
       const ds = vDragStateRef.current
       if (!ds || ds.pointerId !== ev.pointerId) return
       vDragStateRef.current = null
-      e.currentTarget.releasePointerCapture(ds.pointerId)
+      hitEl.releasePointerCapture(ds.pointerId)
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onUp)
@@ -443,7 +447,10 @@ export function FloatingScrollBar({
       startX: e.clientX,
       startScrollLeft: container.scrollLeft,
     }
-    e.currentTarget.setPointerCapture(e.pointerId)
+    // ★ 修复（同纵向）：onUp 注册在 window 上，触发时 e.currentTarget 已为 null。
+    //   在 pointerdown 入口把捕获目标元素引用存进闭包，set/release 都用同一元素。
+    const hitEl = e.currentTarget
+    hitEl.setPointerCapture(e.pointerId)
     const onMove = (ev: PointerEvent) => {
       const ds = hDragStateRef.current
       if (!ds || ds.pointerId !== ev.pointerId) return
@@ -455,7 +462,7 @@ export function FloatingScrollBar({
       const ds = hDragStateRef.current
       if (!ds || ds.pointerId !== ev.pointerId) return
       hDragStateRef.current = null
-      e.currentTarget.releasePointerCapture(ds.pointerId)
+      hitEl.releasePointerCapture(ds.pointerId)
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onUp)
