@@ -112,9 +112,22 @@ const TableHeaderCell: FC<HeaderCellProps> = (props) => {
 
 const dgBaseColumns: ColumnType<RecordType>[] = [
   { title: 'Name', dataIndex: 'name', key: 'name' },
-  { title: 'Gender', dataIndex: 'gender', key: 'gender' },
+  {
+    title: 'Gender',
+    dataIndex: 'gender',
+    key: 'gender',
+    // ★ T10：此列不可发起拖（movable:false）。其它列仍可拖——拖别的列时此列会被被动让位。
+    gridColumnOptions: { movable: false },
+  },
   { title: 'Age', dataIndex: 'age', key: 'age' },
-  { title: 'Email', dataIndex: 'email', key: 'email' },
+  {
+    title: 'Email',
+    dataIndex: 'email',
+    key: 'email',
+    // ★ T10：此列锁定位置（lockPosition:true）——自身 index 不变，重排算法跳过此列。
+    // 其它列可在其前后重排，但 Email 列自身位置固定（拖它无反应，拖其它列它原地不动）。
+    gridColumnOptions: { lockPosition: true },
+  },
   { title: 'Address', dataIndex: 'address', key: 'address' },
 ]
 
@@ -134,11 +147,20 @@ const antdBaseColumns: TableColumnsType<RecordType> = [
 // 左栏（data-grid）—— 方案 B 自研 pointer 列方向拖拽
 // ---------------------------------------------------------------------------
 
-function DataGridPane({ bordered }: { bordered: boolean }) {
+function DataGridPane({
+  bordered,
+  autoScroll,
+  columnReorder,
+}: {
+  bordered: boolean
+  autoScroll: boolean
+  columnReorder: boolean
+}) {
   const [columns, setColumns] = useState<ColumnType<RecordType>[]>(() =>
     dgBaseColumns.map((column, i) => ({
       ...column,
       // 稳定 key（列重排时 React diff 用），与 antd demo `${i}` 索引作 key 同款。
+      // ★ 注意：保留 gridColumnOptions（movable/lockPosition）—— dgBaseColumns 各列已标注。
       key: `${i}`,
     })),
   )
@@ -149,6 +171,10 @@ function DataGridPane({ bordered }: { bordered: boolean }) {
     columns,
     onSort: setColumns,
     containerRef,
+    // T9：拖到左右边缘横向自动滚动（此 demo 5 列无 scroll.x，auto-scroll 为 no-op；开关用于对照）。
+    autoScroll,
+    // ★ T10：columnReorder 全局开关（gridOptions.columnReorder 透传；false→所有列头不可拖）。
+    reorder: columnReorder,
   })
 
   return (
@@ -183,6 +209,13 @@ function DataGridPane({ bordered }: { bordered: boolean }) {
         当前拖拽：
         {dragState ? `from #${dragState.fromIndex + 1} → 目标 #${dragState.overIndex + 1}` : '无'}
         ；当前列顺序：{columns.map((c) => c.title).join(' / ')}
+        <br />
+        {/* T10：列标志提示——Gender 不可发起拖（movable:false），Email 锁定位置（lockPosition:true，
+            拖它无反应、拖别的列它原地不动）。columnReorder 全局关 → 所有列头不可拖。 */}
+        <span style={{ color: '#1677ff' }}>
+          [T10] Gender: 不可发起拖(movable:false)；Email: 锁定位置(lockPosition:true)；ColumnReorder
+          全局开关：{columnReorder ? '开' : '关（所有列头不可拖）'}
+        </span>
       </div>
     </div>
   )
@@ -272,6 +305,11 @@ function AntdPane({ bordered }: { bordered: boolean }) {
 export default function DragColumnSortingDemo() {
   // ★ 共享状态：同一个状态同时驱动两侧表格。
   const [bordered, setBordered] = useState(false)
+  // T9：autoScrollOnDrag 开关（仅驱动左栏 data-grid；右栏 antd 无对应概念）。
+  const [autoScroll, setAutoScroll] = useState(true)
+  // ★ T10：columnReorder 全局开关（仅驱动左栏 data-grid）。
+  // 默认 true（保持 S19 总是可拖行为）；关 → 所有列头不可拖（总闸，优先于单列 movable/lockPosition）。
+  const [columnReorder, setColumnReorder] = useState(true)
 
   return (
     <div style={{ padding: 24 }}>
@@ -291,6 +329,20 @@ export default function DragColumnSortingDemo() {
             checkedChildren="Bordered"
             unCheckedChildren="Bordered"
           />
+          {/* T9：autoScrollOnDrag 开关（仅驱动左栏 data-grid）。 */}
+          <Switch
+            checked={autoScroll}
+            onChange={setAutoScroll}
+            checkedChildren="AutoScroll"
+            unCheckedChildren="AutoScroll"
+          />
+          {/* T10：columnReorder 全局开关（仅驱动左栏 data-grid）。 */}
+          <Switch
+            checked={columnReorder}
+            onChange={setColumnReorder}
+            checkedChildren="ColumnReorder"
+            unCheckedChildren="ColumnReorder"
+          />
         </Space>
       </div>
 
@@ -300,7 +352,13 @@ export default function DragColumnSortingDemo() {
       */}
       <SplitDemo
         minPaneWidth={480}
-        left={<DataGridPane bordered={bordered} />}
+        left={
+          <DataGridPane
+            bordered={bordered}
+            autoScroll={autoScroll}
+            columnReorder={columnReorder}
+          />
+        }
         right={<AntdPane bordered={bordered} />}
       >
         <div>

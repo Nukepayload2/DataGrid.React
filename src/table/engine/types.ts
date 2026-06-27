@@ -614,20 +614,27 @@ export interface EngineTableProps<RecordType = any> {
   dataSource: Array<RecordType>
   /** 行 key 取值函数或属性名。 */
   rowKey: string | ((record: RecordType) => string | number)
-  /** 行高约定（默认 'auto'，即不强制）。 */
-  rowHeight?: RowHeight<RecordType>
   /**
-   * data-grid 专属 grid 布局选项（Phase 4 有界行高模型）。
+   * data-grid 专属 grid 布局选项（Phase 4 有界行高模型 + M7 列宽拖拽 + 表头行高）。
+   *
+   * **T8 硬迁移**：原顶层 `rowHeight`/`headerHeight`/`resizable`/`resizableMinWidth`/
+   * `resizableMaxWidth` 全部迁入 `gridOptions`（删顶层、无 alias）。引擎从此命名空间读取。
    * 详见对外 types.ts `TableProps.gridOptions` 注释（data-grid 专属，与 antd 不兼容）。
    */
   gridOptions?: {
-    rowHeight?: number | ((record: RecordType, index: number) => number)
+    /** 行高约定（数字 px 或函数；默认 'auto'，虚拟下默认 56）。 */
+    rowHeight?: RowHeight<RecordType>
     minRowHeight?: number
     maxRowHeight?: number
+    /** 表头行高约定（默认 'auto'）。多级表头下所有表头行统一使用此高度。 */
+    headerHeight?: number | string
+    /** 列宽拖拽开关（M7）；引擎层 undefined/false 不启用。 */
+    resizable?: boolean
+    /** M7 列宽拖拽最小宽度（px）。默认 30。 */
+    resizableMinWidth?: number | ((key: string) => number)
+    /** M7 列宽拖拽最大宽度（px）。默认 Infinity。 */
+    resizableMaxWidth?: number | ((key: string) => number)
   }
-  /** 表头行高约定（默认 'auto'）。
-   *  多级表头下，所有表头行统一使用此高度。 */
-  headerHeight?: number | string
   /** 是否显示表头。 */
   showHeader?: boolean
   /**
@@ -668,33 +675,6 @@ export interface EngineTableProps<RecordType = any> {
     header?: { cell?: React.ComponentType<any> }
     body?: { row?: React.ComponentType<any>; cell?: React.ComponentType<any> }
   }
-  /**
-   * 列宽拖拽调整开关（M7）。
-   *
-   * - `true`（或 undefined，由适配层默认值决定）：在**叶子表头格右侧**渲染 resizer 手柄，
-   *   pointer 拖拽实时改列宽（写入引擎内部 `resizedWidths`，覆盖 column.width）。
-   *   详见 `useColumnResize`。
-   * - `false`：不渲染手柄，列宽完全由 column.width / max-content 决定（M0–M6 行为，零回归）。
-   *
-   * 组合：
-   *   - M1 多级表头：只有叶子表头格有手柄；分组表头格无手柄。
-   *   - M2 固定列：拖拽改宽后 useStickyColumns 的 ResizeObserver 自动重算 sticky 偏移。
-   *   - M4 虚拟：拖拽不影响虚拟行渲染窗口（列/行 track 正交）。
-   *   - M6 隐藏列：0fr track 的列不渲染手柄（隐藏列无可调宽度）。
-   *
-   * 默认值由适配层（Table.tsx）决定；引擎层 false 表示明确关闭。
-   */
-  resizable?: boolean
-  /**
-   * M7 列宽拖拽最小宽度（px）。number → 统一；函数 → 按 key 逐列。
-   * 默认 30。仅在 `resizable` 生效时有意义。
-   */
-  resizableMinWidth?: number | ((key: string) => number)
-  /**
-   * M7 列宽拖拽最大宽度（px）。number → 统一；函数 → 按 key 逐列。
-   * 默认 Infinity（不限制）。
-   */
-  resizableMaxWidth?: number | ((key: string) => number)
   /**
    * M9 行展开状态（由适配层 useRowExpand 派生，引擎只消费、不持有状态）。
    *
@@ -870,6 +850,19 @@ export interface EngineTableProps<RecordType = any> {
    */
   getPopupContainer?: (triggerNode: HTMLElement) => HTMLElement
   /**
+   * ★ T6 i18n：Table 级 `locale`（来自 TableProps.locale）。引擎透传给 FilterDropdown，
+   * 消费 filterConfirm/filterReset/filterEmptyText/filterSearchPlaceholder/filterCheckAll
+   * （+ @deprecated filterCheckall）。未提供（undefined）时 FilterDropdown 回退到内置默认值
+   * （antd en_US 同款英文），零回归。
+   */
+  filterLocale?: {
+    filterConfirm?: ReactNode
+    filterReset?: ReactNode
+    filterEmptyText?: ReactNode
+    filterSearchPlaceholder?: string
+    filterCheckall?: ReactNode
+    filterCheckAll?: ReactNode
+  }
    * ★ 接口全兼容（决策 3 第二步，对齐 antd v6 `TableProps.rowHoverable`）。行是否可 hover 高亮，
    * 默认 true。false 时单元格不加 dg-row-hover（关闭内置 hover 视觉）。详见对外 types.ts
    * TableProps.rowHoverable。未提供（undefined）时默认 true（保持现有 hover 行为不变，零回归）。

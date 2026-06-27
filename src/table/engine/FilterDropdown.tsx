@@ -76,6 +76,7 @@ import type {
   ColumnFilterDropdownProps,
   FilterDropdownProps as DgFilterDropdownProps,
 } from '../types'
+import { TABLE_LOCALE_DEFAULT } from '../types'
 
 /**
  * 漏斗图标（默认渲染）。
@@ -178,6 +179,19 @@ export interface FilterDropdownProps {
    * 未提供（undefined）时不影响现有行为（零回归）。
    */
   getPopupContainer?: (triggerNode: HTMLElement) => HTMLElement
+  /**
+   * ★ T6 i18n：Table 级 `locale`（来自 TableProps.locale）。FilterDropdown 消费其中
+   * filterConfirm/filterReset/filterEmptyText/filterSearchPlaceholder/filterCheckAll
+   * （+ @deprecated filterCheckall 别名）。未传时回退到 `TABLE_LOCALE_DEFAULT`（antd en_US 同款英文）。
+   */
+  locale?: {
+    filterConfirm?: React.ReactNode
+    filterReset?: React.ReactNode
+    filterEmptyText?: React.ReactNode
+    filterSearchPlaceholder?: string
+    filterCheckall?: React.ReactNode
+    filterCheckAll?: React.ReactNode
+  }
 }
 
 /**
@@ -274,11 +288,23 @@ export function FilterDropdown({
   filterSearch,
   filterMode = 'menu',
   getPopupContainer,
+  locale,
 }: FilterDropdownProps) {
   // S5：自定义面板模式（column.filterDropdown 存在且非 null）。
   const isCustom = customDropdown !== undefined && customDropdown !== null
   // S7：树形内置面板模式（仅非自定义面板时生效）。
   const isTree = !isCustom && filterMode === 'tree'
+  // ★ T6 i18n：解析 locale 文案（未传字段回退到 antd en_US 同款默认值，保持英文默认行为零回归）。
+  //   filterCheckall（小写 l）是 antd @deprecated 别名——消费处用 filterCheckall ?? filterCheckAll
+  //   （对齐 antd FilterDropdown.tsx:434）。
+  const localeFilterConfirm = locale?.filterConfirm ?? TABLE_LOCALE_DEFAULT.filterConfirm
+  const localeFilterReset = locale?.filterReset ?? TABLE_LOCALE_DEFAULT.filterReset
+  const localeFilterEmptyText =
+    locale?.filterEmptyText ?? TABLE_LOCALE_DEFAULT.filterEmptyText
+  const localeFilterSearchPlaceholder =
+    locale?.filterSearchPlaceholder ?? TABLE_LOCALE_DEFAULT.filterSearchPlaceholder
+  const localeFilterCheckAll =
+    locale?.filterCheckall ?? locale?.filterCheckAll ?? TABLE_LOCALE_DEFAULT.filterCheckAll
   const [open, setOpen] = useState(false)
   // 本地草稿（面板内勾选），与外部 filteredValue 解耦。
   // 每次打开下拉时同步为当前 filteredValue（草稿初始化）。
@@ -417,12 +443,12 @@ export function FilterDropdown({
     return (
       <Empty
         image={Empty.PRESENTED_IMAGE_SIMPLE}
-        description="No filters"
+        description={localeFilterEmptyText}
         styles={{ image: { height: 24 } }}
         style={{ margin: 0, padding: '16px 0' }}
       />
     )
-  }, [renderEmpty])
+  }, [renderEmpty, localeFilterEmptyText])
   // 内置面板 filters 为空（无筛选项可勾选）→ 显示占位。对齐 antd `(column.filters||[]).length===0`。
   const filtersEmpty = !isCustom && filters.length === 0
 
@@ -534,9 +560,8 @@ export function FilterDropdown({
             <Input
               prefix={<SearchOutlined />}
               // ★ §11 filter-search 对齐：antd enUS locale filterSearchPlaceholder = 'Search in filters'
-              // （locale/en_US.ts:29）。原硬编码 'Search' 与 antd 不符，修正。
-              // 注：data-grid 暂未透传 Table locale 到 FilterDropdown，故用 antd enUS 默认值硬编码。
-              placeholder="Search in filters"
+              // （locale/en_US.ts:29）。T6：已透传 Table locale，未传时回退到 antd enUS 默认值。
+              placeholder={localeFilterSearchPlaceholder}
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               // htmlSize=1 对齐 antd：绕开 input 默认 min-width（让 popup 宽度由外层约束）。
@@ -563,9 +588,8 @@ export function FilterDropdown({
               >
                 {/* ★ §11 filter-in-tree 对齐：antd enUS locale filterCheckAll = 'Select all items'
                     （locale/en_US.ts:28；消费处 antd FilterDropdown.tsx:434 `{locale?.filterCheckall ?? locale?.filterCheckAll}`）。
-                    data-grid 暂未透传 Table locale 到 FilterDropdown，故用 antd enUS 默认值硬编码
-                    （与上面 filterSearchPlaceholder='Search in filters' 同款处理）。原硬编码 'Select All' 与 antd 不符。 */}
-                Select all items
+                    T6：已透传 Table locale，未传时回退到 antd enUS 默认值。原硬编码 'Select All' 与 antd 不符。 */}
+                {localeFilterCheckAll}
               </Checkbox>
             ) : null}
             <Tree
@@ -630,10 +654,10 @@ export function FilterDropdown({
       </div>
       <div className="dg-filter-dropdown-btns">
         <Button size="small" onClick={resetDraft}>
-          Reset
+          {localeFilterReset}
         </Button>
         <Button type="primary" size="small" onClick={applyAndClose}>
-          OK
+          {localeFilterConfirm}
         </Button>
       </div>
     </div>

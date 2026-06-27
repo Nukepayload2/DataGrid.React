@@ -1207,14 +1207,9 @@ function TableInner<RecordType = any>(
     showHeader = true,
     title,
     footer,
-    rowHeight,
     gridOptions,
-    headerHeight,
     scroll,
     virtual,
-    resizable = false,
-    resizableMinWidth,
-    resizableMaxWidth,
     rowSelection,
     expandable,
     pagination,
@@ -1577,6 +1572,37 @@ function TableInner<RecordType = any>(
       // 展开列在选择列之后；若选择列已 unshift 在 0，展开列插在 1，否则插在 0。
       if (!seenSelectionSentinel && selectionNode) result.splice(1, 0, expandNode)
       else result.unshift(expandNode)
+    }
+
+    // === 邻列 fixed 继承（对齐 antd useSelection.tsx:694-717）===
+    // rowSelection.fixed 未设时，selection 列从邻列继承 fixed —— **优先 nextCol，其次 prevCol**。
+    // 修复 bug：此前 selection 列 fixed 仅取 rowSelection.fixed，导致「首列 fixed:'start' +
+    //   rowSelection 不设 fixed」时 selection 列不跟随固定（与 antd 行为不一致）。
+    // selectionNode 每次.selection state 变都重建（见 1534 附近注释），就地赋值即可。
+    if (selectionNode && selectionNode.fixed === undefined) {
+      const selIdx = result.indexOf(selectionNode)
+      if (selIdx >= 0) {
+        const nextCol = result[selIdx + 1]
+        const prevCol = result[selIdx - 1]
+        let mergedFixed: FixedSide | undefined
+        if (nextCol?.fixed !== undefined) {
+          mergedFixed = nextCol.fixed
+        } else if (prevCol?.fixed !== undefined) {
+          mergedFixed = prevCol.fixed
+        }
+        if (mergedFixed !== undefined) {
+          selectionNode.fixed = mergedFixed
+          // 可选边界（antd useSelection.tsx:710-717）：selection 列前面是未 fixed 的 EXPAND_COLUMN
+          // 时，反向把 expand 也设为同 fixed（保持展开列与选择列同侧固定）。
+          if (
+            prevCol &&
+            prevCol.key === EXPAND_COLUMN_KEY &&
+            prevCol.fixed === undefined
+          ) {
+            prevCol.fixed = mergedFixed
+          }
+        }
+      }
     }
     return result
     // selection / expand state 变化时重建（捕获最新勾选/展开态）；columns 变化时重建。
@@ -1950,7 +1976,63 @@ function TableInner<RecordType = any>(
     }
   }, [treeEnabled, expandEnabled, expandable, expand, showExpandColumn])
 
-  // === S13 引擎树形状态对象 ===
+  // === T7 expandRowByClick + expandedRowClassName ===
+  // 在适配层包装 onRow / rowClassName（而非改引擎），引擎已有 onRow/rowClassName 透传链路，复用即可。
+  //
+  // - expandRowByClick=true：包装 onRow.onClick——点击行体（任意单元格）时，若该行可展开，
+  //   叠加触发 expand.toggleExpand(key, record)。**与原 onRow.onClick 共存**（不阻止、不互斥），
+  //   对齐 antd rc-table 行为：expandRowByClick 切换的同时 onRow.onClick 也触发。
+  // - expandedRowClassName：包装 rowClassName——该行展开时追加 expandedRowClassName(record, index) 返回的 class，
+  //   与原 rowClassName（string 或函数）叠加。
+  //
+  // 仅 expandEnabled 时生效；否则原样返回 onRow/rowClassName（零回归）。
+  // ★ 注意：包装仅作用于「行展开」状态机（M9 expand），与树形（S13 treeState）独立——
+  //   树形模式下 engineExpandState 恒 undefined（树形优先），expandEnabled=false，包装不生效。
+  const expandRowByClick = expandEnabled ? expandable?.expandRowByClick === true : false
+  const expandedRowClassNameFn = expandEnabled ? expandable?.expandedRowClassName : undefined
+
+  // 包装后的 onRow（expandRowByClick=true 时叠加 toggle；否则原样）。
+  const onRowWithExpand = useMemo<typeof onRow>(() => {
+    if (!expandRowByClick) return onRow
+    return (record, index) => {
+      const userProps = onRow?.(record, index) ?? {}
+      const key = getRowKey(record, rowKeyResolved)
+      // 仅可展开行点击才 toggle（不可展开行点击无反应，对齐 antd）。
+      if (expand.expandableKeySet.has(key)) {
+        const userOnClick = userProps.onClick
+        return {
+          ...userProps,
+          onClick: (e: React.MouseEvent<HTMLElement>) => {
+            // ★ 先 toggle 再调用户 onClick（不阻止、不互斥——antd 同款共存语义）。
+            expand.toggleExpand(key, record)
+            userOnClick?.(e)
+          },
+        }
+      }
+      return userProps
+    }
+  }, [expandRowByClick, onRow, expand, rowKeyResolved])
+
+  // 包装后的 rowClassName（expandedRowClassName 存在时追加；否则原样）。
+  const rowClassNameWithExpand = useMemo(() => {
+    if (!expandedRowClassNameFn) return rowClassName
+    // 归一化为函数形式（string → 常量函数），便于追加 expandedRowClassName。
+    const baseFn: ((record: RecordType, index: number) => string) | undefined =
+      rowClassName === undefined
+        ? undefined
+        : typeof rowClassName === 'string'
+          ? () => rowClassName
+          : rowClassName
+    return (record: RecordType, index: number) => {
+      const base = baseFn?.(record, index) ?? ''
+      const key = getRowKey(record, rowKeyResolved)
+      // 仅该行展开时追加（收起时不加，对齐 antd）。
+      const extra = expand.isExpanded(key) ? expandedRowClassNameFn(record, index) : ''
+      return [base, extra].filter(Boolean).join(' ')
+    }
+  }, [expandedRowClassNameFn, rowClassName, expand, rowKeyResolved])
+
+
   // 把 useTreeData 的派生结果封装为 EngineTreeState，传给引擎。
   // 引擎据此在第一列数据单元格内按 level × indentSize 左缩进 + 渲染展开/收起图标。
   // 非树形 → undefined（零回归，引擎不消费）。
@@ -2248,15 +2330,10 @@ function TableInner<RecordType = any>(
             columnTree={columnTreeWithSortAndFilter}
             dataSource={pagedDataSource}
             rowKey={rowKeyResolved}
-            rowHeight={rowHeight}
             gridOptions={gridOptions}
-            headerHeight={headerHeight}
             showHeader={showHeader}
             scroll={scroll}
             virtual={virtual}
-            resizable={resizable}
-            resizableMinWidth={resizableMinWidth}
-            resizableMaxWidth={resizableMaxWidth}
             expandState={engineExpandState}
             treeState={engineTreeState}
             tableLayout={derivedTableLayout}
@@ -2268,14 +2345,8 @@ function TableInner<RecordType = any>(
             semantic={engineSemantic}
             sticky={engineSticky}
             onHeaderRow={onHeaderRow}
-            onRow={onRow}
-            rowClassName={
-              rowClassName === undefined
-                ? undefined
-                : typeof rowClassName === 'string'
-                  ? rowClassName
-                  : (record: RecordType, index: number) => rowClassName(record, index)
-            }
+            onRow={onRowWithExpand}
+            rowClassName={rowClassNameWithExpand}
             getPopupContainer={getPopupContainer}
             rowHoverable={rowHoverable}
             isRowSelected={
@@ -2283,6 +2354,9 @@ function TableInner<RecordType = any>(
                 ? (record: RecordType) => selection.isSelected(getRowKey(record, rowKeyResolved))
                 : undefined
             }
+            // ★ T6 i18n：Table 级 locale 透传到引擎 → FilterDropdown（filterConfirm/Reset/EmptyText/
+            //   SearchPlaceholder/CheckAll）。locale 为 undefined 时引擎/FilterDropdown 回退到内置默认值。
+            filterLocale={locale}
           />
         </div>
       ) : (
@@ -2291,15 +2365,10 @@ function TableInner<RecordType = any>(
           columnTree={columnTreeWithSortAndFilter}
           dataSource={pagedDataSource}
           rowKey={rowKeyResolved}
-          rowHeight={rowHeight}
           gridOptions={gridOptions}
-          headerHeight={headerHeight}
           showHeader={showHeader}
           scroll={scroll}
           virtual={virtual}
-          resizable={resizable}
-          resizableMinWidth={resizableMinWidth}
-          resizableMaxWidth={resizableMaxWidth}
           expandState={engineExpandState}
           treeState={engineTreeState}
           tableLayout={derivedTableLayout}
@@ -2311,14 +2380,8 @@ function TableInner<RecordType = any>(
           semantic={engineSemantic}
           sticky={engineSticky}
           onHeaderRow={onHeaderRow}
-          onRow={onRow}
-          rowClassName={
-            rowClassName === undefined
-              ? undefined
-              : typeof rowClassName === 'string'
-                ? rowClassName
-                : (record: RecordType, index: number) => rowClassName(record, index)
-          }
+          onRow={onRowWithExpand}
+          rowClassName={rowClassNameWithExpand}
           getPopupContainer={getPopupContainer}
           rowHoverable={rowHoverable}
           // ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定 → 引擎加 dg-row-selected 类（CSS 消费
@@ -2329,6 +2392,9 @@ function TableInner<RecordType = any>(
               ? (record: RecordType) => selection.isSelected(getRowKey(record, rowKeyResolved))
               : undefined
           }
+          // ★ T6 i18n：Table 级 locale 透传到引擎 → FilterDropdown（filterConfirm/Reset/EmptyText/
+          //   SearchPlaceholder/CheckAll）。locale 为 undefined 时引擎/FilterDropdown 回退到内置默认值。
+          filterLocale={locale}
         />
       )}
       {footer ? (

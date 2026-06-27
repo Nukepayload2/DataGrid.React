@@ -79,6 +79,17 @@
  * 6. 点 Clear filters and sorters → 两侧筛选 + 排序全清，两侧表格回到全量未排序初始态。
  * 7. onChange 回调：console.log filters/sorter，与外部 state 同步。
  * 8. 回归：head / multiple-sorter demo 不受影响。
+ *
+ * === locale 5 key 运行时验证闭环 ===
+ *
+ * 本 demo 同时覆盖 locale 5 个 key 的运行时验证（左栏中文 / 右栏英文对照）：
+ *   - filterConfirm「确定」/ filterReset「重置」：Name/Address/Status/Tag 列漏斗下拉底部按钮。
+ *   - filterSearchPlaceholder「搜索」：Status 列（filterSearch: true）下拉顶部搜索框 placeholder。
+ *   - filterCheckAll「全选」：Tag 列（filterMode: 'tree'）下拉顶部 tree 全选 Checkbox 文案。
+ *   - filterEmptyText「无筛选」：Empty 列（filters: []）下拉无筛选项时的空占位。
+ * 触发分支的列集中在 columns 末尾追加（Status/Tag/Empty），不影响原 Name/Age/Address 的
+ * reset 演示逻辑（reset 按钮仍只清空 name/address 等已有筛选；新列也走同一份 filteredInfo
+ * 受控，Clear filters 会一并清空，行为一致）。
  */
 
 import { useState } from 'react'
@@ -144,6 +155,47 @@ function buildDgColumns(
       sortOrder: sortedInfo.columnKey === 'address' ? sortedInfo.order : null,
       ellipsis: true,
     },
+    // ★ locale 验证闭环追加列（决策见 demo 顶部「locale 5 key 运行时验证闭环」）。
+    // Status：filterSearch=true → 下拉渲染搜索框，placeholder 应为「搜索」（filterSearchPlaceholder）。
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      filters: [
+        { text: 'active', value: 'active' },
+        { text: 'inactive', value: 'inactive' },
+        { text: 'pending', value: 'pending' },
+      ],
+      filteredValue: filteredInfo.status || null,
+      onFilter: (value, record) => record.status === value,
+      filterSearch: true,
+      ellipsis: true,
+    },
+    // Tag：filterMode='tree'（filterMultiple 默认 true）→ 下拉渲染 tree 全选 Checkbox，
+    // 文案应为「全选」（filterCheckAll）。
+    {
+      title: 'Tag',
+      dataIndex: 'tag',
+      key: 'tag',
+      filters: [
+        { text: 'vip', value: 'vip' },
+        { text: 'normal', value: 'normal' },
+      ],
+      filteredValue: filteredInfo.tag || null,
+      onFilter: (value, record) => record.tag === value,
+      filterMode: 'tree',
+      ellipsis: true,
+    },
+    // Empty：filters=[] 空数组 → 下拉无筛选项，渲染空占位「无筛选」（filterEmptyText）。
+    {
+      title: 'Empty',
+      dataIndex: 'empty',
+      key: 'empty',
+      filters: [],
+      filteredValue: filteredInfo.empty || null,
+      onFilter: () => false,
+      ellipsis: true,
+    },
   ]
 }
 
@@ -191,6 +243,46 @@ function buildAntdColumns(
       onFilter: (value, record) => record.address.includes(value as string),
       sorter: (a, b) => a.address.length - b.address.length,
       sortOrder: sortedInfo.columnKey === 'address' ? sortedInfo.order : null,
+      ellipsis: true,
+    },
+    // ★ locale 对照列（右栏不传 locale → 英文，与左栏中文对照）。
+    // Status：filterSearch=true → antd 下拉渲染搜索框，placeholder='Search'（对照左栏「搜索」）。
+    {
+      title: 'Status',
+      dataIndex: 'status',
+      key: 'status',
+      filters: [
+        { text: 'active', value: 'active' },
+        { text: 'inactive', value: 'inactive' },
+        { text: 'pending', value: 'pending' },
+      ],
+      filteredValue: filteredInfo.status || null,
+      onFilter: (value, record) => record.status === value,
+      filterSearch: true,
+      ellipsis: true,
+    },
+    // Tag：filterMode='tree' → antd 下拉渲染 tree 全选 Checkbox，文案='Select all'（对照「全选」）。
+    {
+      title: 'Tag',
+      dataIndex: 'tag',
+      key: 'tag',
+      filters: [
+        { text: 'vip', value: 'vip' },
+        { text: 'normal', value: 'normal' },
+      ],
+      filteredValue: filteredInfo.tag || null,
+      onFilter: (value, record) => record.tag === value,
+      filterMode: 'tree',
+      ellipsis: true,
+    },
+    // Empty：filters=[] 空数组 → antd 下拉空占位='No filters'（对照「无筛选」）。
+    {
+      title: 'Empty',
+      dataIndex: 'empty',
+      key: 'empty',
+      filters: [],
+      filteredValue: filteredInfo.empty || null,
+      onFilter: () => false,
       ellipsis: true,
     },
   ]
@@ -283,6 +375,16 @@ export default function ResetFilterDemo() {
             onChange={handleChange}
             bordered={bordered}
             pagination={{}}
+            // ★ T6 i18n 验证面：左栏 data-grid 传中文 locale，verifier 打开任一列漏斗下拉即可确认
+            //   按钮变「确定/重置」、tree 全选变「全选」、搜索框 placeholder 变「搜索」、
+            //   空筛选项占位变「无筛选」。右栏 antd 不传（保持英文，对照）。
+            locale={{
+              filterConfirm: '确定',
+              filterReset: '重置',
+              filterEmptyText: '无筛选',
+              filterSearchPlaceholder: '搜索',
+              filterCheckAll: '全选',
+            }}
           />
         }
         right={

@@ -415,7 +415,7 @@ function toEllipsisTitle(content: ReactNode): string | undefined {
  * 仅 M4 虚拟滚动需要数值化（计算 offset/totalSize 用）；非虚拟路径仍走 `toTrack` 生成 track 字符串。
  */
 function resolveNumericRowHeight<RecordType>(
-  rowHeight: EngineTableProps<RecordType>['rowHeight'],
+  rowHeight: NonNullable<NonNullable<EngineTableProps<RecordType>['gridOptions']>['rowHeight']>,
   record: RecordType,
   index: number,
 ): number {
@@ -702,15 +702,10 @@ function GridTableInner<RecordType = any>(
     columnTree,
     dataSource,
     rowKey,
-    rowHeight,
     gridOptions,
-    headerHeight,
     showHeader = true,
     scroll,
     virtual,
-    resizable,
-    resizableMinWidth,
-    resizableMaxWidth,
     expandState,
     treeState,
     tableLayout,
@@ -730,7 +725,20 @@ function GridTableInner<RecordType = any>(
     rowHoverable,
     // ★ §11 C2 tree-data 种子 #3（共享改动）：行选中态判定 → 加 dg-row-selected 类。
     isRowSelected,
+    // ★ T6 i18n：Table 级 locale（FilterDropdown 消费 filterConfirm/Reset/EmptyText/SearchPlaceholder/CheckAll）。
+    filterLocale,
   } = props
+
+  // === T8 命名空间硬迁移：从 gridOptions 读取 rowHeight/headerHeight/resizable* ===
+  // 原 EngineTableProps 顶层 rowHeight/headerHeight/resizable/resizableMinWidth/resizableMaxWidth
+  // 全部迁入 gridOptions（删顶层、无 alias）。此处解构出局部变量供后续逻辑零改动复用。
+  const {
+    rowHeight,
+    headerHeight,
+    resizable,
+    resizableMinWidth,
+    resizableMaxWidth,
+  } = gridOptions ?? {}
 
   const gridRef = useRef<HTMLDivElement | null>(null)
 
@@ -933,17 +941,16 @@ function GridTableInner<RecordType = any>(
   // ★ 决策 2：此处只用"收起态"约定行高，不感知（M9）展开态。详见 useVirtualList 注释。
   //
   // === Phase 4 gridOptions 解析（有界行高模型）===
-  // 优先级：`gridOptions.rowHeight` > 顶层 `rowHeight`（向后兼容）> 虚拟默认 56（原 40）。
+  // T8 后 `rowHeight` 仅来自 `gridOptions.rowHeight`（顶层已删）。优先级：
+  //   `gridOptions.rowHeight` > 虚拟默认 56（原 40）。
   //   - 默认 56：Phase 4 对齐 antd virtual-list 表观行高（antd large ≈ 55）。
-  //   - 顶层 `rowHeight` 仍保留（老 demo 直接传 rowHeight 不破）。
   // `boundedRowHeight`：minRowHeight 与 maxRowHeight **同时**为正数时启用「有界行高模型」
   //   （行随内容在 [min,max] 变高，body track=auto + 行容器 min/max-height 约束）。
   //   仅设其一或都未设 → 固定行高模型（body track = `${effectiveRowHeight}px`）。
   const gridRowHeightOpt = gridOptions?.rowHeight
   const minRowHeightRaw = gridOptions?.minRowHeight
   const maxRowHeightRaw = gridOptions?.maxRowHeight
-  const resolvedRowHeight =
-    gridRowHeightOpt ?? rowHeight ?? (virtualEnabled ? 56 : undefined)
+  const resolvedRowHeight = gridRowHeightOpt ?? (virtualEnabled ? 56 : undefined)
   const boundedRowHeight =
     typeof minRowHeightRaw === 'number' &&
     minRowHeightRaw > 0 &&
@@ -1433,6 +1440,8 @@ function GridTableInner<RecordType = any>(
                     onHeaderRow={onHeaderRow}
                     getPopupContainer={getPopupContainer}
                     headerColumns={headerColumns}
+                    // ★ T6 i18n：Table 级 locale 透传到表头格内的 FilterDropdown。
+                    filterLocale={filterLocale}
                   />
                 ),
               )
@@ -1598,6 +1607,8 @@ function GridTableInner<RecordType = any>(
             isRowSelected={isRowSelected}
             // ★ Phase 4 实测闭环：flat 路径表体首列写 data-known-size（与 multi 路径 BodyCell 同款）。
             effectiveRowHeight={effectiveRowHeight}
+            // ★ T6 i18n：Table 级 locale 透传到表头格内的 FilterDropdown。
+            filterLocale={filterLocale}
           />
         ))}
       </div>
@@ -2076,6 +2087,12 @@ function BodyCell<RecordType>({
       //   单独设 paddingInlineStart/End = paddingXS(4px)（区别于普通列的 cellPaddingInline），CSS 需精确命中。
       //   之前仅表头格标 data-column-key，表体选择列 padding 沿用普通列（16/8px）→ 与 antd 不符。
       data-column-key={column.key}
+      // ★ Semantic DOM（aria-colspan/rowspan）：合并的数据格补 aria 属性（对齐 antd 真实 td 的
+      //   colSpan/rowSpan 属性——antd td 直接渲染 HTML colspan/rowspan，屏幕阅读器据此合并播报）。
+      //   仅 span>=2 时设（span=1 是默认值，不设避免噪声）。rowSpanTracks 含 M9 展开 track 偏移，
+      //   与视觉跨行一致；aria-rowspan 用视觉值。
+      {...(colSpan >= 2 ? { 'aria-colspan': colSpan } : null)}
+      {...(rowSpanTracks >= 2 ? { 'aria-rowspan': rowSpanTracks } : null)}
       style={{
         gridColumn:
           colSpan > 1 ? `${colIdx + 1} / span ${colSpan}` : `${colIdx + 1}`,
@@ -2382,6 +2399,8 @@ function HeaderCell<RecordType>({
   onHeaderRow,
   getPopupContainer,
   headerColumns,
+  // ★ T6 i18n：Table 级 locale（透传到本表头格内的 FilterDropdown）。
+  filterLocale,
 }: {
   cell: EngineHeaderCell<RecordType>
   sticky?: { side: FixedSide; offset: number; isEdge: boolean }
@@ -2458,6 +2477,8 @@ function HeaderCell<RecordType>({
    * 由 GridTableInner 计算后传入（多级表头简化为顶层列）。
    */
   headerColumns?: Array<unknown>
+  /** ★ T6 i18n：Table 级 locale（透传到本表头格内的 FilterDropdown）。 */
+  filterLocale?: import('./types').EngineTableProps['filterLocale']
 }) {
   // ★ 接口全兼容（决策 3 第二步）：onHeaderCell 返回值（表头格 props 注入）。
   //   仅叶子表头格消费（cell.onHeaderCell 仅叶子格有值；分组格恒 undefined）。返回值整体合并到表头格 div
@@ -2601,12 +2622,25 @@ function HeaderCell<RecordType>({
         isSorted ? 'dg-column-sort' : undefined,
         // S29：语义化 header.cell 部位 className（合并）。
         semanticHeader?.className?.cell,
+        // S29：语义化 header.row 部位 className（行级 class 透传到该行所有表头格，
+        //   与 body.row 对称——grid 无 tr，row class 分发到该行所有表头格）。
+        semanticHeader?.className?.row,
         // ★ 接口全兼容（决策 3 第二步）：cell.className（列级）+ onHeaderCell.className（格级）
         //   + onHeaderRow.className（行级）合并（顺序见 mergedHeaderExtraClass 注释）。
         mergedHeaderExtraClass,
       ]
         .filter(Boolean)
         .join(' ')}
+      // ★ Semantic DOM（aria-sort）：对齐 antd useSorter.tsx:246-248——仅当该列表头格可排序
+      //   且 sortOrder 非 null 时设 aria-sort（ascending/descending）；未排序时不设（与 antd
+      //   一致——antd 也是 sortOrder 真值才设）。屏幕阅读器据此播报当前列排序方向。
+      aria-sort={
+        sortable && sortOrder === 'ascend'
+          ? 'ascending'
+          : sortable && sortOrder === 'descend'
+            ? 'descending'
+            : undefined
+      }
       data-align={selfAlign ?? undefined}
       data-leaf={cell.isLeaf ? '1' : '0'}
       data-leaf-index={cell.isLeaf && cell.leafIndex !== undefined ? String(cell.leafIndex) : undefined}
@@ -2651,6 +2685,8 @@ function HeaderCell<RecordType>({
         ...mergedSticky,
         // S29：语义化 header.cell 部位 style（合并覆盖同名字段）。
         ...(semanticHeader?.style?.cell ?? null),
+        // S29：语义化 header.row 部位 style（行级 style 透传到该行所有表头格，与 body.row 对称）。
+        ...(semanticHeader?.style?.row ?? null),
         // ★ 接口全兼容（决策 3 第二步）：cell.style + onHeaderCell.style + onHeaderRow.style 合并
         //   （后者覆盖前者同名字段；在 semantic 之后，保证用户注入最优先）。
         ...mergedHeaderExtraStyle,
@@ -2717,6 +2753,8 @@ function HeaderCell<RecordType>({
                 filterMode={cell.filterMode}
                 // ★ 接口全兼容（决策 3 第二步）：Table 级 getPopupContainer 作为筛选下拉默认挂载容器。
                 getPopupContainer={getPopupContainer}
+                // ★ T6 i18n：Table 级 locale 透传到 FilterDropdown。
+                locale={filterLocale}
               />
             ) : null}
           </div>
@@ -2803,6 +2841,8 @@ interface ColumnCellsProps<RecordType> {
   rowHoverable?: boolean
   /** onHeaderRow(columns, index) 的 columns 参数（顶层列 raw 数组）。 */
   headerColumns?: Array<unknown>
+  /** ★ T6 i18n：Table 级 locale（透传到本表头格内的 FilterDropdown）。 */
+  filterLocale?: import('./types').EngineTableProps['filterLocale']
   /**
    * ★ §11 C2 tree-data 种子 #3（共享）：行选中态判定回调。
    * 引擎在命中选中行的所有 body cell 上加 `dg-row-selected` 类（CSS 消费 antd token）。
@@ -2856,6 +2896,8 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
     isRowSelected,
     // ★ Phase 4：首列 cell 写 data-known-size（实测闭环）。
     effectiveRowHeight,
+    // ★ T6 i18n：Table 级 locale（透传到本表头格内的 FilterDropdown）。
+    filterLocale,
   } = props
 
   // ★ 接口全兼容（决策 3 第二步）：onHeaderCell 返回值（flat 路径表头格 props 注入）。
@@ -2965,11 +3007,22 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
             headerEllipsis ? 'dg-cell-ellipsis' : undefined,
             // S29：语义化 header.cell 部位 className（合并）。
             semanticHeader?.className?.cell,
+            // S29：语义化 header.row 部位 className（行级 class 透传到该行所有表头格，与 body.row 对称）。
+            semanticHeader?.className?.row,
             // ★ 接口全兼容（决策 3 第二步）：column.className + onHeaderCell.className + onHeaderRow.className。
             mergedHeaderExtraClassFlat,
           ]
             .filter(Boolean)
             .join(' ')}
+          // ★ Semantic DOM（aria-sort）：对齐 antd useSorter.tsx:246-248——仅当该列表头格可排序
+          //   且 sortOrder 非 null 时设 aria-sort（ascending/descending）；未排序时不设。
+          aria-sort={
+            sortable && sortOrder === 'ascend'
+              ? 'ascending'
+              : sortable && sortOrder === 'descend'
+                ? 'descending'
+                : undefined
+          }
           data-align={column.align ?? undefined}
           data-leaf-index={String(colIdx)}
           data-column-key={column.key}
@@ -2996,6 +3049,8 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
             ...mergedHeaderSticky,
             // S29：语义化 header.cell 部位 style（合并覆盖同名字段）。
             ...(semanticHeader?.style?.cell ?? null),
+            // S29：语义化 header.row 部位 style（行级 style 透传到该行所有表头格，与 body.row 对称）。
+            ...(semanticHeader?.style?.row ?? null),
             // ★ 接口全兼容（决策 3 第二步）：column.style + onHeaderCell.style + onHeaderRow.style。
             ...mergedHeaderExtraStyleFlat,
           }}
@@ -3044,6 +3099,8 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
                     filterMode={column.filterMode}
                     // ★ 接口全兼容（决策 3 第二步）：Table 级 getPopupContainer 作为筛选下拉默认挂载容器。
                     getPopupContainer={getPopupContainer}
+                    // ★ T6 i18n：Table 级 locale 透传到 FilterDropdown。
+                    locale={filterLocale}
                   />
                 ) : null}
               </div>

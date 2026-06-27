@@ -93,11 +93,15 @@ export default function ExpandDemo() {
   const collapseAll = () => setExpandedRowKeys([])
 
   // expandable 两侧同款（expandedRowRender + rowExpandable）。
+  // ★ T7：左栏（data-grid）额外开启 expandRowByClick + expandedRowClassName，便于 verifier
+  //   验证「点击行体（非图标）切换展开」+「展开行加 class」。右栏 antd 不加（对照）。
   const dgExpandable: Expandable<RecordType> = {
     expandedRowRender: (record) => <p style={{ margin: 0 }}>{record.description}</p>,
     rowExpandable: (record) => record.name !== 'Not Expandable',
     expandedRowKeys,
     onExpandedRowsChange: (keys) => setExpandedRowKeys([...keys]),
+    expandRowByClick: true,
+    expandedRowClassName: () => 'dg-demo-expanded-row',
   }
 
   const antdExpandable: NonNullable<TableProps<RecordType>['expandable']> = {
@@ -109,6 +113,10 @@ export default function ExpandDemo() {
 
   return (
     <div style={{ padding: 24 }}>
+      {/* ★ T7 验证面：展开行的视觉标记 class（dg-demo-expanded-row）。
+          verifier 检查：展开某行后，该行所有单元格底色变浅黄；收起后恢复。
+          class 由 expandable.expandedRowClassName 返回，仅展开行追加。 */}
+      <style>{`.dg-demo-expanded-row { background: #fffbe6 !important; }`}</style>
       {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一状态同时驱动两侧表格。 */}
       <div
         style={{
@@ -171,6 +179,13 @@ export default function ExpandDemo() {
             <li>
               <strong>与 antd demo 差异</strong>：antd demo 原本非受控展开；决策 9 下改为受控 +
               按钮组，便于对照两侧展开行为同步。
+            </li>
+            <li>
+              <strong>T7 expandRowByClick + expandedRowClassName（仅左栏 data-grid）</strong>：
+              左栏开启 <code>expandRowByClick: true</code>——点击<strong>行体</strong>（任意非图标单元格）
+              切换该行展开/收起，且<strong>不阻止</strong> <code>onRow.onClick</code>（共存，对齐 antd）；
+              同时 <code>expandedRowClassName</code> 给展开行追加 <code>dg-demo-expanded-row</code> class
+              （浅黄底，verifier 检查 DOM/视觉）。右栏 antd 不开（对照）。
             </li>
           </ul>
         </div>

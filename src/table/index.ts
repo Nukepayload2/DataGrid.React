@@ -1,6 +1,6 @@
 export { Table, getRowKey } from './Table'
 // S17 行拖拽排序（方案 B 自研 pointer；不依赖 @dnd-kit/*）。
-export { useRowDragSort, arrayMove } from './engine/useRowDragSort'
+export { useRowDragSort, arrayMove, arrayMoveBlock } from './engine/useRowDragSort'
 export type {
   UseRowDragSortOptions,
   UseRowDragSortResult,

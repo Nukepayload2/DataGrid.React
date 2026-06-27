@@ -148,6 +148,15 @@ export const demos: DemoMeta[] = [
     category: '行选择',
   },
   {
+    name: 'row-selection-fixed',
+    title: 'Row Selection Fixed',
+    description:
+      'selection 列邻列 fixed 继承（对齐 antd useSelection.tsx:694-717：nextCol 优先，其次 prevCol）+ 显式 fixed 覆盖。控制条切换 type / 首列 fixed / rowSelection.fixed，scroll.x=1200 横向滚动对照。',
+    element: () => import('./row-selection-fixed'),
+    compare: true,
+    category: '行选择',
+  },
+  {
     name: 'head',
     title: 'Head (Sorter & Filter)',
     description:
@@ -280,6 +289,24 @@ export const demos: DemoMeta[] = [
       '列拖拽排序（S19 自研任务，列方向 useColumnDragSort）+ 决策 9 双栏对照。',
     element: () => import('./drag-column-sorting'),
     compare: true,
+    category: '拖拽排序',
+  },
+  {
+    name: 'drag-virtual-list',
+    title: 'Drag Virtual List (AutoScroll)',
+    description:
+      'T9：10000 行虚拟列表 + 行拖拽手柄 + autoScrollOnDrag（拖到容器边缘自动滚动）。验收虚拟下行拖出可视区不卡住。',
+    element: () => import('./drag-virtual-list'),
+    compare: false,
+    category: '拖拽排序',
+  },
+  {
+    name: 'drag-multi-row-reorder',
+    title: 'Drag Multi-Row Reorder',
+    description:
+      'T11：行选择（checkbox 多选）+ 行拖手柄 + gridOptions.multiRowReorder。选中 3 行拖其中一行→3 行成块移动到目标位置。',
+    element: () => import('./drag-multi-row-reorder'),
+    compare: false,
     category: '拖拽排序',
   },
   {
@@ -441,5 +468,23 @@ export const demos: DemoMeta[] = [
     element: () => import('./row-selection-custom-debug'),
     compare: true,
     category: '行选择',
+  },
+  {
+    name: 'semantic-dom',
+    title: 'Semantic DOM',
+    description:
+      'Semantic DOM 兼容对照：13 槽位 classNames/styles 染色 + a11y 矩阵（aria-sort/expanded/colspan/rowspan + role 兼容天花板）+ 排序 aria-sort 专项验证（item3 B-impl）。',
+    element: () => import('./semantic-dom'),
+    compare: true,
+    category: '尺寸响应与样式',
+  },
+  {
+    name: 'theme-editor',
+    title: 'Theme Editor',
+    description:
+      '交互式 ConfigProvider token 编辑器（ColorPicker/Slider/InputNumber 实时驱动）+ Light/Dark Segmented，证明 data-grid 主题注入全覆盖（左 data-grid / 右 antd 对照）。自渲染双栏，不用 SplitDemo（避免内层 ConfigProvider 重置 token）+ item2 A-impl。',
+    element: () => import('./theme-editor'),
+    compare: true,
+    category: '尺寸响应与样式',
   },
 ]

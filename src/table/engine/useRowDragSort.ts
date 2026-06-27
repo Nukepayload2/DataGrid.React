@@ -89,6 +89,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useAutoScrollOnDrag } from './useAutoScrollOnDrag'
 
 /** arrayMove：把数组 from 位置的元素移到 to 位置（对齐 @dnd-kit/sortable）。 */
 export function arrayMove<T>(arr: Array<T>, from: number, to: number): Array<T> {
@@ -99,6 +100,92 @@ export function arrayMove<T>(arr: Array<T>, from: number, to: number): Array<T> 
   const [moved] = next.splice(from, 1)
   next.splice(to, 0, moved)
   return next
+}
+
+/**
+ * ★ T11：把一组（连续的）选中行作为一块移到目标位置（multi-row block move）。
+ *
+ * 参数：
+ *   - `arr`：原数组。
+ *   - `blockIdxs`：成块移动的行在原数组中的 index 列表（**已按升序排序**，且这些 index 在原数组中
+ *     对应的行就是选中行；保持它们之间的相对顺序——切片后整块平移）。
+ *   - `toIndex`：目标插入位置（**在原数组坐标系中**，0..arr.length）。
+ *
+ * 算法：先把 block 行按原顺序抽出来（剩余行自动收拢），再把整块插到目标位置（位置以"剔除 block 后
+ * 的剩余数组"坐标修正：to 减去其左侧已被抽走的 block 行数）。
+ *
+ * 边界：
+ *   - 目标落在 block 内部（toIndex 介于 block 首末 index 之间）→ 返回原数组（no-op）。
+ *   - blockIdxs 为空 / 单元素 → 调用方应已退化为单行 arrayMove，这里防御性返回原数组。
+ */
+export function arrayMoveBlock<T>(
+  arr: Array<T>,
+  blockIdxs: number[],
+  toIndex: number,
+): Array<T> {
+  if (blockIdxs.length === 0) return arr
+  if (blockIdxs.length === 1) {
+    // 单行退化为 arrayMove（保持 from→to 语义一致）。
+    return arrayMove(arr, blockIdxs[0], toIndex)
+  }
+  // block 首末 index（已升序）。
+  const blockFirst = blockIdxs[0]
+  const blockLast = blockIdxs[blockIdxs.length - 1]
+  // 目标落在 block 内部 → no-op（含 toIndex 恰好等于 blockFirst / blockLast+1 的边界，
+  // 这些等价于"原地不动"或"贴着 block 边缘"——保守判 no-op 避免无意义重排）。
+  if (toIndex >= blockFirst && toIndex <= blockLast + 1) return arr
+
+  // 抽出 block 行（保持相对顺序）。
+  const blockRows = blockIdxs.map((i) => arr[i])
+  // 剩余行（剔除 block）。
+  const restRows = arr.filter((_, i) => !blockIdxs.includes(i))
+  // 把 toIndex 修正到 restRows 坐标系：减去其左侧的 block 行数。
+  let toInRest = toIndex
+  for (let i = 0; i < blockIdxs.length; i += 1) {
+    if (blockIdxs[i] < toIndex) toInRest -= 1
+  }
+  // 钳制到 [0, restRows.length]（防御性）。
+  if (toInRest < 0) toInRest = 0
+  if (toInRest > restRows.length) toInRest = restRows.length
+  // 把整块插入 restRows 的 toInRest 位置。
+  const next = restRows.slice()
+  next.splice(toInRest, 0, ...blockRows)
+  return next
+}
+
+/**
+ * ★ T11：解析单条 record 的 rowKey（支持 string 属性名 / 函数两种形式）。
+ *
+ * 返回 undefined 表示无法解析（防御性，调用方按"未选中"处理）。
+ * 对齐 Table.tsx 内部 getRowKey 的语义（rowKey 为字符串时按属性路径取值，函数时直接调用）。
+ */
+function resolveRowKey<RecordType>(
+  rowKey: string | ((record: RecordType) => string | number),
+  record: RecordType,
+  index: number,
+): React.Key | undefined {
+  try {
+    if (typeof rowKey === 'function') {
+      const k = rowKey(record)
+      return k as React.Key
+    }
+    // 字符串属性名：直接取该字段（与 antd rowKey='key' 同款）。
+    const v = (record as unknown as Record<string, unknown>)[rowKey]
+    if (v === undefined || v === null) return index as React.Key // 兜底用 index（防 record 无 key 字段）
+    return v as React.Key
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * ★ T11：判断两个 rowKey 是否相等（兼容 string / number 混用，按 String() 归一比较）。
+ *
+ * antd selectedRowKeys 可能是 (string|number)[]，record.key 也可能 string/number，
+ * 用 String() 归一避免 `'1' === 1` 误判为不等。
+ */
+function sameRowKey(a: React.Key, b: React.Key): boolean {
+  return String(a) === String(b)
 }
 
 /** 指示线样式（调用方在外层相对定位容器内渲染一条绝对定位横线）。 */
@@ -144,6 +231,35 @@ export interface UseRowDragSortOptions<RecordType> {
    * 手柄列 render 的 DragHandle 元素需带匹配 class（如 `<Button className="dg-drag-handle">`）。
    */
   handleSelector?: string
+  /**
+   * ★ T9：拖拽到容器边缘时是否自动滚动容器（虚拟列表下尤其关键）。
+   *
+   * - `true`（默认）：拖拽近边缘触发纵向自动滚动（滚动容器 `.dg-scroll`，渐进加速）。
+   *   配合虚拟引擎：scrollBy → scroll 事件 → useVirtualList 重算已渲染行 → hit-test 自动跟随。
+   * - `false`：禁用（拖出可视区不滚动，保持拖拽 demo 改造前行为）。
+   *
+   * 通常由 demo 从 `gridOptions.autoScrollOnDrag`（默认 true）透传进来。
+   * 实现见 `useAutoScrollOnDrag`（边缘检测 RAF + scrollBy）。
+   */
+  autoScroll?: boolean
+  /**
+   * ★ T11：多行成块重排开关（对齐 `gridOptions.multiRowReorder`，默认 true）。
+   *
+   * - `true` / undefined：当被拖行属于多选 selection（`selectedRowKeys` 含 ≥2 个且包含被拖行）时，
+   *   把所有选中行作为**一块**移到目标位置（保持选中行间相对顺序），而非只移被拖行。
+   * - `false`：始终只移被拖行（单行重排，与 S17/S18 行为一致）。
+   *
+   * 边界：被拖行未选中 → 只移它（现状）；selection 含被拖行+其它 → 成块移；
+   * 目标落在选中块内部 → no-op。单选 / 无 selection 时零回归（selection 数 ≤1 退化为单行重排）。
+   */
+  multiRowReorder?: boolean
+  /**
+   * ★ T11：当前选中行的 rowKey 列表（来自 `rowSelection.selectedRowKeys`）。
+   *
+   * 成块重排（`multiRowReorder=true`）时用于判定"被拖行是否属于多选 selection"以及
+   * "成块移动哪些行"。未传 / 空数组 → 始终走单行重排路径（零回归）。
+   */
+  selectedRowKeys?: Array<React.Key>
 }
 
 export interface UseRowDragSortResult {
@@ -179,7 +295,17 @@ export interface UseRowDragSortResult {
 export function useRowDragSort<RecordType>(
   options: UseRowDragSortOptions<RecordType>,
 ): UseRowDragSortResult {
-  const { dataSource, onSort, containerRef, handleSelector } = options
+  const { dataSource, onSort, containerRef, handleSelector, rowKey } = options
+  // ★ T9：autoScrollOnDrag 默认 true（对齐 gridOptions.autoScrollOnDrag 默认 + ag-grid 默认行为）。
+  const autoScrollEnabled = options.autoScroll ?? true
+  // ★ T11：multiRowReorder 默认 true（对齐 gridOptions.multiRowReorder 默认）。
+  const multiRowReorderEnabled = options.multiRowReorder ?? true
+  // ★ T11：当前选中行 rowKeys（来自 rowSelection.selectedRowKeys；未传=无 selection → 退化为单行重排）。
+  const selectedRowKeys = options.selectedRowKeys
+
+  // T9：拖拽中自动滚动容器（边缘检测 RAF + scrollBy）。
+  const { pointerRef: autoScrollPointerRef, start: startAutoScroll, stop: stopAutoScroll } =
+    useAutoScrollOnDrag({ containerRef, vertical: true, autoScroll: autoScrollEnabled })
 
   const [dragState, setDragState] = useState<{
     fromIndex: number
@@ -305,10 +431,16 @@ export function useRowDragSort<RecordType>(
         })
       }
 
+      // ★ T9：初始化 auto-scroll 指针坐标 + 启动 RAF 边缘检测循环。
+      autoScrollPointerRef.current = { clientX: e.clientX, clientY: e.clientY }
+      startAutoScroll()
+
       // 原生监听 move/up（挂到捕获单元格元素，pointer capture 保证事件路由到它）。
       const nativeMove = (ev: PointerEvent) => {
         const drag = dragRef.current
         if (!drag || ev.pointerId !== drag.pointerId) return
+        // ★ T9：实时更新指针坐标供 auto-scroll RAF 循环读取。
+        autoScrollPointerRef.current = { clientX: ev.clientX, clientY: ev.clientY }
         const result = hitTest(ev.clientY)
         if (!result) return
         // 调整 over index：当向下拖动时，@dnd-kit 语义是 over = 目标行 index（松手后 arrayMove
@@ -337,11 +469,47 @@ export function useRowDragSort<RecordType>(
         drag.el.removeEventListener('pointerup', nativeUp)
         drag.el.removeEventListener('pointercancel', nativeUp)
         dragRef.current = null
+        // ★ T9：拖拽结束，停止 auto-scroll RAF 循环。
+        stopAutoScroll()
         // 最终 overIndex（state 中已是最新）。from===over 不重排。
         setDragState((cur) => {
           if (cur && cur.fromIndex !== cur.overIndex) {
-            const next = arrayMove(dataSource, cur.fromIndex, cur.overIndex)
-            onSort(next)
+            // ★ T11：多行成块重排判定。
+            //
+            // 仅当 multiRowReorder=true 且被拖行属于多选 selection（selectedRowKeys 含 ≥2 个
+            // 且包含被拖行的 key）时，把所有选中行作为一块移到目标位置（保持相对顺序）；
+            // 否则退化为单行 arrayMove（S17/S18 行为零回归路径）。
+            //
+            // 成块移动的目标位置语义：单行 arrayMove 的 overIndex 是"目标行 index"（先删 from 再插）；
+            // 成块移动时用 arrayMoveBlock——其 toIndex 语义是"插入位置"（0..len），需把 overIndex
+            // 还原成插入位置：over <= from 时插入位置=over；over > from 时插入位置=over+1（因为
+            // 此时 over 指的是"from 删除后"的目标行 index）。
+            const fromRecord = dataSource[cur.fromIndex]
+            const fromKey = resolveRowKey(rowKey, fromRecord, cur.fromIndex)
+            const selKeys = selectedRowKeys ?? []
+            const isFromSelected =
+              fromKey !== undefined && selKeys.some((k) => sameRowKey(k, fromKey))
+            const shouldBlockMove =
+              multiRowReorderEnabled && isFromSelected && selKeys.length > 1
+
+            if (shouldBlockMove) {
+              // 找出所有选中行在 dataSource 中的 index（升序），保持原相对顺序。
+              const blockIdxs: number[] = []
+              for (let i = 0; i < dataSource.length; i += 1) {
+                const k = resolveRowKey(rowKey, dataSource[i], i)
+                if (k !== undefined && selKeys.some((sk) => sameRowKey(sk, k))) {
+                  blockIdxs.push(i)
+                }
+              }
+              // 还原插入位置（见上注释）。
+              const insertPos =
+                cur.overIndex <= cur.fromIndex ? cur.overIndex : cur.overIndex + 1
+              const next = arrayMoveBlock(dataSource, blockIdxs, insertPos)
+              if (next !== dataSource) onSort(next)
+            } else {
+              const next = arrayMove(dataSource, cur.fromIndex, cur.overIndex)
+              onSort(next)
+            }
           }
           return null
         })
@@ -351,10 +519,21 @@ export function useRowDragSort<RecordType>(
       el.addEventListener('pointerup', nativeUp)
       el.addEventListener('pointercancel', nativeUp)
     },
-    [hitTest, dataSource, onSort, handleSelector],
+    [
+      hitTest,
+      dataSource,
+      onSort,
+      handleSelector,
+      rowKey,
+      multiRowReorderEnabled,
+      selectedRowKeys,
+      autoScrollPointerRef,
+      startAutoScroll,
+      stopAutoScroll,
+    ],
   )
 
-  // 卸载时清理（防御性：避免组件卸载后残留监听）。
+  // 卸载时清理（防御性：避免组件卸载后残留监听 + 残留 auto-scroll RAF）。
   useEffect(() => {
     return () => {
       const drag = dragRef.current
@@ -366,8 +545,10 @@ export function useRowDragSort<RecordType>(
         }
         dragRef.current = null
       }
+      // ★ T9：卸载时确保 auto-scroll RAF 已停（防止组件卸载后 RAF 继续跑）。
+      stopAutoScroll()
     }
-  }, [])
+  }, [stopAutoScroll])
 
   return { dragState, indicator, containerProps: { onPointerDown } }
 }

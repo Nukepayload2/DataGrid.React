@@ -374,6 +374,48 @@ export interface ColumnType<RecordType = any> {
   key?: string | number
   title?: ReactNode
   dataIndex?: string | number | Array<string | number>
+  /**
+   * data-grid 列级专属选项命名空间（T8 新建 scaffolding）。
+   *
+   * **与 antd 不兼容**：antd `ColumnType` 没有 movable / lockPosition 等概念，
+   * 故 dg 列级专属字段一律归入此命名空间（顶层 `ColumnType` 只保留与 antd 同名同义字段）。
+   *
+   * 当前为最小占位接口，留给 T10 填充：
+   *   - `movable`（预留）：列是否可拖拽换位（M10 列拖拽排序，待实现）。
+   *   - `lockPosition`（预留）：锁定列位置（拖拽换位不可移动此列）。
+   *
+   * 本阶段不消费任何字段（零回归）。
+   */
+  gridColumnOptions?: {
+    /**
+     * ★ T10：该列是否可拖拽换位（列拖拽排序）。
+     *
+     * **语义（对齐 ag-grid `colDef.suppressMovable`，取反；默认 true）**：
+     *   - `true` / undefined：该列可拖（默认行为，与 S19 总是可拖一致）。
+     *   - `false`：该列**不可发起拖拽**（pointerdown 命中此列表头格不启动拖；其它列仍可拖）。
+     *
+     * 仅控制"能否发起"列拖，不影响此列在其它列拖拽重排时被动让位。
+     * 与 `lockPosition` 互补：movable=false 仅禁发起，lockPosition=true 还禁止被动移位。
+     *
+     * 全局还要受 `gridOptions.columnReorder`（默认 true）约束——三者组合见 `useColumnDragSort`。
+     */
+    movable?: boolean
+    /**
+     * ★ T10：锁定列位置——拖拽换位时该列自身位置固定不变。
+     *
+     * **语义（对齐 ag-grid `colDef.lockPosition`）**：
+     *   - `true`：该列**自身不可被重排**（拖拽发起判定时此列头不触发拖；重排算法跳过此列的 index，
+     *     即其它列可在锁定列前后重排但锁定列自身 index 不变）。
+     *   - `false` / undefined：不锁定（默认）。
+     *
+     * 与 `movable=false` 的区别：movable=false 仅禁发起拖（此列仍会被其它列拖拽时被动挤开）；
+     * lockPosition=true 则锁定列自身 index（重排算法对此列"透明"——其它列在剩余可动列之间重排，
+     * 锁定列位置由其在原 columns 数组中的位置决定，不参与 arrayMove）。
+     *
+     * 实现见 `useColumnDragSort`（拖拽发起前判定 + arrayMoveLockedColumns 重排算法）。
+     */
+    lockPosition?: boolean
+  }
   width?: number | string
   align?: Align
   fixed?: FixedInput
@@ -1075,14 +1117,62 @@ export interface StickyConfig {
 export type RowKeyType = string | ((record: any) => string | number)
 
 /**
+ * Table 国际化文案（对齐 antd `components/table/interface.ts:41-63` 的 `TableLocale`，共 18 字段）。
+ *
+ * 全部 optional；未传的字段回退到内置默认值（与 antd `locale/en_US.ts` 的 Table 段一致——
+ * 保持英文默认、与 antd 行为对齐）。FilterDropdown 消费 filterConfirm/filterReset/filterEmptyText/
+ * filterSearchPlaceholder/filterCheckAll/filterCheckall；emptyText 由 Table 表体空态消费；
+ * 其余字段（filterTitle/selectAll/selectNone/selectInvert/selectionAll/sortTitle/expand/collapse/
+ * triggerDesc/triggerAsc/cancelSort）为接口完整性保留，供后续任务（如排序 tooltip i18n、选择菜单 i18n）消费。
+ *
+ * `filterCheckall`（小写 l）是 antd @deprecated 别名，消费处用 `filterCheckall ?? filterCheckAll`
+ * （对齐 antd FilterDropdown.tsx:434）。
+ */
+export interface TableLocale {
+  filterTitle?: string
+  filterConfirm?: ReactNode
+  filterReset?: ReactNode
+  filterEmptyText?: ReactNode
+  /** @deprecated 请用 `filterCheckAll`（对齐 antd）。 */
+  filterCheckall?: ReactNode
+  filterCheckAll?: ReactNode
+  filterSearchPlaceholder?: string
+  emptyText?: ReactNode | (() => ReactNode)
+  selectAll?: ReactNode
+  selectNone?: ReactNode
+  selectInvert?: ReactNode
+  selectionAll?: ReactNode
+  sortTitle?: string
+  expand?: ReactNode
+  collapse?: ReactNode
+  triggerDesc?: string
+  triggerAsc?: string
+  cancelSort?: string
+}
+
+/**
+ * TableLocale 字段默认值（对齐 antd `components/locale/en_US.ts` 的 Table 段）。
+ *
+ * 未传 locale / 未传某字段时，FilterDropdown 等消费处回退到这里（保持英文默认、与 antd 一致）。
+ * 仅暴露 FilterDropdown 实际消费的 5 个字段默认值（filterConfirm/filterReset/filterEmptyText/
+ * filterSearchPlaceholder/filterCheckAll）——其余字段消费处落地时按需补。
+ */
+export const TABLE_LOCALE_DEFAULT = {
+  filterConfirm: 'OK',
+  filterReset: 'Reset',
+  filterEmptyText: 'No filters',
+  filterSearchPlaceholder: 'Search in filters',
+  filterCheckAll: 'Select all items',
+} as const
+
+/**
  * antd `expandable` 接口（M9 第一步覆盖 demo 子集 + 核心 API）。
  *
  * **覆盖**：`expandedRowRender`、`rowExpandable`、`defaultExpandedRowKeys`、
  *   `expandedRowKeys`（受控）、`onExpand`、`onExpandedRowsChange`、`columnWidth`、
  *   `expandIcon`、`defaultExpandAllRows`、`showExpandColumn`。
  *
- * **未覆盖**（后续任务 S24/S25 落地）：`expandedRowClassName`、`indentSize`（树形）、
- *   `expandRowByClick`、`onExpandedRowsChange` 细节（已提供但与 onExpand 同步触发）、
+ * **未覆盖**（后续任务）：`onExpandedRowsChange` 细节（已提供但与 onExpand 同步触发）、
  *   `childrenColumnName`（树形 S13）。
  *
  * 与 antd 同名字段同语义，便于直接替换。
@@ -1155,6 +1245,29 @@ export interface Expandable<RecordType = any> {
    * 树形模式下，第一列数据单元格按 `level × indentSize` 左缩进（px）。
    */
   indentSize?: number
+  /**
+   * ★ T7（对齐 antd `expandable.expandRowByClick`，rc-table interface.d.ts:179）。
+   *
+   * true 时点击**行体**（任意非展开图标的单元格）切换该行展开/收起。
+   *
+   * 与 `onRow.onClick` **共存**（不互斥）：antd 行为是 expandRowByClick 触发切换的**同时**
+   * onRow.onClick 也照常触发——本实现遵循同款语义（在 onRow.onClick 之外叠加切换，不阻止 onRow.onClick）。
+   *
+   * 仅对该行 `rowExpandable !== false` 的可展开行生效（不可展开行点击无反应，与 antd 一致）。
+   *
+   * 默认 false（仅展开图标点击切换，行体点击不触发展开——零回归）。
+   */
+  expandRowByClick?: boolean
+  /**
+   * ★ T7（对齐 antd `expandable.expandedRowClassName`，rc-table interface.d.ts:188）。
+   *
+   * 行**展开后**额外附加到该行所有单元格的 class（与 `rowClassName` 同款行级 class 注入路径）。
+   * 仅在该行 `expanded=true` 时生效（收起时不加）。
+   *
+   * 签名 `(record, index) => string`，返回值合并到该行 body 单元格 className。
+   * 与 `TableProps.rowClassName` 叠加（两者都生效，互不覆盖）。
+   */
+  expandedRowClassName?: (record: RecordType, index: number) => string
 }
 
 /**
@@ -1323,14 +1436,13 @@ export interface TableProps<RecordType = any> {
   virtual?: boolean
   /** 预留：透传到底层布局，本阶段仅接收不强制。 */
   tableLayout?: 'auto' | 'fixed'
-  /** 行高约定（data-grid 扩展，非 antd 公共 API；便于虚拟/固定场景）。 */
-  rowHeight?: number | ((record: RecordType, index: number) => number | string)
   /**
-   * data-grid 专属 grid 布局选项（Phase 4 有界行高模型）。
+   * data-grid 专属 grid 布局选项（Phase 4 有界行高模型 + M7 列宽拖拽 + 表头行高）。
    *
-   * **与 antd 不兼容**：antd `Table` 没有 `rowHeight` / `minRowHeight` / `maxRowHeight`
-   * 概念（antd 行高随内容），此容器仅 data-grid 消费。顶层 `rowHeight` 仍保留以向后兼容
-   * （顶层优先级低于 `gridOptions.rowHeight`）。
+   * **与 antd 不兼容**：antd `Table` 没有 `rowHeight` / `minRowHeight` / `maxRowHeight` /
+   * `headerHeight` / `resizable` 等概念（antd 行高随内容、无原生列宽拖拽），此命名空间仅
+   * data-grid 消费。**T8 硬迁移**：原顶层 `rowHeight`/`headerHeight`/`resizable`/
+   * `resizableMinWidth`/`resizableMaxWidth` 全部迁入 `gridOptions`（删顶层、无 alias、无向后兼容）。
    *
    * - `rowHeight`：行高约定（数字 → 固定 px；函数 → 按行返回 px）。默认 56（虚拟）。
    * - `minRowHeight` / `maxRowHeight`：**同时设置**时启用「有界行高模型」——行高随内容
@@ -1338,14 +1450,81 @@ export interface TableProps<RecordType = any> {
    *   真实高度驱动虚拟窗口 offset/padding。**关键**：固定列/合并单元格/多级表头因仍由统一
    *   grid track 定位，跨可变高行保持像素级对齐（与 auto-track 脱节无关，grid 显式定位）。
    *   仅设其一（缺 min 或 max）→ 退化为固定行高（等同不设）。
+   * - `headerHeight`：表头行高约定（数字 px 或字符串 CSS track）。多级表头下所有表头行统一高度。
+   * - `resizable`：列宽拖拽调整开关（M7）。`true` 时叶子表头格右侧渲染 resizer 手柄，
+   *   pointer 拖拽实时改列宽（覆盖 column.width）。默认 `false`（零回归）。
+   * - `resizableMinWidth` / `resizableMaxWidth`：列宽拖拽 min/max 约束（px）。number → 统一；
+   *   函数 → 按列 key 逐列定制。默认 min 30 / max Infinity。
    */
   gridOptions?: {
     rowHeight?: number | ((record: RecordType, index: number) => number)
     minRowHeight?: number
     maxRowHeight?: number
+    headerHeight?: number | string
+    resizable?: boolean
+    resizableMinWidth?: number | ((key: string) => number)
+    resizableMaxWidth?: number | ((key: string) => number)
+    /**
+     * ★ T9：拖拽行/列到容器边缘时自动滚动容器（虚拟列表下尤其关键）。
+     *
+     * **语义**：拖拽中（行拖 / 列拖）指针接近**滚动容器**（`.dg-scroll`）的边缘时，按距边缘
+     * 距离**渐进加速**滚动容器——让用户能持续把行/列拖出可视区到达远处位置（虚拟行拖尤其关键：
+     * 现有 hit-test 仅遍历已渲染 cell，拖出可视区不滚动会"卡住"，无法 drop 到远处行）。
+     *
+     * - `true`（默认，对齐 ag-grid community 默认行为）：拖拽近边缘触发自动滚动。
+     * - `false`：禁用，拖拽出可视区不滚动（保持拖拽 demo 改造前行为）。
+     *
+     * **实现**（见 `useAutoScrollOnDrag` hook）：
+     *   - 边缘阈值 ~100px（参考 ag-grid `SCROLL_MOVE_WIDTH=100`）；阈值内按
+     *     `(1 - dist/threshold) * maxSpeed` 渐进加速（`maxSpeed ≈ 15 px/帧`，对齐 ag-grid
+     *     `SCROLL_ACCELERATION_RATE=5` × interval 的量级）。
+     *   - 行拖 → 纵向滚动；列拖 → 横向滚动（同向滚动，与拖拽方向一致）。
+     *   - 用 `requestAnimationFrame` 循环驱动 `scrollContainer.scrollBy(dx, dy)`：
+     *     `scroll` 事件会被虚拟引擎（useVirtualList）+ FloatingScrollBar 监听 → 自动重算
+     *     已渲染行 + drop 目标 / 指示线位置（拖拽 hook 的 hit-test 每帧重新读 DOM 边界，
+     *     滚动后行/列 DOM 位置变化 → hit-test 自动跟随）。
+     *
+     * **滚动容器定位**：拖拽 hook 的 `containerRef`（外层相对定位 div）不是真正的滚动容器，
+     *   实际滚动容器是它内部的 `.dg-scroll`（GridTable 在 scroll.x / scroll.y / virtual / hasFixed
+     *   时自包一层）。auto-scroll hook 运行时用 `containerRef.current.querySelector('.dg-scroll')`
+     *   定位；找不到（无 scroll 配置的纯表格）则回退到最近的可滚动祖先（offsetParent 链找 overflow:auto/scroll）。
+     *
+     * **零回归**：仅近边缘（阈值内）触发，中间拖拽不受影响；`false` 完全关闭；默认 true 不破坏
+     *   现有拖拽 demo 的常规重排（demo 用例均在可视区内重排，不触及边缘 → 不触发滚动）。
+     */
+    autoScrollOnDrag?: boolean
+    /**
+     * ★ T10：列拖拽换位（列重排）全局开关。
+     *
+     * **语义（对齐 ag-grid `suppressMovableColumns`，取反；默认 true）**：
+     *   - `true` / undefined：允许列拖拽换位（保持 S19 默认行为——所有列头可拖）。
+     *   - `false`：**全局禁用列拖拽**（任何列头 pointerdown 都不启动拖；与 `gridColumnOptions.movable`
+     *     无关——全局关等于总闸）。
+     *
+     * 单列粒度由 `gridColumnOptions.movable`（默认 true）/ `gridColumnOptions.lockPosition`（默认 false）控制。
+     * 三者关系（对齐 ag-grid `workOutDraggable = !suppressMovableColumns && !colDef.suppressMovable
+     * && !colDef.lockPosition`）：某列可发起拖 ⟺ `columnReorder !== false && movable !== false && !lockPosition`。
+     *
+     * **透传**：drag-column-sorting demo 从此 option 透传到 `useColumnDragSort({ reorder: ... })`。
+     * 默认 true 保证非该 demo 的其它列拖场景零回归。
+     */
+    columnReorder?: boolean
+    /**
+     * ★ T11：多行成块重排（multi-row reorder）开关。
+     *
+     * **语义（对齐 ag-grid `rowDragMultiRow`；默认 true）**：
+     *   - `true` / undefined：当被拖行属于多选 selection（selection 含 ≥2 行且包含被拖行）时，
+     *     把所有选中行作为**一块**移到目标位置（保持选中行之间的相对顺序），而非只移被拖行。
+     *   - `false`：始终只移被拖行（即使 selection 含多行，行为与 S17/S18 单行重排一致）。
+     *
+     * **边界**：被拖行未选中 → 只移它（现状）；selection 含被拖行+其它 → 成块移；
+     * 目标落在选中块内部 → no-op。单选 / 无 selection 时**零回归**（selection 数 ≤1 时退化为单行重排）。
+     *
+     * **透传**：drag-multi-row-reorder demo 从此 option 透传到 `useRowDragSort({ multiRowReorder,
+     * selectedRowKeys, rowKey })`。
+     */
+    multiRowReorder?: boolean
   }
-  /** 表头行高约定。 */
-  headerHeight?: number | string
   /**
    * 行选择配置（M5）。
    *
@@ -1379,39 +1558,6 @@ export interface TableProps<RecordType = any> {
    * 不传则不渲染展开列、不插入展开 track（零回归）。
    */
   expandable?: Expandable<RecordType>
-  /**
-   * 列宽拖拽调整开关（M7）。
-   *
-   * - `true`：在**叶子表头格右侧**渲染 resizer 手柄，pointer 拖拽实时改列宽。
-   *   引擎内部维护 `resizedWidths`（用户拖拽后的列宽映射），覆盖 column.width；
-   *   首次拖拽 max-content/无 width 列时自动转为受控 px。
-   *   最小/最大宽度约束见 `resizableMinWidth`/`resizableMaxWidth`（默认 min 30px）。
-   * - `false`（默认）：不渲染手柄，列宽完全由 column.width / max-content 决定（M0–M6 行为，零回归）。
-   *
-   * **默认 false**（增强能力，需显式开启；保证 basic/grouping/fixed/colspan/virtual/
-   * row-selection/hidden-columns 等已通过 demo 无回归）。
-   *
-   * 组合：
-   *   - 多级表头（children）：只有叶子表头格有手柄；分组表头格无手柄。拖拽子叶子时父分组格
-   *     自动跟随收缩/展开（线号稳定）。
-   *   - 固定列：拖拽改宽后 ResizeObserver 自动重算 sticky 偏移，固定列随之正确。
-   *   - 虚拟滚动：拖拽不影响虚拟行渲染窗口（列/行 track 正交）。
-   *   - 隐藏列：0fr track 的列不渲染手柄（无可调宽度）。
-   *
-   * 本阶段为**非受控**（拖拽状态由引擎内部管理）；受控 `column.width`/`onColumnResize`
-   * 回调留作后续增强。
-   */
-  resizable?: boolean
-  /**
-   * M7 列宽拖拽最小宽度（px）。number → 对所有列统一；函数 → 按列 key 逐列定制。
-   * 默认 30（防止拖到 0）。仅在 `resizable` 生效时有意义。
-   */
-  resizableMinWidth?: number | ((key: string) => number)
-  /**
-   * M7 列宽拖拽最大宽度（px）。number → 对所有列统一；函数 → 按列 key 逐列定制。
-   * 默认 Infinity（不限制过宽）。
-   */
-  resizableMaxWidth?: number | ((key: string) => number)
   /**
    * 分页配置（S11）。
    *
@@ -1583,7 +1729,7 @@ export interface TableProps<RecordType = any> {
    *
    * 不传（默认）→ 用 ConfigProvider.renderEmpty 或默认 antd Empty（零回归：现有 demo 无 locale）。
    */
-  locale?: { emptyText?: ReactNode }
+  locale?: TableLocale
   /**
    * 汇总栏 summary（S22，对齐 antd `TableProps.summary`）。
    *

@@ -240,9 +240,11 @@ export default function ResizableDemo() {
           <Table<RecordType>
             columns={dgColumns}
             dataSource={data}
-            resizable={resizable}
-            resizableMinWidth={minWidth}
-            resizableMaxWidth={maxWidth}
+            gridOptions={{
+              resizable,
+              resizableMinWidth: minWidth,
+              resizableMaxWidth: maxWidth,
+            }}
           />
         }
         right={

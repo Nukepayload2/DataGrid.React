@@ -182,7 +182,7 @@ const antdColumns: TableColumnsType<RecordType> = [
 // 左栏（data-grid）—— 复用 S17 useRowDragSort + handleSelector 限定手柄列
 // ---------------------------------------------------------------------------
 
-function DataGridPane({ bordered }: { bordered: boolean }) {
+function DataGridPane({ bordered, autoScroll }: { bordered: boolean; autoScroll: boolean }) {
   const [dataSource, setDataSource] = useState<RecordType[]>(initialData)
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -194,6 +194,8 @@ function DataGridPane({ bordered }: { bordered: boolean }) {
     containerRef,
     // 手柄列限定：仅 .dg-drag-handle 命中才启动拖拽（Name/Age/Address 不触发）。
     handleSelector: '.dg-drag-handle',
+    // T9：拖到容器边缘自动滚动（此 demo 数据少无 scroll 容器，auto-scroll 为 no-op；开关用于对照）。
+    autoScroll,
   })
 
   return (
@@ -269,6 +271,8 @@ function AntdPane({ bordered }: { bordered: boolean }) {
 export default function DragSortingHandlerDemo() {
   // ★ 共享状态：同一个状态同时驱动两侧表格。
   const [bordered, setBordered] = useState(false)
+  // T9：autoScrollOnDrag 开关（仅驱动左栏 data-grid；右栏 antd 无对应概念）。
+  const [autoScroll, setAutoScroll] = useState(true)
 
   return (
     <div style={{ padding: 24 }}>
@@ -288,6 +292,13 @@ export default function DragSortingHandlerDemo() {
             checkedChildren="Bordered"
             unCheckedChildren="Bordered"
           />
+          {/* T9：autoScrollOnDrag 开关（仅驱动左栏 data-grid）。 */}
+          <Switch
+            checked={autoScroll}
+            onChange={setAutoScroll}
+            checkedChildren="AutoScroll"
+            unCheckedChildren="AutoScroll"
+          />
         </Space>
       </div>
 
@@ -297,7 +308,7 @@ export default function DragSortingHandlerDemo() {
       */}
       <SplitDemo
         minPaneWidth={480}
-        left={<DataGridPane bordered={bordered} />}
+        left={<DataGridPane bordered={bordered} autoScroll={autoScroll} />}
         right={<AntdPane bordered={bordered} />}
       >
         <div>

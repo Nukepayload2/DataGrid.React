@@ -51,7 +51,7 @@
  * === data-grid 侧行为与改造前一致（回归不破）===
  *
  * - virtual + scroll={{ x: 2000, y: true }}（决策 7：CSS 自适应高度，父容器 height:440 对齐右栏表体 y:400）。
- * - rowKey="id"、rowHeight={40} headerHeight={40}、mergedColumns/plainColumns 切换。
+ * - rowKey="id"、gridOptions={{ rowHeight:40, headerHeight:40 }}、mergedColumns/plainColumns 切换。
  * - Expandable 开关（验证决策 2 虚拟 × 展开），展开时强制 plainColumns（合并与展开互斥）。
  * - rowSelection：展开关闭时 radio 单选列（对齐右栏），展开时关闭。
  */
@@ -424,8 +424,7 @@ export default function VirtualListDemo() {
                 expanded ? undefined : { type: 'radio', columnWidth: 48 }
               }
               // 行高约定：每行 40px（决策 2：虚拟窗口按此约定算，不测量真实 DOM 高）。
-              rowHeight={40}
-              headerHeight={40}
+              gridOptions={{ rowHeight: 40, headerHeight: 40 }}
             />
           </div>
         }

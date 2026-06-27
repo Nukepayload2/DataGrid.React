@@ -9,11 +9,12 @@
  */
 
 import { lazy, Suspense, useMemo } from 'react'
-import { Breadcrumb, Button, Layout, Menu, Typography } from 'antd'
+import { Breadcrumb, Button, Layout, Menu, Segmented, Typography } from 'antd'
 import { demos } from './demos'
 import { navigate, useHashRoute } from './demos/registry'
 import HomePage from './HomePage'
 import DocsPage from './DocsPage'
+import { useTheme, type ThemeMode } from './theme/ThemeContext'
 
 const { Header, Content } = Layout
 const { Title, Link } = Typography
@@ -31,6 +32,10 @@ type View =
 
 function App() {
   const segments = useHashRoute()
+  // ★ 任务 T16：从全局主题 store 读 themeMode + setThemeMode。
+  //   顶栏 dark/light 切换是单一真理源（驱动全站 algorithm + data-grid --ant-* 重算）。
+  const { themeMode, setThemeMode } = useTheme()
+  const isDark = themeMode === 'dark'
 
   const selectedKey = segments[0] === 'docs' ? 'docs' : 'demos'
 
@@ -54,6 +59,11 @@ function App() {
           alignItems: 'center',
           gap: 24,
           paddingInline: 24,
+          // ★ 任务 T16：Header 背景跟随全局主题。
+          //   - light：原视觉 #001529（品牌深色顶栏，保留改造前外观）。
+          //   - dark：#141414（与 antd dark body 协调，仍为深色顶栏）。
+          background: isDark ? '#141414' : '#001529',
+          borderBottom: isDark ? '1px solid #303030' : 'none',
         }}
       >
         <div
@@ -78,6 +88,25 @@ function App() {
             { key: 'docs', label: 'Docs' },
           ]}
           style={{ minWidth: 0, flex: 1 }}
+        />
+        {/*
+          ★ 任务 T16：顶栏全局 dark/light 切换（单一真理源）。
+          Segmented 直接写 setThemeMode → ThemeProvider 重渲染 → ConfigProvider algorithm
+          切换 → 全站 antd cssinjs 重算 + data-grid Table.tsx useToken realToken 重算 →
+          .dg-wrapper --ant-* 刷新。所有 demo（含 SplitDemo）改由此处统一切 dark。
+        */}
+        <Segmented
+          value={themeMode}
+          onChange={(val) => setThemeMode(val as ThemeMode)}
+          options={[
+            { label: '☀ Light', value: 'light' },
+            { label: '🌙 Dark', value: 'dark' },
+          ]}
+          style={{
+            // 顶栏是深色底，Segmented 自身用浅色块（无论 light/dark 模式都看得清）。
+            background: 'rgba(255,255,255,0.15)',
+            color: '#fff',
+          }}
         />
       </Header>
       <Content style={{ padding: 24 }}>

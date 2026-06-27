@@ -13,18 +13,30 @@
  *   （antd 官方两份 demo 各自独立声明），故各自单独建 shared 文件，不复用 head.shared。
  */
 
-/** antd reset-filter demo 的记录类型。两侧共用。 */
+/**
+ * antd reset-filter demo 的记录类型。两侧共用。
+ *
+ * 除 antd 原版 name/age/address 外，本 demo 额外加 status/tag/empty 三个字段
+ * 用于触发 locale 的 3 个 key（filterSearchPlaceholder / filterCheckAll / filterEmptyText）
+ * 的运行时验证（见 demo 顶部注释「locale 5 key 运行时验证闭环」）。
+ */
 export interface RecordType {
   key: string
   name: string
   age: number
   address: string
+  /** Status 列：触发 filterSearch（搜索框 placeholder='搜索'）。 */
+  status: string
+  /** Tag 列：触发 filterMode='tree'（tree 全选 Checkbox 文案='全选'）。 */
+  tag: string
+  /** Empty 列：filters:[] 空数组（下拉空占位='无筛选'）。本字段仅占位，值不影响行为。 */
+  empty: string
 }
 
 /** antd reset-filter demo 的数据（4 行）。两侧共用，保证对照基准一致。 */
 export const data: RecordType[] = [
-  { key: '1', name: 'John Brown', age: 32, address: 'New York No. 1 Lake Park' },
-  { key: '2', name: 'Jim Green', age: 42, address: 'London No. 1 Lake Park' },
-  { key: '3', name: 'Joe Black', age: 32, address: 'Sydney No. 1 Lake Park' },
-  { key: '4', name: 'Jim Red', age: 32, address: 'London No. 2 Lake Park' },
+  { key: '1', name: 'John Brown', age: 32, address: 'New York No. 1 Lake Park', status: 'active', tag: 'vip', empty: '' },
+  { key: '2', name: 'Jim Green', age: 42, address: 'London No. 1 Lake Park', status: 'inactive', tag: 'normal', empty: '' },
+  { key: '3', name: 'Joe Black', age: 32, address: 'Sydney No. 1 Lake Park', status: 'active', tag: 'vip', empty: '' },
+  { key: '4', name: 'Jim Red', age: 32, address: 'London No. 2 Lake Park', status: 'pending', tag: 'normal', empty: '' },
 ]

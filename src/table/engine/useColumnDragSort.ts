@@ -75,6 +75,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useAutoScrollOnDrag } from './useAutoScrollOnDrag'
 
 /** arrayMove：把数组 from 位置的元素移到 to 位置（对齐 @dnd-kit/sortable）。 */
 export function arrayMoveColumns<T>(arr: Array<T>, from: number, to: number): Array<T> {
@@ -84,6 +85,113 @@ export function arrayMoveColumns<T>(arr: Array<T>, from: number, to: number): Ar
   const next = arr.slice()
   const [moved] = next.splice(from, 1)
   next.splice(to, 0, moved)
+  return next
+}
+
+/**
+ * ★ T10：判断某列是否锁定位置（`gridColumnOptions.lockPosition === true`）。
+ *
+ * 锁定列自身不可被重排——其它列可在其周围重排，但锁定列自身 index（相对原 columns 数组）
+ * 不变。实现采用"可动列子序列重排"算法：从 columns 中抽出所有可动列（按原顺序），在可动列子序列
+ * 上做 arrayMove，再把结果按原位填回（锁定列保持原 index 不动）。
+ */
+function isColumnLocked<ColumnType>(col: ColumnType): boolean {
+  // 兼容：列定义上 gridColumnOptions 可能不存在（与 antd 顶层 ColumnType 同名字段保留兼容）。
+  const opts = (col as { gridColumnOptions?: { lockPosition?: boolean } }).gridColumnOptions
+  return opts?.lockPosition === true
+}
+
+/**
+ * ★ T10：锁定列友好的列重排算法。
+ *
+ * 给定原 columns、被拖列 fromIndex、目标插入位置 toIndex（已用 @dnd-kit 语义：to = 目标列 index，
+ * 即 arrayMove 把 from 移到 to），返回重排后的新数组。锁定列（`lockPosition:true`）保持原 index
+ * 不动——只在非锁定列子序列上做 arrayMove，再把结果按原位填回锁定列之间的空隙。
+ *
+ * 算法：
+ *   1. 把原 columns 分成两组索引：`movableIdxs`（非锁定列的原 index 列表，按原顺序）+
+ *      `lockedIdxs`（锁定列的原 index 集合）。
+ *   2. 在 movableIdxs 上找到 from 对应的可动列序号（`fromMovable`）+ to 对应的可动列序号
+ *      （`toMovable`）。toIndex 必须也指向可动列（被拖列是可动的，拖拽发起前已校验；
+ *      hit-test 的 over index 可能落在锁定列上——此时 toMovable 退化为最近的可动列序号，
+ *      保证不会把可动列"插入"到锁定列的固定槽位之间错乱）。
+ *   3. 对 `movableIdxs` 做 arrayMove（fromMovable → toMovable）得到新的可动列 index 序列。
+ *   4. 重建数组：锁定列保持原位（按 lockedIdxs 的原 index），可动列按重排后的顺序依次填入剩余槽位。
+ *
+ * 若 fromIndex 本身是锁定列（不应发生——pointerdown 已拦截）→ 原样返回（防御性）。
+ */
+export function arrayMoveColumnsRespectLocks<ColumnType>(
+  arr: Array<ColumnType>,
+  fromIndex: number,
+  toIndex: number,
+): Array<ColumnType> {
+  if (fromIndex === toIndex || fromIndex < 0 || fromIndex >= arr.length) return arr
+  // 无任何锁定列 → 退化为普通 arrayMove（零回归路径，性能更优）。
+  if (!arr.some((c) => isColumnLocked(c))) {
+    return arrayMoveColumns(arr, fromIndex, toIndex)
+  }
+  // 被拖列本身是锁定列（理论上 pointerdown 已拦截，这里防御性返回原数组）。
+  if (isColumnLocked(arr[fromIndex])) return arr
+
+  // 可动列的原 index 序列（按原顺序）。
+  const movableIdxs: number[] = []
+  for (let i = 0; i < arr.length; i += 1) {
+    if (!isColumnLocked(arr[i])) movableIdxs.push(i)
+  }
+  // from 在可动列序列中的序号。
+  const fromMovable = movableIdxs.indexOf(fromIndex)
+  if (fromMovable < 0) return arr
+
+  // 把 toIndex（原数组 index，可能落在锁定列上）映射到"可动列序号"语义：
+  // toIndex 落在锁定列上时，根据拖拽方向（from<to 向右拖 / from>to 向左拖）取最近的可动列序号，
+  // 避免 arrayMove 把可动列插进锁定列的固定槽位导致锁定列被动移位。
+  let toMovable: number
+  if (toIndex === arr.length) {
+    // 拖到末尾之后 → 目标可动列序号 = 末尾可动列序号（arrayMove 的 to 上界）。
+    toMovable = movableIdxs.length - 1
+  } else {
+    const directIdx = movableIdxs.indexOf(toIndex)
+    if (directIdx >= 0) {
+      toMovable = directIdx
+    } else {
+      // toIndex 落在锁定列上：找原数组中 toIndex 之前最近的可动列序号（向右拖）或之后最近（向左拖）。
+      if (fromIndex < toIndex) {
+        // 向右拖：取 toIndex 之前最后一个可动列序号。
+        toMovable = -1
+        for (let m = 0; m < movableIdxs.length; m += 1) {
+          if (movableIdxs[m] < toIndex) toMovable = m
+          else break
+        }
+        if (toMovable < 0) return arr
+      } else {
+        // 向左拖：取 toIndex 之后第一个可动列序号。
+        toMovable = -1
+        for (let m = 0; m < movableIdxs.length; m += 1) {
+          if (movableIdxs[m] >= toIndex) {
+            toMovable = m
+            break
+          }
+        }
+        if (toMovable < 0) return arr
+      }
+    }
+  }
+
+  // 在可动列 index 序列上做 arrayMove。
+  const nextMovableIdxs = arrayMoveColumns(movableIdxs, fromMovable, toMovable)
+  // 重建数组：锁定列原位 + 可动列按重排后的 index 序列填空。
+  const next = new Array<ColumnType>(arr.length)
+  // 先放锁定列（原 index 不变）。
+  for (let i = 0; i < arr.length; i += 1) {
+    if (isColumnLocked(arr[i])) next[i] = arr[i]
+  }
+  // 再按重排后的可动列 index 序列依次填入剩余空槽（保持可动列间相对顺序）。
+  let fillCursor = 0
+  for (let k = 0; k < nextMovableIdxs.length; k += 1) {
+    while (next[fillCursor] !== undefined) fillCursor += 1
+    next[fillCursor] = arr[nextMovableIdxs[k]]
+    fillCursor += 1
+  }
   return next
 }
 
@@ -114,6 +222,28 @@ export interface UseColumnDragSortOptions<ColumnType> {
    * 调用方需把此 ref 挂到 Table 外层的相对定位 div。
    */
   containerRef: React.RefObject<HTMLElement | null>
+  /**
+   * ★ T9：拖拽到容器边缘时是否自动滚动容器（横向，列拖专用）。
+   *
+   * - `true`（默认）：拖拽近左右边缘触发横向自动滚动。
+   * - `false`：禁用。
+   *
+   * 通常由 demo 从 `gridOptions.autoScrollOnDrag`（默认 true）透传。
+   * 实现见 `useAutoScrollOnDrag`（vertical=false，横向边缘检测 + scrollBy）。
+   */
+  autoScroll?: boolean
+  /**
+   * ★ T10：列重排全局开关（对齐 `gridOptions.columnReorder`，默认 true）。
+   *
+   * - `true` / undefined：允许列拖拽（保持 S19 总是可拖行为）。
+   * - `false`：全局禁用——任何列头 pointerdown 都不启动拖（总闸，优先于单列 movable/lockPosition）。
+   *
+   * 单列粒度：`gridColumnOptions.movable === false` 的列不可发起拖（其它列仍可拖）；
+   * `gridColumnOptions.lockPosition === true` 的列自身不可发起拖 + 重排算法跳过其 index。
+   * 三者组合：某列可发起拖 ⟺ `reorder !== false && movable !== false && !lockPosition`
+   * （对齐 ag-grid `workOutDraggable`）。
+   */
+  reorder?: boolean
 }
 
 export interface UseColumnDragSortResult {
@@ -150,6 +280,14 @@ export function useColumnDragSort<ColumnType>(
   options: UseColumnDragSortOptions<ColumnType>,
 ): UseColumnDragSortResult {
   const { columns, onSort, containerRef } = options
+  // ★ T9：autoScrollOnDrag 默认 true（对齐 gridOptions.autoScrollOnDrag 默认 + ag-grid 默认行为）。
+  const autoScrollEnabled = options.autoScroll ?? true
+  // ★ T10：columnReorder 默认 true（对齐 gridOptions.columnReorder 默认 + S19 总是可拖行为）。
+  const reorderEnabled = options.reorder ?? true
+
+  // T9：拖拽中自动滚动容器（横向边缘检测 RAF + scrollBy）。
+  const { pointerRef: autoScrollPointerRef, start: startAutoScroll, stop: stopAutoScroll } =
+    useAutoScrollOnDrag({ containerRef, vertical: false, autoScroll: autoScrollEnabled })
 
   const [dragState, setDragState] = useState<{
     fromIndex: number
@@ -242,6 +380,8 @@ export function useColumnDragSort<ColumnType>(
     (e: React.PointerEvent) => {
       // 仅主键（左键）启动拖拽。
       if (e.button !== 0) return
+      // ★ T10：全局总闸——columnReorder=false 时所有列头不可拖（对齐 ag-grid suppressMovableColumns）。
+      if (!reorderEnabled) return
       const target = e.target as HTMLElement | null
       // 命中判定：target 最近祖先含 [data-leaf-index] 的叶子表头格。
       // （分组表头格无 data-leaf-index，data-leaf='0'，不命中 → 不触发列拖拽，正确。）
@@ -251,6 +391,17 @@ export function useColumnDragSort<ColumnType>(
       if (idxAttr === null) return
       const index = Number.parseInt(idxAttr, 10)
       if (!Number.isFinite(index)) return
+      // ★ T10：单列粒度判定（对齐 ag-grid workOutDraggable：
+      //   !suppressMovableColumns && !colDef.suppressMovable && !colDef.lockPosition）。
+      //   movable=false（suppressMovable）→ 此列不可发起拖；
+      //   lockPosition=true → 此列自身不可发起拖（且重排算法跳过其 index，见 arrayMoveColumnsRespectLocks）。
+      //   两者任一禁用 → 该列头 no-op（不捕获、不变光标）。
+      const colDef = columns[index] as
+        | { gridColumnOptions?: { movable?: boolean; lockPosition?: boolean } }
+        | undefined
+      const colOpts = colDef?.gridColumnOptions
+      if (colOpts?.movable === false) return
+      if (colOpts?.lockPosition === true) return
 
       const el = cell
       const pointerId = e.pointerId
@@ -281,10 +432,16 @@ export function useColumnDragSort<ColumnType>(
         })
       }
 
+      // ★ T9：初始化 auto-scroll 指针坐标 + 启动 RAF 边缘检测循环（横向）。
+      autoScrollPointerRef.current = { clientX: e.clientX, clientY: e.clientY }
+      startAutoScroll()
+
       // 原生监听 move/up（挂到捕获表头格元素，pointer capture 保证事件路由到它）。
       const nativeMove = (ev: PointerEvent) => {
         const drag = dragRef.current
         if (!drag || ev.pointerId !== drag.pointerId) return
+        // ★ T9：实时更新指针坐标供 auto-scroll RAF 循环读取。
+        autoScrollPointerRef.current = { clientX: ev.clientX, clientY: ev.clientY }
         const result = hitTest(ev.clientX)
         if (!result) return
         // 调整 over index：@dnd-kit 语义是 over = 目标列 index（松手后 arrayMove 把 from 移到 to）。
@@ -313,10 +470,14 @@ export function useColumnDragSort<ColumnType>(
         drag.el.removeEventListener('pointerup', nativeUp)
         drag.el.removeEventListener('pointercancel', nativeUp)
         dragRef.current = null
+        // ★ T9：拖拽结束，停止 auto-scroll RAF 循环。
+        stopAutoScroll()
         // 最终 overIndex（state 中已是最新）。from===over 不重排。
         setDragState((cur) => {
           if (cur && cur.fromIndex !== cur.overIndex) {
-            const next = arrayMoveColumns(columns, cur.fromIndex, cur.overIndex)
+            // ★ T10：用尊重锁定列的重排算法（锁定列 index 不变，可动列在剩余槽位间重排）。
+            // 无锁定列时内部退化为普通 arrayMoveColumns（零回归 + 性能更优）。
+            const next = arrayMoveColumnsRespectLocks(columns, cur.fromIndex, cur.overIndex)
             onSort(next)
           }
           return null
@@ -327,10 +488,18 @@ export function useColumnDragSort<ColumnType>(
       el.addEventListener('pointerup', nativeUp)
       el.addEventListener('pointercancel', nativeUp)
     },
-    [hitTest, columns, onSort],
+    [
+      hitTest,
+      columns,
+      onSort,
+      reorderEnabled,
+      autoScrollPointerRef,
+      startAutoScroll,
+      stopAutoScroll,
+    ],
   )
 
-  // 卸载时清理（防御性：避免组件卸载后残留监听）。
+  // 卸载时清理（防御性：避免组件卸载后残留监听 + 残留 auto-scroll RAF）。
   useEffect(() => {
     return () => {
       const drag = dragRef.current
@@ -342,8 +511,10 @@ export function useColumnDragSort<ColumnType>(
         }
         dragRef.current = null
       }
+      // ★ T9：卸载时确保 auto-scroll RAF 已停（防止组件卸载后 RAF 继续跑）。
+      stopAutoScroll()
     }
-  }, [])
+  }, [stopAutoScroll])
 
   return { dragState, indicator, containerProps: { onPointerDown } }
 }

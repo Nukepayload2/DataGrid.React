@@ -5,27 +5,22 @@
  * （视觉/行为差异一目了然）。每个 demo 的"数据/列/交互配置"由调用方各自准备，
  * SplitDemo 只负责左右并排布局 + 标题栏 + 独立滚动 + 窄容器堆叠。
  *
- * === 全局深色/浅色切换（任务 M，dark mode 对齐验证基础设施）===
+ * === 全局深色/浅色切换（任务 T16：改由 App 顶栏全局驱动）===
  *
- * 顶部主题控制条带一个 antd `<Switch>`（checked=Dark / unChecked=Light），驱动一个
- * 包裹**两侧 pane + 说明区 + 控制条本身**的 `<ConfigProvider theme={{ algorithm }}>`：
+ * **重构前**（任务 M）：本组件自管一个 antd `<Switch>` + 内层 `<ConfigProvider theme={{ algorithm }}>`。
+ * **重构后**（任务 T16）：dark/light 切换移到 App 顶栏全局 Segmented（ThemeProvider 单一真理源），
+ * 本组件删除本地 isDark state + Switch + 内层 ConfigProvider。所有用 SplitDemo 的对比 demo
+ * 改由顶栏统一切 dark（单一真理源，避免每个 demo 各自维护切换）。
  *
- *   - **Light（默认 false）**：`theme.defaultAlgorithm`，行为/外观与改造前**完全一致**（零回归）。
- *   - **Dark（true）**：`theme.darkAlgorithm`，两侧同时切 dark：
- *     - **右栏 antd Table**：ConfigProvider 天然驱动，自动 dark。
- *     - **左栏 data-grid Table**：Table.tsx 用 antd 内部 `useToken`（`antd/es/theme/internal`）
- *       读 realToken 并 `useMemo` 依赖之；algorithm 切换 → realToken 新引用 → useMemo 重算
- *       → `.dg-wrapper` 全套 `--ant-*` 刷新为 dark 值（与 `.ant-table-wrapper` 同名同值）。
- *       所以**只要把 data-grid Table 放进 dark ConfigProvider，左栏自动变 dark**。
- *   - **外壳 chrome（pane/title/note/控制条）**：compare.css 原硬编码浅色（#fff/#fafafa/#f0f0f0），
- *     dark 下会变成"深色表格坐在刺眼白底卡片里"。用**显式颜色 + `.dg-compare--dark` 修饰类**
- *     （由同一个 isDark state 驱动，拼到 `.dg-compare` 容器 className）覆盖：pane→#141414、
- *     title/note/控制条→#1d1d1d、border→#303030、文字→rgba(255,255,255,0.85/0.65)。
- *     选显式颜色而非 token：antd v6 cssinjs 的 `--ant-*` 只挂在 antd 组件子树（cssVar
- *     root 作用域），SplitDemo chrome 在 ConfigProvider 外层 div 上无 `--ant-*` 可消费，
- *     显式颜色最稳、可预测、不依赖 token 作用域细节（任务规格推荐方案）。
- *
- * 切换是全局的（一个 Switch 驱动两侧），所有 49 个 compare demo 都能验证 dark mode 对齐。
+ *   - **algorithm 切换**：ThemeProvider 顶层 ConfigProvider（src/main.tsx 包 ThemeProvider）完成，
+ *     两侧表格（data-grid + antd）都在此作用域内，algorithm 变 → realToken 重算 → 自动 dark。
+ *     - 右栏 antd Table：ConfigProvider 天然驱动。
+ *     - 左栏 data-grid Table：Table.tsx useToken realToken 重算 → .dg-wrapper --ant-* 刷新。
+ *   - **外壳 chrome（pane/title/note）**：compare.css 原硬编码浅色（#fff/#fafafa/#f0f0f0），
+ *     dark 下会变成"深色表格坐在刺眼白底卡片里"。本组件仍从 useTheme 读 themeMode → 拼
+ *     `.dg-compare--dark` 修饰类（覆盖 pane→#141414、title/note→#1d1d1d、border→#303030、
+ *     文字→rgba(255,255,255,0.85/0.65)）。显式颜色最稳（chrome 在 ConfigProvider 外层 div
+ *     上无 --ant-* 可消费）。
  *
  * === 自适应横竖（纯 CSS flex-wrap，无 JS 测量）===
  *
@@ -73,9 +68,12 @@
  * 默认 false，行为完全不变（pane 圆角裁剪 + body 独立滚动）。
  */
 
-import { useState, type CSSProperties, type ReactNode } from 'react'
-import { ConfigProvider, Switch, theme } from 'antd'
+import { type CSSProperties, type ReactNode } from 'react'
 import './compare.css'
+// ★ 任务 T16：dark/light 切换改由 App 顶栏全局驱动（ThemeProvider 单一真理源）。
+//   删除本地 isDark state + Switch + 内层 ConfigProvider theme={{algorithm}}。
+//   useTheme 读全局 themeMode → 拼 .dg-compare--dark 修饰类（chrome 显式 dark 颜色）。
+import { useTheme } from '../../theme/ThemeContext'
 
 export interface SplitDemoProps {
   /** 左栏内容（通常是 data-grid Table）。 */
@@ -125,10 +123,12 @@ export function SplitDemo({
   stickyMode = false,
   children,
 }: SplitDemoProps) {
-  // ★ 任务 M：全局 dark/light 切换。默认 false（light），行为/外观与改造前完全一致。
-  //   一个 state 同时驱动：ConfigProvider algorithm（两侧表格主题）+ .dg-compare--dark
-  //   修饰类（chrome 显式 dark 颜色）。
-  const [isDark, setIsDark] = useState(false)
+  // ★ 任务 T16：dark/light 改由 App 顶栏全局驱动（ThemeProvider 单一真理源）。
+  //   本组件不再持有 isDark state、不再渲染 Switch、不再包内层 ConfigProvider。
+  //   只从 useTheme 读 themeMode → 拼 .dg-compare--dark 修饰类（chrome 显式 dark 颜色）。
+  //   algorithm 切换由 ThemeProvider 顶层 ConfigProvider 完成（两侧表格自动响应）。
+  const { themeMode } = useTheme()
+  const isDark = themeMode === 'dark'
 
   // 把 minPaneWidth 作为 CSS 变量 --pane-min 写到容器，驱动纯 CSS flex-wrap 自适应。
   // React inline style 设 CSS 自定义属性需 cast（CSSProperties 不含任意自定义属性）。
@@ -138,7 +138,7 @@ export function SplitDemo({
 
   // 容器 className：基础 .dg-compare + 条件修饰类。
   //   - .dg-compare--sticky（stickyMode=true）：放开 sticky 上下文（pane/body overflow:visible）。
-  //   - .dg-compare--dark（isDark=true）：chrome 显式 dark 颜色覆盖（pane/title/note/控制条）。
+  //   - .dg-compare--dark（isDark=true）：chrome 显式 dark 颜色覆盖（pane/title/note）。
   //   两个修饰类正交独立，可同时存在（sticky + dark demo 也能 dark）。
   const containerClassName = [
     'dg-compare',
@@ -149,26 +149,12 @@ export function SplitDemo({
     .join(' ')
 
   return (
-    <ConfigProvider theme={{ algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm }}>
+    <>
       {/*
-        主题控制条（任务 M）：放在 ConfigProvider 内，使 Switch 本身在 dark 下也变 dark
-        （视觉一致）。一个 Switch 驱动 isDark → 同时切两侧表格主题 + chrome 修饰类。
-        控制条是 .dg-compare 容器的兄弟节点（不在 .dg-compare--dark 后代作用域内），
-        故 dark 时单独加 .dg-compare__theme-bar--dark 修饰类。
+        ★ 任务 T16：本地主题控制条已删除——dark/light 切换移到 App 顶栏全局 Segmented。
+          chrome（pane/title/note）显式 dark 颜色仍由 .dg-compare--dark /
+          .dg-compare__note--dark 修饰类提供（由全局 themeMode 驱动）。
       */}
-      <div className={isDark ? 'dg-compare__theme-bar dg-compare__theme-bar--dark' : 'dg-compare__theme-bar'}>
-        <span className="dg-compare__theme-label">主题</span>
-        <Switch
-          checked={isDark}
-          onChange={setIsDark}
-          checkedChildren="Dark"
-          unCheckedChildren="Light"
-        />
-        <span className="dg-compare__theme-hint">
-          切换两侧（data-grid + antd）共享主题，验证 dark mode 对齐
-        </span>
-      </div>
-
       <div className={containerClassName} style={containerStyle}>
         <section className="dg-compare__pane">
           <div className="dg-compare__title">{leftTitle}</div>
@@ -188,7 +174,7 @@ export function SplitDemo({
           {children}
         </div>
       ) : null}
-    </ConfigProvider>
+    </>
   )
 }
 
