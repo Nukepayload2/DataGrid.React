@@ -136,17 +136,11 @@ function getChangedRowSizes(container: HTMLElement): SizeRange[] | null {
  * @param containerRef body 内容容器 ref（行级子元素的直接父；GridTable 传入）。
  * @param enabled     是否启用测量（虚拟关闭 / 受控行高场景可 false → 不 observe）。
  * @param onRanges    变化段回调（上层用 applySizeRanges 增量更新 sizeTree）。
- * @param gap         行间距（px，传给 applySizeRanges 算 offsetTree；本 hook 不直接用）。
  */
 export function useRowMeasurements(
   containerRef: RefObject<HTMLElement | null>,
   enabled: boolean,
   onRanges: (ranges: SizeRange[]) => void,
-  /**
-   * 行间距（px）。本 hook 不直接使用——保留参数位以对齐计划签名，
-   * 上层（useVirtualList）在 onRanges 回调里把 gap 传给 applySizeRanges 算 offsetTree。
-   */
-  gap: number,
 ): void {
   // onRanges 用 ref 持有最新，避免 RO 回调闭包捕获陈旧 onRanges（caller 每渲染新函数也不会丢）。
   const onRangesRef = useRef(onRanges)

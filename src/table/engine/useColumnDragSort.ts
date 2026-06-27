@@ -180,7 +180,7 @@ export function arrayMoveColumnsRespectLocks<ColumnType>(
   // 在可动列 index 序列上做 arrayMove。
   const nextMovableIdxs = arrayMoveColumns(movableIdxs, fromMovable, toMovable)
   // 重建数组：锁定列原位 + 可动列按重排后的 index 序列填空。
-  const next = new Array<ColumnType>(arr.length)
+  const next: ColumnType[] = Array.from({ length: arr.length }) as ColumnType[]
   // 先放锁定列（原 index 不变）。
   for (let i = 0; i < arr.length; i += 1) {
     if (isColumnLocked(arr[i])) next[i] = arr[i]

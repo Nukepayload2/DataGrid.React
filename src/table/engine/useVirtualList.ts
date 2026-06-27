@@ -290,7 +290,7 @@ export function useVirtualList(options: UseVirtualListOptions): UseVirtualListRe
     },
     [gap],
   )
-  useRowMeasurements(containerRef, enabled, handleRanges, gap)
+  useRowMeasurements(containerRef, enabled, handleRanges)
 
   // === 约定行高 fallback 数组（O(N)）—— 仅 offsetTree 空 / 部分未覆盖时使用 ===
   // 保留以：① fallback 路径算 start/end/padding；② scrollTo index 的兜底 offset；

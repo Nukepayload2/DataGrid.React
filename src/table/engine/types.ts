@@ -863,6 +863,7 @@ export interface EngineTableProps<RecordType = any> {
     filterCheckall?: ReactNode
     filterCheckAll?: ReactNode
   }
+  /**
    * ★ 接口全兼容（决策 3 第二步，对齐 antd v6 `TableProps.rowHoverable`）。行是否可 hover 高亮，
    * 默认 true。false 时单元格不加 dg-row-hover（关闭内置 hover 视觉）。详见对外 types.ts
    * TableProps.rowHoverable。未提供（undefined）时默认 true（保持现有 hover 行为不变，零回归）。

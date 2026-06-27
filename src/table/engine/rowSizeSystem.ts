@@ -21,7 +21,6 @@ import {
   AANode,
   arrayToRanges,
   empty,
-  find,
   findMaxKeyValue,
   insert,
   newTree,
