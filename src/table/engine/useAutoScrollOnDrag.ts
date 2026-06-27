@@ -1,0 +1,248 @@
+/**
+ * T9：拖拽中自动滚动容器（autoScrollOnDrag）。
+ *
+ * === 背景 ===
+ *
+ * 行拖（`useRowDragSort`）/ 列拖（`useColumnDragSort`）的 hit-test 实时遍历**已渲染的**
+ * `[data-row-index]` / `[data-leaf-index]` 单元格算 over index（见各 hook 的 hitTest）。
+ * 虚拟列表（M4）下只渲染可视区行；当用户把行拖到容器底部边缘下方时，可视区外的行**没有 DOM**，
+ * hit-test 会"卡住"在可视区最后一行——drop 目标永远在末行，无法到达远处位置。
+ *
+ * 解决：拖拽中指针接近容器边缘 → 渐进加速滚动容器 → 滚动事件触发虚拟引擎（useVirtualList）
+ * 重算已渲染行 → DOM 行边界变化 → 下一帧 hit-test 自动跟随到新位置。
+ *
+ * 参考（ag-grid community 行为，**不抄 API 名**）：
+ *   - `G:\Projects\ag-grid\packages\ag-grid-community\src\columnMove\columnDrag\moveColumnFeature.ts:22-26`
+ *     SCROLL_MOVE_WIDTH=100 / SCROLL_ACCELERATION_RATE=5 / SCROLL_TIME_INTERVAL=100 +
+ *     needToMoveLeft/needToMoveRight 定时器（列拖横向自动滚动）。
+ *   - `G:\Projects\ag-grid\packages\ag-grid-community\src\dragAndDrop\rowDragFeature.ts:78-105`
+ *     AutoScrollService + onScrollCallback 触发 hit-test nudge 重算（行拖纵向）。
+ *
+ * === 实现（自研 RAF 循环，非 dnd-kit 自带 autoscroll）===
+ *
+ * 选择自研 RAF 而非 @dnd-kit/core 自带 autoscroll 的理由：
+ *   - data-grid 的拖拽 hook（S17/S18/S19）是**自研 pointer**（决策 6：grid 渲染无"行/列 DOM"，
+ *     dnd-kit 的 useSortable 需要行/列 DOM 元素，会破坏 CSS Grid 布局）。dnd-kit 的 autoscroll
+ *     与其 DndContext/useDraggable 强耦合——我们的自研拖拽 hook 不在 DndContext 内，无法享受。
+ *   - 自研 RAF 循环足够简单（边缘检测 + scrollBy + cleanup），且与现有 hit-test（每帧重新读 DOM）
+ *     兼容：滚动后 DOM 边界变化，下一次 pointermove 的 hit-test 自动跟随。
+ *
+ * === 关键设计 ===
+ *
+ * 1. **滚动容器定位**：拖拽 hook 的 `containerRef`（外层相对定位 div）**不是**滚动容器本身。
+ *    data-grid 的滚动容器是它内部的 `.dg-scroll`（GridTable 在 scroll.x / scroll.y / virtual /
+ *    hasFixed 时自包一层，见 GridTable.tsx:1742 FloatingScrollBar 包装的 `dg-scroll` 类）。
+ *    本 hook 运行时用 `containerRef.current.querySelector('.dg-scroll')` 定位；找不到（无 scroll
+ *    配置的纯表格，无 `.dg-scroll` 子元素）则向上遍历 offsetParent 链找最近的可滚动祖先
+ *    （`overflow-x/y` 非 visible）作为兜底。两者都失败则 auto-scroll 为 no-op（不报错）。
+ *
+ * 2. **边缘检测 + 加速**：每帧（RAF）读最新 pointer（指针坐标由调用方在 pointermove 时
+ *    实时写到 ref）+ 滚动容器 `getBoundingClientRect()`：
+ *    - 距边缘 < 阈值（EDGE_THRESHOLD = 100px，对齐 ag-grid SCROLL_MOVE_WIDTH）→ 触发滚动。
+ *    - 速度 = `(1 - dist/threshold) * MAX_SPEED`（dist=0 贴边时 = MAX_SPEED；dist=threshold
+ *      边缘时 = 0；线性渐进，对齐 ag-grid SCROLL_ACCELERATION_RATE 量级）。
+ *    - MAX_SPEED = 15 px/帧（≈ 900 px/s @ 60fps，足够跟上用户拖拽速度）。
+ *    - 行拖（vertical=true）→ 纵向滚动（顶部边缘向上滚 / 底部边缘向下滚）；
+ *      列拖（vertical=false）→ 横向滚动（左边缘向左滚 / 右边缘向右滚）。
+ *
+ * 3. **与虚拟引擎的协同**：调用 `scrollContainer.scrollBy(dx, dy)` 会触发原生 `scroll` 事件 →
+ *    - useVirtualList 的 onScroll 监听器（useVirtualList.ts:491）→ 重算可视区 start/end +
+ *      paddingTop/paddingBottom → 新行进入 DOM（下一帧 hit-test 可读到它们的边界）。
+ *    - FloatingScrollBar 的 onScroll（FloatingScrollBar.tsx:325）→ 同步悬浮滚动条 thumb 位置。
+ *    故自动滚动 + 虚拟重算 + hit-test 跟随三者**通过 scroll 事件自然串联**，无需额外协调。
+ *
+ * 4. **生命周期**：拖拽开始时（pointerdown 启动拖拽）调用 `start(pointerId)`；拖拽结束
+ *    （pointerup/cancel）或组件卸载时 `stop()`。RAF 循环在 stop 时 cancelAnimationFrame，
+ *    指针坐标 ref 在 stop 时重置（防止 stale 数据）。
+ *
+ * 5. **零回归**：仅在拖拽中且指针在阈值内才触发 scrollBy；中间拖拽（距边缘 > 阈值）速度为 0
+ *    → 等价不滚动。`autoScroll=false` 时整个 hook 完全 no-op。
+ */
+
+import { useCallback, useEffect, useRef } from 'react'
+
+/** 边缘阈值（指针距容器边缘 < 此值时触发自动滚动）。对齐 ag-grid SCROLL_MOVE_WIDTH=100。 */
+const EDGE_THRESHOLD = 100
+
+/**
+ * 最大滚动速度（px/帧，@60fps ≈ 900 px/s）。
+ * 对齐 ag-grid SCROLL_ACCELERATION_RATE=5 × SCROLL_TIME_INTERVAL=100ms 量级（每 100ms 滚 ~50px
+ * → 等效 ~300 px/s；data-grid 取稍快 15px/帧 ≈ 900 px/s，确保跟上用户拖拽速度）。
+ */
+const MAX_SPEED = 15
+
+/** 拖拽中指针最新坐标（pointermove 时实时写入，auto-scroll RAF 循环每帧读）。 */
+export interface PointerPositionRef {
+  /** 最新指针 clientX（pointermove 时更新）。 */
+  clientX: number
+  /** 最新指针 clientY（pointermove 时更新）。 */
+  clientY: number
+}
+
+/**
+ * 定位滚动容器。
+ *
+ * 优先级：
+ *   1. `root.querySelector('.dg-scroll')`：data-grid 的标准滚动容器（GridTable 在 scroll.x /
+ *      scroll.y / virtual / hasFixed 时自包一层）。
+ *   2. 向上遍历 `root.offsetParent` 链找最近的可滚动祖先（overflow-x/y 非 visible）——
+ *      兜底（如纯表格无 scroll 配置但有外层用户自己包的可滚动容器）。
+ *   3. 都失败返回 null（auto-scroll 为 no-op）。
+ */
+function findScrollContainer(root: HTMLElement | null): HTMLElement | null {
+  if (!root) return null
+  // 1. 内部 .dg-scroll。
+  const dgScroll = root.querySelector<HTMLElement>('.dg-scroll')
+  if (dgScroll) return dgScroll
+  // 2. 向上找可滚动祖先。
+  let node: HTMLElement | null = root
+  while (node) {
+    const style = getComputedStyle(node)
+    const ox = style.overflowX
+    const oy = style.overflowY
+    if (
+      (ox === 'auto' || ox === 'scroll') ||
+      (oy === 'auto' || oy === 'scroll')
+    ) {
+      return node
+    }
+    node = node.offsetParent as HTMLElement | null
+  }
+  return null
+}
+
+/**
+ * 计算单轴的滚动 delta（px）。
+ *
+ * @param pointer 指针在该轴的 client 坐标。
+ * @param start 容器在该轴的起点（rect.left / rect.top）。
+ * @param size 容器在该轴的尺寸（rect.width / rect.height）。
+ * @returns 滚动 delta：负值 = 向起点方向滚（向上/向左），正值 = 向终点方向滚（向下/向右），0 = 不滚。
+ */
+function computeAxisDelta(pointer: number, start: number, size: number): number {
+  const end = start + size
+  // 指针距起点边缘的距离（顶部/左部）。
+  const distFromStart = pointer - start
+  if (distFromStart < EDGE_THRESHOLD) {
+    // 近起点边缘 → 向起点方向滚（负 delta）。distFromStart=0 → -MAX_SPEED；=threshold → 0。
+    const ratio = 1 - Math.max(distFromStart, 0) / EDGE_THRESHOLD
+    return -ratio * MAX_SPEED
+  }
+  // 指针距终点边缘的距离（底部/右部）。
+  const distFromEnd = end - pointer
+  if (distFromEnd < EDGE_THRESHOLD) {
+    // 近终点边缘 → 向终点方向滚（正 delta）。distFromEnd=0 → +MAX_SPEED；=threshold → 0。
+    const ratio = 1 - Math.max(distFromEnd, 0) / EDGE_THRESHOLD
+    return ratio * MAX_SPEED
+  }
+  return 0
+}
+
+export interface UseAutoScrollOnDragOptions {
+  /**
+   * 外层容器 ref（拖拽 hook 的 containerRef）。auto-scroll 从此 ref 内部 `.dg-scroll`
+   * 或其可滚动祖先定位滚动容器。
+   */
+  containerRef: React.RefObject<HTMLElement | null>
+  /**
+   * 拖拽方向：true = 行拖（纵向滚动），false = 列拖（横向滚动）。
+   */
+  vertical: boolean
+  /**
+   * 是否启用 auto-scroll。false 时整个 hook 完全 no-op（零回归）。
+   * 通常由调用方根据 `gridOptions.autoScrollOnDrag` 传入。
+   */
+  autoScroll: boolean
+}
+
+/**
+ * 拖拽中自动滚动容器 hook。
+ *
+ * 返回：
+ *   - `pointerRef`：指针位置 ref。调用方在 pointermove handler 内实时写入
+ *     `pointerRef.current.clientX/clientY`（用最新 ev.clientX/Y）。
+ *   - `start()`：拖拽开始时调用（启动 RAF 循环）。
+ *   - `stop()`：拖拽结束 / 卸载时调用（取消 RAF + 重置指针坐标）。
+ *
+ * 用法（拖拽 hook 内）：
+ * ```ts
+ * const { pointerRef, start, stop } = useAutoScrollOnDrag({
+ *   containerRef, vertical: true, autoScroll: opts.autoScroll ?? true,
+ * })
+ * // pointerdown：start() + 初始化 pointerRef
+ * // nativeMove：pointerRef.current = { clientX: ev.clientX, clientY: ev.clientY }
+ * // nativeUp：stop()
+ * ```
+ */
+export function useAutoScrollOnDrag(options: UseAutoScrollOnDragOptions): {
+  pointerRef: React.MutableRefObject<PointerPositionRef>
+  start: () => void
+  stop: () => void
+} {
+  const { containerRef, vertical, autoScroll } = options
+
+  // 指针最新坐标（pointermove 时实时写入；RAF 循环每帧读）。
+  const pointerRef = useRef<PointerPositionRef>({ clientX: 0, clientY: 0 })
+
+  // RAF handle（stop 时 cancel）。
+  const rafRef = useRef<number | null>(null)
+
+  // 当前是否在 RAF 循环中（避免重复 start）。
+  const runningRef = useRef(false)
+
+  const tick = useCallback(() => {
+    if (!runningRef.current) {
+      rafRef.current = null
+      return
+    }
+    const container = findScrollContainer(containerRef.current)
+    if (container) {
+      const rect = container.getBoundingClientRect()
+      if (vertical) {
+        // 行拖：纵向滚动。按指针 clientY 与容器 top/bottom 算 delta。
+        const dy = computeAxisDelta(pointerRef.current.clientY, rect.top, rect.height)
+        if (dy !== 0) {
+          // 仅当 delta≠0 才 scrollBy（避免无谓 scroll 事件）。
+          container.scrollBy(0, dy)
+        }
+      } else {
+        // 列拖：横向滚动。按指针 clientX 与容器 left/right 算 delta。
+        const dx = computeAxisDelta(pointerRef.current.clientX, rect.left, rect.width)
+        if (dx !== 0) {
+          container.scrollBy(dx, 0)
+        }
+      }
+    }
+    rafRef.current = requestAnimationFrame(tick)
+  }, [containerRef, vertical])
+
+  const start = useCallback(() => {
+    if (!autoScroll) return
+    if (runningRef.current) return
+    runningRef.current = true
+    rafRef.current = requestAnimationFrame(tick)
+  }, [autoScroll, tick])
+
+  const stop = useCallback(() => {
+    runningRef.current = false
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current)
+      rafRef.current = null
+    }
+    // 重置指针坐标（防止 stale 数据在下次 start 前被读到）。
+    pointerRef.current = { clientX: 0, clientY: 0 }
+  }, [])
+
+  // 卸载时清理（防御性：避免组件卸载后 RAF 继续跑）。
+  useEffect(() => {
+    return () => {
+      runningRef.current = false
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current)
+        rafRef.current = null
+      }
+    }
+  }, [])
+
+  return { pointerRef, start, stop }
+}
