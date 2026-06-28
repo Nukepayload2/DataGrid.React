@@ -45,11 +45,16 @@
  *    - 行拖（vertical=true）→ 纵向滚动（顶部边缘向上滚 / 底部边缘向下滚）；
  *      列拖（vertical=false）→ 横向滚动（左边缘向左滚 / 右边缘向右滚）。
  *
- * 3. **与虚拟引擎的协同**：调用 `scrollContainer.scrollBy(dx, dy)` 会触发原生 `scroll` 事件 →
+ * 3. **与虚拟引擎的协同（本 hook 仅负责滚动，hit-test 跟随由调用方处理）**：调用
+ *    `scrollContainer.scrollBy(dx, dy)` 会触发原生 `scroll` 事件 →
  *    - useVirtualList 的 onScroll 监听器（useVirtualList.ts:491）→ 重算可视区 start/end +
- *      paddingTop/paddingBottom → 新行进入 DOM（下一帧 hit-test 可读到它们的边界）。
+ *      paddingTop/paddingBottom → 新行进入 DOM。
  *    - FloatingScrollBar 的 onScroll（FloatingScrollBar.tsx:325）→ 同步悬浮滚动条 thumb 位置。
- *    故自动滚动 + 虚拟重算 + hit-test 跟随三者**通过 scroll 事件自然串联**，无需额外协调。
+ *
+ *    ★ 但 hit-test **不会**随 scroll 自动重跑——指针停在容器边缘不动时没有 pointermove 事件，
+ *      被拖行/让位行的 over/yield 会冻结在旧值。故**调用方需自行监听 scroll 在拖拽中重跑 hit-test**
+ *      （见 useRowDragSort 的 `onScrollDuringDrag`：scroll → requestAnimationFrame 重算 recomputeFromPointer
+ *      重算 over/yield/指示线）。本 hook 不挂 scroll 监听，纯职责：边缘检测 + scrollBy。
  *
  * 4. **生命周期**：拖拽开始时（pointerdown 启动拖拽）调用 `start(pointerId)`；拖拽结束
  *    （pointerup/cancel）或组件卸载时 `stop()`。RAF 循环在 stop 时 cancelAnimationFrame，
@@ -89,7 +94,7 @@ export interface PointerPositionRef {
  *      兜底（如纯表格无 scroll 配置但有外层用户自己包的可滚动容器）。
  *   3. 都失败返回 null（auto-scroll 为 no-op）。
  */
-function findScrollContainer(root: HTMLElement | null): HTMLElement | null {
+export function findScrollContainer(root: HTMLElement | null): HTMLElement | null {
   if (!root) return null
   // 1. 内部 .dg-scroll。
   const dgScroll = root.querySelector<HTMLElement>('.dg-scroll')

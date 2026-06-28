@@ -54,11 +54,12 @@
  */
 
 import { useState } from 'react'
-import { Badge, Dropdown, Segmented, Space, Table as AntdTable } from 'antd'
+import { Badge, Dropdown, Segmented, Space, Table as AntdTable, theme } from 'antd'
 import type { TableColumnsType, TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType, Expandable } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import {
   dataSource,
   expandDataSource,
@@ -66,6 +67,8 @@ import {
   type ExpandedDataType,
   type RecordType,
 } from './_compare/nested-table.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（仅外层主表，内层子表保持非虚拟）
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 左栏（data-grid）列定义 —— 行为与改造前一致
@@ -206,19 +209,16 @@ type SharedSize = 'large' | 'medium' | 'small'
 export default function NestedTableDemo() {
   // ★ 共享状态：同一个 size 同时驱动两侧主表。
   const [size, setSize] = useState<SharedSize>('large')
+  // 全局虚拟化开关接入：开关 ON 时两栏主表叠加 virtual=true + scroll.y
+  // ★ virtual 仅加在外层主表；内层子表（expandable.expandedRowRender 返回的）是展开内容，
+  //   保持非虚拟、不动（与决策2一致——展开内容不参与虚拟窗口大小）。
+  const { virtual } = useVirtualization()
+  const { token } = theme.useToken()
 
   return (
     <div style={{ padding: 24 }}>
       {/* ★ 共享控制条：全宽，在 SplitDemo 上方。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      <DemoToolbar>
         <Space>
           <Segmented
             value={size}
@@ -229,11 +229,11 @@ export default function NestedTableDemo() {
               { label: 'small', value: 'small' },
             ]}
           />
-          <span style={{ color: 'rgba(0,0,0,0.45)', fontSize: 12 }}>
+          <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>
             size 同时驱动两侧主表（antd demo 原本三表静态展示，决策 9 下改为单表 + size 切换）
           </span>
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=480（嵌套子表内容稍宽，主表 7 列 + 子表 5 列无 scroll.x）→
@@ -250,6 +250,11 @@ export default function NestedTableDemo() {
             // 主表 pagination={{}} 对齐右栏 antd 默认分页（antd 对任意数据都渲染 .ant-pagination）。
             // 子表（dgExpandable.expandedRowRender）pagination={false} 与右栏 antd 子表一致，不动。
             pagination={{}}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
+               给的限高，虚拟窗口才有滚动区）；OFF 时回 undefined，行为与改造前一致。
+               ★ 仅外层主表接入；内层子表（dgExpandable.expandedRowRender 返回的 <Table>）保持非虚拟、不动。 */
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
           />
         }
         right={
@@ -258,6 +263,11 @@ export default function NestedTableDemo() {
             expandable={antdExpandable}
             dataSource={dataSource}
             size={size}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:300（antd 不认 true，需数字像素高度；
+               OFF 时回 undefined，行为与改造前一致）。
+               ★ 仅外层主表接入；内层子表（antdExpandable.expandedRowRender 返回的 <AntdTable>）保持非虚拟、不动。 */
+            virtual={virtual}
+            scroll={virtual ? { y: 300 } : undefined}
           />
         }
       >

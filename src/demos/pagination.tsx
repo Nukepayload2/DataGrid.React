@@ -74,7 +74,10 @@ import type {
   TablePaginationPlacement,
 } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { data, type RecordType } from './_compare/pagination.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高）
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // placement 单选选项（6 位置互斥 + none 关闭）
@@ -210,28 +213,24 @@ export default function PaginationDemo() {
   // ★ 共享状态：单个 placement 互斥选一（6 位置 + none），同时驱动两侧 pagination。
   // 默认 bottomEnd（antd Table 真实默认：单翻页器右下角）。
   const [placement, setPlacement] = useState<TablePaginationPlacement>('bottomEnd')
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y（分页条在滚动区下方，wrapper
+  // 含分页高，SplitDemo 限高让虚拟窗口有滚动区）。
+  const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
       {/*
         ★ 顶部全宽控制条：一个 Radio.Group（6 位置 + none 互斥）作为共享控制条全宽置于 SplitDemo 上方。
         同一组 state（placement）同时驱动两侧 pagination.placement（单元素数组 = 单翻页器）。
+        DemoToolbar 用 useToken（light≈#fff/#f0f0f0、dark/自定义 token 自适应），替代硬编码底/边色。
       */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      <DemoToolbar>
         <Radio.Group
           options={placementOptions}
           value={placement}
           onChange={(e) => setPlacement(e.target.value)}
         />
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=480（窄表，5 列无 scroll.x）→ 横排阈值 ≈ 480×2 + 16 = 976。
@@ -244,6 +243,10 @@ export default function PaginationDemo() {
             columns={dgColumns}
             pagination={{ placement: [placement] }}
             dataSource={data}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
+               限高，分页条在滚动区下方，wrapper 含分页高）；OFF 时回 undefined，行为与改造前一致。 */
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
           />
         }
         right={
@@ -251,6 +254,10 @@ export default function PaginationDemo() {
             columns={antdColumns}
             pagination={{ placement: [placement] }}
             dataSource={data}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 分页条画在 scroll.y 之外，
+               需扣除表头~55 与分页条~64 → 约 280 才能塞进 ~400px pane；OFF 时回 undefined）。 */
+            virtual={virtual}
+            scroll={virtual ? { y: 280 } : undefined}
           />
         }
       >

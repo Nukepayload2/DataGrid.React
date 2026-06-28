@@ -98,7 +98,10 @@ import type { TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType, TableProps as DgTableProps } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { data, type RecordType } from './_compare/reset-filter.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（SplitDemo pane 自动限高，虚拟窗口才有滚动区）
+import { useVirtualization } from './VirtualizationContext'
 
 // 受控 state 类型（对齐 antd demo 的 Filters / Sorts 推导）。两侧共用同一组类型。
 type OnChange = NonNullable<DgTableProps<RecordType>['onChange']>
@@ -305,6 +308,9 @@ export default function ResetFilterDemo() {
   const [sortedInfo, setSortedInfo] = useState<Sorts>({})
   // 共享 Bordered 开关。
   const [bordered, setBordered] = useState(false)
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y（原 reset-filter demo 无 scroll，
+  // ON 用 dg {y:true}/antd {y:280}；OFF 回 undefined，行为与改造前一致）。
+  const { virtual } = useVirtualization()
 
   // 两侧共用同一个 onChange：写回同一组 state → 两侧受控同步。
   // （★ 已知 §9 S4：filter 触发时 sorter 字段可能不完整——antd/data-grid 均如此，不修。）
@@ -339,16 +345,9 @@ export default function ResetFilterDemo() {
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一组 state 同时驱动两侧表格 + 同一按钮组控制两侧重置。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一组 state 同时驱动两侧表格 + 同一按钮组控制两侧重置。
+          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0。 */}
+      <DemoToolbar>
         <Space>
           <Switch
             checked={bordered}
@@ -360,7 +359,7 @@ export default function ResetFilterDemo() {
           <Button onClick={clearFilters}>Clear filters</Button>
           <Button onClick={clearAll}>Clear filters and sorters</Button>
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=480（窄表，3 列无 scroll.x；ellipsis 列默认 tableLayout:fixed 撑满 100%）→
@@ -375,6 +374,10 @@ export default function ResetFilterDemo() {
             onChange={handleChange}
             bordered={bordered}
             pagination={{}}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
+               pane 限高，虚拟窗口才有滚动区）；OFF 时回 undefined，行为与改造前一致。 */
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
             // ★ T6 i18n 验证面：左栏 data-grid 传中文 locale，verifier 打开任一列漏斗下拉即可确认
             //   按钮变「确定/重置」、tree 全选变「全选」、搜索框 placeholder 变「搜索」、
             //   空筛选项占位变「无筛选」。右栏 antd 不传（保持英文，对照）。
@@ -393,6 +396,11 @@ export default function ResetFilterDemo() {
             dataSource={data}
             onChange={handleChange as TableProps<RecordType>['onChange']}
             bordered={bordered}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且表头/默认
+               分页画在 scroll.y 之外，需扣除表头~55 与分页条~64 → 约 280 才能塞进 pane 限高；
+               OFF 时回 undefined，行为与改造前一致）。 */
+            virtual={virtual}
+            scroll={virtual ? { y: 280 } : undefined}
           />
         }
       >

@@ -484,6 +484,10 @@ export function useColumnDragSort<ColumnType>(
         })
         setIndicator({ visible: false, left: 0, top: 0, height: 0 })
       }
+      // TODO: 同步行拖 BUG1/#36 修复——pointer 监听应挂 window（AbortController 批量管理）+
+      //   拖拽中挂 scroll 监听重跑 hit-test（见 useRowDragSort 的 onScrollDuringDrag）。
+      //   当前挂 el，列拖虚拟 + autoScroll 场景若 from cell 滚出视口被虚拟引擎卸载，会丢 move/up
+      //   监听导致 drop 卡死。后续对称修复（与 useRowDragSort 同款 window + AbortController + scroll RAF）。
       el.addEventListener('pointermove', nativeMove)
       el.addEventListener('pointerup', nativeUp)
       el.addEventListener('pointercancel', nativeUp)

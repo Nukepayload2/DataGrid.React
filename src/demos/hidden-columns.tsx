@@ -38,12 +38,15 @@ import type { CheckboxOptionType, TableProps } from 'antd'
 import type { ColumnType } from '../table'
 import { Table } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import {
   data,
   defaultCheckedList,
   rawColumns,
   type RecordType,
 } from './_compare/hidden-columns.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
+import { useVirtualization } from './VirtualizationContext'
 
 // 左栏 data-grid 列定义。
 const dgColumns: ColumnType<RecordType>[] = rawColumns.map((c) => ({ ...c }))
@@ -65,6 +68,8 @@ const options = rawColumns.map(({ key, title }) => ({
 export default function HiddenColumnsDemo() {
   // ★ 共享状态：同一个 checkedList 同时驱动两侧表格。
   const [checkedList, setCheckedList] = useState<Array<string>>([...defaultCheckedList])
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y（原两侧均无 scroll）
+  const { virtual } = useVirtualization()
 
   // 不在 checkedList 的列标记为 hidden（对齐 antd demo 写法）。
   const dgNewColumns = dgColumns.map((item) => ({
@@ -78,16 +83,9 @@ export default function HiddenColumnsDemo() {
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。antd Checkbox.Group（决策 6）。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。antd Checkbox.Group（决策 6）。
+          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0。 */}
+      <DemoToolbar>
         <Divider style={{ margin: '0 0 12px' }}>Columns displayed</Divider>
         <Checkbox.Group
           value={checkedList}
@@ -96,7 +94,7 @@ export default function HiddenColumnsDemo() {
             setCheckedList(value as string[])
           }}
         />
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=480（8 列窄列，每列内容短，无 scroll.x）→ 横排阈值 ≈ 976。
@@ -105,10 +103,27 @@ export default function HiddenColumnsDemo() {
       <SplitDemo
         minPaneWidth={480}
         left={
-          <Table<RecordType> columns={dgNewColumns} dataSource={data} pagination={{}} />
+          <Table<RecordType>
+            columns={dgNewColumns}
+            dataSource={data}
+            /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll:{y:true}（data-grid 数据区域模式，
+               CSS 自适应填满 SplitDemo 给的 400px 限高，虚拟窗口才有滚动区）；
+               OFF 时 scroll=undefined，行为与改造前一致。 */
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
+            pagination={{}}
+          />
         }
         right={
-          <AntdTable<RecordType> columns={antdNewColumns} dataSource={data} />
+          <AntdTable<RecordType>
+            columns={antdNewColumns}
+            dataSource={data}
+            /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll:{y:300}（antd 默认渲染分页条，
+               扣除表头~55 + 分页条~50 → 约 300 塞进 split pane 限高）；
+               OFF 时 scroll=undefined，行为与改造前一致。 */
+            virtual={virtual}
+            scroll={virtual ? { y: 300 } : undefined}
+          />
         }
       >
         <div>

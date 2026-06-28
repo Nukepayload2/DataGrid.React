@@ -1430,8 +1430,11 @@ export interface TableProps<RecordType = any> {
    * 其余用占位撑总高（保证滚动条正确）。横向滚动（scroll.x）仍走 M2 的 scroll 容器，
    * 与纵向虚拟正交。
    *
-   * 行高走约定值（`rowHeight` 数字/函数）；**不实现 measureRowRender / 动态测量**（决策 1）。
-   * 虚拟窗口按"收起状态"行高计算（决策 2）；展开内容（M9）将来直接渲染但不参与窗口大小。
+   * 行高两条路径：**非虚拟**走约定 `rowHeight` → CSS grid track，不测量（缺省 `'auto'`）；
+   * **虚拟**采用 virtuoso 式 ResizeObserver 动态测量（measured-first + 约定 `rowHeight` 兜底，
+   * `gridOptions.rowHeight` 默认 56）。**决策 1 仅指不实现 antd `measureRowRender` 糟粕兼容 API**
+   * （隐藏测量行重渲染），与虚拟路径采用的 RO 测量是两回事。
+   * 虚拟窗口按"收起状态"行高算 offset/padding（决策 2）；展开内容（M9）直接渲染但不参与窗口大小。
    */
   virtual?: boolean
   /** 预留：透传到底层布局，本阶段仅接收不强制。 */

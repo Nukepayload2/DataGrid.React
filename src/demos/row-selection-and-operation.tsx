@@ -57,7 +57,10 @@ import type { TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType, TableRowSelection } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { dataSource, type RecordType } from './_compare/row-selection-and-operation.shared'
+// 虚拟化开关（决策 7）：顶栏 Switch 全局驱动两侧 Table 的 virtual + scroll.y。
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 列定义 —— 两侧同款（纯文本 Name/Age/Address，无 render）。类型各自归位。
@@ -83,6 +86,8 @@ export default function RowSelectionAndOperationDemo() {
   // ★ 共享状态：同一组 state 同时驱动两侧表格 + 顶部操作区。
   // selectedRowKeys 受控真理源；两侧 onChange 都写回它 → diff 选中差异。
   const [selectedRowKeys, setSelectedRowKeys] = useState<Array<React.Key>>([])
+  // 虚拟化开关（决策 7）：顶栏 Switch ON 时两侧 Table 接入 virtual + scroll.y。
+  const { virtual } = useVirtualization()
   // Reload 按钮的 loading 态（1s 模拟 ajax）。
   const [loading, setLoading] = useState(false)
 
@@ -124,15 +129,7 @@ export default function RowSelectionAndOperationDemo() {
         作为共享控制条全宽置于 SplitDemo 上方——同一组 selectedRowKeys/loading state 同时
         驱动两侧表格与按钮态。
       */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      <DemoToolbar>
         <Flex align="center" gap="medium">
           {/* 决策 6：antd Button type=primary + loading（关闭 §9 S8 Reload 原生 button 待办）。 */}
           <Button type="primary" onClick={start} disabled={!hasSelected} loading={loading}>
@@ -140,7 +137,7 @@ export default function RowSelectionAndOperationDemo() {
           </Button>
           {hasSelected ? `Selected ${selectedRowKeys.length} items` : null}
         </Flex>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=480（窄表，3 列 + 选择列=4 列，无 scroll.x）→ 横排阈值 ≈ 976。
@@ -154,6 +151,8 @@ export default function RowSelectionAndOperationDemo() {
             rowSelection={dgRowSelection}
             columns={dgColumns}
             dataSource={dataSource}
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
           />
         }
         right={
@@ -162,6 +161,8 @@ export default function RowSelectionAndOperationDemo() {
             columns={antdColumns}
             dataSource={dataSource}
             pagination={false}
+            virtual={virtual}
+            scroll={virtual ? { y: 340 } : undefined}
           />
         }
       >

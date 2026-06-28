@@ -71,7 +71,10 @@ import type { TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType, TableProps as DgTableProps } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { data, type RecordType } from './_compare/head.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（SplitDemo pane 自动限高，虚拟窗口才有滚动区）
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 左栏（data-grid）列定义 —— 行为与改造前一致
@@ -179,21 +182,17 @@ export default function HeadDemo() {
   // Reset trick：递增 remountKey 强制两侧 Table 重新挂载，清空所有排序/筛选草稿与激活态
   // （不引入受控 filteredValue/sortOrder，保持 head demo 非受控本质）。
   const [remountKey, setRemountKey] = useState(0)
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y（原 head demo 无 scroll，
+  // ON 用 dg {y:true}/antd {y:280}；OFF 回 undefined，行为与改造前一致）。
+  const { virtual } = useVirtualization()
 
   const handleReset = () => setRemountKey((k) => k + 1)
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。
+          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0。 */}
+      <DemoToolbar>
         <Space>
           <Switch
             checked={bordered}
@@ -203,7 +202,7 @@ export default function HeadDemo() {
           />
           <Button onClick={handleReset}>Reset (remount both)</Button>
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=480（窄表，3 列无 scroll.x）→ 横排阈值 ≈ 976。
@@ -220,6 +219,10 @@ export default function HeadDemo() {
             showSorterTooltip={{ target: 'sorter-icon' }}
             bordered={bordered}
             pagination={{}}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
+               pane 限高，虚拟窗口才有滚动区）；OFF 时回 undefined，行为与改造前一致。 */
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
           />
         }
         right={
@@ -230,6 +233,11 @@ export default function HeadDemo() {
             onChange={onChange as TableProps<RecordType>['onChange']}
             showSorterTooltip={{ target: 'sorter-icon' }}
             bordered={bordered}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且表头/默认
+               分页画在 scroll.y 之外，需扣除表头~55 与分页条~64 → 约 280 才能塞进 pane 限高；
+               OFF 时回 undefined，行为与改造前一致）。 */
+            virtual={virtual}
+            scroll={virtual ? { y: 280 } : undefined}
           />
         }
       >

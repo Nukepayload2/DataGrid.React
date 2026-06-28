@@ -35,12 +35,15 @@
  */
 
 import { useState } from 'react'
-import { Button, Space, Table as AntdTable } from 'antd'
+import { Button, Space, Table as AntdTable, theme } from 'antd'
 import type { TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType, Expandable } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { data, type RecordType } from './_compare/expand.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（决策2——展开内容直接渲染但不参与虚拟窗口大小）
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 左栏（data-grid）列定义 —— 行为与改造前一致
@@ -82,6 +85,9 @@ export default function ExpandDemo() {
   // ★ 共享状态：同一份 expandedRowKeys 同时驱动两侧表格（受控）。
   // 可展开行 = 除 "Not Expandable" 外的 3 行（rowExpandable 过滤）。
   const [expandedRowKeys, setExpandedRowKeys] = useState<Array<React.Key>>([])
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y
+  const { virtual } = useVirtualization()
+  const { token } = theme.useToken()
 
   // 一键展开所有可展开行（"Not Expandable" 被排除）。
   const expandAll = () => {
@@ -116,26 +122,18 @@ export default function ExpandDemo() {
       {/* ★ T7 验证面：展开行的视觉标记 class（dg-demo-expanded-row）。
           verifier 检查：展开某行后，该行所有单元格底色变浅黄；收起后恢复。
           class 由 expandable.expandedRowClassName 返回，仅展开行追加。 */}
-      <style>{`.dg-demo-expanded-row { background: #fffbe6 !important; }`}</style>
+      <style>{`.dg-demo-expanded-row { background: var(--ant-color-warning-bg) !important; }`}</style>
       {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一状态同时驱动两侧表格。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      <DemoToolbar>
         <Space>
           <Button onClick={expandAll}>Expand All</Button>
           <Button onClick={collapseAll}>Collapse All</Button>
-          <span style={{ color: 'rgba(0,0,0,0.45)', fontSize: 12 }}>
+          <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>
             expandedRowKeys: [
             {expandedRowKeys.map((k) => `"${k}"`).join(', ')}]（同时驱动两侧）
           </span>
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=480（窄表，4 列无 scroll.x）→ 横排阈值 ≈ 976。
@@ -149,6 +147,11 @@ export default function ExpandDemo() {
             expandable={dgExpandable}
             dataSource={data}
             pagination={{}}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
+               给的限高，虚拟窗口才有滚动区；决策2——展开内容直接渲染但不参与虚拟窗口大小）；
+               OFF 时回 undefined，行为与改造前一致。 */
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
           />
         }
         right={
@@ -156,6 +159,10 @@ export default function ExpandDemo() {
             columns={antdColumns}
             expandable={antdExpandable}
             dataSource={data}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:300（antd 不认 true，需数字像素高度；
+               OFF 时回 undefined，行为与改造前一致）。 */
+            virtual={virtual}
+            scroll={virtual ? { y: 300 } : undefined}
           />
         }
       >

@@ -10,28 +10,9 @@ import { useMemo, useState } from 'react'
 import { Card, Col, Empty, Input, Row, Tag, Typography } from 'antd'
 import type { DemoMeta } from './demos/registry'
 import { demos } from './demos'
-import { navigate } from './demos/registry'
+import { navigate, groupByCategory, type CategoryGroup } from './demos/registry'
 
 const { Title, Paragraph, Text } = Typography
-
-interface CategoryGroup {
-  category: string
-  items: DemoMeta[]
-}
-
-/** 按 registry 声明顺序分组（保持稳定展示顺序，按首次出现排序）。 */
-function groupByCategory(list: DemoMeta[]): CategoryGroup[] {
-  const order: string[] = []
-  const map = new Map<string, DemoMeta[]>()
-  for (const d of list) {
-    if (!map.has(d.category)) {
-      map.set(d.category, [])
-      order.push(d.category)
-    }
-    map.get(d.category)!.push(d)
-  }
-  return order.map((category) => ({ category, items: map.get(category)! }))
-}
 
 function DemoCard({ meta }: { meta: DemoMeta }) {
   return (

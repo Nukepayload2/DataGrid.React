@@ -29,11 +29,13 @@
  */
 
 import { useMemo, useState } from 'react'
-import { Radio, Switch, Table as AntdTable } from 'antd'
+import { Radio, Switch, Table as AntdTable, theme } from 'antd'
 import type { TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType, TableRowSelection } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（SplitDemo pane 自动限高，虚拟窗口才有滚动区）
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 共享数据（两侧同构）
@@ -132,6 +134,11 @@ export default function RowSelectionFixedDemo() {
   const [firstColFixed, setFirstColFixed] = useState(true)
   const [selFixed, setSelFixed] = useState<SelFixed>('auto')
   const [selectedKeys, setSelectedKeys] = useState<Array<React.Key>>([])
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y（原 scroll={{x:1200}} 数字 OK，
+  // ON 时合并 y；OFF 时保留原 scroll，行为与改造前一致）。
+  const { virtual } = useVirtualization()
+  // 主题 token：验证点说明区文字色 token 化（colorTextSecondary≈rgba(0,0,0,0.65)），暗主题自适应。
+  const { token } = theme.useToken()
 
   const dgColumns = useMemo(() => buildColumns(firstColFixed), [firstColFixed])
   const antdColumns = useMemo(() => buildAntdColumns(firstColFixed), [
@@ -172,7 +179,11 @@ export default function RowSelectionFixedDemo() {
             columns={dgColumns}
             rowSelection={dgRowSelection}
             dataSource={data}
-            scroll={{ x: 1200 }}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + 在原 scroll.x:1200 基础上合并 y:true
+               （CSS 自适应，填满 SplitDemo pane 限高，虚拟窗口才有滚动区；selection 列 fixed
+               继承不受影响）；OFF 时回原 scroll={{x:1200}}，行为与改造前一致。 */
+            virtual={virtual}
+            scroll={virtual ? { x: 1200, y: true } : { x: 1200 }}
             pagination={{}}
           />
         }
@@ -181,7 +192,11 @@ export default function RowSelectionFixedDemo() {
             columns={antdColumns}
             rowSelection={antdRowSelection}
             dataSource={data}
-            scroll={{ x: 1200 }}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + 在原 scroll.x:1200 基础上合并 y:300
+               （本 demo 有分页条，antd 表头/分页画在 scroll.y 之外，扣除后约 300 塞进 pane 限高；
+               OFF 时回原 scroll={{x:1200}}，行为与改造前一致）。 */
+            virtual={virtual}
+            scroll={virtual ? { x: 1200, y: 300 } : { x: 1200 }}
             pagination={false}
           />
         }
@@ -249,7 +264,7 @@ export default function RowSelectionFixedDemo() {
           </label>
         </div>
 
-        <div style={{ marginTop: 12, color: 'rgba(0,0,0,0.65)', fontSize: 13 }}>
+        <div style={{ marginTop: 12, color: token.colorTextSecondary, fontSize: 13 }}>
           <strong>验证点：</strong>
           <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>
             <li>

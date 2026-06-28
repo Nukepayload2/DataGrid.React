@@ -339,6 +339,9 @@ export default function SemanticDomDemo() {
 
       <SplitDemo
         minPaneWidth={520}
+        // ★ virtualizable={false}：本 demo 展示完整 DOM 结构 / a11y 矩阵，虚拟化会隐藏非可视行
+        // 破坏检视目的，故排除——全局「Virtual」开关对它不生效（ON 时也不加 `.dg-compare--virtual` 限高）。
+        virtualizable={false}
         left={
           <div>
             <Table<SemanticRecord>
@@ -484,6 +487,10 @@ export default function SemanticDomDemo() {
                 — <code>ascending</code> → <code>descending</code> → （未设）循环。</li>
               <li>两侧 <code>aria-sort</code> 语义一致（ascending/descending 同款）。</li>
             </ol>
+            <p style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)', marginTop: 6 }}>
+              <strong>虚拟化开关不生效</strong>：本 demo 展示完整 DOM 结构 / a11y 矩阵，
+              虚拟化会隐藏非可视行破坏检视目的，故排除。
+            </p>
           </div>
         </div>
       </SplitDemo>

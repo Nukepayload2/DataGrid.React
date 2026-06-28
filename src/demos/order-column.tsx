@@ -41,12 +41,14 @@
  */
 
 import { useState } from 'react'
-import { Table as AntdTable } from 'antd'
+import { Table as AntdTable, theme } from 'antd'
 import type { TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnOrSentinel, Expandable, TableRowSelection } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
 import { data, type RecordType } from './_compare/order-column.shared'
+// 虚拟化开关（决策 7）：顶栏 Switch 全局驱动两侧 Table 的 virtual + scroll.y。
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 左栏（data-grid）columns —— 哨兵控制位置（行为与改造前一致）
@@ -90,6 +92,11 @@ const antdExpandable: NonNullable<TableProps<RecordType>['expandable']> = {
 export default function OrderColumnDemo() {
   // 左栏 rowSelection 受控（便于页面下方显示 selectedKeys，对照验证选择功能）。
   const [selectedKeys, setSelectedKeys] = useState<Array<React.Key>>([])
+  // 虚拟化开关（决策 7）：顶栏 Switch ON 时两侧 Table 接入 virtual + scroll.y。
+  const { virtual } = useVirtualization()
+  // 主题 token：选中态可视化区文字色 token 化（colorTextSecondary≈rgba(0,0,0,0.65)、
+  // colorTextTertiary≈rgba(0,0,0,0.45)），暗主题自适应。
+  const { token } = theme.useToken()
 
   const dgRowSelection: TableRowSelection<RecordType> = {
     selectedRowKeys: selectedKeys,
@@ -114,6 +121,8 @@ export default function OrderColumnDemo() {
             expandable={expandable}
             dataSource={data}
             pagination={{}}
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
           />
         }
         right={
@@ -122,6 +131,8 @@ export default function OrderColumnDemo() {
             rowSelection={antdRowSelection}
             expandable={antdExpandable}
             dataSource={data}
+            virtual={virtual}
+            scroll={virtual ? { y: 300 } : undefined}
           />
         }
       >
@@ -155,15 +166,15 @@ export default function OrderColumnDemo() {
         style={{
           marginTop: 16,
           padding: 12,
-          background: '#fafafa',
+          background: token.colorFillQuaternary,
           borderRadius: 8,
-          color: 'rgba(0,0,0,0.65)',
+          color: token.colorTextSecondary,
           fontSize: 12,
         }}
       >
         <strong>左栏 data-grid selectedKeys:</strong>{' '}
         {selectedKeys.length === 0 ? (
-          <span style={{ color: 'rgba(0,0,0,0.45)' }}>(none)</span>
+          <span style={{ color: token.colorTextTertiary }}>(none)</span>
         ) : (
           <code>[{selectedKeys.map((k) => `"${k}"`).join(', ')}]</code>
         )}

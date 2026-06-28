@@ -50,7 +50,10 @@ import type { TableProps } from 'antd'
 import type { ColumnType } from '../table'
 import { Table } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { data, type RecordType } from './_compare/column-defaults.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 左栏（data-grid）列定义 —— Address 用 'start'（data-grid Align 类型）
@@ -106,19 +109,14 @@ const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
 export default function ColumnDefaultsDemo() {
   // ★ 共享状态：同一个状态同时驱动两侧表格。
   const [ellipsis, setEllipsis] = useState(true)
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y
+  const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。
+          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0。 */}
+      <DemoToolbar>
         <Space>
           <Switch
             checked={ellipsis}
@@ -127,7 +125,7 @@ export default function ColumnDefaultsDemo() {
             unCheckedChildren="Ellipsis"
           />
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=480（窄表，3 列，无 scroll.x）→ 横排阈值 ≈ 976。
@@ -141,6 +139,10 @@ export default function ColumnDefaultsDemo() {
             dataSource={data}
             column={{ align: 'center', ellipsis }}
             pagination={false}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
+               给的 400px 限高，虚拟窗口才有滚动区）；OFF 时回 undefined，行为与改造前一致。 */
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
           />
         }
         right={
@@ -149,6 +151,11 @@ export default function ColumnDefaultsDemo() {
             dataSource={data}
             column={{ align: 'center', ellipsis }}
             pagination={false}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:340（antd 不认 true；本 demo 两侧均
+               pagination=false 无分页条，仅需扣除表头~55 → 约 340 才能塞进 ~400px pane；OFF 时回
+               undefined，行为与改造前一致）。 */
+            virtual={virtual}
+            scroll={virtual ? { y: 340 } : undefined}
           />
         }
       >

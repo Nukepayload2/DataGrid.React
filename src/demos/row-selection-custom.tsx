@@ -57,12 +57,14 @@
  */
 
 import { useState } from 'react'
-import { Table as AntdTable } from 'antd'
+import { Table as AntdTable, theme } from 'antd'
 import type { TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType, SelectionItem, TableRowSelection } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
 import { dataSource, type RecordType } from './_compare/row-selection-custom.shared'
+// 虚拟化开关（决策 7）：顶栏 Switch 全局驱动两侧 Table 的 virtual + scroll.y。
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 左栏（data-grid）列定义 —— 行为与改造前一致
@@ -91,6 +93,11 @@ const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
 export default function RowSelectionCustomDemo() {
   // ★ 共享状态：同一个 state 同时驱动两侧表格。
   const [selectedRowKeys, setSelectedRowKeys] = useState<Array<React.Key>>([])
+  // 虚拟化开关（决策 7）：顶栏 Switch ON 时两侧 Table 接入 virtual + scroll.y。
+  const { virtual } = useVirtualization()
+  // 主题 token：选中态可视化区文字色 token 化（colorTextSecondary≈rgba(0,0,0,0.65)、
+  // colorTextTertiary≈rgba(0,0,0,0.45)），暗主题自适应。
+  const { token } = theme.useToken()
 
   const onSelectChange = (newSelectedRowKeys: Array<React.Key>) => {
     // eslint-disable-next-line no-console
@@ -193,6 +200,8 @@ export default function RowSelectionCustomDemo() {
             rowSelection={dgRowSelection}
             columns={dgColumns}
             dataSource={dataSource}
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
           />
         }
         right={
@@ -201,6 +210,8 @@ export default function RowSelectionCustomDemo() {
             columns={antdColumns}
             dataSource={dataSource}
             pagination={false}
+            virtual={virtual}
+            scroll={virtual ? { y: 340 } : undefined}
           />
         }
       >
@@ -241,14 +252,14 @@ export default function RowSelectionCustomDemo() {
       </SplitDemo>
 
       {/* 选中态可视化（antd demo 仅 console.log；这里额外页面展示便于无 console 验证）。 */}
-      <div style={{ padding: 12, background: '#fafafa', borderRadius: 8 }}>
+      <div style={{ padding: 12, background: token.colorFillQuaternary, borderRadius: 8 }}>
         <strong>selectedRowKeys:</strong>{' '}
         {selectedRowKeys.length === 0 ? (
-          <span style={{ color: 'rgba(0,0,0,0.45)' }}>(none)</span>
+          <span style={{ color: token.colorTextTertiary }}>(none)</span>
         ) : (
           <code>[{selectedRowKeys.join(', ')}]</code>
         )}
-        <div style={{ marginTop: 4, color: 'rgba(0,0,0,0.65)', fontSize: 12 }}>
+        <div style={{ marginTop: 4, color: token.colorTextSecondary, fontSize: 12 }}>
           点表头全选框旁的下拉箭头，选择 Select all data / Invert current page / Clear all data / Odd Row / Even Row。
           两侧共享同一 selectedRowKeys → 点任一侧菜单项两侧勾选同步。
           打开浏览器 console 可看到 onChange 回调日志（内置项触发；自定义 odd/even 由 demo 内 setState）。

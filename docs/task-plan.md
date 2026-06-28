@@ -167,7 +167,7 @@
 - ③ **激活态门同步**（`Table.tsx` `hasAnyFilter` 门 + `applyFilterToNode` 跳过条件统一为 `isNodeFilterable`，与 filterable 一致）——纯 filters 无 onFilter 列也回填 filteredValue → 漏斗激活态生效（与 S5 Bug A 同款根因）。
 - **反思**：data-grid 此前实现偏"客户端模式"，server/async 场景（total>dataSource、onFilter 可选）考虑不足，S12 集中暴露——后续任务（树形/编辑/拖拽的 server 场景）注意对照 antd server 行为。demo 用本地 mock+setTimeout（非真实 fetch，稳定可验证）。
 
-**S13 收尾记录**（验证通过；实施 1 轮 + 修复 1 轮）：新增 `useTreeData` hook（detectTreeData 检测 + flattenTree DFS 扁平化 level/parent/hasChildren + 展开状态机）+ 首列缩进（indentSize=15px 实测 antd `InternalTable.tsx:611`）+ ExpandIcon（复用 M9 自绘）+ `checkStrictly` 父子联动（`conductTreeCheck` 对齐 rc-tree：填充子孙 + 自底向上补全父 + 半选 indeterminate）+ 树形优先于 M9 expandedRowRender。决策 2：树形行遵循行高约定不动态测量。
+**S13 收尾记录**（验证通过；实施 1 轮 + 修复 1 轮）：新增 `useTreeData` hook（detectTreeData 检测 + flattenTree DFS 扁平化 level/parent/hasChildren + 展开状态机）+ 首列缩进（indentSize=15px 实测 antd `InternalTable.tsx:611`）+ ExpandIcon（复用 M9 自绘）+ `checkStrictly` 父子联动（`conductTreeCheck` 对齐 rc-tree：填充子孙 + 自底向上补全父 + 半选 indeterminate）+ 树形优先于 M9 expandedRowRender。决策 2：树形行视为普通表格行（虚拟路径同样被 RO 实测，measured-first + 约定兜底）。
 - **修复**：`useTreeData.ts:225-229` `effectiveExpandedKeys` 原误耦合 `expandable ? ... : []`（无 expandable prop 时展开失效）→ 改为树形模式始终走展开状态机（antd 语义：树形由 childrenColumnName 检测，不依赖 expandable prop）。
 - **fireSelectionChange 树形存在性判定用全树**（递归 walk children），确保 checkStrictly=false 勾父→勾全部含折叠子孙不被误清（对齐 antd getRecordByKey 搜全树）；selectedRows 只含可见行。
 
@@ -263,7 +263,7 @@ Agent({
 
 > **架构警示**：lun 是 **Web Custom Element + Vue**，其组件代码**不可直接复用**。移植类任务只借鉴其**算法与 CSS Grid 思路**，组件层必须用纯 React 重写。lun 的 `data/name/header/selected/renderer` 等 props 与 antd 的 `dataSource/dataIndex/title/rowSelection/render` **全面不同**，需自建 antd 接口适配层。
 >
-> **measureRow 不做**：`measureRowRender` 等动态行高测量属糟粕机制（bug 多于收益），不实现。行高统一走"行高约定"（见 §1.2 决策 2）。
+> **measureRow 不做**：`measureRowRender` 等"隐藏测量行重渲染"糟粕兼容 API 属糟粕机制（bug 多于收益），不实现（决策 1）。注：此仅指不实现 antd 隐藏测量行 API，与虚拟滚动采用的 **virtuoso 式 ResizeObserver 动态测量**（measured-first + 约定兜底，已实现）是两回事——行高口径见 §1.2 决策 2。
 
 ### 0.2 antd demo 规模
 
@@ -283,7 +283,7 @@ Agent({
 ### 1.2 关键决策（已定）
 
 1. **不实现无正常业务用例的兼容性 API**：`measureRowRender` 及类似的糟粕/纯调试兼容机制一律不做（`measure-row-render` demo 跳过）。
-2. **虚拟滚动 × 展开**：虚拟窗口的渲染范围**按"收起状态"的行高计算**；展开内容直接渲染但**不参与虚拟窗口大小**（展开会拉长真实 DOM，牺牲性能换稳定性）。**tree 展开行视为普通表格行，遵循行高约定**（即树形展开的行本身受 rowHeight 约束，不动态测量）。
+2. **虚拟滚动 × 展开**：虚拟窗口采用 **virtuoso 式 ResizeObserver 动态测量**——`useRowMeasurements` 实测每行真实 DOM 高，`rowSizeSystem`（AATree sizeTree + offsetTree 前缀和缓存）O(log n) 查询，`useVirtualList` 用 **measured-first（实测优先）+ `getRowHeight`（约定 `rowHeight`）未测行兜底**；每行 cell 的 `data-known-size` 回填闭环避免 RO 死循环。**展开内容不参与虚拟窗口大小**（即窗口按"收起状态"行高算 offset/padding；展开会拉长真实 DOM，牺牲性能换稳定性）——这点决策 2 保留。**tree 展开行**（`useTreeData` 扁平化的行）在虚拟路径下同样被 RO 实测（measured-first + 约定兜底），不再"只走约定"。
 3. **antd 接口全兼容，分两步**：第一步覆盖**所有 demo 实际用到的 props 子集**；第二步补齐 antd Table 的**全部公共 API**。
 4. **antd v6 token**：CSS variables 兼容 antd **v6**（参考项目 6.4.4）。**token 名以浏览器运行 antd 6.4.4 实测为准**（不确定的用 devtools 查实际变量名，不臆测）。
 5. **发布形态**：暂按**项目内组件 + dev demo**开发；npm 打包/导出后置（待后续确认）。
@@ -330,7 +330,7 @@ Agent({
 - **来源**：[移植·参考 lun] `Table.tsx:198-206`
 - **依赖**：—
 - **目标**：实现内部渲染引擎。根据 `columns`（叶子列）与 `dataSource` 计算 `grid-template-rows`（表头行 + 每数据行）、`grid-template-columns`（叶子列宽拼接，缺省 `max-content`）、`grid-auto-flow:column`；用 div 渲染表头格与单元格。
-- **要点**：先做非虚拟、非固定列的最简版；预留 `fixed`/`virtual`/`children`(多级表头)/`colSpan`/`rowSpan`/`rowExpand` 钩子。**支持 `rowHeight`（数字或函数）作为行高约定**——所有行高走约定值，不做动态测量。
+- **要点**：先做非虚拟、非固定列的最简版；预留 `fixed`/`virtual`/`children`(多级表头)/`colSpan`/`rowSpan`/`rowExpand` 钩子。**行高两条路径**：非虚拟路径走约定 `rowHeight`（数字/函数/string）→ CSS grid track（`toTrack` 生成），**不测量**，缺省 `'auto'`（随内容）；虚拟路径采用 **virtuoso 式 ResizeObserver 动态测量**（measured-first + 约定 `rowHeight` 兜底），`gridOptions.rowHeight` 默认 56——固定模型 body track=`${rowHeight}px` 但虚拟窗口 offset/padding 由 RO 实测驱动（约定值仅作未测兜底/初值），有界模型（`minRowHeight` 与 `maxRowHeight` 同时为正）body track=`auto` + cell min/max-height 约束、行随内容在 [min,max] 自适应。**不实现 antd `measureRowRender` 糟粕兼容 API**（决策 1；与虚拟路径采用的 virtuoso 式 RO 测量是两回事）。
 - **验收（UI）**：渲染 5 列 × N 行普通表格，对照 antd `basic` demo 的排版与内边距。截图 `docs/verify/F1-basic.png`。
 
 ### F2. antd React 接口适配层（demo 子集优先）
@@ -527,7 +527,7 @@ Agent({
 - **来源**：[自研]
 - **依赖**：F1
 - **antd demo**：`tree-data`
-- **目标**：`childrenColumnName`(默认 children)；自动渲染缩进 + 展开图标；`defaultExpandAllRows`/`expandedRowKeys`；`rowSelection.checkStrictly` 父子联动开关。**树形展开行视为普通表格行，遵循行高约定**（决策 2）。
+- **目标**：`childrenColumnName`(默认 children)；自动渲染缩进 + 展开图标；`defaultExpandAllRows`/`expandedRowKeys`；`rowSelection.checkStrictly` 父子联动开关。**树形展开行视为普通表格行**：非虚拟走约定 `rowHeight`（track），虚拟路径同样被 RO 实测（measured-first + 约定兜底，决策 2）。
 - **验收（UI）**：复刻 `tree-data`（树形展开、checkStrictly 联动选择）。
 
 #### S14. 树形跨页/保留选择
@@ -782,8 +782,8 @@ Agent({
 
 | # | 议题 | 决策 |
 |---|------|------|
-| 1 | measureRow / 无用例兼容 API | **不做**。measureRowRender 等糟粕机制及纯调试兼容 API（性能计数、纯调试下拉）一律不实现 |
-| 2 | 虚拟滚动 × 展开 | **做**。虚拟窗口按收起状态行高计算；展开内容不参与窗口大小（牺牲性能换稳定）；tree 展开行视为普通行、遵循行高约定 |
+| 1 | measureRow / 无用例兼容 API | **不做**。`measureRowRender` 等"隐藏测量行重渲染"糟粕兼容机制及纯调试兼容 API（性能计数、纯调试下拉）一律不实现。（注：本决策仅指不实现 antd 隐藏测量行的兼容 API，与虚拟滚动采用的 **virtuoso 式 ResizeObserver 动态测量**是两回事，后者已实现——见决策 2。） |
+| 2 | 虚拟滚动 × 展开 | **做**。虚拟路径采用 **virtuoso 式 RO 动态测量**（measured-first + 约定 `rowHeight` 兜底）；**展开内容不参与虚拟窗口大小**（窗口按"收起状态"行高算 offset/padding，展开溢出渲染，牺牲性能换稳定）；tree 展开行（`useTreeData` 扁平化的行）在虚拟路径下同样被 RO 实测。 |
 | 3 | antd 接口兼容程度 | **全兼容，分两步**：先覆盖 demo 用到的 props 子集，再补齐全部公共 API |
 | 4 | CSS variables 范围 | **完整 antd v6 token**；拿不准的 token 名以浏览器运行参考项目（6.4.4）实测为准 |
 | 5 | 发布形态 | **暂按项目内组件 + dev demo**；npm 打包/导出后置（待后续确认） |

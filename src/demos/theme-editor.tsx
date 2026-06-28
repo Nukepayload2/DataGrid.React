@@ -1,6 +1,8 @@
 /**
- * theme-editor 对比 demo：交互式 ConfigProvider token 编辑器，证明 data-grid
- * 主题注入**全覆盖**（与 antd 原生消费 cssinjs 对照）。
+ * 已重构为顶栏 Modal 内的 ThemeEditorPanel，不再作路由 demo。
+ *
+ * 交互式 ConfigProvider token 编辑器，证明 data-grid 主题注入**全覆盖**（与 antd
+ * 原生消费 cssinjs 对照）。
  *
  * === 任务 T16 重构（修 dark bug）===
  *
@@ -11,8 +13,8 @@
  * **修复语义**：edited = key 在全局 overrides 对象里；未编辑的 key 绝不进 ConfigProvider
  * → 让 antd algorithm + prepareComponentToken 派生 → dark 下自动变暗。
  * - state 全部移到 `src/theme/ThemeContext.tsx`（全局 store）：themeMode + globalOverrides
- *   + tableOverrides。ConfigProvider 由 ThemeProvider 内化，本 demo 不再自渲染。
- * - 顶栏 Segmented 是 dark/light 单一真理源（本 demo 内的 dark Segmented 仅作镜像）。
+ *   + tableOverrides。ConfigProvider 由 ThemeProvider 内化，本 panel 不再自渲染。
+ * - 顶栏 Segmented 是 dark/light 单一真理源（本 panel 内的 dark Segmented 仅作镜像）。
  *
  * **派生默认值（Method B）**：
  * - `useToken`（`antd/es/theme/internal`）6 元组的 index 1 = realToken（alias 派生后原值）。
@@ -32,10 +34,16 @@
  *
  * === 双栏（保留自渲染）===
  *
- * 本 demo 仍自渲染双栏（不复用 SplitDemo）：SplitDemo 改造后 dark 由全局顶栏驱动，
- * 理论上可用，但本 demo 需要在同一作用域内同时显示「编辑器 Card + 双栏表格 + 说明区」，
+ * 本 panel 仍自渲染双栏（不复用 SplitDemo）：SplitDemo 改造后 dark 由全局顶栏驱动，
+ * 理论上可用，但本 panel 需要在同一作用域内同时显示「编辑器 Card + 双栏表格 + 说明区」，
  * 自渲染布局更直接。token 覆盖来自全局 store（ThemeProvider 顶层 ConfigProvider），
  * 故两侧表格（data-grid + antd）都自动响应。
+ *
+ * === 门户重构 ===
+ *
+ * 已从 src/demos/index.ts 注册表移除，不再走 #/demos/theme-editor 路由。
+ * 通过顶栏「主题编辑器」按钮打开的 ThemeEditorModal（src/ThemeEditorModal.tsx）
+ * 渲染本 panel。最外层 padding:24 已去掉（Modal body 提供滚动容器）。
  */
 
 import { useState, type ComponentProps, type CSSProperties } from 'react'
@@ -43,6 +51,7 @@ import type { TableProps as AntdTableProps } from 'antd'
 import {
   Button,
   Card,
+  Collapse,
   ColorPicker,
   Form,
   InputNumber,
@@ -200,7 +209,7 @@ function EditMark({ edited }: { edited: boolean }) {
 // Demo 根组件
 // ---------------------------------------------------------------------------
 
-export default function ThemeEditorDemo() {
+export function ThemeEditorPanel() {
   // ★ 全局主题 store（单一真理源）：themeMode + globalOverrides + tableOverrides + 写/重置 API。
   const {
     themeMode,
@@ -280,12 +289,13 @@ export default function ThemeEditorDemo() {
   ]
 
   return (
-    <div style={{ padding: 24 }}>
+    <>
       {/*
         ★ 不再自渲染 ConfigProvider：token 覆盖来自 ThemeProvider 顶层（src/main.tsx 包
         ThemeProvider → ConfigProvider(themeMode algorithm + globalOverrides token +
         tableOverrides components.Table)。两侧表格（data-grid + antd）都在此作用域内，
         自动响应主题编辑器与顶栏 dark/light 切换。
+        ★ 门户重构：外层 padding:24 去掉（Modal body 提供滚动容器与内边距）。
       */}
       {/* ============================================================
           控制面板（全宽，antd Card 分组）
@@ -620,10 +630,17 @@ export default function ThemeEditorDemo() {
       </div>
 
       {/* ============================================================
-          说明区：覆盖度对照
+          说明区：覆盖度对照（默认收起，行为零变化，仅外层改为 Collapse）
           ============================================================ */}
-      <Card size="small" title="覆盖度对照说明" style={{ marginTop: 16 }}>
-        <p style={{ margin: '0 0 8px' }}>
+      <Collapse
+        style={{ marginTop: 16 }}
+        items={[
+          {
+            key: 'cov',
+            label: '覆盖度对照说明',
+            children: (
+              <Card size="small">
+                <p style={{ margin: '0 0 8px' }}>
           <strong>用法</strong>：改任一 token 控件 → 左右两栏实时同步变化。data-grid
           经 Table.tsx <code>useToken</code> realToken +{' '}
           <code>transformToken</code> 把 token 注入{' '}
@@ -736,8 +753,17 @@ export default function ThemeEditorDemo() {
           <code> --ant-*</code>，antd 原生 dark。两侧应同步变暗（编辑器覆盖的 token
           在 dark 下仍保留覆盖值，未编辑的重派生为 dark 默认）。
         </p>
-      </Card>
-    </div>
+        <p style={{ margin: '12px 0 0' }}>
+          <strong>全局虚拟化开关不生效</strong>（本 demo 自渲染、非虚拟化对象）：本 demo
+          不使用 SplitDemo（自渲染双栏 + 自有 ConfigProvider 作用域），不读全局
+          <code> useVirtualization</code>，故全局「Virtual」开关天然不影响它。
+        </p>
+              </Card>
+            ),
+          },
+        ]}
+      />
+    </>
   )
 }
 

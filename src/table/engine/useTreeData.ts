@@ -23,10 +23,11 @@
  * （antd 会 warning）。data-grid 中：**树形模式优先**——树形检测命中时，expandState 不启用
  * （由 Table.tsx 适配层控制：树形模式下不构造 engineExpandState）。
  *
- * === ★ 决策 2（行高约定）===
+ * === ★ 决策 2（行高口径）===
  *
- * 树形展开行视为普通表格行——扁平化后的每行都是引擎的一个数据行，遵循 `rowHeight` 约定，
- * 不做动态测量（详见 task-plan §1.2 决策 2 + GridTable.tsx 文件头注释）。
+ * 树形展开行视为普通表格行——扁平化后的每行都是引擎的一个数据行。非虚拟路径走约定 `rowHeight`（track），
+ * 虚拟路径同样被 RO 实测（measured-first + 约定 `rowHeight` 兜底），不再"只走约定"。
+ * （详见 task-plan §1.2 决策 2 + GridTable.tsx 文件头注释）。
  */
 
 import { useCallback, useMemo, useState } from 'react'

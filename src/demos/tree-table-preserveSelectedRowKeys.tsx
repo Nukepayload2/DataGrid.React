@@ -58,16 +58,20 @@
  *
  * === 决策 2 ===
  *
- * 树形展开行视为普通表格行，遵循行高约定（rowHeight），不动态测量。
+ * 树形展开行视为普通表格行：非虚拟走约定 `rowHeight`（track），虚拟路径同样被 RO 实测（measured-first + 约定兜底）。
  */
 
 import { useState } from 'react'
-import { Space, Switch, Table as AntdTable } from 'antd'
+import { Space, Switch, Table as AntdTable, theme } from 'antd'
 import type { TableColumnsType, TableProps as AntdTableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType, TableProps } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { dataSource, type RecordType } from './_compare/tree-table-preserveSelectedRowKeys.shared'
+// 虚拟化开关接入（决策 7）：顶栏 Switch ON 时两侧 Table 叠加 virtual + scroll.y。
+// 树形展开行视为普通行（决策 2），虚拟路径同样被 RO 实测（measured-first + 约定兜底）。
+import { useVirtualization } from './VirtualizationContext'
 
 type TableRowSelection<T extends object = object> = TableProps<T>['rowSelection']
 
@@ -133,19 +137,14 @@ export default function TreeTablePreserveSelectedRowKeysDemo() {
   // （§9 S13：data-grid 引擎 checkStrictly 默认 true，此处显式传 false 覆盖对齐 antd demo）。
   const [checkStrictly, setCheckStrictly] = useState(false)
   const [preserveSelectedRowKeys, setPreserveSelectedRowKeys] = useState(true)
+  // 虚拟化开关接入（决策 7）：顶栏 Switch ON 时两侧 Table 叠加 virtual + scroll.y。
+  const { virtual } = useVirtualization()
+  const { token } = theme.useToken()
 
   return (
     <div style={{ padding: 24 }}>
       {/* ★ 共享控制条：全宽，在 SplitDemo 上方。两开关同时驱动两侧表格。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      <DemoToolbar>
         <Space>
           <Switch
             checked={checkStrictly}
@@ -159,12 +158,12 @@ export default function TreeTablePreserveSelectedRowKeysDemo() {
             checkedChildren="Preserve"
             unCheckedChildren="Preserve"
           />
-          <span style={{ color: 'rgba(0,0,0,0.65)', fontSize: 12 }}>
+          <span style={{ color: token.colorTextSecondary, fontSize: 12 }}>
             checkStrictly={String(checkStrictly)} · preserveSelectedRowKeys=
             {String(preserveSelectedRowKeys)}
           </span>
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=480（窄表，3 列 + 选择列 = 4 列，无 scroll.x；分页 5/页）→ 横排阈值 ≈ 976。
@@ -182,6 +181,9 @@ export default function TreeTablePreserveSelectedRowKeysDemo() {
             }}
             dataSource={dataSource}
             pagination={{ defaultPageSize: 5 }}
+            // 虚拟化（决策 7）：ON→virtual+scroll.y=true（CSS 自适应高度，SplitDemo 限高 pane body 提供可滚动区域）；OFF→不传，非虚拟全量 DOM（零回归）。
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
           />
         }
         right={
@@ -194,6 +196,9 @@ export default function TreeTablePreserveSelectedRowKeysDemo() {
             }}
             dataSource={dataSource}
             pagination={{ defaultPageSize: 5 }}
+            // 虚拟化（决策 7）：ON→virtual+scroll.y=300（有分页，antd scroll.y 须数字）；OFF→不传，非虚拟（零回归）。
+            virtual={virtual}
+            scroll={virtual ? { y: 300 } : undefined}
           />
         }
       >
@@ -245,7 +250,7 @@ export default function TreeTablePreserveSelectedRowKeysDemo() {
               <code>onChange</code>（功能等价，决策 3 第二步补齐）。
             </li>
             <li>
-              <strong>决策 2</strong>：树形展开行视为普通表格行，遵循行高约定（不动态测量）。
+              <strong>决策 2</strong>：树形展开行视为普通表格行（虚拟路径同样被 RO 实测，measured-first + 约定兜底）。
             </li>
           </ul>
         </div>

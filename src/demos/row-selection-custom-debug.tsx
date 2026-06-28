@@ -57,6 +57,8 @@ import { Table } from '../table'
 import type { ColumnType, TableRowSelection } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
 import { dataSource, type RecordType } from './_compare/row-selection-custom-debug.shared'
+// 虚拟化开关（决策 7）：顶栏 Switch 全局驱动两侧 Table 的 virtual + scroll.y。
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 左栏（data-grid）列定义 + rowSelection —— 行为与改造前一致
@@ -117,6 +119,10 @@ const antdRowSelection: AntdTableRowSelection<RecordType> = {
 // ---------------------------------------------------------------------------
 
 export default function RowSelectionCustomDebugDemo() {
+  // 虚拟化开关（决策 7）：顶栏 Switch ON 时两侧 Table 接入 virtual + scroll.y。
+  // 注：本 demo 含 rowSpan 合并行，合并×虚拟属已知 §9 简化（不在此处理）。
+  const { virtual } = useVirtualization()
+
   return (
     <div style={{ padding: 24 }}>
       {/*
@@ -131,6 +137,8 @@ export default function RowSelectionCustomDebugDemo() {
             rowSelection={dgRowSelection}
             columns={dgColumns}
             dataSource={dataSource}
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
           />
         }
         right={
@@ -139,6 +147,8 @@ export default function RowSelectionCustomDebugDemo() {
             columns={antdColumns}
             dataSource={dataSource}
             pagination={false}
+            virtual={virtual}
+            scroll={virtual ? { y: 340 } : undefined}
           />
         }
       >

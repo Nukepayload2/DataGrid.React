@@ -36,7 +36,10 @@ import { useState } from 'react'
 import { Flex, Space, Switch, Table as AntdTable, Tag } from 'antd'
 import { Table } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { data, tagColor, type RecordType } from './_compare/jsx.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
+import { useVirtualization } from './VirtualizationContext'
 
 // 左栏：从 data-grid Table 解构 Column/ColumnGroup（对齐 antd demo 写法）。
 const { Column, ColumnGroup } = Table
@@ -53,19 +56,14 @@ const {
 export default function JsxDemo() {
   // ★ 共享状态：同一个状态同时驱动两侧表格。
   const [bordered, setBordered] = useState(false)
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y
+  const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。
+          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0。 */}
+      <DemoToolbar>
         <Space>
           <Switch
             checked={bordered}
@@ -74,7 +72,7 @@ export default function JsxDemo() {
             unCheckedChildren="Bordered"
           />
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=480（窄表，5 列含 Name 分组 → 6 叶子列，无 scroll.x）→ 横排阈值 ≈ 976。
@@ -86,7 +84,16 @@ export default function JsxDemo() {
           // ★ 对齐右栏 antd 默认分页（校准事实 1：antd 对任意行数都渲染 .ant-pagination
           //   disabled 态分页条；data-grid omit=不渲染）。补 pagination={{}} 启用默认分页器，
           //   两侧分页条存在性一致。
-          <Table<RecordType> dataSource={data} bordered={bordered} pagination={{}}>
+          <Table<RecordType>
+            dataSource={data}
+            bordered={bordered}
+            pagination={{}}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
+               给的 400px 限高，虚拟窗口才有滚动区）；OFF 时回 undefined，行为与改造前一致。
+               virtual/scroll 加在 <Table> 上（JSX 子元素 Column/ColumnGroup 仅声明列，不接虚拟化）。 */
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
+          >
             <ColumnGroup title="Name">
               <Column title="First Name" dataIndex="firstName" key="firstName" />
               <Column title="Last Name" dataIndex="lastName" key="lastName" />
@@ -120,8 +127,16 @@ export default function JsxDemo() {
           </Table>
         }
         right={
-          /* 忠实复刻 antd jsx demo：antd Table + antd Column/ColumnGroup + size="medium" */
-          <AntdTable<RecordType> dataSource={data} bordered={bordered}>
+          /* 忠实复刻 antd jsx demo：antd Table + antd Column/ColumnGroup + size="medium"。
+             全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且两侧均有
+             分页条，需扣除表头~55 与分页条~64 → 约 280 才能塞进 ~400px pane；OFF 时回 undefined，
+             行为与改造前一致）。virtual/scroll 加在 <Table> 上。 */
+          <AntdTable<RecordType>
+            dataSource={data}
+            bordered={bordered}
+            virtual={virtual}
+            scroll={virtual ? { y: 280 } : undefined}
+          >
             <AntdColumnGroup title="Name">
               <AntdColumn title="First Name" dataIndex="firstName" key="firstName" />
               <AntdColumn title="Last Name" dataIndex="lastName" key="lastName" />

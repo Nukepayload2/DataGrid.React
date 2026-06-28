@@ -56,7 +56,7 @@
  */
 
 import { useEffect, useState } from 'react'
-import { Table as AntdTable } from 'antd'
+import { Table as AntdTable, theme } from 'antd'
 import type { TableProps } from 'antd'
 import { Table } from '../table'
 import type {
@@ -67,6 +67,8 @@ import type {
 } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
 import { queryData, type RecordType, type TableParams } from './_compare/ajax.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（loading×virtual 共存是已知 §9 简化）
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 左栏（data-grid）列定义 —— 行为与改造前一致
@@ -136,6 +138,13 @@ export default function AjaxDemo() {
   })
   // 受控勾选 + preserveSelectedRowKeys（跨页保留）。两侧共用同一 selectedRowKeys。
   const [selectedRowKeys, setSelectedRowKeys] = useState<Array<React.Key>>([])
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y（loading 态 Spin 与 virtual
+  // 共存是已知 §9 简化——Spin 可能破坏 data-area flex 链高度，正常接入即可）。
+  const { virtual } = useVirtualization()
+  // 底部选中态可视化区 chrome 文字/弱底色 token 化（colorTextSecondary≈rgba(0,0,0,0.65)、
+  // colorTextTertiary≈rgba(0,0,0,0.45)、colorFillQuaternary≈#fafafa），暗主题自适应。
+  // ★ 仅 chrome 色，不动 loading/server/fetch 逻辑。
+  const { token } = theme.useToken()
 
   const fetchData = () => {
     setLoading(true)
@@ -253,6 +262,10 @@ export default function AjaxDemo() {
             loading={loading}
             onChange={dgHandleChange}
             rowSelection={dgRowSelection}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
+               限高）；OFF 时回 undefined，行为与改造前一致。loading×virtual 共存属已知 §9 简化。 */
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
           />
         }
         right={
@@ -264,6 +277,10 @@ export default function AjaxDemo() {
             loading={loading}
             onChange={antdHandleChange}
             rowSelection={antdRowSelection}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 分页条画在 scroll.y 之外，
+               需扣除表头~55 与分页条~64 → 约 280 才能塞进 ~400px pane；OFF 时回 undefined）。 */
+            virtual={virtual}
+            scroll={virtual ? { y: 280 } : undefined}
           />
         }
       >
@@ -271,18 +288,18 @@ export default function AjaxDemo() {
           <div
             style={{
               padding: 12,
-              background: '#fafafa',
+              background: token.colorFillQuaternary,
               borderRadius: 8,
               marginBottom: 8,
             }}
           >
             <strong>selectedRowKeys (preserveSelectedRowKeys=true，跨页保留):</strong>{' '}
             {selectedRowKeys.length === 0 ? (
-              <span style={{ color: 'rgba(0,0,0,0.45)' }}>(none)</span>
+              <span style={{ color: token.colorTextTertiary }}>(none)</span>
             ) : (
               <code>[{selectedRowKeys.join(', ')}]</code>
             )}
-            <div style={{ marginTop: 4, color: 'rgba(0,0,0,0.65)', fontSize: 12 }}>
+            <div style={{ marginTop: 4, color: token.colorTextSecondary, fontSize: 12 }}>
               翻到第 2 页勾几行 → 回第 1 页 → 再翻第 2 页，勾选应保留；selectedRowKeys 含跨页 id。
             </div>
           </div>

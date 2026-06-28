@@ -49,12 +49,15 @@
  */
 
 import { useState } from 'react'
-import { Button, Space, Table as AntdTable } from 'antd'
+import { Button, Space, Table as AntdTable, theme } from 'antd'
 import type { TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnOrSentinel, Expandable } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { data, type RecordType } from './_compare/expand-sticky.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（容器内 demo，可虚拟）
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 左栏（data-grid）columns —— 哨兵控制位置（行为与改造前一致）
@@ -115,6 +118,11 @@ const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
 export default function ExpandStickyDemo() {
   // ★ 共享状态：同一份 expandedRowKeys 同时驱动两侧表格（受控）。
   const [expandedRowKeys, setExpandedRowKeys] = useState<Array<React.Key>>([])
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y
+  // ★ 本 demo 是容器内 demo（EXPAND_COLUMN 哨兵控展开列位置，非页面级 position:sticky），
+  //   无 overflow:visible 依赖页面滚动的 sticky 祖先，故正常接入虚拟化。
+  const { virtual } = useVirtualization()
+  const { token } = theme.useToken()
 
   // 一键展开所有行（本 demo 无 rowExpandable，4 行均可展开）。
   const expandAll = () => setExpandedRowKeys(data.map((r) => r.key))
@@ -139,24 +147,16 @@ export default function ExpandStickyDemo() {
   return (
     <div style={{ padding: 24 }}>
       {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一状态同时驱动两侧表格。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      <DemoToolbar>
         <Space>
           <Button onClick={expandAll}>Expand All</Button>
           <Button onClick={collapseAll}>Collapse All</Button>
-          <span style={{ color: 'rgba(0,0,0,0.45)', fontSize: 12 }}>
+          <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>
             expandedRowKeys: [
             {expandedRowKeys.map((k) => `"${k}"`).join(', ')}]（同时驱动两侧）
           </span>
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=480（窄表偏宽，6 列含展开哨兵 + bordered，无 scroll.x）→ 横排阈值 ≈ 976。
@@ -171,6 +171,10 @@ export default function ExpandStickyDemo() {
             expandable={dgExpandable}
             dataSource={data}
             pagination={{}}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
+               给的限高，虚拟窗口才有滚动区）；OFF 时回 undefined，行为与改造前一致。 */
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
           />
         }
         right={
@@ -179,6 +183,10 @@ export default function ExpandStickyDemo() {
             columns={antdColumns}
             expandable={antdExpandable}
             dataSource={data}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:300（antd 不认 true，需数字像素高度；
+               OFF 时回 undefined，行为与改造前一致）。 */
+            virtual={virtual}
+            scroll={virtual ? { y: 300 } : undefined}
           />
         }
       >

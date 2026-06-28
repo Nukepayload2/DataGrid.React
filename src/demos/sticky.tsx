@@ -44,11 +44,12 @@
  */
 
 import { useState } from 'react'
-import { Space, Switch, Table as AntdTable } from 'antd'
+import { Space, Switch, Table as AntdTable, theme } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { dataSource, type DataType } from './_compare/sticky.shared'
 
 // ---------------------------------------------------------------------------
@@ -104,26 +105,23 @@ export default function StickyDemo() {
   // 左栏 data-grid：summaryFixed true/false（on/off，data-grid S22 fixed 仅 boolean）。
   // 右栏 antd：fixedTop true→'top' / false→'bottom'（忠实 antd demo 顶/底切换）。
   const [summaryFixed, setSummaryFixed] = useState(false)
+  // 主题 token：顶部/底部说明区文字色 + 控制条 hint 文字色 token 化（暗主题自适应）。
+  // colorTextSecondary≈rgba(0,0,0,0.65)、colorTextTertiary≈rgba(0,0,0,0.45)。
+  const { token } = theme.useToken()
 
   return (
     <div style={{ padding: 24 }}>
       {/* 顶部说明区：撑长页面，使表格初始不在视口顶部，滚动后验证表头固定到 offsetHeader 位置。 */}
-      <p style={{ color: 'rgba(0,0,0,0.65)' }}>
+      <p style={{ color: token.colorTextSecondary }}>
         S34 页面级粘性表头（区别 M8 容器内固定）：向下滚动<strong>页面</strong>
         ，两侧表头都会钉在视口顶部 64px 处（offsetHeader 模拟站点 header 偏移）；
         横向滚动页面查看 fixed 列。共享「Summary Fixed」开关同时驱动两侧 summary 的 fixed 行为。
       </p>
 
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。
+          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0；
+          ★ 仅 chrome 控制条容器化，不动其页面级 sticky/scroll 逻辑。 */}
+      <DemoToolbar>
         <Space wrap>
           <Switch
             checkedChildren="Summary Fixed"
@@ -131,11 +129,11 @@ export default function StickyDemo() {
             checked={summaryFixed}
             onChange={setSummaryFixed}
           />
-          <span style={{ color: 'rgba(0,0,0,0.45)', fontSize: 12 }}>
+          <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>
             左栏 data-grid：on/off；右栏 antd：top/bottom（功能等价，S22 简化）
           </span>
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=900 → 横排阈值 ≈ 900×2 + 16 = 1816px。纯 CSS flex-wrap 自适应（无 JS）。
@@ -145,6 +143,10 @@ export default function StickyDemo() {
       */}
       <SplitDemo
         minPaneWidth={900}
+        // ★ virtualizable={false}：本 demo 是页面级 sticky（`.dg-wrapper.dg-sticky`
+        // overflow:visible，表头跟随**页面**滚动固定），与虚拟化所需的内部限高滚动容器冲突，
+        // 故排除——全局「Virtual」开关对它不生效（ON 时也不加 `.dg-compare--virtual` 限高）。
+        virtualizable={false}
         // ★ stickyMode：放开 SplitDemo pane/body 的 overflow（默认 hidden/auto 会成为 sticky
         // 滚动祖先拦截 S34 页面级 sticky）。true → pane/body overflow:visible，让页面滚动驱动
         // 表头钉视口顶 64px。仅页面级 sticky demo 需要；其它 demo 默认 false 行为不变。
@@ -252,12 +254,17 @@ export default function StickyDemo() {
               深）。修复前 bar 用 thumb 色（偏深 0.25）且无 borderTop/thumb hover，现已逐项对齐 antd。
               tokens.css 补 <code>--ant-table-scroll-bg/thumb-bg/thumb-bg-hover/thumb-size</code> fallback。
             </li>
+            <li>
+              <strong>虚拟化开关不生效</strong>：本 demo 是页面级 sticky
+              （<code>.dg-wrapper.dg-sticky</code> overflow:visible，表头跟随<strong>页面</strong>滚动固定），
+              与虚拟化所需的内部限高滚动容器冲突，故排除。
+            </li>
           </ul>
         </div>
       </SplitDemo>
 
       {/* 底部说明区：撑长页面，使表格下方仍有内容，滚动到底部时表头仍固定。 */}
-      <p style={{ padding: '16px 0', color: 'rgba(0,0,0,0.65)' }}>
+      <p style={{ padding: '16px 0', color: token.colorTextSecondary }}>
         表格下方填充内容 — 继续向下滚动，两侧表头均保持在视口顶部 64px 处（页面级 sticky，
         非容器内固定）。
       </p>

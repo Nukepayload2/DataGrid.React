@@ -64,6 +64,8 @@ import {
   defaultTitle,
   type RecordType,
 } from './_compare/dynamic-settings.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（SplitDemo pane 自动限高，虚拟窗口才有滚动区）
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 两侧共享 columns 形状 + 共用 DownOutlined 内联 SVG（不依赖 @ant-design/icons）
@@ -192,6 +194,9 @@ export default function DynamicSettingsDemo() {
   const [ellipsis, setEllipsis] = useState(false)
   const [yScroll, setYScroll] = useState(false)
   const [xScroll, setXScroll] = useState<'unset' | 'scroll' | 'fixed'>('unset')
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + 在原动态 scroll 基础上合并 y
+  // （yScroll 控制条仍可独立开关；virtual ON 时 data-grid y 强制 true、antd y 强制 300）。
+  const { virtual } = useVirtualization()
 
   // 派生：data-grid expandable / antd expandable 各自类型化（共用同一开关）。
   const dgExpandable = expandableEnabled ? dgDefaultExpandable : undefined
@@ -206,11 +211,17 @@ export default function DynamicSettingsDemo() {
     : undefined
 
   // 决策 7：scroll.y 仅 true/undefined（不支持数字）。yScroll 开关 → y:true（CSS 自适应高度）。
+  // ★ 全局虚拟化开关接入：virtual ON 时 data-grid y 强制 true（无论 yScroll）、antd y 强制 300
+  //   （yScroll 开启时 antd 沿用 240 贴合外层 div height:240 的 demo 语义；virtual 单独 ON 时 300）。
   const dgScroll: { x?: number | string; y?: true } = {}
   const antdScroll: { x?: number | string; y?: number } = {}
-  if (yScroll) {
+  if (yScroll || virtual) {
     dgScroll.y = true
+  }
+  if (yScroll) {
     antdScroll.y = 240
+  } else if (virtual) {
+    antdScroll.y = 300
   }
   if (xScroll !== 'unset') {
     // ★ scroll.x 两侧统一为 '120vw'（对齐右栏 antd/官方 dynamic-settings.tsx 原值）。
@@ -323,8 +334,11 @@ export default function DynamicSettingsDemo() {
         minPaneWidth={600}
         left={
           /* 决策 7：scroll.y:true 数据区域模式需父容器有明确 height。
-             yScroll 开启时包一层固定高度容器（240px，等价 antd 240 视觉）；关闭时不包（零回归）。 */
-          <div style={yScroll ? { height: 240 } : undefined}>
+             ★ virtual ON → 400 有界（virtual 模式需有界区才能虚拟裁剪 + 可滚动，参考 fixed-header 394 /
+                virtual-list 440 量级取 400；dgScroll.y 已在派生处由 virtual 强制 true）；
+             yScroll ON（virtual OFF）→ 240 fixed-header（原语义不变）；
+             都 OFF → undefined（零回归，行为与改造前一致）。 */
+          <div style={virtual ? { height: 400 } : yScroll ? { height: 240 } : undefined}>
             <Table<RecordType>
               bordered={bordered}
               loading={loading}
@@ -339,12 +353,17 @@ export default function DynamicSettingsDemo() {
               pagination={{ placement: [top, bottom] }}
               columns={dgTableColumns}
               dataSource={hasData ? sharedData : []}
+              /* 全局虚拟化开关接入：ON 时 virtual=true（dgScroll.y 已在派生处由 virtual 强制 true）；
+                 OFF 时 virtual 不传，dgScroll 仅由 yScroll 控制，行为与改造前一致。 */
+              virtual={virtual}
             />
           </div>
         }
         right={
-          /* 忠实复刻 antd dynamic-settings demo：antd 原生 Table + scroll.y:240（数字）+ 无 theme。 */
-          <div style={yScroll ? { height: 240 } : undefined}>
+          /* 忠实复刻 antd dynamic-settings demo：antd 原生 Table + scroll.y:240（数字）+ 无 theme。
+             ★ virtual ON → 外层 div 400 有界（与左栏一致，virtual 模式有界区；antdScroll.y 已在派生处
+                由 virtual 给 300 填 400 区扣表头/分页）；yScroll ON（virtual OFF）→ 240；都 OFF → undefined。 */
+          <div style={virtual ? { height: 400 } : yScroll ? { height: 240 } : undefined}>
             <AntdTable<RecordType>
               bordered={bordered}
               loading={loading}
@@ -359,6 +378,9 @@ export default function DynamicSettingsDemo() {
               pagination={{ placement: [top, bottom] }}
               columns={antdTableColumns}
               dataSource={hasData ? sharedData : []}
+              /* 全局虚拟化开关接入：ON 时 virtual=true（antdScroll.y 已在派生处由 virtual/yScroll 给值）；
+                 OFF 时 virtual 不传，antdScroll 仅由 yScroll 控制，行为与改造前一致。 */
+              virtual={virtual}
             />
           </div>
         }

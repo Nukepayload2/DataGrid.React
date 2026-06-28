@@ -43,6 +43,8 @@ import type { TableColumnsType } from 'antd'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
+import { useVirtualization } from './VirtualizationContext'
 import { dataSource, type DataType } from './_compare/fixed-columns-header.shared'
 
 // ---------------------------------------------------------------------------
@@ -120,19 +122,14 @@ const antdColumns: TableColumnsType<DataType> = [
 export default function FixedColumnsHeaderDemo() {
   // ★ 共享状态：同一个状态同时驱动两侧表格。
   const [bordered, setBordered] = useState(false)
+  // ★ 虚拟化开关（决策 9 对照）：两侧表格同步切换虚拟/非虚拟。
+  const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。
+          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0。 */}
+      <DemoToolbar>
         <Space wrap>
           <Switch
             checked={bordered}
@@ -141,7 +138,7 @@ export default function FixedColumnsHeaderDemo() {
             unCheckedChildren="Bordered"
           />
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=900 → 横排阈值 ≈ 900×2 + 16 = 1816px。纯 CSS flex-wrap 自适应（无 JS）。
@@ -160,6 +157,9 @@ export default function FixedColumnsHeaderDemo() {
               columns={dgColumns}
               dataSource={dataSource}
               bordered={bordered}
+              // ★ 虚拟化透传；data-grid 已有 scroll.y:true（表体纵向滚动模式），
+              // ON 仅叠加 virtual，scroll 不动（已有 y，避免重复计算）。
+              virtual={virtual}
               scroll={{ x: 'max-content', y: true }}
             />
           </div>
@@ -172,7 +172,10 @@ export default function FixedColumnsHeaderDemo() {
             columns={antdColumns}
             dataSource={dataSource}
             bordered={bordered}
-            scroll={{ x: 'max-content', y: 55 * 5 }}
+            // ★ 虚拟化透传；antd 已有数字 scroll.y:55*5（表体高度），ON 仅叠加 virtual + x 转数字 2000
+            // （antd virtual 不接受 'max-content'，转数字规避；OFF 回退原 max-content 零回归）。
+            virtual={virtual}
+            scroll={virtual ? { x: 2000, y: 55 * 5 } : { x: 'max-content', y: 55 * 5 }}
             pagination={false}
           />
         }

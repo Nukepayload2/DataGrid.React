@@ -44,7 +44,7 @@ import {
   SortableContext,
   useSortable,
 } from '@dnd-kit/sortable'
-import { Space, Switch, Table as AntdTable } from 'antd'
+import { Space, Switch, Table as AntdTable, theme } from 'antd'
 import type { TableColumnsType } from 'antd'
 import type { CSSProperties, HTMLAttributes } from 'react'
 import type { FC, ReactNode } from 'react'
@@ -52,7 +52,10 @@ import { Table } from '../table'
 import { useColumnDragSort } from '../table'
 import type { ColumnType } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { data, type RecordType } from './_compare/drag-column-sorting.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（列拖拽命中表头，在虚拟窗口内，正常接入）
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 右栏（antd）列拖拽组件 —— 忠实复刻 antd 官方 drag-column-sorting.tsx
@@ -151,10 +154,12 @@ function DataGridPane({
   bordered,
   autoScroll,
   columnReorder,
+  virtual,
 }: {
   bordered: boolean
   autoScroll: boolean
   columnReorder: boolean
+  virtual: boolean
 }) {
   const [columns, setColumns] = useState<ColumnType<RecordType>[]>(() =>
     dgBaseColumns.map((column, i) => ({
@@ -166,6 +171,9 @@ function DataGridPane({
   )
 
   const containerRef = useRef<HTMLDivElement>(null)
+  // 拖拽状态 hint chrome 文字色 token 化（colorTextTertiary≈rgba(0,0,0,0.45)），暗主题自适应。
+  // ★ 仅 chrome 文字色，不动 useColumnDragSort 拖拽逻辑。
+  const { token } = theme.useToken()
 
   const { dragState, indicator, containerProps } = useColumnDragSort<ColumnType<RecordType>>({
     columns,
@@ -186,6 +194,11 @@ function DataGridPane({
         bordered={bordered}
         // 对齐右栏 antd 默认分页（antd 对任意数据都渲染 .ant-pagination，data-grid 不传=无分页条）。
         pagination={{}}
+        /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
+           给的限高，虚拟窗口才有滚动区；列拖拽命中表头，在虚拟窗口内，正常接入）；
+           OFF 时回 undefined，行为与改造前一致。 */
+        virtual={virtual}
+        scroll={virtual ? { y: true } : undefined}
       />
       {/* 垂直拖拽指示线：绝对定位蓝色竖线，跨表头+表体高度。
           非 grid item（是 container 子元素），不影响 grid-template-columns 计算。 */}
@@ -198,21 +211,21 @@ function DataGridPane({
             top: indicator.top,
             height: indicator.height,
             width: 2,
-            background: '#1677ff',
+            background: token.colorPrimary,
             zIndex: 9999,
             pointerEvents: 'none',
             borderRadius: 1,
           }}
         />
       ) : null}
-      <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>
+      <div style={{ marginTop: 8, fontSize: 12, color: token.colorTextTertiary }}>
         当前拖拽：
         {dragState ? `from #${dragState.fromIndex + 1} → 目标 #${dragState.overIndex + 1}` : '无'}
         ；当前列顺序：{columns.map((c) => c.title).join(' / ')}
         <br />
         {/* T10：列标志提示——Gender 不可发起拖（movable:false），Email 锁定位置（lockPosition:true，
             拖它无反应、拖别的列它原地不动）。columnReorder 全局关 → 所有列头不可拖。 */}
-        <span style={{ color: '#1677ff' }}>
+        <span style={{ color: token.colorPrimary }}>
           [T10] Gender: 不可发起拖(movable:false)；Email: 锁定位置(lockPosition:true)；ColumnReorder
           全局开关：{columnReorder ? '开' : '关（所有列头不可拖）'}
         </span>
@@ -225,7 +238,13 @@ function DataGridPane({
 // 右栏（antd）—— 忠实复刻官方 drag-column-sorting.tsx
 // ---------------------------------------------------------------------------
 
-function AntdPane({ bordered }: { bordered: boolean }) {
+function AntdPane({
+  bordered,
+  virtual,
+}: {
+  bordered: boolean
+  virtual: boolean
+}) {
   const [dragIndex, setDragIndex] = useState<DragIndexState>({ active: -1, over: -1 })
 
   const [columns, setColumns] = useState(() =>
@@ -286,6 +305,10 @@ function AntdPane({ bordered }: { bordered: boolean }) {
               header: { cell: TableHeaderCell },
               body: { cell: TableBodyCell },
             }}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:300（antd 不认 true，数字像素高度）；
+               OFF 时回 undefined，行为与改造前一致。 */
+            virtual={virtual}
+            scroll={virtual ? { y: 300 } : undefined}
           />
         </DragIndexContext.Provider>
       </SortableContext>
@@ -310,18 +333,15 @@ export default function DragColumnSortingDemo() {
   // ★ T10：columnReorder 全局开关（仅驱动左栏 data-grid）。
   // 默认 true（保持 S19 总是可拖行为）；关 → 所有列头不可拖（总闸，优先于单列 movable/lockPosition）。
   const [columnReorder, setColumnReorder] = useState(true)
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y
+  const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。
+          DemoToolbar 用 useToken（light≈#fff/#f0f0f0、dark/自定义 token 自适应），替代硬编码底/边色。
+          仅容器化，列拖拽逻辑（useColumnDragSort / dnd-kit）不动。 */}
+      <DemoToolbar>
         <Space>
           <Switch
             checked={bordered}
@@ -344,7 +364,7 @@ export default function DragColumnSortingDemo() {
             unCheckedChildren="ColumnReorder"
           />
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=480（5 列无 scroll.x，列窄但总宽不大）→ 横排阈值 ≈ 480×2 + 16 = 976。
@@ -357,9 +377,10 @@ export default function DragColumnSortingDemo() {
             bordered={bordered}
             autoScroll={autoScroll}
             columnReorder={columnReorder}
+            virtual={virtual}
           />
         }
-        right={<AntdPane bordered={bordered} />}
+        right={<AntdPane bordered={bordered} virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 B18）：</strong>左右并排呈现 data-grid（自研 pointer 列方向拖拽）

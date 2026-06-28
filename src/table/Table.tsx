@@ -2283,8 +2283,10 @@ function TableInner<RecordType = any>(
   // 用 Spin 包裹整个表格内容（topPagination / title / 表体 / footer / bottomPagination），
   // 与 antd InternalTable 的 Spin 包裹范围一致（antd 也是把 top/bottom pagination + table 全包在 Spin 内）。
   // ★ 零回归优化：loading 未传（undefined）时**不渲染 Spin 容器**，DOM 与原先完全一致——
-  //   避免 antd Spin 的 `.ant-spin-nested-loading` 包裹层给现有无 loading 的 demo 引入额外 DOM
-  //   （antd 自身所有 Table 都有这层，但 data-grid 为严格零回归，仅在显式启用 loading 时才引入）。
+  //   避免 antd Spin 包裹层（v6 根 `.ant-spin` + `.ant-spin-container`）给现有无 loading 的 demo
+  //   引入额外 DOM（antd 自身所有 Table 都有这层，但 data-grid 为严格零回归，仅在显式启用 loading
+  //   时才引入）。★ loading !== undefined 时 Spin 包裹会断 .dg-data-area flex 链，由 table.css 的
+  //   「loading（Spin 包裹）× 数据区域模式 flex 链修复」规则透明化修复（M4 虚拟 + M8 固定表头共用）。
   const spinProps: SpinPropsInput | undefined = useMemo(() => {
     if (loading === undefined) return undefined
     if (typeof loading === 'boolean') return { spinning: loading }

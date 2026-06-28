@@ -18,8 +18,14 @@
  *    - 数据单元格也用**显式** `grid-column: <叶子列序号+1>`、`grid-row: <maxDepth + rowIndex + 1>`。
  *    - 关闭 `grid-auto-flow:column`（用默认 row 流，配显式定位最稳）。
  *
- * === 行高约定 ===
- * 行高走"行高约定"（rowHeight 数字或函数），不做动态测量（决策 1）。
+ * === 行高口径 ===
+ * 非虚拟路径走约定 `rowHeight`（数字/函数）→ CSS grid track，不测量（缺省 `'auto'`）。
+ * **虚拟路径**（本引擎核心）采用 virtuoso 式 ResizeObserver 动态测量：`useRowMeasurements`
+ * 实测每行真实 DOM 高 → `rowSizeSystem`（AATree sizeTree + offsetTree 前缀和缓存，O(log n) 查询）
+ * → `useVirtualList` 用 **measured-first（实测优先）+ `getRowHeight`（约定）未测行兜底**；每行 cell 的
+ * `data-known-size` 回填闭环避免 RO 死循环。固定模型 body track=`${rowHeight}px` 但窗口 offset/padding
+ * 由 RO 实测驱动；有界模型（minRowHeight 与 maxRowHeight 同时为正）body track=`auto` + cell min/max-height 约束。
+ * 决策 1 仅指不实现 antd `measureRowRender` 糟粕兼容 API（隐藏测量行重渲染），与本引擎 RO 测量是两回事。
  *
  * === 整行 hover ===
  * grid-auto-flow:column / 显式定位下"同行"DOM 都不连续，纯 CSS 无法关联整行；

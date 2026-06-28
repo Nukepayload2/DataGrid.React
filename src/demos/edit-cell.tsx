@@ -50,6 +50,9 @@ import { Table } from '../table'
 import type { TableProps } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
 import { defaultCount, defaultData, makeNewRow, type RecordType } from './_compare/edit-cell.shared'
+// 虚拟化开关接入（决策 7）：顶栏 Switch ON 时两侧 Table 叠加 virtual + scroll.y。
+// 编辑态单元格在虚拟窗口内正常工作（Form context 透传不依赖 DOM 层级）。
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // antd demo 配套 CSS（注入 document.head，仅注入一次）
@@ -62,6 +65,11 @@ type FormInstance<T> = GetRef<typeof Form<T>>
 let cssInjected = false
 function injectEditCellCss() {
   if (cssInjected) return
+  // 幂等检查：Vite HMR 跨模块实例重置 cssInjected 时，避免重复注入 <style>（DOM 已存在则跳过）。
+  if (document.head.querySelector('[data-edit-cell-css]')) {
+    cssInjected = true
+    return
+  }
   cssInjected = true
   const style = document.createElement('style')
   style.setAttribute('data-edit-cell-css', '')
@@ -75,7 +83,7 @@ function injectEditCellCss() {
 }
 .editable-row:hover .editable-cell-value-wrap {
   padding: 4px 11px;
-  border: 1px solid #d9d9d9;
+  border: 1px solid var(--ant-color-border);
   border-radius: 2px;
 }
 `
@@ -178,6 +186,8 @@ function DgEditCellPane() {
   // ★ 编辑各自独立 state（两栏对照时互不干扰）。
   const [dataSource, setDataSource] = useState<RecordType[]>(defaultData)
   const [count, setCount] = useState(defaultCount)
+  // 虚拟化开关接入（决策 7）：顶栏 Switch ON 时叠加 virtual + scroll.y。
+  const { virtual } = useVirtualization()
 
   const handleDelete = (key: React.Key) => {
     setDataSource((ds) => ds.filter((item) => item.key !== key))
@@ -254,6 +264,9 @@ function DgEditCellPane() {
         columns={columns as DgColumnTypes}
         // 对齐右栏 antd 默认分页（antd 对任意数据都渲染 .ant-pagination，data-grid 不传=无分页条）。
         pagination={{}}
+        // 虚拟化（决策 7）：ON→virtual+scroll.y=true（CSS 自适应高度，SplitDemo 限高 pane body 提供可滚动区域）；OFF→不传，非虚拟全量 DOM（零回归）。
+        virtual={virtual}
+        scroll={virtual ? { y: true } : undefined}
       />
     </div>
   )
@@ -345,6 +358,8 @@ function AntdEditCellPane() {
   // ★ 编辑各自独立 state（两栏对照时互不干扰）。
   const [dataSource, setDataSource] = useState<RecordType[]>(defaultData)
   const [count, setCount] = useState(defaultCount)
+  // 虚拟化开关接入（决策 7）：顶栏 Switch ON 时叠加 virtual + scroll.y。
+  const { virtual } = useVirtualization()
 
   const handleDelete = (key: React.Key) => {
     setDataSource((ds) => ds.filter((item) => item.key !== key))
@@ -418,6 +433,9 @@ function AntdEditCellPane() {
         bordered
         dataSource={dataSource}
         columns={columns as AntdColumnTypes}
+        // 虚拟化（决策 7）：ON→virtual+scroll.y=300（有分页，antd scroll.y 须数字）；OFF→不传，非虚拟（零回归）。
+        virtual={virtual}
+        scroll={virtual ? { y: 300 } : undefined}
       />
     </div>
   )

@@ -36,7 +36,10 @@ import type { TableColumnsType } from 'antd'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { dataSource, type DataType } from './_compare/fixed-header.shared'
+// 全局虚拟化开关接入：本 demo 已自带限高 div(394) + scroll.y，开关 ON 时仅叠加 virtual
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 列定义 —— 两侧字段（title/dataIndex/width）逐字一致
@@ -61,19 +64,15 @@ const antdColumns: TableColumnsType<DataType> = [
 export default function FixedHeaderDemo() {
   // ★ 共享状态：同一个状态同时驱动两侧表格。
   const [bordered, setBordered] = useState(false)
+  // 全局虚拟化开关接入：本 demo 已是 M8 数据区域模式（限高 div + scroll.y:true），
+  // 开关 ON 时仅在两侧叠加 virtual=true，从 M8 切到 M4 虚拟。
+  const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。
+          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0。 */}
+      <DemoToolbar>
         <Space wrap>
           <Switch
             checked={bordered}
@@ -82,7 +81,7 @@ export default function FixedHeaderDemo() {
             unCheckedChildren="Bordered"
           />
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=600 → 横排阈值 ≈ 600×2 + 16 = 1216px。纯 CSS flex-wrap 自适应（无 JS）。
@@ -105,6 +104,10 @@ export default function FixedHeaderDemo() {
               bordered={bordered}
               scroll={{ y: true }}
               pagination={{ pageSize: 50 }}
+              /* 全局虚拟化开关接入：本 demo 已自带限高 div(394) + scroll.y:true（M8 数据区域模式），
+                 开关 ON 时叠加 virtual=true，从 M8 切到 M4 虚拟；OFF 时不传 virtual，行为与改造前
+                 完全一致（scroll.y 原值保留，与开关无关）。 */
+              virtual={virtual}
             />
           </div>
         }
@@ -117,6 +120,9 @@ export default function FixedHeaderDemo() {
             bordered={bordered}
             pagination={{ pageSize: 50 }}
             scroll={{ y: 55 * 5 }}
+            /* 全局虚拟化开关接入：本 demo 已自带 scroll.y:55*5（M8 模式），开关 ON 时叠加 virtual=true
+               切到 M4 虚拟；OFF 时不传 virtual，scroll.y 原值保留，行为与改造前一致。 */
+            virtual={virtual}
           />
         }
       >

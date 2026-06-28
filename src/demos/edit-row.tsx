@@ -52,6 +52,9 @@ import { Table } from '../table'
 import type { TableProps } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
 import { originData, type RecordType } from './_compare/edit-row.shared'
+// 虚拟化开关接入（决策 7）：顶栏 Switch ON 时两侧 Table 叠加 virtual + scroll.y。
+// 100 行分页虚拟化有意义；编辑态单元格在虚拟窗口内正常工作（Form context 透传不依赖 DOM 层级）。
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // antd demo 配套 CSS（注入 document.head，仅注入一次）
@@ -130,6 +133,8 @@ function DgEditRowPane() {
   const [form] = Form.useForm()
   const [data, setData] = useState<RecordType[]>(originData)
   const [editingKey, setEditingKey] = useState('')
+  // 虚拟化开关接入（决策 7）：顶栏 Switch ON 时叠加 virtual + scroll.y。
+  const { virtual } = useVirtualization()
 
   const isEditing = (record: RecordType) => record.key === editingKey
 
@@ -217,6 +222,9 @@ function DgEditRowPane() {
         dataSource={data}
         columns={mergedColumns}
         pagination={{ onChange: cancel }}
+        // 虚拟化（决策 7）：ON→virtual+scroll.y=true（CSS 自适应高度，SplitDemo 限高 pane body 提供可滚动区域）；OFF→不传，非虚拟全量 DOM（零回归）。
+        virtual={virtual}
+        scroll={virtual ? { y: true } : undefined}
       />
     </Form>
   )
@@ -265,6 +273,8 @@ function AntdEditRowPane() {
   const [form] = Form.useForm()
   const [data, setData] = useState<RecordType[]>(originData)
   const [editingKey, setEditingKey] = useState('')
+  // 虚拟化开关接入（决策 7）：顶栏 Switch ON 时叠加 virtual + scroll.y。
+  const { virtual } = useVirtualization()
 
   const isEditing = (record: RecordType) => record.key === editingKey
 
@@ -349,6 +359,9 @@ function AntdEditRowPane() {
         columns={mergedColumns}
         rowClassName="editable-row"
         pagination={{ onChange: cancel }}
+        // 虚拟化（决策 7）：ON→virtual+scroll.y=300（有分页，antd scroll.y 须数字）；OFF→不传，非虚拟（零回归）。
+        virtual={virtual}
+        scroll={virtual ? { y: 300 } : undefined}
       />
     </Form>
   )

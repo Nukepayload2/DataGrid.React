@@ -35,7 +35,10 @@ import type { TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { data, type RecordType } from './_compare/ellipsis.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 左栏（data-grid）列定义 —— 行为与改造前一致
@@ -132,19 +135,14 @@ const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
 export default function EllipsisDemo() {
   // ★ 共享状态：同一个状态同时驱动两侧表格。
   const [bordered, setBordered] = useState(false)
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y（原两侧均无 scroll）
+  const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。
+          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0。 */}
+      <DemoToolbar>
         <Space>
           <Switch
             checked={bordered}
@@ -153,7 +151,7 @@ export default function EllipsisDemo() {
             unCheckedChildren="Bordered"
           />
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=600（ellipsis 列有长文本 Address×4，略宽于 basic 的 480）→ 横排阈值 ≈ 1216。
@@ -167,11 +165,25 @@ export default function EllipsisDemo() {
             columns={dgColumns}
             dataSource={data}
             bordered={bordered}
+            /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll:{y:true}（data-grid 数据区域模式，
+               CSS 自适应填满 SplitDemo 给的 400px 限高，虚拟窗口才有滚动区）；
+               OFF 时 scroll=undefined，行为与改造前一致。 */
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
             pagination={{}}
           />
         }
         right={
-          <AntdTable<RecordType> columns={antdColumns} dataSource={data} bordered={bordered} />
+          <AntdTable<RecordType>
+            columns={antdColumns}
+            dataSource={data}
+            bordered={bordered}
+            /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll:{y:300}（antd 默认渲染分页条，
+               扣除表头~55 + 分页条~50 → 约 300 塞进 split pane 限高）；
+               OFF 时 scroll=undefined，行为与改造前一致。 */
+            virtual={virtual}
+            scroll={virtual ? { y: 300 } : undefined}
+          />
         }
       >
         <div>

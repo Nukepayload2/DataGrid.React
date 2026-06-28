@@ -45,6 +45,8 @@ import type { TableColumnsType } from 'antd'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
+import { useVirtualization } from './VirtualizationContext'
 import { dataSource, type DataType } from './_compare/fixed-gapped-columns.shared'
 
 // ---------------------------------------------------------------------------
@@ -169,19 +171,14 @@ export default function FixedGappedColumnsDemo() {
   // ★ 共享状态：同一个状态同时驱动两侧表格。
   const [bordered, setBordered] = useState(true)
   const [size, setSize] = useState<SizeOption>('medium')
+  // ★ 虚拟化开关（决策 9 对照）：两侧表格同步切换虚拟/非虚拟。
+  const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。
+          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0。 */}
+      <DemoToolbar>
         <Space wrap>
           <Switch
             checked={bordered}
@@ -198,7 +195,7 @@ export default function FixedGappedColumnsDemo() {
             ]}
           />
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=900 → 横排阈值 ≈ 900×2 + 16 = 1816px。纯 CSS flex-wrap 自适应（无 JS）。
@@ -217,7 +214,9 @@ export default function FixedGappedColumnsDemo() {
               columns={dgColumns}
               dataSource={dataSource}
               size={size === 'medium' ? 'middle' : 'large'}
-              scroll={{ x: 'max-content' }}
+              // ★ 虚拟化透传 + scroll.y:true（ON 表体纵向滚动）；OFF 回退原 max-content（零回归）。
+              virtual={virtual}
+              scroll={virtual ? { x: 'max-content', y: true } : { x: 'max-content' }}
             />
           </>
         }
@@ -231,7 +230,10 @@ export default function FixedGappedColumnsDemo() {
               columns={antdColumns}
               dataSource={dataSource}
               size={size}
-              scroll={{ x: 'max-content' }}
+              // ★ 虚拟化透传；ON 时 scroll.x 'max-content' 转数字 2000 + y:300（antd virtual 需数字 y）；
+              // OFF 回退原 max-content（零回归）。
+              virtual={virtual}
+              scroll={virtual ? { x: 2000, y: 300 } : { x: 'max-content' }}
               pagination={false}
             />
           </>

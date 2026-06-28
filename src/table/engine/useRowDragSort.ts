@@ -48,6 +48,25 @@
  *    **外层相对定位容器**内渲染一条蓝色横线，指示"松手后该行会插入的位置"。
  *    指示线是外层容器的子元素，**不是 grid item**，不影响 grid-template-rows 计算（零回归）。
  *
+ * === ★ 离散让位（dnd-kit 风格）===
+ *
+ * 拖拽中**不**整行 transform 平移到指针位置（会破坏 grid track），而是离散让位：
+ *   - **被拖行**（rowIndex === fromIndex）：`transform = translateY(delta)` 跟手抬起
+ *     （delta = clientY - startClientY，实时更新，无 transition）+ `dg-drag-row-active` 类
+ *     （z-index 抬高 + box-shadow + 不透明背景防透视）。实现见 `applyYieldTransforms`。
+ *   - **让位行**（from→over 中间行）：`transform = translateY(±draggedHeight)`（向上拖负、向下拖正）
+ *     + `dg-drag-row-yield` 类（`transition: transform 150ms ease`，平滑让位动画）。
+ *   - **其余行**：清 inline transform + 清两个让位类（复位）。
+ *   - from === over：无让位行（仅被拖行抬起，其余行复位）。
+ *   - 配套样式见 `table.css`（`.dg-drag-row-active` / `.dg-drag-row-yield`）。
+ *   - 松手（nativeUp）前调 `clearYieldTransforms()` 清场（移除全部 cell 的 transform + 让位类），
+ *     再 `arrayMove/arrayMoveBlock` 重排 dataSource（grid 重新计算 track，cell 复用但无残留位移）。
+ *   - **auto-scroll 期间**：本 hook 不挂 scroll 监听；onPointerDown 启动拖拽时若发现 scrollEl，
+ *     挂 `scroll` 监听 → RAF 去重 → `recomputeFromPointer` 重跑 hit-test（指针停在边缘不动时
+ *     无 pointermove，靠 scroll 事件驱动 over/yield/指示线更新）。
+ *   - **虚拟模式**：pointer 监听（pointermove/up/cancel）挂 `window`（不挂 el，el 被虚拟引擎卸载
+ *     会丢事件），用 `AbortController` 批量管理，nativeUp/卸载 cleanup/重入守卫三处统一 abort()。
+ *
  * 4. **pointerup**：释放 pointer capture，清拖拽态。若 over index 与 dragging index 不同 →
  *    调用 `onSort(arrayMove(dataSource, from, to))`，调用方据此 setState 重排 dataSource。
  *    arrayMove 算法对齐 @dnd-kit/sortable（from → to：先删 from 再插 to）。
@@ -64,9 +83,11 @@
  * === 与 antd drag-sorting demo 的差异 ===
  *
  * - antd 用 `<tr>` + dnd-kit `useSortable`（transform 跟随指针平移整行）。
- * - data-grid 不平移整行（行是 grid item 集，平移会破坏布局），改为**指示线**提示插入位置 +
- *   松手后重排 dataSource（行瞬间到新位置）。视觉与 antd 略异（antd 拖拽中行跟随指针；
- *   data-grid 拖拽中显示指示线），但功能等价（行重排），且不破坏 CSS Grid 布局。
+ * - data-grid **被拖行视觉跟手抬起**（`translateY(delta)`，非整行 transform 平移到指针位置，
+ *   避免破坏 grid track），**中间行离散让位**（±draggedHeight + transition），另**保留指示线**
+ *   作插入位置提示（蓝色横线）。松手后 `clearYieldTransforms()` 清场 + 重排 dataSource（行瞬间
+ *   到新位置）。视觉与 antd 略异（antd 整行跟手指针；data-grid 被拖行抬起 + 中间行让位 + 指示线），
+ *   但功能等价（行重排），且不破坏 CSS Grid 布局。
  * - antd Row 挂 listeners 在整 `<tr>`（drag-sorting）或手柄 setActivatorNodeRef
  *   （drag-sorting-handler）；data-grid 拖拽手势通过事件委托——S17 命中任意 body 单元格
  *   （整行均可拖），S18 通过 `handleSelector` 限定命中手柄列（DragHandle 加 `.dg-drag-handle`
@@ -89,7 +110,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useAutoScrollOnDrag } from './useAutoScrollOnDrag'
+import { findScrollContainer, useAutoScrollOnDrag } from './useAutoScrollOnDrag'
 
 /** arrayMove：把数组 from 位置的元素移到 to 位置（对齐 @dnd-kit/sortable）。 */
 export function arrayMove<T>(arr: Array<T>, from: number, to: number): Array<T> {
@@ -324,7 +345,181 @@ export function useRowDragSort<RecordType>(
     startClientY: number
     pointerId: number
     el: HTMLElement
+    // ★ 离散让位（dnd-kit 风格）：拖拽开始时一次性快照被拖行高度（用于让位行的 translateY 位移量）。
+    //   不用 ResizeObserver——单次快照够用，过程中行高不再变（行 track 由 grid 决定，拖拽中 dataSource
+    //   未变，row track 不重排，被拖行高恒定）。让位行位移 ±此高度即让出/补回原被拖行所占的 track 高度。
+    draggedHeight: number
+    /**
+     * ★ T9 修复：最后已知指针 clientY。
+     *
+     * pointerdown 初始化、pointermove 更新；当 auto-scroll（或用户滚轮）触发 scroll 事件时，
+     * 指针可能静止（无 pointermove），此时用此值重跑 hit-test + 让位 transform，保证滚动过程中
+     * from/over/indicator/yield 跟随滚动容器新进入视口的行同步更新（不再冻结）。
+     */
+    lastClientY: number
+    /**
+     * ★ T9 修复：拖拽期间监听的滚动容器引用（用于卸载/收尾时 removeEventListener）。
+     * pointerdown 时由 findScrollContainer 定位（与 useAutoScrollOnDrag 滚的容器一致）。
+     */
+    scrollEl: HTMLElement | null
+    /**
+     * ★ T9 修复：scroll handler 排的 RAF id（去重 + 收尾 cancel 用）。
+     * scroll 事件可能一帧触发多次，用 RAF 去重确保每帧只重算一次 hit-test。
+     */
+    scrollRafId: number | null
+    /**
+     * ★ 虚拟模式健壮性修复：拖拽期间 nativeMove/nativeUp 所在 window 监听的 AbortController。
+     *
+     * pointerdown 时创建并赋值；pointermove/pointerup/pointercancel 三个 window 监听挂
+     * `{ signal: ac.signal }`，nativeUp 内 `ac.abort()` 一次性移除全部三个，卸载 cleanup
+     * 也 `dragRef.current?.ac?.abort()`（拖拽中卸载场景）。
+     *
+     * **为什么改挂 window**：虚拟模式（drag-virtual-list，1万行）下，原实现把三个监听挂
+     * 在被拖行首个 cell（el）上，并依赖 `el.setPointerCapture` 路由事件。当用户拖拽 +
+     * auto-scroll 让 from cell（el）滚出可视区时，虚拟引擎 useVirtualList 会把它从 DOM
+     * 卸载（detached）。Pointer Events 规范：capture target 被 detached 后 pointer capture
+     * 自动丢失；此后事件 target 回到 hit-test 结果并冒泡到 window。但监听挂在已 detached
+     * 的 el 上 → 收不到 → pointerup 不触发 → drop 卡死。改挂 window 永远存在、不受虚拟
+     * 卸载影响，pointer 事件冒泡到 window（无论 capture 是否丢失）兜底。
+     *
+     * **setPointerCapture 保留**：el 仍在 DOM 时仍提供防选区/防触发其它元素副作用 +
+     * 锁定事件路由；el 卸载后 capture 自动丢失，window 监听兜底，不影响正确性。
+     */
+    ac: AbortController | null
   } | null>(null)
+
+  /**
+   * ★ T9 修复：当前 scroll handler 的 ref（pointerdown 赋值、nativeUp 取）。
+   *
+   * nativeUp 需要 removeEventListener('scroll', ...)，而 onScrollDuringDrag 闭包内部需读 dragRef，
+   * 不能用 useCallback（依赖会变）；放在 ref 上保证 pointerdown 时挂的 handler 与 nativeUp 时
+   * 取的 handler 是同一个引用。
+   */
+  const scrollHandlerRef = useRef<(() => void) | null>(null)
+
+  /**
+   * ★ 离散让位辅助：对容器内所有 `[data-row-index]` body 单元格**命令式**施加 transform + 类。
+   *
+   * 分类（依据 cell.dataset.rowIndex 与 dragState.fromIndex/overIndex 的关系）：
+   *   - **被拖行**（rowIndex === fromIndex）：`transform = translateY(delta)`（跟手抬起，无 transition），
+   *     加 `dg-drag-row-active` 类（z-index 高 + box-shadow 抬起感 + 不透明背景防透视）。
+   *   - **让位行**（from→over 之间的中间行）：
+   *       · from < over：让位区间 (from, over] 各行 → 向上让位 translateY(-draggedHeight)。
+   *       · from > over：让位区间 [over, from) 各行 → 向下让位 translateY(+draggedHeight)。
+   *     加 `dg-drag-row-yield` 类（transition: transform 150ms ease，让位平滑）。
+   *   - **其余行**：清 inline transform、移除两个类。
+   *   - from === over：无让位行（仅被拖行抬起，其余行复位）。
+   *
+   * ★ 性能：每次 pointermove 一次 querySelectorAll + O(n) 遍历（非虚拟几行 / 虚拟仅可见集），可接受。
+   * ★ 不动 grid 布局：cell 的 grid 槽位（grid-row）不变，纯视觉 transform（CSS transform 不影响
+   *   grid item 的 grid-track 定位，仅视觉位移），松手 arrayMove 重排 dataSource 后 grid 重新计算 track。
+   *
+   * ★ 已知限制（虚拟模式）：`querySelectorAll('[data-row-index]')` 只命中**当前可见**的 cell。
+   *   被拖行 / 让位行滚出视口被虚拟引擎卸载后，重新挂载的新 cell **不带** transform / 让位类
+   *   （跟手抬起 / 让位视觉短暂丢失），但**指示线仍由 hitTest 正确算出**（hitTest 也读 DOM 但
+   *   基于 overIndex 语义，指示线位置不依赖 transform）。单指针正常拖拽（被拖行始终在视口内）
+   *   **不触发**此限制——仅在 auto-scroll 把被拖行/让位行推出视口边缘的极端情况下出现，且滚回时
+   *   下一次 pointermove 会重新施加 transform（自愈）。
+   */
+  const applyYieldTransforms = useCallback(
+    (fromIndex: number, overIndex: number, delta: number, draggedHeight: number) => {
+      const container = containerRef.current
+      if (!container) return
+      // 让位区间边界（闭区间 [yieldLo, yieldHi]，fromIndex 本身排除——它是被拖行）。
+      let yieldLo: number
+      let yieldHi: number
+      // 让位方向：from<over 中间行向上让位（-draggedHeight），from>over 中间行向下让位（+draggedHeight）。
+      let yieldSign: 1 | -1
+      if (fromIndex < overIndex) {
+        // 中间行 (from, over]（不含 from，含 over）向上让位。
+        yieldLo = fromIndex + 1
+        yieldHi = overIndex
+        yieldSign = -1
+      } else if (fromIndex > overIndex) {
+        // 中间行 [over, from)（含 over，不含 from）向下让位。
+        yieldLo = overIndex
+        yieldHi = fromIndex - 1
+        yieldSign = 1
+      } else {
+        // from === over：无让位区间（yieldLo>yieldHi，下面区间判定恒 false）。
+        yieldLo = 1
+        yieldHi = 0
+        yieldSign = 1
+      }
+      const cells = container.querySelectorAll<HTMLElement>('[data-row-index]')
+      cells.forEach((cell) => {
+        const idxAttr = cell.getAttribute('data-row-index')
+        if (idxAttr === null) return
+        const idx = Number.parseInt(idxAttr, 10)
+        if (!Number.isFinite(idx)) return
+        // 清类 + 清 transform 作为基线（下方按分类重新施加）。
+        cell.classList.remove('dg-drag-row-active', 'dg-drag-row-yield')
+        if (idx === fromIndex) {
+          // 被拖行：跟手抬起（无 transition，transform 实时跟 pointer）。
+          cell.classList.add('dg-drag-row-active')
+          cell.style.transform = `translateY(${delta}px)`
+        } else if (idx >= yieldLo && idx <= yieldHi) {
+          // 让位行：±draggedHeight 让出原被拖行 track 高度（带 transition 平滑）。
+          cell.classList.add('dg-drag-row-yield')
+          cell.style.transform = `translateY(${yieldSign * draggedHeight}px)`
+        } else {
+          // 其余行：复位（清可能残留的 transform）。
+          cell.style.transform = ''
+        }
+      })
+    },
+    [containerRef],
+  )
+
+  /**
+   * ★ 离散让位清场：拖拽结束（pointerup）时遍历所有 `[data-row-index]` cell，清 inline transform +
+   * 移除两个让位类，恢复 grid 原始视觉（然后 arrayMove 重排 dataSource，grid 重新计算 track）。
+   */
+  const clearYieldTransforms = useCallback(() => {
+    const container = containerRef.current
+    if (!container) return
+    const cells = container.querySelectorAll<HTMLElement>('[data-row-index]')
+    cells.forEach((cell) => {
+      cell.classList.remove('dg-drag-row-active', 'dg-drag-row-yield')
+      cell.style.transform = ''
+    })
+  }, [containerRef])
+
+  /**
+   * ★ 拖拽会话收尾辅助（三处复用：nativeUp / 卸载 cleanup / onPointerDown 重入守卫）。
+   *
+   * 统一处理：abort window pointer 监听（AbortController）+ cancel scroll RAF + 移除 scroll 监听
+   * + 重置 scrollHandlerRef + clearYieldTransforms（清残留 transform/让位类）。
+   *
+   * 不含：releasePointerCapture（仅 nativeUp/卸载需，重入守卫不需——新的 pointerdown 会重新
+   * setPointerCapture 到新 el）、stopAutoScroll（仅 nativeUp/卸载需，重入守卫在 startAutoScroll
+   * 之前故无需停）、arrayMove（仅 nativeUp 需——重入守卫**不能**触发 onSort，否则误重排）。
+   *
+   * nativeUp 仍保留独立顺序（dragRef.current=null → clearYieldTransforms → arrayMove），故它**不**
+   * 调本辅助，而是内联同样三步（顺序敏感：清场须在重排前）；本辅助主要服务于卸载 cleanup +
+   * 重入守卫（这两处无 arrayMove，顺序不敏感）。
+   */
+  const cleanupDragSession = useCallback(() => {
+    const drag = dragRef.current
+    if (!drag) return
+    // abort window pointer 监听（pointermove/up/cancel）。
+    drag.ac?.abort()
+    drag.ac = null
+    // cancel 挂起的 scroll RAF。
+    if (drag.scrollRafId !== null) {
+      cancelAnimationFrame(drag.scrollRafId)
+      drag.scrollRafId = null
+    }
+    // 移除 scroll 监听（auto-scroll 期间挂的 onScrollDuringDrag）。
+    if (drag.scrollEl) {
+      drag.scrollEl.removeEventListener('scroll', scrollHandlerRef.current as EventListener)
+      drag.scrollEl = null
+    }
+    scrollHandlerRef.current = null
+    dragRef.current = null
+    // 清残留 transform + 两个让位类（恢复 grid 原始视觉）。
+    clearYieldTransforms()
+  }, [clearYieldTransforms])
 
   /**
    * hit-test：根据 pointer Y 算出"插入位置"（over index）。
@@ -385,6 +580,48 @@ export function useRowDragSort<RecordType>(
     [containerRef],
   )
 
+  /**
+   * ★ T9 修复：根据指针 clientY 重跑 hit-test + 算 over + 更新 dragState/indicator + 应用让位 transform。
+   *
+   * **抽取原因**：原 nativeMove 与新增 scroll handler 都要做同一件事（hit-test → over 换算 →
+   * setDragState → setIndicator → applyYieldTransforms），抽成共享函数避免两份逻辑漂移。
+   *
+   * **overIndex 换算语义**（与原 nativeMove 完全一致）：
+   *   - hitTest 返回插入位置（0..len）。
+   *   - 插入位置 > from：over = 插入位置 - 1（因为 arrayMove 先删 from 再插，实际目标行 index = 插入位置 - 1）。
+   *   - 插入位置 <= from：over = 插入位置（直接移到该位置）。
+   *
+   * **让位 delta**：delta = clientY - drag.startClientY（跟手位移量）。
+   *
+   * 调用方：pointermove（nativeMove）+ scroll handler（auto-scroll 滚动期间重算）。
+   */
+  const recomputeFromPointer = useCallback(
+    (clientY: number) => {
+      const drag = dragRef.current
+      if (!drag) return
+      const result = hitTest(clientY)
+      if (!result) return
+      // 调整 over index：当向下拖动时，@dnd-kit 语义是 over = 目标行 index（松手后 arrayMove
+      // 把 from 移到 to）。hitTest 已返回插入位置（0..len）；转成"目标行 index"：
+      //   - 插入位置 <= from：over = 插入位置（移到该位置）。
+      //   - 插入位置 > from：over = 插入位置 - 1（因为 arrayMove 先删 from 再插，实际目标行 index = 插入位置 - 1）。
+      let overIndex = result.overIndex
+      if (overIndex > drag.fromIndex) overIndex = overIndex - 1
+      setDragState({ fromIndex: drag.fromIndex, overIndex })
+      setIndicator({
+        visible: true,
+        top: result.indicatorTop,
+        left: 0,
+        right: 0,
+      })
+      // ★ 离散让位：命令式对所有可见 body cell 施加 transform + 类（被拖行跟手抬起、中间行让位）。
+      //   delta = 当前 pointer Y - 起始 Y（跟手位移量）；draggedHeight 是 pointerdown 快照。
+      const delta = clientY - drag.startClientY
+      applyYieldTransforms(drag.fromIndex, overIndex, delta, drag.draggedHeight)
+    },
+    [hitTest, applyYieldTransforms],
+  )
+
   /** 外层容器 pointerdown（事件委托）：命中 body 单元格则启动拖拽。 */
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -401,6 +638,15 @@ export function useRowDragSort<RecordType>(
       const index = Number.parseInt(idxAttr, 10)
       if (!Number.isFinite(index)) return
 
+      // ★ 重入防御：若上一次拖拽会话未正常结束（如 pointerup 因某种原因没触发、或外部代码异常），
+      //   dragRef.current 仍残留——此时新 pointerdown 会覆盖它，导致旧会话的 window 监听 / scroll
+      //   监听 / RAF 泄漏（ac 不再可达无法 abort）+ 旧让位 transform/类残留视觉。
+      //   故启动新会话前先调 cleanupDragSession 清场（abort + cancel RAF + 移除 scroll 监听 +
+      //   clearYieldTransforms），**不**触发 onSort（重入守卫不应误重排数据）。
+      if (dragRef.current) {
+        cleanupDragSession()
+      }
+
       const el = cell
       const pointerId = e.pointerId
       e.preventDefault()
@@ -410,11 +656,25 @@ export function useRowDragSort<RecordType>(
       } catch {
         // 极少数 setPointerCapture 失败（pointer 已 cancel）；忽略。
       }
+      // ★ 离散让位：一次性快照被拖行高度（用该行首个 [data-row-index] cell 的 getBoundingClientRect
+      //   高度）。后续 pointermove 用此高度算让位行的 translateY 位移量；过程中行高不变（grid track
+      //   未重排），无需 ResizeObserver 跟踪。
+      const draggedRect = el.getBoundingClientRect()
+      const draggedHeight = draggedRect.height
+      // ★ 虚拟模式健壮性修复：window 监听的 AbortController（pointermove/up/cancel 三监听挂其 signal）。
+      //   nativeUp 内 ac.abort() 一次性移除全部三监听；卸载 cleanup 也 abort()。见 dragRef.ac 注释。
+      const ac = new AbortController()
       dragRef.current = {
         fromIndex: index,
         startClientY: e.clientY,
         pointerId,
         el,
+        draggedHeight,
+        // ★ T9 修复：初始化 scroll 跟随相关字段。
+        lastClientY: e.clientY,
+        scrollEl: null,
+        scrollRafId: null,
+        ac,
       }
       // 初始 overIndex = fromIndex（未移动时松手不重排）。
       const initial = hitTest(e.clientY)
@@ -435,27 +695,58 @@ export function useRowDragSort<RecordType>(
       autoScrollPointerRef.current = { clientX: e.clientX, clientY: e.clientY }
       startAutoScroll()
 
+      // ★ T9 修复：拖拽期间在滚动容器上挂 scroll 监听。
+      //
+      // **背景**：auto-scroll 的 RAF 循环对 .dg-scroll 调 scrollBy(0, dy) 滚动容器，但 hit-test /
+      // applyYieldTransforms / setDragState / setIndicator **原本只在 pointermove 内调用**。
+      // 指针静止停在容器边缘时没有 pointermove 事件 → 即使 auto-scroll 滚了容器、虚拟引擎重渲染了
+      // 新行，hit-test 也不重跑 → from/over/indicator/yield 全冻结，drop 用过期 over。
+      //
+      // **修复**：scroll 事件触发时用最后已知 clientY（dragRef.current.lastClientY）重跑
+      // recomputeFromPointer，让 from/over/indicator/yield 跟随滚动同步更新。
+      //
+      // **RAF 延迟一帧**：scrollBy 触发 scroll 事件时，虚拟引擎（useVirtualList 的 onScroll 用
+      // flushSync 重渲染）可能还没把新行 flush 进 DOM；RAF 延迟一帧确保 [data-row-index] cell
+      // 已是新可见行后再读 getBoundingClientRect，hit-test 才准确。
+      //
+      // **RAF 去重**：scroll 事件可能一帧触发多次，dragRef.current.scrollRafId !== null 时跳过，
+      // 保证每帧只重算一次（避免抖动 + 节流）。
+      //
+      // **滚动容器**：复用 useAutoScrollOnDrag 的 findScrollContainer（保持与 auto-scroll 实际
+      // 滚的容器是同一个）。非虚拟 demo（如 drag-sorting 3 行）下 findScrollContainer 可能返回
+      // 外层可滚动祖先或 null；即使挂了监听，内容不超出 / 指针不在阈值内 → scroll 不触发 → 零回归。
+      const scrollEl = findScrollContainer(containerRef.current)
+      if (scrollEl) {
+        const onScrollDuringDrag = () => {
+          const drag = dragRef.current
+          if (!drag) return
+          // RAF 去重：同一帧多次 scroll 只排一次。
+          if (drag.scrollRafId !== null) return
+          drag.scrollRafId = requestAnimationFrame(() => {
+            if (dragRef.current) dragRef.current.scrollRafId = null
+            const d = dragRef.current
+            if (!d) return
+            // 用最后已知 clientY 重跑 hit-test + 让位 transform + 状态更新。
+            recomputeFromPointer(d.lastClientY)
+          })
+        }
+        scrollEl.addEventListener('scroll', onScrollDuringDrag, { passive: true })
+        dragRef.current.scrollEl = scrollEl
+        scrollHandlerRef.current = onScrollDuringDrag
+      }
+
       // 原生监听 move/up（挂到捕获单元格元素，pointer capture 保证事件路由到它）。
       const nativeMove = (ev: PointerEvent) => {
         const drag = dragRef.current
         if (!drag || ev.pointerId !== drag.pointerId) return
         // ★ T9：实时更新指针坐标供 auto-scroll RAF 循环读取。
         autoScrollPointerRef.current = { clientX: ev.clientX, clientY: ev.clientY }
-        const result = hitTest(ev.clientY)
-        if (!result) return
-        // 调整 over index：当向下拖动时，@dnd-kit 语义是 over = 目标行 index（松手后 arrayMove
-        // 把 from 移到 to）。hitTest 已返回插入位置（0..len）；转成"目标行 index"：
-        //   - 插入位置 <= from：over = 插入位置（移到该位置）。
-        //   - 插入位置 > from：over = 插入位置 - 1（因为 arrayMove 先删 from 再插，实际目标行 index = 插入位置 - 1）。
-        let overIndex = result.overIndex
-        if (overIndex > drag.fromIndex) overIndex = overIndex - 1
-        setDragState({ fromIndex: drag.fromIndex, overIndex })
-        setIndicator({
-          visible: true,
-          top: result.indicatorTop,
-          left: 0,
-          right: 0,
-        })
+        // ★ T9 修复：更新最后已知 clientY（auto-scroll 滚动期间 scroll handler 用它重算 hit-test）。
+        drag.lastClientY = ev.clientY
+        // ★ T9 修复：抽取共享函数 recomputeFromPointer（hit-test → over 换算 → setDragState →
+        //   setIndicator → applyYieldTransforms）。pointermove 与 scroll handler 共用同一份逻辑，
+        //   保证语义一致（含 overIndex 换算、让位 delta 计算）。
+        recomputeFromPointer(ev.clientY)
       }
       const nativeUp = (ev: PointerEvent) => {
         const drag = dragRef.current
@@ -465,10 +756,28 @@ export function useRowDragSort<RecordType>(
         } catch {
           // ignore
         }
-        drag.el.removeEventListener('pointermove', nativeMove)
-        drag.el.removeEventListener('pointerup', nativeUp)
-        drag.el.removeEventListener('pointercancel', nativeUp)
+        // ★ 虚拟模式健壮性修复：改用 AbortController 一次性移除挂在 window 上的三个 pointer 监听
+        //   （pointermove/up/cancel），替代原 removeEventListener 三连。abort() 后即使后续还有
+        //   pointer 事件也不会再被 nativeMove/nativeUp 处理（监听已自动移除）。
+        drag.ac?.abort()
+        drag.ac = null
+        // ★ T9 修复：先收尾 scroll 监听 + cancel RAF，再 clearYieldTransforms + arrayMove。
+        //   顺序很关键——避免重排期间（clearYieldTransforms + arrayMove 触发 dataSource setState
+        //   导致 grid 重渲染）scroll 再触发 recomputeFromPointer 读到中间态 DOM。
+        if (drag.scrollRafId !== null) {
+          cancelAnimationFrame(drag.scrollRafId)
+          drag.scrollRafId = null
+        }
+        if (drag.scrollEl) {
+          drag.scrollEl.removeEventListener('scroll', scrollHandlerRef.current as EventListener)
+          drag.scrollEl = null
+        }
+        scrollHandlerRef.current = null
         dragRef.current = null
+        // ★ 离散让位清场：移除所有 cell 的 transform + 两个让位类，恢复 grid 原始视觉。
+        //   必须在 arrayMove（setDragState 内触发 onSort → 调用方 setState 重排 dataSource）之前清，
+        //   否则重排后 cell DOM 复用 + 残留 transform/类会产生视觉错位（旧 cell 带着位移变成新行）。
+        clearYieldTransforms()
         // ★ T9：拖拽结束，停止 auto-scroll RAF 循环。
         stopAutoScroll()
         // 最终 overIndex（state 中已是最新）。from===over 不重排。
@@ -515,9 +824,17 @@ export function useRowDragSort<RecordType>(
         })
         setIndicator({ visible: false, top: 0, left: 0, right: 0 })
       }
-      el.addEventListener('pointermove', nativeMove)
-      el.addEventListener('pointerup', nativeUp)
-      el.addEventListener('pointercancel', nativeUp)
+      // ★ 虚拟模式健壮性修复：pointermove/up/cancel 监听改挂 window（原挂 el，el 被虚拟引擎卸载后
+      //   监听失效导致拖拽卡死）。window 永远存在、不受虚拟卸载影响，且 pointer 事件冒泡到 window
+      //   （无论 setPointerCapture 是否因 el detached 而丢失）。用 AbortController 批量管理三监听，
+      //   nativeUp 内 ac.abort() 一次性移除全部；卸载 cleanup 也 abort()。
+      //
+      //   el.setPointerCapture(pointerId) 仍保留（el 在 DOM 时防选区 + 锁定事件路由）；
+      //   nativeMove/nativeUp 开头仍用 `ev.pointerId !== drag.pointerId` 过滤（挂 window 后会收到
+      //   所有 pointer 事件，必须靠 pointerId 只处理本拖拽会话）。
+      window.addEventListener('pointermove', nativeMove, { signal: ac.signal })
+      window.addEventListener('pointerup', nativeUp, { signal: ac.signal })
+      window.addEventListener('pointercancel', nativeUp, { signal: ac.signal })
     },
     [
       hitTest,
@@ -530,10 +847,14 @@ export function useRowDragSort<RecordType>(
       autoScrollPointerRef,
       startAutoScroll,
       stopAutoScroll,
+      applyYieldTransforms,
+      clearYieldTransforms,
+      cleanupDragSession,
+      recomputeFromPointer,
     ],
   )
 
-  // 卸载时清理（防御性：避免组件卸载后残留监听 + 残留 auto-scroll RAF）。
+  // 卸载时清理（防御性：避免组件卸载后残留监听 + 残留 auto-scroll RAF + 残留 transform/让位类）。
   useEffect(() => {
     return () => {
       const drag = dragRef.current
@@ -543,12 +864,16 @@ export function useRowDragSort<RecordType>(
         } catch {
           // ignore
         }
-        dragRef.current = null
+        // ★ 统一收尾：abort window 监听 + cancel scroll RAF + 移除 scroll 监听 + clearYieldTransforms
+        //   （与 nativeUp 对称——卸载时也清残留 transform/让位类，防卸载瞬间残留视觉）。
+        //   顺序：先 releasePointerCapture（需读 drag.el），再调 cleanupDragSession（内部会
+        //   dragRef.current=null）。
+        cleanupDragSession()
       }
       // ★ T9：卸载时确保 auto-scroll RAF 已停（防止组件卸载后 RAF 继续跑）。
       stopAutoScroll()
     }
-  }, [stopAutoScroll])
+  }, [stopAutoScroll, cleanupDragSession])
 
   return { dragState, indicator, containerProps: { onPointerDown } }
 }

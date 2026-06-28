@@ -274,8 +274,8 @@ const ANTD_DIFFS: Array<{ title: string; desc: string }> = [
     desc: 'data-grid 兼容 antd v6 的 CSS variables 主题层（ConfigProvider 注入的 --ant-* 全套 token）。组件 token（theme.components.Table）也通过 transformToken + realToken 注入到 .dg-wrapper inline style。dark/light 主题随 ConfigProvider 切换。',
   },
   {
-    title: '虚拟行高走约定值（不测量）',
-    desc: '决策 1：虚拟模式不实现 measureRowRender / 动态行高测量；行高走 rowHeight（number 或函数）。决策 2：虚拟窗口按"收起状态"行高计算，展开内容（expandable）溢出渲染（牺牲性能换稳定）。',
+    title: '虚拟行高：RO 动态测量（measured-first + 约定兜底）',
+    desc: '决策 1：仅指不实现 antd measureRowRender 糟粕兼容 API（隐藏测量行重渲染），与虚拟路径采用的 virtuoso 式 RO 测量是两回事。虚拟路径行高：useRowMeasurements 实测每行真实 DOM 高（measured-first）+ getRowHeight 约定 rowHeight 未测兜底；非虚拟路径走约定 track 不测。决策 2：展开内容不参与虚拟窗口大小（窗口按"收起状态"行高算 offset/padding，展开溢出渲染，牺牲性能换稳定）。',
   },
   {
     title: 'size 同时兼容 v5 middle 与 v6 medium',

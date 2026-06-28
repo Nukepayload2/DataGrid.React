@@ -14,18 +14,18 @@
  * `.dg-compare__note`（说明区）位于 `.dg-compare` 容器之外（SplitDemo 中渲染为
  * 兄弟节点），恒居底部，横竖排都不变。
  *
- * === 任务 M：全局 dark/light 切换（`.dg-compare--dark` 修饰类 + `.dg-compare__theme-bar`）===
- *
- * `.dg-compare__theme-bar`：顶部主题控制条（antd Switch + 标签），放在 ConfigProvider 内
- *   （Switch 本身随主题变 dark）。light 下与 note 同风格（#fafafa 浅卡片）。
+ * === 任务 M：全局 dark/light 切换（`.dg-compare--dark` 修饰类）===
  *
  * `.dg-compare--dark`：isDark=true 时 SplitDemo 给 `.dg-compare` 容器加的修饰类。dark 下
- *   pane/title/note/控制条原硬编码浅色（#fff/#fafafa/#f0f0f0）会变成"深色表格坐在刺眼白底
+ *   pane/title/note 原硬编码浅色（#fff/#fafafa/#f0f0f0）会变成"深色表格坐在刺眼白底
  *   卡片里"，用**显式 dark 颜色**覆盖（参考 antd dark 默认值：colorBgContainer≈#141414、
  *   colorBgElevated≈#1d1d1d、border≈#303030、文字≈rgba(255,255,255,0.85/0.65)）。
  *   选显式颜色而非 token：antd v6 cssinjs 的 `--ant-*` 只挂在 antd 组件子树，chrome 在
  *   ConfigProvider 外层 div 上无 `--ant-*` 可消费，显式颜色最稳（不依赖 token 作用域）。
  *   与 `.dg-compare--sticky` 正交（两修饰类可同时存在）。
+ *
+ * （旧 `.dg-compare__theme-bar*` 顶部主题控制条已移除：顶栏全局 dark/light 切换是单一
+ *   真理源，SplitDemo 不再渲染内嵌主题控制条，相关 CSS 规则随之删除。）
  */
 
 .dg-compare {
@@ -116,51 +116,33 @@
   overflow: visible; /* 放开 sticky 滚动祖先（默认 overflow:auto 会拦截 sticky）；不自滚，交页面滚动 */
 }
 
-/* === 任务 M：主题控制条（顶部 dark/light Switch）=== */
-.dg-compare__theme-bar {
-  /* light 下与 note/title 同风格（浅卡片），dark 下由 .dg-compare__theme-bar--dark 覆盖
-   * （控制条是 .dg-compare 容器的兄弟节点，不在 .dg-compare--dark 后代作用域内）。 */
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
-  padding: 8px 16px;
-  background: #fafafa;
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
-  font-size: 13px;
-  color: rgba(0, 0, 0, 0.85);
-}
-
-.dg-compare__theme-label {
-  font-weight: 600;
-}
-
-.dg-compare__theme-hint {
-  color: rgba(0, 0, 0, 0.45);
-  font-size: 12px;
-}
-
-/* === 任务 M：dark chrome 覆盖 ===
+/* === 全局虚拟化开关 ON（.dg-compare--virtual）：限高 pane body ===
  *
- * isDark=true 时 SplitDemo 给三类节点分别加 dark 修饰类（覆盖原硬编码浅色为 antd dark
+ * 顶栏「Virtual」Switch ON 且 SplitDemo virtualizable !== false 时，容器加 .dg-compare--virtual。
+ * 给 pane body 限高（height:400px），让左 data-grid `.dg-data-area`（height:100% flex 链）
+ * resolve 到固定高度，虚拟窗口才有可滚动区域。右 antd 由各 demo 传 scroll.y 数字自管表体高。
+ *
+ * 不修改默认 .dg-compare__body 的 overflow 等规则（data-grid 内部 .dg-scroll 自管滚动，不双滚）。
+ * 与 .dg-compare--sticky / .dg-compare--dark 正交（仅新增独立规则）。
+ *
+ * 注意：stickyMode=true 的 demo virtualizable 通常为 false（虚拟化与 sticky 滚动祖先冲突），
+ * 故 .dg-compare--virtual 与 .dg-compare--sticky 一般不并存（但 CSS 上无强约束）。
+ */
+.dg-compare--virtual .dg-compare__body {
+  height: 400px;
+}
+
+/* === 任务 M：dark chrome 覆盖（主题控制条已弃用移除，仅保留 pane/title/note dark）===
+ *
+ * isDark=true 时 SplitDemo 给两类节点分别加 dark 修饰类（覆盖原硬编码浅色为 antd dark
  * 默认值；两侧表格本身由 ConfigProvider darkAlgorithm 驱动，不在此处处理，仅 chrome）：
  *
  *   - `.dg-compare--dark`（加在 .dg-compare 容器）→ pane/title 后代覆盖。
- *   - `.dg-compare__theme-bar--dark`（加在控制条，因其是容器兄弟节点，不在 --dark 作用域）。
  *   - `.dg-compare__note--dark`（加在 note，同为容器兄弟节点）。
+ *
+ * （旧 `.dg-compare__theme-bar*` 控制条规则已移除：顶栏全局 dark/light 切换是单一真理源，
+ *  SplitDemo 不再渲染内嵌主题控制条。）
  */
-
-/* 控制条 dark */
-.dg-compare__theme-bar--dark {
-  background: #1d1d1d;
-  border-color: #303030;
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.dg-compare__theme-bar--dark .dg-compare__theme-hint {
-  color: rgba(255, 255, 255, 0.45);
-}
 
 /* pane dark（pane 在 .dg-compare--dark 容器内，后代选择器可靠） */
 .dg-compare--dark .dg-compare__pane {

@@ -32,6 +32,29 @@ export interface DemoMeta {
   category: string
 }
 
+/** 按类别分组的 demo 集合（HomePage 卡片网格 + App Sider 菜单分组共用）。 */
+export interface CategoryGroup {
+  category: string
+  items: DemoMeta[]
+}
+
+/**
+ * 按 registry 声明顺序分组（保持稳定展示顺序，按首次出现排序）。
+ * 共享：HomePage 卡片网格 + App Sider 侧栏分组菜单。
+ */
+export function groupByCategory(list: DemoMeta[]): CategoryGroup[] {
+  const order: string[] = []
+  const map = new Map<string, DemoMeta[]>()
+  for (const d of list) {
+    if (!map.has(d.category)) {
+      map.set(d.category, [])
+      order.push(d.category)
+    }
+    map.get(d.category)!.push(d)
+  }
+  return order.map((category) => ({ category, items: map.get(category)! }))
+}
+
 /** 解析当前 hash 为路径段数组。 */
 function parseHash(): string[] {
   const raw = window.location.hash.replace(/^#\/?/, '')

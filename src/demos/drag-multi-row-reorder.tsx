@@ -28,11 +28,15 @@
  */
 
 import { useRef, useState } from 'react'
-import { Button, Space, Switch } from 'antd'
+import { Button, Space, Switch, theme } from 'antd'
 import type { FC } from 'react'
 import { Table } from '../table'
 import { useRowDragSort } from '../table'
 import type { ColumnType, TableRowSelection } from '../table'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（本 demo 非 SplitDemo 无自动限高，
+// 故用 div height:400 包裹 Table 给虚拟窗口提供固定可滚动高度）
+import { useVirtualization } from './VirtualizationContext'
+import { DemoToolbar } from './_compare/DemoToolbar'
 
 /** 本 demo 记录类型。 */
 interface RecordType {
@@ -87,11 +91,14 @@ const columns: ColumnType<RecordType>[] = [
 ]
 
 export default function DragMultiRowReorderDemo() {
+  const { token } = theme.useToken()
   const [dataSource, setDataSource] = useState<RecordType[]>(initialData)
   // 受控 selection（透传给 useRowDragSort 做成块重排判定）。
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
   // multiRowReorder 开关（默认 true，对齐 gridOptions.multiRowReorder 默认）。
   const [multiRowReorder, setMultiRowReorder] = useState(true)
+  // 全局虚拟化开关接入：开关 ON 时 Table 叠加 virtual=true + scroll.y，并用 div height:400 包裹
+  const { virtual } = useVirtualization()
 
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -114,15 +121,7 @@ export default function DragMultiRowReorderDemo() {
 
   return (
     <div style={{ padding: 24 }}>
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      <DemoToolbar>
         <Space>
           <Switch
             checked={multiRowReorder}
@@ -130,11 +129,11 @@ export default function DragMultiRowReorderDemo() {
             checkedChildren="MultiRowReorder"
             unCheckedChildren="MultiRowReorder"
           />
-          <span style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>
+          <span style={{ fontSize: 12, color: token.colorTextTertiary }}>
             已选 {selectedRowKeys.length} 行
           </span>
         </Space>
-        <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(0,0,0,0.65)' }}>
+        <div style={{ marginTop: 8, fontSize: 12, color: token.colorTextSecondary }}>
           操作：勾选多行（如 3 行）→ 拖其中任一选中行的手柄到别处 →
           {multiRowReorder
             ? '所有选中行成块移动到目标位置（保持相对顺序）。'
@@ -142,16 +141,24 @@ export default function DragMultiRowReorderDemo() {
           <br />
           边界：被拖行未选中→只移它；目标落在选中块内部→no-op。
         </div>
-      </div>
+      </DemoToolbar>
 
       <div ref={containerRef} style={{ position: 'relative' }} {...containerProps}>
-        <Table<RecordType>
-          rowKey="key"
-          columns={columns}
-          dataSource={dataSource}
-          rowSelection={rowSelection}
-          pagination={{}}
-        />
+        {/* 全局虚拟化开关接入：本 demo 非 SplitDemo（无自动限高），ON 时用固定 height:400 的
+            div 包裹 Table，给虚拟窗口提供可滚动高度；OFF 时不包（undefined），行为与改造前一致。 */}
+        <div style={virtual ? { height: 400 } : undefined}>
+          <Table<RecordType>
+            rowKey="key"
+            columns={columns}
+            dataSource={dataSource}
+            rowSelection={rowSelection}
+            pagination={{}}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应填满上方 400px 包裹层，
+               虚拟窗口才有滚动区；多行成块拖拽命中区在虚拟窗口内，正常接入）；OFF 时回 undefined，行为与改造前一致。 */
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
+          />
+        </div>
         {indicator.visible ? (
           <div
             aria-hidden="true"
@@ -161,14 +168,14 @@ export default function DragMultiRowReorderDemo() {
               left: indicator.left,
               right: indicator.right,
               height: 2,
-              background: '#1677ff',
+              background: token.colorPrimary,
               zIndex: 9999,
               pointerEvents: 'none',
               borderRadius: 1,
             }}
           />
         ) : null}
-        <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>
+        <div style={{ marginTop: 8, fontSize: 12, color: token.colorTextTertiary }}>
           当前拖拽：
           {dragState ? `from #${dragState.fromIndex + 1} → 目标 #${dragState.overIndex + 1}` : '无'}
           ；当前行顺序：{dataSource.map((r) => r.name).join(' / ')}

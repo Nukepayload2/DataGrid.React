@@ -49,7 +49,7 @@
  *    视觉等价：summary 在表体底部，Cell 按 index+colSpan 定位，fixed sticky bottom。
  */
 
-import { Flex, Table as AntdTable, Typography } from 'antd'
+import { Flex, Table as AntdTable, Typography, theme } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
@@ -60,6 +60,8 @@ import {
   type DataType,
   type FixedDataType,
 } from './_compare/summary.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高）
+import { useVirtualization } from './VirtualizationContext'
 
 const { Text } = Typography
 
@@ -98,6 +100,13 @@ const antdFixedColumns: TableColumnsType<FixedDataType> = [
 // ---------------------------------------------------------------------------
 
 export default function SummaryDemo() {
+  // 全局虚拟化开关接入：开关 ON 时两侧叠加 virtual=true。
+  // - 示例 1：ON 时叠加 scroll.y（两侧 pagination={false} → antd y:340，无分页条高需扣除）。
+  // - 示例 2：已自带 scroll（dg y:true 数据区域模式 / antd y:500 忠实官方），ON 时仅叠加 virtual
+  //   （从数据区域模式切到虚拟）；scroll 原值保留，与开关无关（fixed sticky bottom 仍生效）。
+  const { virtual } = useVirtualization()
+  const { token } = theme.useToken()
+
   return (
     <div style={{ padding: 24 }}>
       <Flex vertical gap="middle">
@@ -110,7 +119,7 @@ export default function SummaryDemo() {
             style={{
               marginBottom: 8,
               fontWeight: 600,
-              color: 'rgba(0,0,0,0.85)',
+              color: token.colorText,
             }}
           >
             示例 1：summary 函数计算总计（Total + Balance colSpan=2）
@@ -123,6 +132,10 @@ export default function SummaryDemo() {
                 columns={dgColumns}
                 dataSource={dataSource}
                 pagination={false}
+                /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
+                   限高）；OFF 时回 undefined，行为与改造前一致。 */
+                virtual={virtual}
+                scroll={virtual ? { y: true } : undefined}
                 summary={(pageData) => {
                   let totalBorrow = 0
                   let totalRepayment = 0
@@ -158,6 +171,10 @@ export default function SummaryDemo() {
                 columns={antdColumns}
                 dataSource={dataSource}
                 pagination={false}
+                /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:340（pagination={false} 无分页条，
+                   仅扣除表头~55 → 约 340 塞进 split pane 限高；OFF 时回 undefined）。 */
+                virtual={virtual}
+                scroll={virtual ? { y: 340 } : undefined}
                 summary={(pageData) => {
                   let totalBorrow = 0
                   let totalRepayment = 0
@@ -202,7 +219,7 @@ export default function SummaryDemo() {
             style={{
               marginBottom: 8,
               fontWeight: 600,
-              color: 'rgba(0,0,0,0.85)',
+              color: token.colorText,
             }}
           >
             示例 2：Table.Summary fixed sticky bottom（滚动固定底部）
@@ -222,6 +239,10 @@ export default function SummaryDemo() {
                   pagination={false}
                   scroll={{ x: 2000, y: true }}
                   bordered
+                  /* 全局虚拟化开关接入：本示例已自带限高 div(550) + scroll.y:true（M8 数据区域模式），
+                     开关 ON 时叠加 virtual=true，从 M8 切到 M4 虚拟；OFF 时不传 virtual，scroll.y 原值
+                     保留（fixed sticky bottom 仍生效），行为与改造前一致。 */
+                  virtual={virtual}
                   summary={() => (
                     <Table.Summary fixed>
                       <Table.Summary.Row>
@@ -240,6 +261,9 @@ export default function SummaryDemo() {
                 pagination={false}
                 scroll={{ x: 2000, y: 500 }}
                 bordered
+                /* 全局虚拟化开关接入：本示例已自带 scroll.y:500（M8 模式），开关 ON 时叠加 virtual=true
+                   切到 M4 虚拟；OFF 时不传 virtual，scroll.y 原值保留，行为与改造前一致。 */
+                virtual={virtual}
                 summary={() => (
                   <AntdTable.Summary fixed>
                     <AntdTable.Summary.Row>
@@ -261,9 +285,9 @@ export default function SummaryDemo() {
         style={{
           marginTop: 16,
           padding: 12,
-          background: '#fafafa',
+          background: token.colorFillQuaternary,
           borderRadius: 8,
-          color: 'rgba(0,0,0,0.65)',
+          color: token.colorTextSecondary,
           fontSize: 12,
           lineHeight: 1.8,
         }}

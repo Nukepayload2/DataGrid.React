@@ -74,6 +74,9 @@ import './compare.css'
 //   删除本地 isDark state + Switch + 内层 ConfigProvider theme={{algorithm}}。
 //   useTheme 读全局 themeMode → 拼 .dg-compare--dark 修饰类（chrome 显式 dark 颜色）。
 import { useTheme } from '../../theme/ThemeContext'
+// ★ 全局虚拟化开关：useVirtualization 读顶栏 Switch 状态（VirtualizationProvider 单一真理源）。
+//   virtualizable !== false && virtual 时给容器加 .dg-compare--virtual → compare.css 限高 pane body。
+import { useVirtualization } from '../VirtualizationContext'
 
 export interface SplitDemoProps {
   /** 左栏内容（通常是 data-grid Table）。 */
@@ -112,6 +115,21 @@ export interface SplitDemoProps {
    * 设 pane/body overflow:visible（不修改默认规则，只新增修饰类）。
    */
   stickyMode?: boolean
+  /**
+   * 是否受全局虚拟化开关影响（默认 true）。
+   *
+   * - **true（默认）**：该 demo 受顶栏「Virtual」Switch 控制——开关 ON 时容器加
+   *   `.dg-compare--virtual` 修饰类（compare.css 限高 pane body，让左 data-grid
+   *   `.dg-data-area` height:100% flex 链 resolve 到固定高度，虚拟窗口才有可滚动区域；
+   *   右 antd 由各 demo 传 `scroll.y` 数字自管表体高）。开关 OFF 时不限高、非虚拟。
+   * - **false**：不受全局开关影响。两类 demo 用 false：
+   *     1. **强制虚拟 demo**（如 virtual-list / drag-virtual-list）：自身永久 virtual=true、
+   *        自管高度，不消费本开关。
+   *     2. **冲突 demo**（如页面级 sticky sticky.tsx）：虚拟化与 sticky 滚动祖先冲突，排除。
+   *
+   * 与 `.dg-compare--sticky` / `.dg-compare--dark` 正交独立，可同时存在。
+   */
+  virtualizable?: boolean
 }
 
 export function SplitDemo({
@@ -121,6 +139,7 @@ export function SplitDemo({
   rightTitle = 'antd 6.4.4',
   minPaneWidth = 480,
   stickyMode = false,
+  virtualizable = true,
   children,
 }: SplitDemoProps) {
   // ★ 任务 T16：dark/light 改由 App 顶栏全局驱动（ThemeProvider 单一真理源）。
@@ -129,6 +148,9 @@ export function SplitDemo({
   //   algorithm 切换由 ThemeProvider 顶层 ConfigProvider 完成（两侧表格自动响应）。
   const { themeMode } = useTheme()
   const isDark = themeMode === 'dark'
+  // ★ 全局虚拟化开关：读顶栏 Switch 状态。virtualizable !== false && virtual 时容器加
+  //   .dg-compare--virtual（compare.css 限高 pane body）。virtualizable=false 的 demo 不参与。
+  const { virtual } = useVirtualization()
 
   // 把 minPaneWidth 作为 CSS 变量 --pane-min 写到容器，驱动纯 CSS flex-wrap 自适应。
   // React inline style 设 CSS 自定义属性需 cast（CSSProperties 不含任意自定义属性）。
@@ -139,11 +161,13 @@ export function SplitDemo({
   // 容器 className：基础 .dg-compare + 条件修饰类。
   //   - .dg-compare--sticky（stickyMode=true）：放开 sticky 上下文（pane/body overflow:visible）。
   //   - .dg-compare--dark（isDark=true）：chrome 显式 dark 颜色覆盖（pane/title/note）。
-  //   两个修饰类正交独立，可同时存在（sticky + dark demo 也能 dark）。
+  //   - .dg-compare--virtual（virtualizable && virtual）：限高 pane body，让虚拟窗口可滚动。
+  //   三个修饰类正交独立，可同时存在（sticky + dark + virtual demo 也能组合）。
   const containerClassName = [
     'dg-compare',
     stickyMode ? 'dg-compare--sticky' : '',
     isDark ? 'dg-compare--dark' : '',
+    virtualizable !== false && virtual ? 'dg-compare--virtual' : '',
   ]
     .filter(Boolean)
     .join(' ')

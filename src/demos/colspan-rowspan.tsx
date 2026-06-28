@@ -55,12 +55,15 @@
  */
 
 import { useState } from 'react'
-import { Space, Switch, Table as AntdTable } from 'antd'
+import { Space, Switch, Table as AntdTable, theme } from 'antd'
 import type { TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { data, sharedOnCell, type DataType } from './_compare/colspan-rowspan.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 左栏（data-grid）列定义
@@ -179,19 +182,16 @@ const antdColumns: NonNullable<TableProps<DataType>['columns']> = [
 export default function ColspanRowspanDemo() {
   // ★ 共享状态：同一个 bordered 同时驱动两侧（初值 true 对齐 antd demo）。
   const [bordered, setBordered] = useState(true)
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y（原两侧均无 scroll）
+  const { virtual } = useVirtualization()
+  // 控制条 chrome 文字色 token 化（colorTextSecondary≈rgba(0,0,0,0.65)），暗主题自适应。
+  const { token } = theme.useToken()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个 bordered 状态同时驱动两侧。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个 bordered 状态同时驱动两侧。
+          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0。 */}
+      <DemoToolbar>
         <Space>
           <Switch
             checked={bordered}
@@ -199,11 +199,11 @@ export default function ColspanRowspanDemo() {
             checkedChildren="Bordered"
             unCheckedChildren="Bordered"
           />
-          <span style={{ color: 'rgba(0,0,0,0.65)', fontSize: 12 }}>
+          <span style={{ color: token.colorTextSecondary, fontSize: 12 }}>
             同时驱动左右两栏
           </span>
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=480（窄表 6 列、无 scroll.x）→ 横排阈值 ≈ 480×2 + 16 = 976。
@@ -218,6 +218,14 @@ export default function ColspanRowspanDemo() {
             columns={dgColumns}
             dataSource={data}
             bordered={bordered}
+            /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll:{y:true}（data-grid 数据区域模式，
+               CSS 自适应填满 SplitDemo 给的 400px 限高，虚拟窗口才有滚动区；本 demo 仅 5 行故实际
+               不滚动，但 prop 接入保持开关语义完整）。
+               ★ 合并单元格 × 虚拟：M3×M4 组合，跨虚拟窗口边界的合并（rowSpan 跨越可见区裁剪边界）
+               是已知 §9 简化，本 demo 仅 5 行不触发，正常接入。
+               OFF 时 scroll=undefined，行为与改造前一致。 */
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
             pagination={{}}
           />
         }
@@ -226,6 +234,11 @@ export default function ColspanRowspanDemo() {
             columns={antdColumns}
             dataSource={data}
             bordered={bordered}
+            /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll:{y:300}（antd 默认渲染分页条，
+               扣除表头~55 + 分页条~50 → 约 300 塞进 split pane 限高）；
+               OFF 时 scroll=undefined，行为与改造前一致。 */
+            virtual={virtual}
+            scroll={virtual ? { y: 300 } : undefined}
           />
         }
       >

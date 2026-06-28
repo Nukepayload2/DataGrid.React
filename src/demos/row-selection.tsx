@@ -74,12 +74,15 @@
  */
 
 import { useState } from 'react'
-import { Divider, Radio, Space, Table as AntdTable } from 'antd'
+import { Divider, Radio, Space, Table as AntdTable, theme } from 'antd'
 import type { TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType, TableRowSelection } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { data, type RecordType } from './_compare/row-selection.shared'
+// 虚拟化开关（决策 7）：顶栏 Switch 全局驱动两侧 Table 的 virtual + scroll.y。
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 左栏（data-grid）列定义 —— 行为与改造前一致
@@ -165,6 +168,9 @@ export default function RowSelectionDemo() {
   // ★ 共享状态：同一组 state 同时驱动两侧表格。
   const [selectionType, setSelectionType] = useState<SelectionType>('checkbox')
   const [selectedKeys, setSelectedKeys] = useState<Array<React.Key>>([])
+  // 虚拟化开关（决策 7）：顶栏 Switch ON 时两侧 Table 接入 virtual + scroll.y。
+  const { virtual } = useVirtualization()
+  const { token } = theme.useToken()
 
   // 切换 type 时清空已选（避免 checkbox→radio 时残留多选），同步两侧。
   const handleTypeChange = (v: SelectionType) => {
@@ -207,17 +213,9 @@ export default function RowSelectionDemo() {
   return (
     <div style={{ padding: 24 }}>
       {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一组 state 同时驱动两侧表格。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      <DemoToolbar>
         <Space>
-          <span style={{ color: 'rgba(0,0,0,0.65)' }}>Selection Type:</span>
+          <span style={{ color: token.colorTextSecondary }}>Selection Type:</span>
           <Radio.Group
             onChange={(e) => handleTypeChange(e.target.value as SelectionType)}
             value={selectionType}
@@ -226,7 +224,7 @@ export default function RowSelectionDemo() {
             <Radio value="radio">Radio</Radio>
           </Radio.Group>
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=480（窄表，3 列无 scroll.x + 选择列=4 列）→ 横排阈值 ≈ 976。
@@ -245,12 +243,15 @@ export default function RowSelectionDemo() {
               ]}
             />
             {/* 分割线（antd demo 用 <Divider />，这里用 border-top 替代）。 */}
-            <div style={{ borderTop: '1px solid #f0f0f0', margin: '0 0 16px' }} />
+            <div style={{ borderTop: `1px solid ${token.colorBorderSecondary}`, margin: '0 0 16px' }} />
+            {/* 虚拟化（决策 7）：ON→virtual+scroll.y=true（CSS 自适应高度，SplitDemo 限高 pane body 提供可滚动区域）；OFF→不传，非虚拟全量 DOM（零回归）。 */}
             <Table<RecordType>
               rowSelection={dgRowSelection}
               columns={dgColumns}
               dataSource={data}
               pagination={{}}
+              virtual={virtual}
+              scroll={virtual ? { y: true } : undefined}
             />
           </div>
         }
@@ -264,10 +265,13 @@ export default function RowSelectionDemo() {
               <Radio value="radio">Radio</Radio>
             </Radio.Group>
             <Divider />
+            {/* 虚拟化（决策 7）：ON→virtual+scroll.y=300（有分页，antd scroll.y 须数字）；OFF→不传，非虚拟（零回归）。 */}
             <AntdTable<RecordType>
               rowSelection={antdRowSelection}
               columns={antdColumns}
               dataSource={data}
+              virtual={virtual}
+              scroll={virtual ? { y: 300 } : undefined}
             />
           </div>
         }

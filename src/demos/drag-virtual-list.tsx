@@ -43,11 +43,12 @@
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { Button, Space, Switch } from 'antd'
+import { Button, Space, Switch, theme } from 'antd'
 import type { CSSProperties, ReactNode } from 'react'
 import { Table } from '../table'
 import { useRowDragSort } from '../table'
 import type { ColumnType } from '../table'
+import { DemoToolbar } from './_compare/DemoToolbar'
 
 // ---------------------------------------------------------------------------
 // 数据生成
@@ -117,6 +118,7 @@ const columns: ColumnType<VRow>[] = [
 // ---------------------------------------------------------------------------
 
 export default function DragVirtualListDemo() {
+  const { token } = theme.useToken()
   const [autoScroll, setAutoScroll] = useState(true)
   // 重置数据用 key（点"Reset data"后变化 → useMemo 重生成，强制清掉拖拽 state）。
   const [resetTick, setResetTick] = useState(0)
@@ -169,15 +171,7 @@ export default function DragVirtualListDemo() {
   return (
     <div style={{ padding: 24 }}>
       {/* 控制条 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      <DemoToolbar>
         <Space wrap>
           <Switch
             checked={autoScroll}
@@ -188,11 +182,11 @@ export default function DragVirtualListDemo() {
           <Button onClick={() => { setDataSource(makeData(10000)); setResetTick((t) => t + 1) }}>
             Reset data (10000 rows)
           </Button>
-          <span style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>
+          <span style={{ fontSize: 12, color: token.colorTextTertiary }}>
             scrollTop: {Math.round(scrollTop)} px · 共 {totalCount} 行
           </span>
         </Space>
-        <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(0,0,0,0.65)' }}>
+        <div style={{ marginTop: 8, fontSize: 12, color: token.colorTextSecondary }}>
           <strong>T9 验收步骤：</strong>
           <ol style={{ margin: '4px 0 0', paddingLeft: 20 }}>
             <li>按住首列手柄图标开始拖拽某行。</li>
@@ -207,7 +201,7 @@ export default function DragVirtualListDemo() {
             </li>
           </ol>
         </div>
-      </div>
+      </DemoToolbar>
 
       {/* 表格容器（外层相对定位：指示线作为其子元素绝对定位）。 */}
       <div
@@ -235,14 +229,14 @@ export default function DragVirtualListDemo() {
               left: indicator.left,
               right: indicator.right,
               height: 2,
-              background: '#1677ff',
+              background: token.colorPrimary,
               zIndex: 9999,
               pointerEvents: 'none',
               borderRadius: 1,
             }}
           />
         ) : null}
-        <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>
+        <div style={{ marginTop: 8, fontSize: 12, color: token.colorTextTertiary }}>
           当前拖拽：
           {dragState
             ? `from #${dragState.fromIndex} (key=${dataSource[dragState.fromIndex]?.key}) → 目标 #${dragState.overIndex} (key=${dataSource[dragState.overIndex]?.key})`

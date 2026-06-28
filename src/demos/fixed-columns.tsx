@@ -51,7 +51,10 @@ import type { TableColumnsType } from 'antd'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { dataSource, type DataType } from './_compare/fixed-columns.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 左栏（data-grid）列定义 —— 与 antd demo 列结构逐字一致（含 Age sorter:true）
@@ -163,19 +166,14 @@ export default function FixedColumnsDemo() {
   // ★ 共享状态：同一个状态同时驱动两侧表格。
   const [bordered, setBordered] = useState(false)
   const [size, setSize] = useState<SizeOption>('medium')
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + 在原 scroll.x 上合并 scroll.y
+  const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。
+          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0。 */}
+      <DemoToolbar>
         <Space wrap>
           <Switch
             checked={bordered}
@@ -192,7 +190,7 @@ export default function FixedColumnsDemo() {
             ]}
           />
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=900 → 横排阈值 ≈ 900×2 + 16 = 1816px。纯 CSS flex-wrap 自适应（无 JS）。
@@ -211,7 +209,11 @@ export default function FixedColumnsDemo() {
               dataSource={dataSource}
               bordered={bordered}
               size={size === 'medium' ? 'middle' : 'large'}
-              scroll={{ x: 'max-content' }}
+              /* 全局虚拟化开关接入：ON 时在原 scroll.x 基础上叠加 virtual=true + scroll.y:true
+                 （CSS 自适应，填满 SplitDemo 给的 400px 限高，虚拟窗口才有滚动区）；
+                 OFF 时仅保留原 scroll.x:'max-content'，行为与改造前一致。 */
+              virtual={virtual}
+              scroll={virtual ? { x: 'max-content', y: true } : { x: 'max-content' }}
             />
           </>
         }
@@ -225,7 +227,14 @@ export default function FixedColumnsDemo() {
               dataSource={dataSource}
               bordered={bordered}
               size={size}
-              scroll={{ x: 'max-content' }}
+              /* 全局虚拟化开关接入：ON 时在原 scroll.x 基础上叠加 virtual=true + scroll.y:340
+                 （antd 不认 true；本 demo 无分页故扣除表头~55 → 约 340 才能塞进 ~400px pane）。
+                 ★ antd virtual 要求 scroll.x 必须为数字（字符串 'max-content' 会抛
+                 "scroll.x must be number" error），故 ON 时改传数字 2000（按列宽估算：
+                 2×100 fixed + 20×~120 普通列 ≈ 2600，取保险值 2000 足够触发横滚）；
+                 OFF 时回原 'max-content'，行为与改造前一致。data-grid 左栏不受此限（保持 'max-content'）。 */
+              virtual={virtual}
+              scroll={virtual ? { x: 2000, y: 340 } : { x: 'max-content' }}
               pagination={false}
             />
           </>

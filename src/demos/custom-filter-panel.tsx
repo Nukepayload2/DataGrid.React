@@ -89,7 +89,7 @@
 
 import { useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
-import { Button, Input, Space, Switch, Table as AntdTable } from 'antd'
+import { Button, Input, Space, Switch, Table as AntdTable, theme } from 'antd'
 import type { InputRef, TableProps } from 'antd'
 import type { FilterDropdownProps as AntdFilterDropdownProps } from 'antd/es/table/interface'
 import type { TableColumnType as AntdTableColumnType } from 'antd'
@@ -101,7 +101,10 @@ import type {
   TableColumnType,
 } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { data, type DataIndex, type RecordType } from './_compare/custom-filter-panel.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（SplitDemo pane 自动限高，虚拟窗口才有滚动区）
+import { useVirtualization } from './VirtualizationContext'
 
 /**
  * 内联 SearchOutlined（放大镜）图标——避免直接依赖 @ant-design/icons（仅 antd 间接依赖）。
@@ -133,6 +136,8 @@ function useDgColumnSearch() {
   const [searchedColumn, setSearchedColumn] = useState('')
   // antd Input ref（透传到内部 input）；用 HTMLInputElement 兼容。
   const searchInput = useRef<HTMLInputElement>(null)
+  // 主题 token：filterIcon 激活态色 + react-highlight-words 高亮命中色 token 化（暗主题自适应）。
+  const { token } = theme.useToken()
 
   const handleSearch = (
     selectedKeys: Array<React.Key>,
@@ -211,7 +216,7 @@ function useDgColumnSearch() {
       </div>
     ),
     filterIcon: (filtered: boolean) => (
-      <SearchOutlined style={{ color: filtered ? '#1677ff' : undefined }} />
+      <SearchOutlined style={{ color: filtered ? token.colorPrimary : undefined }} />
     ),
     onFilter: (value, record) =>
       record[dataIndex]
@@ -228,7 +233,7 @@ function useDgColumnSearch() {
     render: (text: unknown) =>
       searchedColumn === dataIndex ? (
         <Highlighter
-          highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+          highlightStyle={{ backgroundColor: token.colorWarningBorderHover, padding: 0 }}
           searchWords={[searchText]}
           autoEscape
           textToHighlight={text ? String(text) : ''}
@@ -249,6 +254,8 @@ function useAntdColumnSearch() {
   const [searchText, setSearchText] = useState('')
   const [searchedColumn, setSearchedColumn] = useState('')
   const searchInput = useRef<InputRef>(null)
+  // 主题 token：与左栏同款（filterIcon 激活态色 + react-highlight-words 高亮命中色 token 化，暗主题自适应）。
+  const { token } = theme.useToken()
 
   const handleSearch = (
     selectedKeys: string[],
@@ -319,7 +326,7 @@ function useAntdColumnSearch() {
       </div>
     ),
     filterIcon: (filtered: boolean) => (
-      <SearchOutlined style={{ color: filtered ? '#1677ff' : undefined }} />
+      <SearchOutlined style={{ color: filtered ? token.colorPrimary : undefined }} />
     ),
     onFilter: (value, record) =>
       record[dataIndex]
@@ -336,7 +343,7 @@ function useAntdColumnSearch() {
     render: (text) =>
       searchedColumn === dataIndex ? (
         <Highlighter
-          highlightStyle={{ backgroundColor: '#ffc069', padding: 0 }}
+          highlightStyle={{ backgroundColor: token.colorWarningBorderHover, padding: 0 }}
           searchWords={[searchText]}
           autoEscape
           textToHighlight={text ? text.toString() : ''}
@@ -356,6 +363,9 @@ function useAntdColumnSearch() {
 export default function CustomFilterPanelDemo() {
   // ★ 共享控制条状态：Bordered 开关同时驱动两侧。
   const [bordered, setBordered] = useState(false)
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y（原 custom-filter-panel demo 无
+  // scroll，ON 用 dg {y:true}/antd {y:280}；OFF 回 undefined，行为与改造前一致）。
+  const { virtual } = useVirtualization()
 
   // 两侧各自独立的搜索 state（忠实各自复刻，见文件头说明）。
   const dgGetColumnSearchProps = useDgColumnSearch()
@@ -415,16 +425,9 @@ export default function CustomFilterPanelDemo() {
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。Bordered 开关同时驱动两侧。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。Bordered 开关同时驱动两侧。
+          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0。 */}
+      <DemoToolbar>
         <Space>
           <Switch
             checked={bordered}
@@ -433,7 +436,7 @@ export default function CustomFilterPanelDemo() {
             unCheckedChildren="Bordered"
           />
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=480（窄表，3 列；Name/Age 有 width 百分比 + Address 自适应）→ 横排阈值 ≈ 976。
@@ -447,6 +450,11 @@ export default function CustomFilterPanelDemo() {
             dataSource={data}
             bordered={bordered}
             pagination={{}}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
+               pane 限高，虚拟窗口才有滚动区；filterDropdown 下拉是表头 popover，不受虚拟化影响）；
+               OFF 时回 undefined，行为与改造前一致。 */
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
           />
         }
         right={
@@ -454,6 +462,11 @@ export default function CustomFilterPanelDemo() {
             columns={antdColumns}
             dataSource={data}
             bordered={bordered}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且表头/默认
+               分页画在 scroll.y 之外，需扣除表头~55 与分页条~64 → 约 280 才能塞进 pane 限高；
+               OFF 时回 undefined，行为与改造前一致）。 */
+            virtual={virtual}
+            scroll={virtual ? { y: 280 } : undefined}
           />
         }
       >
@@ -463,13 +476,15 @@ export default function CustomFilterPanelDemo() {
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               三列均用 <code>filterDropdown</code>（antd Input 搜索 + Search/Reset/Filter/close 四按钮）
-              + <code>filterIcon</code>（放大镜，激活态蓝 <code>#1677ff</code>）+ <code>onFilter</code>
+              + <code>filterIcon</code>（放大镜，激活态 <code>colorPrimary</code>）+ <code>onFilter</code>
               + <code>filterDropdownProps.onOpenChange</code>（打开时聚焦 Input）。
             </li>
             <li>
               <code>confirm()</code> 应用搜索词；<code>confirm({'{ closeDropdown: false }'})</code>
               应用但保持打开；<code>clearFilters()</code> 清空（Reset）；<code>close()</code> 仅关闭。
-              命中单元格文本高亮（react-highlight-words，黄色 <code>#ffc069</code>）。
+              命中单元格文本高亮（react-highlight-words，<code>colorWarningBorderHover</code>
+              —— 对齐 antd 官方 custom-filter-panel 的高亮浅黄 <code>#ffc069</code>；
+              light <code>#ffd666</code> 最接近，dark 跟随主题）。
             </li>
             <li>
               <strong>Address 列</strong>同时支持 <code>sorter</code>（点表头排序）+

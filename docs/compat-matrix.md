@@ -193,7 +193,7 @@
 
 | 字段 | 归属 | 说明 | antd 有无 |
 |------|------|------|-----------|
-| `gridOptions.rowHeight` / `minRowHeight` / `maxRowHeight` | 表级 | 行高约定（虚拟化用，antd 行高随内容）。 | 无 |
+| `gridOptions.rowHeight` / `minRowHeight` / `maxRowHeight` | 表级 | 行高约定：非虚拟路径作 grid track（不测）；虚拟路径作 RO 测量的未测兜底/初值（measured-first，antd 行高随内容）。 | 无 |
 | `gridOptions.headerHeight` | 表级 | 表头高度约定。 | 无 |
 | `gridOptions.resizable` / `resizableMinWidth` / `resizableMaxWidth` | 表级 | 列宽拖拽调整（antd v6 核查无 resizable）。 | 无 |
 | `gridOptions.autoScrollOnDrag` | 表级（规划）| 拖到边缘自动滚动。见 `docs/ag-grid-drag-candidates.md`。 | 无 |

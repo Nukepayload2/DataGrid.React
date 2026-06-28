@@ -34,12 +34,15 @@
  */
 
 import { useState } from 'react'
-import { Space, Switch, Table as AntdTable } from 'antd'
+import { Space, Switch, Table as AntdTable, theme } from 'antd'
 import type { TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { data, fixedData, type FixedRow, type RowType } from './_compare/bordered.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 示例 1 列定义
@@ -145,18 +148,17 @@ const antdColumnsExample2: NonNullable<TableProps<FixedRow>['columns']> = [
 export default function BorderedDemo() {
   // ★ 共享状态：同一个 bordered 同时驱动两侧 + 示例 1/示例 2（初值 true 对齐 antd demo）。
   const [bordered, setBordered] = useState(true)
+  // 全局虚拟化开关接入：开关 ON 时两栏（含示例 1/示例 2）叠加 virtual=true + scroll.y
+  const { virtual } = useVirtualization()
+  // 控制条 chrome 文字色 token 化（colorTextSecondary≈rgba(0,0,0,0.65)），暗主题自适应。
+  const { token } = theme.useToken()
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* ★ 共享控制条：全宽，在最上方。同一个 bordered 状态同时驱动两侧 + 两示例。 */}
-      <div
-        style={{
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      {/* ★ 共享控制条：全宽，在最上方。同一个 bordered 状态同时驱动两侧 + 两示例。
+          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0。
+          外层容器用 gap:24 控制间距，故 DemoToolbar marginBottom 清零避免双重间距。 */}
+      <DemoToolbar style={{ marginBottom: 0 }}>
         <Space>
           <Switch
             checked={bordered}
@@ -164,11 +166,11 @@ export default function BorderedDemo() {
             checkedChildren="Bordered"
             unCheckedChildren="Bordered"
           />
-          <span style={{ color: 'rgba(0,0,0,0.65)', fontSize: 12 }}>
+          <span style={{ color: token.colorTextSecondary, fontSize: 12 }}>
             同时驱动下方两示例左右两栏
           </span>
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/* === 示例 1：bordered + title/footer（复刻 antd 官方 bordered demo）=== */}
       <div>
@@ -192,6 +194,10 @@ export default function BorderedDemo() {
               //   disabled 态分页条；data-grid omit=不渲染）。补 pagination={{}} 启用默认分页器，
               //   两侧分页条存在性一致（disabled 态在 ≤pageSize 行时无视觉可点页码）。
               pagination={{}}
+              /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
+                 给的 400px 限高，虚拟窗口才有滚动区）；OFF 时回 undefined，行为与改造前一致。 */
+              virtual={virtual}
+              scroll={virtual ? { y: true } : undefined}
             />
           }
           right={
@@ -201,6 +207,11 @@ export default function BorderedDemo() {
               bordered={bordered}
               title={() => 'Header'}
               footer={() => 'Footer'}
+              /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且两侧均有
+                 分页条，需扣除表头~55 与分页条~64 → 约 280 才能塞进 ~400px pane；OFF 时回 undefined，
+                 行为与改造前一致）。 */
+              virtual={virtual}
+              scroll={virtual ? { y: 280 } : undefined}
             />
           }
         >
@@ -265,7 +276,11 @@ export default function BorderedDemo() {
               columns={dgColumnsExample2}
               dataSource={fixedData}
               bordered={bordered}
-              scroll={{ x: 'max-content' }}
+              /* 全局虚拟化开关接入：ON 时在原 scroll.x 基础上叠加 virtual=true + scroll.y:true
+                 （CSS 自适应，填满 SplitDemo 给的 400px 限高，虚拟窗口才有滚动区）；
+                 OFF 时仅保留原 scroll.x:'max-content'，行为与改造前一致。 */
+              virtual={virtual}
+              scroll={virtual ? { x: 'max-content', y: true } : { x: 'max-content' }}
               // ★ 对齐右栏 antd 默认分页（同示例 1：antd 默认渲染分页条，data-grid omit=无）。
               pagination={{}}
             />
@@ -275,7 +290,15 @@ export default function BorderedDemo() {
               columns={antdColumnsExample2}
               dataSource={fixedData}
               bordered={bordered}
-              scroll={{ x: 'max-content' }}
+              /* 全局虚拟化开关接入：ON 时在原 scroll.x 基础上叠加 virtual=true + scroll.y:280
+                 （antd 不认 true；本示例两侧均有分页条，需扣除表头~55 与分页条~64 → 约 280 才能
+                 塞进 ~400px pane）。
+                 ★ antd virtual 要求 scroll.x 必须为数字（字符串 'max-content' 会抛
+                 "scroll.x must be number" error），故 ON 时改传数字 2000（按列宽估算：
+                 2×120 fixed + 5×~120 普通列 + 1×100 Action ≈ 940，取保险值 2000 足够触发横滚）；
+                 OFF 时回原 'max-content'，行为与改造前一致。data-grid 左栏不受此限（保持 'max-content'）。 */
+              virtual={virtual}
+              scroll={virtual ? { x: 2000, y: 280 } : { x: 'max-content' }}
             />
           }
         >

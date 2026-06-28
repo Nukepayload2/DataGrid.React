@@ -35,12 +35,15 @@
  * 5. 右栏说明区文字清晰、静态基线 Table 渲染正确（同数据，无拖拽）。
  */
 import { useState } from 'react'
-import { Space, Switch, Table as AntdTable, Tag, InputNumber, Flex } from 'antd'
+import { Space, Switch, Table as AntdTable, Tag, InputNumber, Flex, theme } from 'antd'
 import type { TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { data, type RecordType } from './_compare/resizable.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
+import { useVirtualization } from './VirtualizationContext'
 
 /**
  * 左栏内联最小 Tag（data-grid 不依赖 antd Tag；视觉等价 antd 预设色 blue）。
@@ -178,17 +181,18 @@ export default function ResizableDemo() {
   const [resizable, setResizable] = useState(true)
   const [minWidth, setMinWidth] = useState(30)
   const [maxWidth, setMaxWidth] = useState(400)
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y（原两侧均无 scroll）
+  const { virtual } = useVirtualization()
+  // 主题 token：控制条内 hint 文字色 token 化（colorTextTertiary≈rgba(0,0,0,0.45)），暗主题自适应。
+  const { token } = theme.useToken()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 控制条：仅驱动左栏 data-grid（右栏 antd 无 resizable 能力，故不作用于右栏）。 */}
-      <div
+      {/* ★ 控制条：仅驱动左栏 data-grid（右栏 antd 无 resizable 能力，故不作用于右栏）。
+          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0；
+          原 flex 布局（wrap/gap/alignItems）通过 style 透传保留。 */}
+      <DemoToolbar
         style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
           display: 'flex',
           flexWrap: 'wrap',
           gap: '12px 24px',
@@ -225,10 +229,10 @@ export default function ResizableDemo() {
             addonAfter="px"
           />
         </Space>
-        <span style={{ color: 'rgba(0,0,0,0.45)', fontSize: 12 }}>
+        <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>
           控制条仅作用于左栏 data-grid（右栏 antd 无 resizable 原生能力）
         </span>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=480（窄表，5 列无 scroll.x）→ 横排阈值 ≈ 976。
@@ -240,6 +244,11 @@ export default function ResizableDemo() {
           <Table<RecordType>
             columns={dgColumns}
             dataSource={data}
+            /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll:{y:true}（data-grid 数据区域模式，
+               CSS 自适应填满 SplitDemo 给的 400px 限高，虚拟窗口才有滚动区）；
+               OFF 时 scroll=undefined，行为与改造前一致。 */
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
             gridOptions={{
               resizable,
               resizableMinWidth: minWidth,
@@ -252,12 +261,12 @@ export default function ResizableDemo() {
             <div
               style={{
                 padding: 12,
-                background: '#fff7e6',
-                border: '1px solid #ffd591',
+                background: token.colorWarningBg,
+                border: `1px solid ${token.colorWarningBorder}`,
                 borderRadius: 6,
                 marginBottom: 12,
                 fontSize: 12,
-                color: 'rgba(0,0,0,0.85)',
+                color: token.colorText,
                 lineHeight: 1.7,
               }}
             >
@@ -269,6 +278,11 @@ export default function ResizableDemo() {
             <AntdTable<RecordType>
               columns={antdColumns}
               dataSource={data}
+              /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll:{y:340}（本右栏 antd 显式
+                 pagination={false} 无分页条，扣除表头~55 → 约 340 塞进 split pane 限高）；
+                 OFF 时 scroll=undefined，行为与改造前一致。 */
+              virtual={virtual}
+              scroll={virtual ? { y: 340 } : undefined}
               pagination={false}
             />
           </>

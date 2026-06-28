@@ -53,6 +53,8 @@ import type { TableColumnsType, TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType, Expandable } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+// 全局虚拟化开关接入：开关 ON 时主表叠加 virtual + scroll.y（子表是展开内容，不动）
+import { useVirtualization } from './VirtualizationContext'
 import {
   dataSource,
   expandedDataSource,
@@ -181,6 +183,8 @@ export default function NestTableBorderDebugDemo() {
   // D1 核心：父子 bordered 各自受控（独立 Switch）——两侧共享同一组 state。
   const [rootTableBordered, setRootTableBordered] = useState(true)
   const [childTableBordered, setChildTableBordered] = useState(true)
+  // 全局虚拟化开关接入：开关 ON 时主表叠加 virtual=true + scroll.y（子表是展开内容，不动）
+  const { virtual } = useVirtualization()
 
   // 左栏（data-grid）expandable：expandedRowRender 闭包捕获 childTableBordered，
   // 切换 Switch 时主表 columnTree 重建，子 Table 用新 bordered 重新渲染
@@ -248,6 +252,11 @@ export default function NestTableBorderDebugDemo() {
             //   disabled 态分页条；data-grid omit=不渲染）。主表补 pagination={{}} 启用默认分页器。
             //   子表（expandedRowRender 内）两侧均 pagination={false}，不动。
             pagination={{}}
+            /* 全局虚拟化开关接入：ON 时主表 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
+               给的限高，虚拟窗口才有滚动区）；OFF 时回 undefined，行为与改造前一致。
+               ★ 仅主表接入——子表是 expandedRowRender 展开内容，不动。 */
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
           />
         }
         right={
@@ -258,6 +267,11 @@ export default function NestTableBorderDebugDemo() {
             expandable={antdExpandable}
             dataSource={dataSource}
             bordered={rootTableBordered}
+            /* 全局虚拟化开关接入：ON 时主表 virtual=true + scroll.y:300（antd 不认 true，数字像素高度）；
+               OFF 时回 undefined，行为与改造前一致。
+               ★ 仅主表接入——子表是 expandedRowRender 展开内容，不动。 */
+            virtual={virtual}
+            scroll={virtual ? { y: 300 } : undefined}
           />
         }
       >

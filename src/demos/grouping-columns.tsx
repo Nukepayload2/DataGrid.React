@@ -41,7 +41,10 @@ import type { TableColumnsType } from 'antd'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { getData, type DataType } from './_compare/grouping-columns.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 左栏（data-grid）列定义
@@ -234,21 +237,16 @@ export default function GroupingColumnsDemo() {
   const [bordered, setBordered] = useState(true)
   const [size, setSize] = useState<SizeOption>('medium')
   const [count, setCount] = useState<number>(100)
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + 在原 scroll 基础上合并 scroll.y
+  const { virtual } = useVirtualization()
 
   const data = getData(count)
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。
+          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0。 */}
+      <DemoToolbar>
         <Space wrap>
           <Switch
             checked={bordered}
@@ -273,7 +271,7 @@ export default function GroupingColumnsDemo() {
             ]}
           />
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=900 → 横排阈值 ≈ 900×2 + 16 = 1816px。纯 CSS flex-wrap 自适应（无 JS）。
@@ -315,6 +313,10 @@ export default function GroupingColumnsDemo() {
               dataSource={data}
               bordered={bordered}
               size={size === 'medium' ? 'middle' : 'large'}
+              /* 全局虚拟化开关接入：ON 时叠加 virtual=true；scroll 保持原 {x:'calc(700px+50%)', y:true}
+                 （data-grid 接受字符串 x + y:true 数据区域模式，已有 473px 父高限高，虚拟滚动区生效）；
+                 OFF 时回原值（原本就是 y:true，行为与改造前一致）。 */
+              virtual={virtual}
               scroll={{ x: 'calc(700px + 50%)', y: true }}
               /* pagination={{}}：对齐 antd 默认分页条（antd 6.4.4 对任意行数都渲染 .ant-pagination）。
                  两侧分页器存在性对齐，便于对照。 */
@@ -331,7 +333,14 @@ export default function GroupingColumnsDemo() {
             dataSource={data}
             bordered={bordered}
             size={size}
-            scroll={{ x: 'calc(700px + 50%)', y: 47 * 5 }}
+            /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll.y:300（antd 默认渲染分页条，
+               扣除表头~55 + 分页条~50 → 约 300 塞进 split pane 限高）。
+               ★ antd virtual 要求 scroll.x 必须为数字（calc 字符串会抛 "scroll.x must be number"
+               error），故 ON 时 x 改传数字 2000（按列宽估算：Name100+Age150+Street150+Building100+
+               Door100+CompAddr200+Gender80 ≈ 880，加 calc(700px+50%) 扩展，取保险值 2000 足够触发横滚）；
+               OFF 时回原 {x:'calc(700px+50%)', y:47*5}，行为与改造前一致。 */
+            virtual={virtual}
+            scroll={virtual ? { x: 2000, y: 300 } : { x: 'calc(700px + 50%)', y: 47 * 5 }}
           />
         }
       >

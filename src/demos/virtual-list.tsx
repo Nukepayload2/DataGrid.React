@@ -62,6 +62,7 @@ import type { GetRef, TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType, TableRef } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { getData, type RecordType } from './_compare/virtual-list.shared'
 
 /** antd Table 的 ref 实例类型（含 scrollTo）。antd 顶层未导出 TableRef，用 GetRef 取得。 */
@@ -325,16 +326,10 @@ export default function VirtualListDemo() {
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。
+          DemoToolbar 用 useToken（light≈#fff/#f0f0f0、dark/自定义 token 自适应），替代硬编码底/边色。
+          仅容器化，内部 Bordered/Fixed/Expandable/Empty/Merged/Count/scrollTo 控件与虚拟/scroll/data 逻辑不动。 */}
+      <DemoToolbar>
         <Space wrap>
           <Switch
             checked={bordered}
@@ -391,7 +386,7 @@ export default function VirtualListDemo() {
             </>
           ) : null}
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=1000 → 写入 CSS 变量 --pane-min:1000px，横排阈值 ≈ 1000×2 + 16 = 2016px。
@@ -423,7 +418,8 @@ export default function VirtualListDemo() {
               rowSelection={
                 expanded ? undefined : { type: 'radio', columnWidth: 48 }
               }
-              // 行高约定：每行 40px（决策 2：虚拟窗口按此约定算，不测量真实 DOM 高）。
+              // 行高约定：每行 40px 作未测兜底/初值；虚拟窗口 offset/padding 由 RO 实测真实高驱动
+              // （measured-first + 约定 40px 兜底，详见 task-plan §1.2 决策 2）。
               gridOptions={{ rowHeight: 40, headerHeight: 40 }}
             />
           </div>

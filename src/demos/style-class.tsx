@@ -263,6 +263,9 @@ export default function StyleClassDemo() {
       */}
       <SplitDemo
         minPaneWidth={600}
+        // ★ virtualizable={false}：本 demo 自带局部 Virtual 开关（演示 virtual + styles 组合），
+        // 不接全局开关——避免全局开关的限高与自带的 virtual 演示叠加冲突。
+        virtualizable={false}
         left={
           <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
             {/* 对象 styles 块（含 virtual + scroll.y）。 */}
@@ -396,6 +399,10 @@ export default function StyleClassDemo() {
             <li>
               <strong>pagination.item</strong>（已知差异）：antd Pagination 原生有
               <code> itemClassName</code>；data-grid <code>pagination.item</code> 为近似单项样式。
+            </li>
+            <li>
+              <strong>全局虚拟化开关不生效</strong>：本 demo 自带局部 Virtual 开关
+              （演示 virtual + styles 组合），不接全局开关。
             </li>
           </ul>
         </div>

@@ -44,7 +44,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Button, Space, Switch, Table as AntdTable } from 'antd'
+import { Button, Space, Switch, Table as AntdTable, theme } from 'antd'
 import type { TableColumnsType } from 'antd'
 import type { CSSProperties, HTMLAttributes } from 'react'
 import type { FC, ReactNode } from 'react'
@@ -52,7 +52,10 @@ import { Table } from '../table'
 import { useRowDragSort } from '../table'
 import type { ColumnType } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { initialData, type RecordType } from './_compare/drag-sorting-handler.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（手柄拖拽命中区在虚拟窗口内，正常接入）
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 左栏（data-grid）内联 HolderOutlined SVG —— 避免 import @ant-design/icons
@@ -182,8 +185,18 @@ const antdColumns: TableColumnsType<RecordType> = [
 // 左栏（data-grid）—— 复用 S17 useRowDragSort + handleSelector 限定手柄列
 // ---------------------------------------------------------------------------
 
-function DataGridPane({ bordered, autoScroll }: { bordered: boolean; autoScroll: boolean }) {
+function DataGridPane({
+  bordered,
+  autoScroll,
+  virtual,
+}: {
+  bordered: boolean
+  autoScroll: boolean
+  virtual: boolean
+}) {
   const [dataSource, setDataSource] = useState<RecordType[]>(initialData)
+  // 主题 token：拖拽状态 hint 文字色 token 化（colorTextTertiary≈rgba(0,0,0,0.45)），暗主题自适应。
+  const { token } = theme.useToken()
 
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -207,6 +220,11 @@ function DataGridPane({ bordered, autoScroll }: { bordered: boolean; autoScroll:
         bordered={bordered}
         // 对齐右栏 antd 默认分页（antd 对任意数据都渲染 .ant-pagination，data-grid 不传=无分页条）。
         pagination={{}}
+        /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
+           给的限高，虚拟窗口才有滚动区；手柄拖拽命中区在虚拟窗口内，正常接入）；
+           OFF 时回 undefined，行为与改造前一致。 */
+        virtual={virtual}
+        scroll={virtual ? { y: true } : undefined}
       />
       {indicator.visible ? (
         <div
@@ -217,14 +235,14 @@ function DataGridPane({ bordered, autoScroll }: { bordered: boolean; autoScroll:
             left: indicator.left,
             right: indicator.right,
             height: 2,
-            background: '#1677ff',
+            background: token.colorPrimary,
             zIndex: 9999,
             pointerEvents: 'none',
             borderRadius: 1,
           }}
         />
       ) : null}
-      <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>
+      <div style={{ marginTop: 8, fontSize: 12, color: token.colorTextTertiary }}>
         当前拖拽：
         {dragState ? `from #${dragState.fromIndex + 1} → 目标 #${dragState.overIndex + 1}` : '无'}
       </div>
@@ -236,7 +254,13 @@ function DataGridPane({ bordered, autoScroll }: { bordered: boolean; autoScroll:
 // 右栏（antd）—— 忠实复刻官方 drag-sorting-handler.tsx
 // ---------------------------------------------------------------------------
 
-function AntdPane({ bordered }: { bordered: boolean }) {
+function AntdPane({
+  bordered,
+  virtual,
+}: {
+  bordered: boolean
+  virtual: boolean
+}) {
   const [dataSource, setDataSource] = useState<RecordType[]>(initialData)
 
   const onDragEnd = ({ active, over }: DragEndEvent) => {
@@ -258,6 +282,10 @@ function AntdPane({ bordered }: { bordered: boolean }) {
           columns={antdColumns}
           dataSource={dataSource}
           bordered={bordered}
+          /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:300（antd 不认 true，数字像素高度）；
+             OFF 时回 undefined，行为与改造前一致。 */
+          virtual={virtual}
+          scroll={virtual ? { y: 300 } : undefined}
         />
       </SortableContext>
     </DndContext>
@@ -273,18 +301,16 @@ export default function DragSortingHandlerDemo() {
   const [bordered, setBordered] = useState(false)
   // T9：autoScrollOnDrag 开关（仅驱动左栏 data-grid；右栏 antd 无对应概念）。
   const [autoScroll, setAutoScroll] = useState(true)
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y
+  const { virtual } = useVirtualization()
+  // 注：根组件不再消费 theme token（控制条已迁移 DemoToolbar，子组件 DataGridPane 自调 useToken）。
 
   return (
     <div style={{ padding: 24 }}>
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      {/* ★ 控制条：Bordered + AutoScroll 开关。
+          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0；
+          ★ 仅 chrome 控制条容器化，不动拖拽逻辑/useRowDragSort（离散让位已在 hook 实现）。 */}
+      <DemoToolbar>
         <Space>
           <Switch
             checked={bordered}
@@ -300,7 +326,7 @@ export default function DragSortingHandlerDemo() {
             unCheckedChildren="AutoScroll"
           />
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=480（窄表，4 列无 scroll.x）→ 横排阈值 ≈ 480×2 + 16 = 976。
@@ -308,8 +334,8 @@ export default function DragSortingHandlerDemo() {
       */}
       <SplitDemo
         minPaneWidth={480}
-        left={<DataGridPane bordered={bordered} autoScroll={autoScroll} />}
-        right={<AntdPane bordered={bordered} />}
+        left={<DataGridPane bordered={bordered} autoScroll={autoScroll} virtual={virtual} />}
+        right={<AntdPane bordered={bordered} virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 B18）：</strong>左右并排呈现 data-grid（自研 pointer 手柄列拖拽）

@@ -121,9 +121,11 @@
  * ★ 与 dg-sticky 互斥：sticky 是页面级（grid 不包 overflow 容器），data-area 是容器内（包 overflow）。
  *   同时存在时 dg-sticky 优先（sticky 不消费 scroll.y:true 的容器内固定语义）。
  *
- * ★ loading（Spin 包裹）的影响：loading 启用时 tableContent 被 antd Spin 包裹（.ant-spin-nested-loading），
- *   该包裹层不是 flex item，会破坏 .dg-data-area 的 flex 链。当前简化：loading 模式下 data-area
- *   高度自适应可能不完美（用户可自行处理 Spin 包裹层高度）；scroll.y:true + loading 共存场景较少。
+ * ★ loading（Spin 包裹）的影响：loading 启用时 tableContent 被 antd v6 Spin 包裹（根 `.ant-spin` +
+ *   内部 `.ant-spin-container`，两层 antd 默认 display:block），会破坏 .dg-data-area 的 flex 链。
+ *   **已修复**：见下方 line 164+ 的「loading（Spin 包裹）× 数据区域模式 flex 链修复」规则——把 Spin
+ *   两层透明化为 flex column + flex:1，M4 虚拟与 M8 固定表头两条路径共用同一修复。loading=undefined
+ *   （不传 loading，如 fixed-header）不渲染 Spin，flex 链原生完整，零变化。
  */
 .dg-wrapper.dg-data-area {
   display: flex;
@@ -159,6 +161,71 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* === ★ loading（Spin 包裹）× 数据区域模式 flex 链修复（P0 bug，M4 虚拟 + M8 固定表头共用）===
+ *
+ * 【背景】Table.tsx:2288-2292 在 loading prop 非 undefined（含 boolean loading={false}）时用 antd `<Spin>`
+ *   包裹 tableContent。antd v6 Spin（components/spin/index.tsx:247-291）**无论 spinning true/false**，
+ *   只要 hasChildren 就渲染同一结构——根 `<div class="ant-spin">` + 内部 `<div class="ant-spin-container">`
+ *   （v5 的 `.ant-spin-nested-loading` 在 v6 已取消，根恒为 `.ant-spin`）。两层 antd 默认 `display:block`
+ *   （resetComponent 不设 display，div 默认 block），会断 .dg-data-area 的 flex column 链：
+ *
+ *   spinning=false（boolean loading，如 dynamic-settings 默认 loading=false / component-token）：
+ *     `.dg-wrapper.dg-data-area`（flex column, height:100%）
+ *       └ `.ant-spin`（antd 默认 display:block）★ 直接子，断 flex 链
+ *           └ `.ant-spin-container`（antd 默认 display:block）★ 断 flex 链
+ *               └ `.dg-scroll-wrap`（flex:1, min-height:0）→ 父非 flex → flex:1 退化为内容自然高
+ *                   └ `.dg-scroll.dg-fixed-header-scroll`/`.dg-virtual-scroll`（overflow-y:auto 但无界）
+ *                       → **不裁剪**，表体全渲染撑高（M8）/ 虚拟窗口 clientHeight 失真（M4）。
+ *
+ *   spinning=true（loading=true）：结构同上（v6 根仍 `.ant-spin`），spinner 是 `.ant-spin-section`
+ *   绝对定位覆盖层（absolute, translate(-50%,-50%)），不受父 flex 影响，spinner 视觉正常。
+ *
+ *   验证者实测（dynamic-settings）：
+ *     - virtual ON + loading=false（M4）：.ant-spin display:block → 链断 → 表体撑到 615px（应 ≤400）。
+ *     - virtual OFF + yScroll ON + loading=false（M8）：同款链断 → 10 行全渲染撑到 603px（应 ≤240）。
+ *     两条路径（M4 虚拟 / M8 固定表头）共用同一 Spin 包裹结构，故同一修复同时覆盖。
+ *
+ * 【为何 fixed-header demo 不受影响】fixed-header 不传 loading（undefined）→ Table 不渲染 Spin →
+ *   `.dg-data-area` 直接子是 `.dg-scroll-wrap`（已是 flex item）→ flex 链原生完整 → M8 正常。
+ *   仅 `loading !== undefined`（含 boolean false）的 demo（dynamic-settings/component-token/ajax 等）
+ *   才命中 Spin 包裹 → 才需要本修复。
+ *
+ *【修复】把 data-area 模式下 Spin 的根（`.ant-spin`，v6 spinning true/false 共用）+ 内部容器
+ *   （`.ant-spin-container`）都改为 flex column + flex:1 + min-height:0，让 .dg-wrapper 的有界高度
+ *   （height:100% resolve 到外层 demo div 的 240/394/400 等明确 height）经 Spin 层透传到 .dg-scroll-wrap，
+ *   .dg-scroll-wrap 的 flex:1 才能真正 resolve 到有界剩余高 → .dg-scroll overflow-y:auto 裁剪生效 →
+ *   M8 表体限高 + M4 虚拟窗口 clientHeight 正确。等效于把 Spin 层"透明化"为 flex column 链路。
+ *
+ *   ★ `.dg-wrapper.dg-data-area > .ant-spin` 用直接子选择器 `>`：精确命中 Spin 根（.dg-data-area 直接子）。
+ *     v6 spinning=true 时内部的 `.ant-spin-section`（spinner 覆盖层）虽是 `.ant-spin` 后代，但不是直接子
+ *     （嵌在 .ant-spin-container 内），故 `>` 不误伤；且 spinner 是 absolute 定位不受 flex 影响。
+ *   ★ `.dg-wrapper.dg-data-area .ant-spin-container` 用后代选择器（v6 container 恒为 .ant-spin 的子）。
+ *   ★ `!important`：防御性对抗 antd cssinjs 在某些主题/版本下对 `.ant-spin`/`.ant-spin-container`
+ *     注入的 inline-block/grid 等显示规则（实测 v6 默认 block 无冲突，但 antd 升级或自定义主题可能
+ *     引入更高优先级规则；!important 确保本修复稳定胜出，避免回归）。data-area 限定使 !important
+ *     作用域极窄（仅 scroll.y:true 数据区域模式下的 Spin），不污染其它 Spin 用法。
+ *
+ *【零回归论证】
+ *   - 选择器限定 `.dg-wrapper.dg-data-area`（仅 scroll.y===true 数据区域模式）：
+ *     · 非 data-area demo（basic/head/bordered/...无 scroll.y）：.dg-wrapper 非 flex 容器，
+ *       Spin 各层即便被改 flex，在无 flex 父时 flex item 退化无害（display:flex 在非 flex 上下文
+ *       仍按 block 渲染子节点，视觉无变化）——但为严格零回归，本规则仅 data-area 命中。
+ *     · loading=undefined（不传 loading，如 fixed-header/virtual-list/fixed-columns-header）：
+ *       不渲染 Spin → 无元素可命中 → 零变化。
+ *   - spinning=true（loading=true）时 spinner 覆盖层 absolute，不受父 flex 影响，spinner 视觉正常。
+ *   - M8（virtual OFF + scroll.y:true）与 M4（virtual ON + scroll.y:true）共用本修复——两条路径
+ *     的 Spin 包裹结构完全相同，修复同时生效（验证者实测两条路径都需此修复）。
+ *
+ *【与 font-size 修复（line 274）正交】line 274 的 .dg-grid font-size 修复 Spin 截断字号继承问题；
+ *   本规则修复 Spin 截断 flex 高度链问题——两处独立，互不影响。 */
+.dg-wrapper.dg-data-area > .ant-spin,
+.dg-wrapper.dg-data-area .ant-spin-container {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
 }
 
 /* === 任务 E：pagination/footer 滚动条出框修复（内容区滚动模式）===
@@ -469,6 +536,47 @@
 .dg-cell-body {
   border-bottom: var(--dg-border);
   transition: background-color 0.2s ease;
+}
+
+/* === 行拖拽离散让位（dnd-kit 风格）===
+ *
+ * useRowDragSort（S17+）在行拖拽过程中命令式对 cell 施加 inline `transform: translateY(...)`：
+ *   - **被拖行**（data-row-index === fromIndex）：加 `.dg-drag-row-active`，transform = 跟手 delta
+ *     （跟手抬起，无 transition——transform 实时随 pointer 更新，不平滑过渡避免延迟感）。
+ *   - **让位行**（from→over 之间的中间行）：加 `.dg-drag-row-yield`，transform = ±被拖行高度
+ *     （让出原被拖行 track 高度），带 transition 平滑过渡（150ms ease）。
+ *
+ * ★ 选择器限定 `.dg-cell`（body 单元格基类）——表头格（.dg-cell-header）/ summary 格（.dg-cell-summary）
+ *   也带 .dg-cell，但它们无 `data-row-index`（仅 body cell 有），useRowDragSort 的 querySelectorAll
+ *   `[data-row-index]` 不会命中它们，类也不会被加到它们上，故即便选择器命中也零影响（防御性限定）。
+ *
+ * ★ 不动 grid 布局：transform 是视觉效果（CSS transform 不影响 grid item 的 grid-track 定位），
+ *   cell 的 grid-row 槽位不变；松手 arrayMove 重排 dataSource 后 grid 重新计算 track（行瞬间到位）。
+ *
+ * ★ inline transform 由 hook 设置（动态 delta/高度），类只管 transition + 抬起视觉（shadow/z-index/bg）。
+ *
+ * ★ 零回归：非拖拽时（无 dragState），hook 不会给 cell 加这两个类，本规则不命中，行为与改造前一致。
+ */
+.dg-cell.dg-drag-row-active {
+  /* 抬起态：z-index 生效需 position 非 static（.dg-cell 已 position:relative，line 357），
+     这里显式声明兜底防止后续重构丢失。z-index:10 高于普通表体格（auto）、固定列（2-3）、
+     表头格（3-4），让被拖行视觉浮于其它行之上一致地盖住。 */
+  position: relative;
+  z-index: 10;
+  /* 抬起阴影（对齐 dnd-kit/antd 拖拽行 shadow 感）：柔和的下方扩散阴影。 */
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  /* 被拖行 transform 跟手实时更新（每 pointermove 重设），不 transition 避免延迟/拖影。 */
+  transition: none;
+  /* 不透明背景防透视（被拖行抬起后下方可能有让位行透过）。
+     --dg-body-bg 桥接 --ant-table-color-bg-container（fallback --ant-color-bg-container，= colorBgContainer），
+     light=#fff / dark=#141414 跟随主题。原 .dg-cell 背景 transparent（line 355），这里覆盖为不透明。
+     （与 tokens.css L175 实际定义一致；`--ant-table-bg` 不存在，旧注释有误。） */
+  background: var(--dg-body-bg);
+}
+
+.dg-cell.dg-drag-row-yield {
+  /* 让位行 transform 由 hook 设（±draggedHeight），带 transition 平滑过渡（dnd-kit 让位动画感）。 */
+  transition: transform 150ms ease;
 }
 
 /* === Phase 4 有界行高模型 ===

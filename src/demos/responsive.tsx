@@ -29,12 +29,15 @@
  */
 
 import { useState } from 'react'
-import { Grid, Space, Switch, Table as AntdTable } from 'antd'
+import { Grid, Space, Switch, Table as AntdTable, theme } from 'antd'
 import type { TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { data, type RecordType } from './_compare/responsive.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（SplitDemo pane 自动限高，虚拟窗口才有滚动区）
+import { useVirtualization } from './VirtualizationContext'
 
 // ---------------------------------------------------------------------------
 // 左栏（data-grid）列定义 —— 行为与改造前一致
@@ -93,23 +96,21 @@ const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
 export default function ResponsiveDemo() {
   // ★ 共享状态：同一个状态同时驱动两侧表格。
   const [bordered, setBordered] = useState(false)
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y（原 responsive demo 无 scroll，
+  // ON 用 dg {y:true}/antd {y:280}；OFF 回 undefined，行为与改造前一致）。
+  const { virtual } = useVirtualization()
 
   // 两侧都用 antd Grid.useBreakpoint 检测断点（决策 6：响应式检测用 antd）。
   // 显示当前断点状态便于对照（虽然两侧各自内部也会检测，这里仅作 UI 提示）。
   const screens = Grid.useBreakpoint()
+  // 控制条 chrome 文字色 token 化（colorTextSecondary≈rgba(0,0,0,0.65)），暗主题自适应。
+  const { token } = theme.useToken()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。
+          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0。 */}
+      <DemoToolbar>
         <Space wrap>
           <Switch
             checked={bordered}
@@ -117,12 +118,12 @@ export default function ResponsiveDemo() {
             checkedChildren="Bordered"
             unCheckedChildren="Bordered"
           />
-          <span style={{ color: 'rgba(0,0,0,0.65)', fontSize: 12 }}>
+          <span style={{ color: token.colorTextSecondary, fontSize: 12 }}>
             Current breakpoints: md={screens.md ? '✓' : '✗'} lg={screens.lg ? '✓' : '✗'}
             （调整视口宽度对照列显隐）
           </span>
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=480（窄表，1-3 列视断点，无 scroll.x）→ 横排阈值 ≈ 976。
@@ -139,6 +140,10 @@ export default function ResponsiveDemo() {
             //   disabled 态分页条；data-grid omit=不渲染）。补 pagination={{}} 启用默认分页器，
             //   两侧分页条存在性一致。
             pagination={{}}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
+               pane 限高，虚拟窗口才有滚动区）；OFF 时回 undefined（原 responsive demo 无 scroll），零回归。 */
+            virtual={virtual}
+            scroll={virtual ? { y: true } : undefined}
           />
         }
         right={
@@ -146,6 +151,11 @@ export default function ResponsiveDemo() {
             columns={antdColumns}
             dataSource={data}
             bordered={bordered}
+            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且表头/默认分页
+               画在 scroll.y 之外，扣除后约 280 塞进 pane 限高）；OFF 时回 undefined（原 responsive
+               demo 无 scroll），零回归。 */
+            virtual={virtual}
+            scroll={virtual ? { y: 280 } : undefined}
           />
         }
       >

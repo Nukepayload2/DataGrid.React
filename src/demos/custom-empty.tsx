@@ -33,12 +33,15 @@
 
 import { useState } from 'react'
 import type { GetProp } from 'antd'
-import { Button, ConfigProvider, Empty, Space, Switch, Table as AntdTable } from 'antd'
+import { Button, ConfigProvider, Empty, Space, Switch, Table as AntdTable, theme } from 'antd'
 import type { TableProps } from 'antd'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 import { genFakeData, type RecordType } from './_compare/custom-empty.shared'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高）
+import { useVirtualization } from './VirtualizationContext'
 
 // ConfigProvider.renderEmpty：仅处理 'Table.filter'（filter 下拉内 filters 空时的占位），
 // 返回自定义 Empty（SIMPLE 图标）。表体空状态（'Table'）不处理——走 Table 级 locale.emptyText。
@@ -58,6 +61,11 @@ export default function App() {
   // 初值空（data-grid 改造前行为）；antd demo 原本初值有数据（genFakeData），此处取空作为对照基线。
   const [dataSource, setDataSource] = useState<RecordType[]>([])
   const [bordered, setBordered] = useState(true)
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y（空数据时虚拟化无可见效果
+  // 但不报错；有数据切换后正常虚拟）。
+  const { virtual } = useVirtualization()
+  // 控制条 chrome 文字色 token 化（colorTextSecondary≈rgba(0,0,0,0.65)），暗主题自适应。
+  const { token } = theme.useToken()
 
   const handleToggle = () => {
     setDataSource(dataSource.length ? [] : genFakeData(Math.floor(Math.random() * 10)))
@@ -113,16 +121,9 @@ export default function App() {
   return (
     <ConfigProvider renderEmpty={renderEmpty}>
       <div style={{ padding: 24 }}>
-        {/* ★ 共享控制条：全宽，在 SplitDemo 上方。 */}
-        <div
-          style={{
-            marginBottom: 16,
-            padding: 12,
-            border: '1px solid #f0f0f0',
-            borderRadius: 8,
-            background: '#fff',
-          }}
-        >
+        {/* ★ 共享控制条：全宽，在 SplitDemo 上方。
+            DemoToolbar 用 useToken（light≈#fff/#f0f0f0、dark/自定义 token 自适应），替代硬编码底/边色。 */}
+        <DemoToolbar>
           <Space wrap>
             {dataSource.length ? toggleButton : null}
             <Switch
@@ -131,12 +132,12 @@ export default function App() {
               checkedChildren="Bordered"
               unCheckedChildren="Bordered"
             />
-            <span style={{ color: 'rgba(0,0,0,0.65)', fontSize: 12 }}>
+            <span style={{ color: token.colorTextSecondary, fontSize: 12 }}>
               当前：{dataSource.length ? `${dataSource.length} 行数据` : '空数据'}
               （空数据态点 Age 漏斗看 'Table.filter' 占位）
             </span>
           </Space>
-        </div>
+        </DemoToolbar>
 
         {/*
           minPaneWidth=480（窄表，3 列，无 scroll.x）→ 横排阈值 ≈ 976。
@@ -152,6 +153,10 @@ export default function App() {
               locale={{ emptyText }}
               // pagination={{}} 对齐右栏 antd 默认分页（antd 对任意数据都渲染 .ant-pagination）。
               pagination={{}}
+              /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
+                 限高）；OFF 时回 undefined，行为与改造前一致。空数据态虚拟化无可见效果但不报错。 */
+              virtual={virtual}
+              scroll={virtual ? { y: true } : undefined}
             />
           }
           right={
@@ -162,6 +167,10 @@ export default function App() {
               dataSource={dataSource}
               columns={antdColumns}
               locale={{ emptyText }}
+              /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 默认分页条画在 scroll.y
+                 之外，需扣除表头~55 与分页条~64 → 约 280 才能塞进 ~400px pane；OFF 时回 undefined）。 */
+              virtual={virtual}
+              scroll={virtual ? { y: 280 } : undefined}
             />
           }
         >

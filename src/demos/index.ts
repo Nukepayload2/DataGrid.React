@@ -478,13 +478,6 @@ export const demos: DemoMeta[] = [
     compare: true,
     category: '尺寸响应与样式',
   },
-  {
-    name: 'theme-editor',
-    title: 'Theme Editor',
-    description:
-      '交互式 ConfigProvider token 编辑器（ColorPicker/Slider/InputNumber 实时驱动）+ Light/Dark Segmented，证明 data-grid 主题注入全覆盖（左 data-grid / 右 antd 对照）。自渲染双栏，不用 SplitDemo（避免内层 ConfigProvider 重置 token）+ item2 A-impl。',
-    element: () => import('./theme-editor'),
-    compare: true,
-    category: '尺寸响应与样式',
-  },
+  // theme-editor 已从注册表移除（门户重构）：通过顶栏 Modal（src/ThemeEditorModal.tsx）
+  // 打开，不再走 #/demos/theme-editor 路由。ThemeEditorPanel 仍在 src/demos/theme-editor.tsx。
 ]

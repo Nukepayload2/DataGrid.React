@@ -6,7 +6,9 @@
  *
  * 设计目标：
  * - 不使用 `<table>` 元素，纯 div + CSS Grid。
- * - 行高走"行高约定"（rowHeight 数字或函数），不做动态测量（决策 1）。
+ * - 行高两条路径：非虚拟走约定 `rowHeight`（数字/函数）→ CSS grid track，不测量（缺省 `'auto'`）；
+ *   虚拟路径采用 virtuoso 式 ResizeObserver 动态测量（measured-first + 约定兜底）。
+ *   决策 1 仅指不实现 antd `measureRowRender` 糟粕兼容 API（隐藏测量行重渲染），与 RO 测量是两回事。
  * - 预留 fixed / virtual / children(多级表头) / colSpan / rowSpan / rowExpand 钩子（本阶段仅接口位）。
  */
 
@@ -584,11 +586,13 @@ export interface EngineHeaderCell<RecordType = any> {
 }
 
 /**
- * 行高约定。
+ * 行高约定（非虚拟路径直接作为 grid track）。
  * - number：所有行固定高度（px）。
  * - (record, index) => number | string：按行计算；返回数字按 px，字符串原样作为 grid track size。
  *
- * 不实现 measureRowRender / 动态测量（决策 1）。
+ * 行高口径：非虚拟路径走本约定（track），不测量（缺省 `'auto'`）；虚拟路径采用 virtuoso 式
+ * ResizeObserver 动态测量（measured-first），本约定仅作未测兜底/初值。
+ * 决策 1 仅指不实现 antd `measureRowRender` 糟粕兼容 API（隐藏测量行重渲染），与 RO 测量是两回事。
  */
 export type RowHeight<RecordType = any> =
   | number
