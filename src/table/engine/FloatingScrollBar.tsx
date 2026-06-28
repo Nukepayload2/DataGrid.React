@@ -94,6 +94,15 @@ function measureHeaderHeight(
  * ★ Bug1 修复（同 measureHeaderHeight）：参照系改为**滚动容器**（container）。
  *   summary 是 `position: sticky; bottom: 0` 相对滚动容器底部固定；用 container 作参照
  *   才能在任意 scrollTop 下稳定测得其高度（不随 grid 的 -scrollTop 偏移而漂移）。
+ *
+ * ★ 任务 #51 修复：仅当 summary 确实 sticky bottom 固定时才计高，否则返回 0。
+ *   原实现无论 summary 是否 sticky bottom 都返回其高度，导致数据区域模式（scroll.y:true）下
+ *   summary 未 fixed 时横向浮动条错误压在底部上方一行（用户称「跨一行」）——条总是预留一行空间。
+ *   判定依据：取第一个 summary cell 的 getComputedStyle，仅当 `position==='sticky'` 且
+ *   `bottom` 解析为 0（任务 T：SummaryCell fixed 分支注入 position:sticky;bottom:0）时才计高；
+ *   否则返回 0（让条贴数据区底部，对齐 antd：表头→表体→summary→横向条在 summary 上方数据区底，
+ *   未固定时不为 summary 预留浮动条空间）。recomputeVertical 消费同一函数，summary 未固定时
+ *   纵向 thumb 也延伸到底（正向修复）。
  */
 function measureSummaryHeight(
   grid: HTMLElement | null,
@@ -103,6 +112,12 @@ function measureSummaryHeight(
   const containerRect = container.getBoundingClientRect()
   const summaries = grid.querySelectorAll<HTMLElement>('.dg-cell-summary')
   if (summaries.length === 0) return 0
+  // 任务 #51：判定 summary 是否确实 sticky bottom 固定（取第一个 summary cell 探测）。
+  // 未固定时（position 非 sticky / bottom 非 0）→ 直接返回 0，不为 summary 预留浮动条空间。
+  const firstStyle = getComputedStyle(summaries[0])
+  const isStickyBottom =
+    firstStyle.position === 'sticky' && parseFloat(firstStyle.bottom) === 0
+  if (!isStickyBottom) return 0
   let minTop = Infinity
   let maxBottom = -Infinity
   summaries.forEach((s) => {

@@ -28,133 +28,36 @@
  *    右固定列 Action 可能脱离容器右边缘（§9 已登记：无 width 列 max-content vs antd width+flex
  *    fill）。右栏 antd 无此问题。如实保留对照，登记 §9 不修。
  *
- * === §11 fixed-columns 阴影对齐结论（本轮实施）===
- * 6. **★ 固定列边缘阴影**（已对齐）：data-grid `.dg-sticky-shadow-start/end` 此前用 **外投影**
- *    `box-shadow: 10px 0 8px -8px`（缺 `inset`），antd 6.4.4 `fixed.ts:6-16` getShadowStyle 用
- *    **内投影** `inset 10px 0 8px -8px colorSplit` / `inset -10px 0 8px -8px colorSplit`。本轮
- *    已在 `table.css` 补 `inset` 关键字（颜色/方向/偏移原本就对）——与 antd 视觉一致（阴影落在
- *    固定列内侧、更含蓄）。
- * 7. **★ 阴影随滚动切换（unfixable，登记不修）**：antd 的 `fix-start/end-shadow-show` class 由
- *    rc-table 的横向 scrollLeft 监听动态切换——滚到最左时 start 阴影隐藏、滚到最右时 end 阴影隐藏
- *    （`react-component/table/src/Table.tsx:825-826` shadowStart/shadowEnd）。data-grid 两侧阴影
- *    **恒显**（纯 CSS，不脚本监听 scrollLeft，遵守 §11 约束）。视觉差异：data-grid 滚到尽头时
- *    固定列边缘仍有一道极淡阴影线（antd 没有）——阴影很淡（8px 模糊 + colorSplit 0.06 alpha），
- *    不破坏视觉，反而始终提示固定列边界。属可接受差异，无需修。
- * 8. **固定列偏移/边框/横滚贴边/z-index/固定列×hover-selected**：均沿用已落地共享修复
- *    （C1 列宽 + 选中行色含 `.dg-cell-fixed-*` + 表头分隔线 + bordered 固定列组合边框 + corner
- *    z-index 5），本轮无新增改动——验证者按下方清单逐项核对即可。
+ * === §11 fixed-columns 阴影对齐结论 ===
+ * 6. **★ 固定列边缘阴影**（已对齐）：data-grid `.dg-sticky-shadow-start/end` 已在 `table.css`
+ *    补 `inset` 关键字，与 antd 6.4.4 `fixed.ts:6-16` getShadowStyle 视觉一致（阴影落在固定列
+ *    内侧、更含蓄）。
+ * 7. **★ 阴影随滚动切换（unfixable，登记不修）**：antd 的 shadowStart/shadowEnd 由 rc-table 的
+ *    横向 scrollLeft 监听动态切换；data-grid 两侧阴影恒显（纯 CSS，不脚本监听）。可接受差异。
+ * 8. **固定列偏移/边框/横滚贴边/z-index/固定列×hover-selected**：均沿用已落地共享修复。
+ *
+ * === 拆子文件（task #56：live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：bordered/size state + useVirtualization + DemoToolbar(Switch Bordered
+ * + Segmented size) + SplitDemo 外壳 + children 对照说明。两侧表格 JSX 与 columns 拆到子文件：
+ *   - `./fixed-columns.dg`：`FixedColumnsDg({bordered, size, virtual})`（左栏）
+ *   - `./fixed-columns.antd`：`FixedColumnsAntd({bordered, size, virtual})`（右栏）
+ *
+ * 这样：
+ *   - 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `FixedColumnsDemo`，零编辑开销。
+ *   - live 编辑模式：SplitDemoPreview 静态 import 真实子组件，并按 editedDg/editedAntd 替换。
  */
 
 import { useState } from 'react'
-import { Segmented, Space, Switch, Table as AntdTable } from 'antd'
-import type { TableColumnsType } from 'antd'
-import { Table } from '../table'
-import type { ColumnType } from '../table'
+import { Segmented, Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { dataSource, type DataType } from './_compare/fixed-columns.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 与 antd demo 列结构逐字一致（含 Age sorter:true）
-// ---------------------------------------------------------------------------
-
-// 注：已对齐 antd 官方 demo——Age 列含 sorter:true（点击排序）。fixed 用 antd v6 逻辑属性
-// 'start'/'end'（等价 'left'/'right'，RTL 自动适配）。
-const dgColumns: ColumnType<DataType>[] = [
-  {
-    title: 'Full Name',
-    width: 100,
-    dataIndex: 'name',
-    key: 'name',
-    fixed: 'start',
-  },
-  {
-    title: 'Age',
-    width: 100,
-    dataIndex: 'age',
-    key: 'age',
-    fixed: 'start',
-    sorter: true,
-  },
-  { title: 'Column 1', dataIndex: 'address', key: '1' },
-  { title: 'Column 2', dataIndex: 'address', key: '2' },
-  { title: 'Column 3', dataIndex: 'address', key: '3' },
-  { title: 'Column 4', dataIndex: 'address', key: '4' },
-  { title: 'Column 5', dataIndex: 'address', key: '5' },
-  { title: 'Column 6', dataIndex: 'address', key: '6' },
-  { title: 'Column 7', dataIndex: 'address', key: '7' },
-  { title: 'Column 8', dataIndex: 'address', key: '8' },
-  { title: 'Column 9', dataIndex: 'address', key: '9' },
-  { title: 'Column 10', dataIndex: 'address', key: '10' },
-  { title: 'Column 11', dataIndex: 'address', key: '11' },
-  { title: 'Column 12', dataIndex: 'address', key: '12' },
-  { title: 'Column 13', dataIndex: 'address', key: '13' },
-  { title: 'Column 14', dataIndex: 'address', key: '14' },
-  { title: 'Column 15', dataIndex: 'address', key: '15' },
-  { title: 'Column 16', dataIndex: 'address', key: '16' },
-  { title: 'Column 17', dataIndex: 'address', key: '17' },
-  { title: 'Column 18', dataIndex: 'address', key: '18' },
-  { title: 'Column 19', dataIndex: 'address', key: '19' },
-  { title: 'Column 20', dataIndex: 'address', key: '20' },
-  {
-    title: 'Action',
-    key: 'operation',
-    fixed: 'end',
-    width: 100,
-    render: () => <a>action</a>,
-  },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd 官方 fixed-columns demo
-// ---------------------------------------------------------------------------
-
-const antdColumns: TableColumnsType<DataType> = [
-  {
-    title: 'Full Name',
-    width: 100,
-    dataIndex: 'name',
-    key: 'name',
-    fixed: 'start',
-  },
-  {
-    title: 'Age',
-    width: 100,
-    dataIndex: 'age',
-    key: 'age',
-    fixed: 'start',
-    sorter: true,
-  },
-  { title: 'Column 1', dataIndex: 'address', key: '1' },
-  { title: 'Column 2', dataIndex: 'address', key: '2' },
-  { title: 'Column 3', dataIndex: 'address', key: '3' },
-  { title: 'Column 4', dataIndex: 'address', key: '4' },
-  { title: 'Column 5', dataIndex: 'address', key: '5' },
-  { title: 'Column 6', dataIndex: 'address', key: '6' },
-  { title: 'Column 7', dataIndex: 'address', key: '7' },
-  { title: 'Column 8', dataIndex: 'address', key: '8' },
-  { title: 'Column 9', dataIndex: 'address', key: '9' },
-  { title: 'Column 10', dataIndex: 'address', key: '10' },
-  { title: 'Column 11', dataIndex: 'address', key: '11' },
-  { title: 'Column 12', dataIndex: 'address', key: '12' },
-  { title: 'Column 13', dataIndex: 'address', key: '13' },
-  { title: 'Column 14', dataIndex: 'address', key: '14' },
-  { title: 'Column 15', dataIndex: 'address', key: '15' },
-  { title: 'Column 16', dataIndex: 'address', key: '16' },
-  { title: 'Column 17', dataIndex: 'address', key: '17' },
-  { title: 'Column 18', dataIndex: 'address', key: '18' },
-  { title: 'Column 19', dataIndex: 'address', key: '19' },
-  { title: 'Column 20', dataIndex: 'address', key: '20' },
-  {
-    title: 'Action',
-    key: 'operation',
-    fixed: 'end',
-    width: 100,
-    render: () => <a>action</a>,
-  },
-]
+// ★ 拆子文件后，左/右栏 JSX + columns 由子组件提供（props 驱动）。DataType/dataSource
+//   现在由子文件各自 import fixed-columns.shared，父文件不再需要。
+import FixedColumnsDg from './fixed-columns.dg'
+import FixedColumnsAntd from './fixed-columns.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -201,43 +104,14 @@ export default function FixedColumnsDemo() {
       <SplitDemo
         minPaneWidth={900}
         left={
-          /* 左栏 data-grid：行为与改造前一致（仅接共享 bordered/size）。
-             无 scroll.y（表体不纵向滚动，整体随页面），保留改造前形态。 */
-          <>
-            <Table<DataType>
-              columns={dgColumns}
-              dataSource={dataSource}
-              bordered={bordered}
-              size={size === 'medium' ? 'middle' : 'large'}
-              /* 全局虚拟化开关接入：ON 时在原 scroll.x 基础上叠加 virtual=true + scroll.y:true
-                 （CSS 自适应，填满 SplitDemo 给的 400px 限高，虚拟窗口才有滚动区）；
-                 OFF 时仅保留原 scroll.x:'max-content'，行为与改造前一致。 */
-              virtual={virtual}
-              scroll={virtual ? { x: 'max-content', y: true } : { x: 'max-content' }}
-            />
-          </>
+          /* 左栏 data-grid：行为与改造前一致（仅接共享 bordered/size）。 */
+          <FixedColumnsDg bordered={bordered} size={size} virtual={virtual} />
         }
         right={
           /* antd 官方 fixed-columns demo 忠实复刻：
              Full Name/Age fixed start + Age sorter true + Action fixed end
              + scroll x max-content + pagination false. */
-          <>
-            <AntdTable<DataType>
-              columns={antdColumns}
-              dataSource={dataSource}
-              bordered={bordered}
-              size={size}
-              /* 全局虚拟化开关接入：ON 时在原 scroll.x 基础上叠加 virtual=true + scroll.y:340
-                 （antd 不认 true；本 demo 无分页故扣除表头~55 → 约 340 才能塞进 ~400px pane）。
-                 ★ antd virtual 要求 scroll.x 必须为数字（字符串 'max-content' 会抛
-                 "scroll.x must be number" error），故 ON 时改传数字 2000（按列宽估算：
-                 2×100 fixed + 20×~120 普通列 ≈ 2600，取保险值 2000 足够触发横滚）；
-                 OFF 时回原 'max-content'，行为与改造前一致。data-grid 左栏不受此限（保持 'max-content'）。 */
-              virtual={virtual}
-              scroll={virtual ? { x: 2000, y: 340 } : { x: 'max-content' }}
-              pagination={false}
-            />
-          </>
+          <FixedColumnsAntd bordered={bordered} size={size} virtual={virtual} />
         }
       >
         <div>

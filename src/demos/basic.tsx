@@ -17,147 +17,29 @@
  *    的内联 `Tag`），右栏 antd `<Tag>`（antd 内置预设色 geekblue/green/volcano）。
  * 2. **Action 布局**：左栏内联 `<span style={{display:'inline-flex',gap:8}}>`；右栏 antd `<Space>`。
  * 3. **size="medium"**：antd Space 用 `size="medium"`（antd v6 兼容别名，规范值为 'middle'）。
+ *
+ * === 拆子文件（task #54：live 编辑接入）===
+ *
+ * 父文件只保留「外壳职责」：bordered state + useVirtualization + DemoToolbar(Switch Bordered)
+ * + SplitDemo 外壳 + children 对照说明。两侧表格 JSX 与 columns 拆到子文件：
+ *   - `./basic.dg`：`BasicDg({bordered, virtual})`（左栏）
+ *   - `./basic.antd`：`BasicAntd({bordered, virtual})`（右栏）
+ *
+ * 这样：
+ *   - 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `BasicDemo`，零编辑开销。
+ *   - live 编辑模式：SplitDemoPreview 静态 import 真实子组件，并按 editedDg/editedAntd 替换。
  */
 
 import { useState } from 'react'
-import { Flex, Space, Switch, Table as AntdTable, Tag } from 'antd'
-import type { TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType } from '../table'
+import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, tagColor, type RecordType } from './_compare/basic.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
-
-/**
- * 左栏内联最小 Tag（data-grid 不依赖 antd Tag；视觉等价 antd 预设色）。
- * 改造前行为保留。
- */
-const inlineTagColorMap: Record<string, string> = {
-  geekblue: '#2f54eb',
-  green: '#389e0d',
-  volcano: '#fa541c',
-}
-
-function InlineTag({ color, children }: { color: string; children: import('react').ReactNode }) {
-  const bg = color in inlineTagColorMap ? inlineTagColorMap[color] : color
-  return (
-    <span
-      style={{
-        display: 'inline-block',
-        padding: '0 7px',
-        fontSize: 12,
-        lineHeight: '20px',
-        borderRadius: 4,
-        color: bg,
-        background: `${bg}1a`, // ~10% alpha
-        border: `1px solid ${bg}33`,
-        marginRight: 4,
-      }}
-    >
-      {children}
-    </span>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 行为与改造前一致
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<RecordType>[] = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    key: 'name',
-    render: (text) => <a>{text}</a>,
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    key: 'age',
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    key: 'address',
-  },
-  {
-    title: 'Tags',
-    key: 'tags',
-    dataIndex: 'tags',
-    render: (_, { tags }) => (
-      <span style={{ display: 'inline-flex', flexWrap: 'wrap', gap: 4, alignItems: 'center' }}>
-        {tags.map((tag) => (
-          <InlineTag color={tagColor(tag)} key={tag}>
-            {tag.toUpperCase()}
-          </InlineTag>
-        ))}
-      </span>
-    ),
-  },
-  {
-    title: 'Action',
-    key: 'action',
-    render: (_, record) => (
-      <span style={{ display: 'inline-flex', gap: 8 }}>
-        <a>Invite {record.name}</a>
-        <a>Delete</a>
-      </span>
-    ),
-  },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd basic demo
-// ---------------------------------------------------------------------------
-
-const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    key: 'name',
-    render: (text) => <a>{text}</a>,
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    key: 'age',
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    key: 'address',
-  },
-  {
-    title: 'Tags',
-    key: 'tags',
-    dataIndex: 'tags',
-    render: (_, { tags }) => (
-      <Flex gap="small" align="center" wrap>
-        {tags.map((tag) => (
-          <Tag color={tagColor(tag)} key={tag}>
-            {tag.toUpperCase()}
-          </Tag>
-        ))}
-      </Flex>
-    ),
-  },
-  {
-    title: 'Action',
-    key: 'action',
-    render: (_, record) => (
-      <Space size="medium">
-        <a>Invite {record.name}</a>
-        <a>Delete</a>
-      </Space>
-    ),
-  },
-]
-
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
+// ★ 拆子文件后，左/右栏 JSX + columns 由子组件提供（props 驱动）。RecordType/data/tagColor
+//   现在由子文件各自 import basic.shared，父文件不再需要。
+import BasicDg from './basic.dg'
+import BasicAntd from './basic.antd'
 
 export default function BasicDemo() {
   // ★ 共享状态：同一个状态同时驱动两侧表格。
@@ -186,32 +68,8 @@ export default function BasicDemo() {
       */}
       <SplitDemo
         minPaneWidth={480}
-        left={
-          <Table<RecordType>
-            columns={dgColumns}
-            dataSource={data}
-            bordered={bordered}
-            /* pagination={{}}：对齐 antd 默认分页条（antd 6.4.4 对任意行数都渲染 .ant-pagination，
-               即便行数 ≤ pageSize 也会渲染 disabled 态分页条；data-grid 不传=不渲染）。 */
-            pagination={{}}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-               给的 400px 限高，虚拟窗口才有滚动区）；OFF 时回 undefined，行为与改造前一致。 */
-            virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
-          />
-        }
-        right={
-          <AntdTable<RecordType>
-            columns={antdColumns}
-            dataSource={data}
-            bordered={bordered}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且表头/默认
-               分页画在 scroll.y 之外，需扣除表头~55 与分页条~64 → 约 280 才能塞进 ~400px pane；
-               OFF 时回 undefined，行为与改造前一致）。 */
-            virtual={virtual}
-            scroll={virtual ? { y: 280 } : undefined}
-          />
-        }
+        left={<BasicDg bordered={bordered} virtual={virtual} />}
+        right={<BasicAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 T1）：</strong>左右并排呈现 data-grid 与 antd basic demo。

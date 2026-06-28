@@ -6,31 +6,40 @@
  *   ├─ Header（深色顶栏：汉堡 + 品牌 + 主题编辑器 + dark/light + Virtual 开关）
  *   └─ Layout hasSider
  *      ├─ Sider（collapsible：inline Menu，按 groupByCategory 分组 demo 列表 + 主页/Docs）
- *      └─ Content（home / demo[Breadcrumb+Tabs 预览|源码] / docs / notFound）
+ *      └─ Content（home / demo[Breadcrumb+预览区+Collapse 源码区] / docs / notFound）
  *      └─（Modal：主题编辑器，由顶栏按钮打开）
  *
  * 路由（hash）：
  *   #/                  → HomePage（分组卡片网格 + 搜索）
- *   #/demos/<name>      → 具体 demo（预览 Tab + 源码 Tab）
+ *   #/demos/<name>      → 具体 demo（预览区 + 下方折叠源码区）
  *   #/docs[/<section>]  → DocsPage
  *   else                → notFound
  *
  * ★ 主题/虚拟化单一真理源不变：useTheme(themeMode/setThemeMode/isDark) +
  *   useVirtualization(virtual/setVirtual)。dark/light 顶栏 Segmented 驱动全站。
  *
- * ★ 源码 Tab 懒加载：仅当切到 source Tab 且 view.kind==='demo' 时才请求 demo 模块源码
- *   （useDemoSource + import.meta.glob '?raw' + cache）。
+ * ★ 源码懒加载（task #54 重构：原 Tabs 预览/源码 → 预览区上方 + Collapse 下方）：
+ *   - 非 split demo：useDemoSource（只读 CodeView），按 view.kind==='demo' 加载。
+ *   - split demo（试点 basic）：useSplitDemoSource（dg+antd 两段 LiveEditor），展开折叠区
+ *     才加载源码；LiveEditor 内部按需 dynamic import sucrase（默认渲染路径不加载编译器）。
  */
 
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react'
+import {
+  lazy,
+  Suspense,
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentType,
+} from 'react'
 import {
   Breadcrumb,
   Button,
+  Collapse,
   Layout,
   Menu,
   Segmented,
   Switch,
-  Tabs,
   Typography,
 } from 'antd'
 import {
@@ -44,9 +53,16 @@ import HomePage from './HomePage'
 import DocsPage from './DocsPage'
 import CodeView from './CodeView'
 import { useDemoSource } from './useDemoSource'
+import { useSplitDemoSource } from './useSplitDemoSource'
 import ThemeEditorModal from './ThemeEditorModal'
 import { useTheme, type ThemeMode } from './theme/ThemeContext'
 import { useVirtualization } from './demos/VirtualizationContext'
+// ★ live 编辑接入（task #54）：SplitDemoPreview 承载默认/编辑双模式；LiveEditor/scope/stripComments
+//   仅 split demo 展开折叠区时才渲染（默认渲染路径不加载 sucrase——LiveEditor 内部按需 dynamic import）。
+import { SplitDemoPreview } from './demos/_compare/SplitDemoPreview'
+import LiveEditor from './live/LiveEditor'
+import { scopeForDemo } from './live/scope'
+import { stripComments } from './live/stripComments'
 
 const { Header, Sider, Content } = Layout
 const { Title, Link } = Typography
@@ -76,8 +92,10 @@ function App() {
   const [openKeys, setOpenKeys] = useState<string[]>([])
   // 主题编辑器 Modal 开关。
   const [themeModalOpen, setThemeModalOpen] = useState(false)
-  // demo 预览/源码 Tab。
-  const [activeTab, setActiveTab] = useState<'preview' | 'source'>('preview')
+  // ★ live 编辑（task #54）：split demo 编辑产物。null = 未编辑/重置（默认模式渲染真实 DemoComp）。
+  // view 变化（切 demo）时 useEffect 重置为 null。
+  const [editedDg, setEditedDg] = useState<ComponentType<Record<string, unknown>> | null>(null)
+  const [editedAntd, setEditedAntd] = useState<ComponentType<Record<string, unknown>> | null>(null)
 
   const view = useMemo<View>(() => {
     if (segments.length === 0) return { kind: 'home' }
@@ -113,15 +131,24 @@ function App() {
     setOpenKeys((o) => (o.includes(catKey) ? o : [...o, catKey]))
   }, [view])
 
-  // 切换 demo 时把 Tab 重置回预览（避免停留在上一个 demo 的源码 Tab）。
+  // 切换 demo 时重置 live 编辑产物（避免上一个 demo 的编辑结果残留到新 demo）。
   useEffect(() => {
-    setActiveTab('preview')
+    setEditedDg(null)
+    setEditedAntd(null)
   }, [view])
 
-  // 源码懒加载：仅 source Tab + demo 视图时请求。
+  // ★ live 编辑白名单（试点）：basic + fixed-columns 接入 split + 编辑。其余 demo 降级为只读 CodeView。
+  const isSplitDemo = (n: string) => n === 'basic' || n === 'fixed-columns'
+
+  // 源码懒加载：
+  //   - 非 split demo：useDemoSource（只读 CodeView）。
+  //   - split demo：useSplitDemoSource（dg + antd 两段，供双 LiveEditor）。
+  const demoName = view.kind === 'demo' ? view.name : undefined
+  const isSplit = view.kind === 'demo' && isSplitDemo(view.name)
   const { source, loading } = useDemoSource(
-    activeTab === 'source' && view.kind === 'demo' ? view.name : undefined,
+    demoName && !isSplit ? demoName : undefined,
   )
+  const splitSrc = useSplitDemoSource(isSplit ? demoName : undefined)
 
   // Sider 菜单 items：主页 + Docs + divider + 按分类分组的 demo 列表。
   const groups = useMemo(() => groupByCategory(demos), [])
@@ -143,7 +170,7 @@ function App() {
   )
 
   return (
-    <Layout style={{ minHeight: '100vh' }}>
+    <Layout style={{ height: '100vh', overflow: 'hidden' }}>
       <Header
         style={{
           display: 'flex',
@@ -214,7 +241,7 @@ function App() {
           unCheckedChildren="Virtual"
         />
       </Header>
-      <Layout hasSider>
+      <Layout hasSider style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <Sider
           collapsible
           collapsed={collapsed}
@@ -233,10 +260,10 @@ function App() {
             onOpenChange={setOpenKeys}
             onClick={({ key }) => navigate(key)}
             items={menuItems}
-            style={{ height: '100%', borderInlineEnd: 0 }}
+            style={{ height: '100%', overflowY: 'auto', overflowX: 'hidden', borderInlineEnd: 0 }}
           />
         </Sider>
-        <Content style={{ padding: 24 }}>
+        <Content style={{ padding: 24, overflow: 'auto' }}>
           {view.kind === 'home' ? <HomePage /> : null}
 
           {view.kind === 'demo' && DemoComp ? (
@@ -248,24 +275,69 @@ function App() {
                   { title: view.title },
                 ]}
               />
-              <Tabs
-                activeKey={activeTab}
-                onChange={(k) => setActiveTab(k as 'preview' | 'source')}
+              {/*
+                预览区（上方）：
+                - split demo（试点 basic）：SplitDemoPreview 承载默认/编辑双模式。默认模式
+                  渲染真实 DemoComp（零编辑开销）；任一 edited 非空切编辑模式。
+                - 非 split demo：直接渲染 DemoComp（行为与改造前一致）。
+              */}
+              {isSplit ? (
+                <SplitDemoPreview
+                  name={view.name}
+                  editedDg={editedDg}
+                  editedAntd={editedAntd}
+                >
+                  <Suspense fallback={<div>Loading demo…</div>}>
+                    <DemoComp />
+                  </Suspense>
+                </SplitDemoPreview>
+              ) : (
+                <Suspense fallback={<div>Loading demo…</div>}>
+                  <DemoComp />
+                </Suspense>
+              )}
+
+              {/*
+                代码区（下方，折叠 Collapse）：
+                - split demo：dg + antd 两段 LiveEditor（可编辑），展开才加载源码 + sucrase。
+                  LiveEditor onApply 三态：(Comp,null)成功→setEditedXxx(Comp)；
+                  (null,error)失败→setEditedXxx(null)（同时 Alert 显示错误）；(null,null)重置→
+                  setEditedXxx(null) 回默认模式。代码先经 stripComments 去注释再展示。
+                - 非 split demo：降级为只读 CodeView（原 source 三态）。
+              */}
+              <Collapse
+                style={{ marginTop: 16 }}
                 items={[
                   {
-                    key: 'preview',
-                    label: '预览',
-                    children: (
-                      <Suspense fallback={<div>Loading demo…</div>}>
-                        <DemoComp />
-                      </Suspense>
-                    ),
-                  },
-                  {
-                    key: 'source',
-                    label: '源码',
-                    children: loading ? (
-                      <div style={{ padding: 24 }}>Loading source…</div>
+                    key: 'code',
+                    label: isSplit ? '源码（可编辑）' : '源码（只读）',
+                    children: isSplit ? (
+                      splitSrc.loading ? (
+                        <div>Loading source…</div>
+                      ) : (
+                        <div
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: '1fr 1fr',
+                            gap: 16,
+                          }}
+                        >
+                          <LiveEditor
+                            initialCode={stripComments(splitSrc.dgSource ?? '')}
+                            title="data-grid"
+                            scope={scopeForDemo(view.name)}
+                            onApply={(c, e) => setEditedDg(() => (e ? null : c))}
+                          />
+                          <LiveEditor
+                            initialCode={stripComments(splitSrc.antdSource ?? '')}
+                            title="antd"
+                            scope={scopeForDemo(view.name)}
+                            onApply={(c, e) => setEditedAntd(() => (e ? null : c))}
+                          />
+                        </div>
+                      )
+                    ) : loading ? (
+                      <div>Loading source…</div>
                     ) : source ? (
                       <CodeView code={source} />
                     ) : (
