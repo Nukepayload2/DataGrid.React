@@ -1,15 +1,10 @@
 /**
- * fixed-columns-header demo 的 antd 段（右栏），从 fixed-columns-header.tsx 拆出。
+ * fixed-columns-header demo 的 antd 段（右栏）。
  *
- * - props 驱动 `{ bordered, virtual }`（由 fixed-columns-header.tsx 父组件传）。
- * - 自包含：含 `antdColumns`（Full Name/Age fixed start + Column 1-20 + Action fixed end）+
- *   `<AntdTable>` JSX。
- * - 忠实复刻 antd 官方 fixed-columns-header demo：scroll x max-content + y 55*5 + pagination false。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.antd.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'antd'` / `'./_compare/fixed-columns-header.shared'`）。
+ * props 驱动 `{ bordered, virtual }`（由 fixed-columns-header.tsx 父组件传）。
+ * 自包含：含 `antdColumns`（Full Name/Age fixed start + Column 1-20 + Action fixed end）+
+ * `<AntdTable>` JSX。
+ * 忠实复刻 antd 官方 fixed-columns-header demo：scroll x max-content + y 55*5 + pagination false。
  */
 import { Table as AntdTable } from 'antd'
 import type { TableColumnsType } from 'antd'
@@ -63,8 +58,8 @@ export default function FixedColumnsHeaderAntd({
       columns={antdColumns}
       dataSource={dataSource}
       bordered={bordered}
-      /* ★ 虚拟化透传；antd 已有数字 scroll.y:55*5（表体高度），ON 仅叠加 virtual + x 转数字 2000
-         （antd virtual 不接受 'max-content'，转数字规避；OFF 回退原 max-content 零回归）。 */
+      /* virtual 开关 ON 时叠加 virtual + x 转数字 2000（antd virtual 不接受 'max-content'）；
+         OFF 时回退原 max-content。 */
       virtual={virtual}
       scroll={virtual ? { x: 2000, y: 55 * 5 } : { x: 'max-content', y: 55 * 5 }}
       pagination={false}

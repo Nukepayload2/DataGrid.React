@@ -1,24 +1,19 @@
 /**
- * 决策 9：pagination 左右对比 demo 的共享配置（S11 分页集成与位置 / task #28 重做）。
+ * pagination 左右对比 demo 的共享配置（分页集成与位置）。
  *
  * 提取两侧都复用的类型与数据。列定义因两侧类型不同（data-grid `ColumnType`
  * vs antd `TableProps['columns']`）保留在各自 demo 文件，但均引用本文件的
  * `RecordType` 与 `data`。
  *
- * === task #28 改动 ===
- *
- * 原 B14 双翻页器版本导出的 `topOptions` / `bottomOptions`（两个 Radio.Group 分别选
- * top / bottom）已废弃。重做后 demo 用**单翻页器 + 6 位置互斥选一**，选项直接定义在
- * 本文件（`placementOptions`），子文件与父文件均引用。
- *
- * === 拆子文件（task：live 编辑接入）===
+ * demo 用**单翻页器 + 6 位置互斥选一**：`placementOptions` 直接定义在本文件，
+ * 子文件与父文件均引用。
  *
  * `TablePaginationPlacement` 类型（纯字符串字面量联合，不含 React）与 `placementOptions`
  * （6 位置 + none 互斥选项数组）提升到本文件，供 dg/antd 子文件 + 父文件共同引用——
  * 避免子文件跨子文件 import 类型（破坏 live scope），同时保持两侧选项字面一致。
  */
 
-/** antd pagination demo 的记录类型。两侧共用。 */
+/** 记录类型。两侧共用。 */
 export interface RecordType {
   key: string
   name: string
@@ -56,7 +51,7 @@ export const data: RecordType[] = [
 ]
 
 /**
- * 分页位置（S11，对齐 antd v6 `TablePaginationPlacement`，**以 antd 6.4.4 实测为准**）。
+ * 分页位置（对齐 antd v6 `TablePaginationPlacement`，**以 antd 6.4.4 实测为准**）。
  *
  * 值域：`topStart | topCenter | topEnd | bottomStart | bottomCenter | bottomEnd | none`。
  * 纯字符串字面量联合（不含 React），故提升到本 shared 文件供两侧子文件 + 父文件共用，
@@ -75,7 +70,7 @@ export type TablePaginationPlacement =
   | 'none'
 
 /**
- * 单翻页器 placement 互斥选项（task #28）。
+ * 单翻页器 placement 互斥选项。
  *
  * 6 个位置（top/bottom × Start/Center/End）+ none（关闭分页器）。
  * 选中后以 `placement: [selected]` 单元素数组传给两侧表格。

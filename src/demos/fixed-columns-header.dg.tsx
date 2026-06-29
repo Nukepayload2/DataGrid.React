@@ -1,15 +1,9 @@
 /**
- * fixed-columns-header demo 的 data-grid 段（左栏），从 fixed-columns-header.tsx 拆出。
+ * fixed-columns-header demo 的 data-grid 段（左栏）。
  *
- * - props 驱动 `{ bordered, virtual }`（由 fixed-columns-header.tsx 父组件传）。
- * - 自包含：含 `dgColumns`（Full Name/Age fixed start + Column 1-20 + Action fixed end）+
- *   `<Table>` JSX + 父容器 height:330 wrapper。
- * - 行为与改造前一致：保留原 bordered/scroll.x:'max-content'/scroll.y:true/virtual 配置。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.dg.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'../table'` / `'./_compare/fixed-columns-header.shared'`），源码可原样展示无需路径改写。
+ * props 驱动 `{ bordered, virtual }`（由 fixed-columns-header.tsx 父组件传）。
+ * 自包含：含 `dgColumns`（Full Name/Age fixed start + Column 1-20 + Action fixed end）+
+ * `<Table>` JSX + 父容器 height:330 wrapper。
  */
 import { Table } from '../table'
 import type { ColumnType } from '../table'
@@ -59,16 +53,14 @@ export default function FixedColumnsHeaderDg({
   virtual: boolean
 }) {
   return (
-    /* 决策 7 父容器需有明确 height。
-       height 330 ≈ antd y:55*5=275 表体 + 表头 ~55，对齐右栏可视高度。
-       scroll.y:true 数据区域模式，表体 flex:1 填满容器剩余空间。 */
+    /* 数据区域模式 — 详见 docs/design-notes/layout.md
+       父容器需有明确 height（330 ≈ antd y:55*5=275 表体 + 表头 ~55，对齐右栏可视高度）；
+       scroll.y:true，表体 flex:1 填满容器剩余空间。 */
     <div style={{ height: 330 }}>
       <Table<DataType>
         columns={dgColumns}
         dataSource={dataSource}
         bordered={bordered}
-        /* ★ 虚拟化透传；data-grid 已有 scroll.y:true（表体纵向滚动模式），
-           ON 仅叠加 virtual，scroll 不动（已有 y，避免重复计算）。 */
         virtual={virtual}
         scroll={{ x: 'max-content', y: true }}
       />

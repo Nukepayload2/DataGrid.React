@@ -1,5 +1,5 @@
 /**
- * 决策 9：dynamic-settings 左右对比 demo 的共享配置。
+ * dynamic-settings 左右对比 demo 的共享配置。
  *
  * dynamic-settings 与 component-token 的「columns 形状 + 数据 + title/footer」完全同构，
  * 唯一差异：component-token 包了 `<ConfigProvider theme.components.Table>` token 覆盖，

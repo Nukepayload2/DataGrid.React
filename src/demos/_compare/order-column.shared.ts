@@ -1,12 +1,12 @@
 /**
- * 决策 9：order-column 左右对比 demo 的共享配置（M9 + M5 + S10）。
+ * order-column 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型与数据。列顺序（Name → EXPAND_COLUMN → Age → SELECTION_COLUMN →
  * Address）两侧一致；列定义因类型不同（data-grid `ColumnOrSentinel` / antd `ColumnsType`）
  * 各自在 demo 文件内声明，本文件只共享 `RecordType` + `data`。
  */
 
-/** antd order-column demo 的记录类型。两侧共用。 */
+/** 记录类型。两侧共用。 */
 export interface RecordType {
   key: React.Key
   name: string
@@ -16,7 +16,7 @@ export interface RecordType {
 }
 
 /**
- * antd order-column demo 的数据（4 行）。两侧共用。
+ * 数据（4 行）。两侧共用。
  *
  * 第 3 行 "Not Expandable" 与其它 3 行有 description；antd demo 未设 rowExpandable，
  * 4 行均可展开（"Not Expandable" 仅文字）。两侧忠实复刻此行为。

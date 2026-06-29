@@ -1,53 +1,13 @@
 /**
- * 列宽拖拽调整 hook（M7 resizable）。
+ * 列宽拖拽调整 hook（resizable）— 详见 docs/design-notes/column-width.md（「拖拽调整列宽」节）。
  *
- * 算法**借鉴** lun `Table.ColumnResizer.tsx` 的 pointer 拖拽思路，**用纯 React + TS 重写**：
- *   - lun 用全局浮动 resizer div + Vue ref 操作 DOM 样式；
- *   - 本 hook 不操作 DOM 样式，只维护"用户拖拽后的列宽映射"（`resizedWidths: Map<key, px>`），
- *     实际列宽由 GridTable 在算 `grid-template-columns` 时**优先取此映射**（覆盖 column.width）。
+ * 维护"用户拖拽后的列宽映射"（`resizedWidths: Map<key, px>`），GridTable 在算
+ * `grid-template-columns` 时优先取此映射（覆盖 column.width）。不操作 DOM 样式。
  *
- * === 核心机制 ===
- *
- * 1. **resizer 手柄**：调用方在**叶子表头格右侧**渲染一个 `dg-resizer` div（pointer-events 默认 none，
- *    hover 表头时显示）。该 div 绑定本 hook 返回的 `onPointerDown(key)` 回调。
- *
- * 2. **pointerdown**：
- *    - 读取该列**当前实际宽度**（通过表头格 DOM 的 `getBoundingClientRect().width`，而非
- *      column.width——因为列可能是 `max-content`，其 px 值不可从 props 直接得到）。
- *    - 记录起始 clientX、起始宽度。
- *    - 调 `target.setPointerCapture(pointerId)`：把后续 pointermove/up 事件锁定到该手柄元素，
- *      即使指针移出手柄、甚至移出窗口也能继续收到事件（**无抖动/不丢失**的关键）。
- *
- * 3. **pointermove**：`delta = clientX - startX`；`newWidth = clamp(startWidth + delta, min, max)`；
- *    更新 `resizedWidths[key] = newWidth`。state 变化 → GridTable 重算 `grid-template-columns` →
- *    列宽实时变化（流畅）。
- *
- * 4. **pointerup**：释放 pointer capture，清拖拽态。最终宽度已在 move 中持续写入，无需额外提交。
- *
- * 5. **min/max 约束**：默认 min=30（防止拖到 0；参数可配），max=Infinity（不限制过宽）。
- *
- * === 首次拖拽 max-content 列 ===
- *
- * 若列原宽为 `max-content`/未给 width，GridTable 算 track 时本来用 `max-content`。
- * 拖拽开始时本 hook 读到的起始宽度是该 track 的实际渲染 px（getBoundingClientRect），
- * 然后立即在第一次 move 时写入具体 px → 列从 `max-content` 转为**受控 px**，后续按 px 调整。
- * （由 GridTable 在算 colTracks 时：`resizedWidths[key] ?? toTrack(col.width) ?? 'max-content'` 实现。）
- *
- * === 与各能力的组合 ===
- *
- * - **M1 多级表头**：只有叶子表头格有 resizer；分组表头格无手柄（调用方按 `cell.isLeaf` 渲染）。
- *   父分组格的 `grid-column` 范围不变（线号稳定），子叶子宽变 → 父格自动跟随收缩/展开。
- * - **M2 固定列**：列宽变化 → useStickyColumns 的 ResizeObserver 实测到新宽 → 重算 sticky 偏移，
- *   固定列随之正确。**无需本 hook 额外处理**。
- * - **M3 合并**：合并格仍跨原叶子区间；区间内某叶子宽变 → 合并格视觉宽随之变（线号不变）。
- * - **M4 虚拟**：列 track 与行 track 正交；拖列宽不影响虚拟行渲染窗口。
- * - **M6 隐藏列**：`0fr` track 的列**不渲染 resizer**（调用方按 `!cell.hidden` 决定）。
- *
- * === 性能 ===
- *
- * 拖拽期间每次 pointermove 触发一次 setState（ resizedWidths 新对象）→ GridTable 重算
- * `grid-template-columns`（O(cols)）+ 重渲染。对典型表格（<50 列）每帧开销可忽略，流畅无抖动。
- * （与 antd rc-table/resizable 表格同款实现量级。）
+ * 核心机制：调用方在叶子表头格右侧渲染 `dg-resizer` div 绑定 `onPointerDown(key)`；
+ * pointerdown 读列实际宽（getBoundingClientRect，因列可能是 max-content 无 px props）+
+ * setPointerCapture 锁定事件；pointermove 算 `clamp(startWidth + delta, min, max)` 写入映射；
+ * pointerup 释放 capture。默认 min=30（防拖到 0），max=Infinity。
  */
 
 import { useCallback, useRef, useState } from 'react'
@@ -144,7 +104,7 @@ export function useColumnResize(
       if (event.button !== 0) return
       // 阻止默认：防止浏览器开始文本选区/拖拽图像等。
       event.preventDefault()
-      // 阻止冒泡：避免触发表头格自身的点击/排序等交互（后续任务 S1 排序会用 header click）。
+      // 阻止冒泡：避免触发表头格自身的点击/排序等交互。
       event.stopPropagation()
 
       const el = event.currentTarget

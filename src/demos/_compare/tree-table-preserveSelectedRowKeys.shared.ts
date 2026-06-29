@@ -1,15 +1,15 @@
 /**
- * 决策 9：tree-table-preserveSelectedRowKeys 左右对比 demo 的共享配置。
+ * tree-table-preserveSelectedRowKeys 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型与数据。列定义（Name/Age/Address）为纯文本、两侧一致，
  * 各 demo 文件本地按 ColumnType<T> / TableColumnsType<T> 引用本文件数据。
  *
  * antd demo 数据：15 顶层父行（Edward 0..14），每父含 2 个子行（Brown / Jimmy）。
  * 树形 × 分页（defaultPageSize:5 → 3 页）× checkStrictly × preserveSelectedRowKeys
- * （issue #50621）。
+ * （跨页保留勾选）。
  */
 
-/** antd tree-table-preserveSelectedRowKeys demo 的记录类型（含 children）。两侧共用。 */
+/** 记录类型（含 children）。两侧共用。 */
 export interface RecordType {
   key: React.ReactNode
   name: string

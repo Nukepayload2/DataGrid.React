@@ -1,26 +1,7 @@
 /**
- * edit-cell demo 的 antd 段（右栏），从 edit-cell.tsx 拆出。
- *
- * === 增删行 + 编辑 state 自管（子组件内）===
- * 与 edit-cell.dg.tsx 同构：编辑/增删行 state 全在子组件内自管（dataSource + count +
- * handleAdd/handleDelete/handleSave），两栏各自独立（原始 demo 决策「编辑各自独立」）。
- *
- * === props 默认值（合理有效初值，坑5+坑7）===
- * - virtual=false（OFF 回 undefined scroll，行为与改造前一致）。
- *
- * === 忠实复刻 antd edit-cell demo ===
- * antd 原生 `components.body.cell/row` + onCell（EditableRow 返回 `<tr>`、EditableCell 返回
- * `<td>`）+ `rowClassName='editable-row'` + CSS（.editable-cell-value-wrap hover 边框）。
- *
- * === ★ CSS 注入幂等保留（两子组件共用同一 CSS）===
- * `injectEditCellCss` 把 antd demo 配套 CSS 注入 document.head。本子文件 + edit-cell.dg.tsx 各自
- * 调用一次（useEffect），两子组件共用同一 CSS。幂等：模块级 `cssInjected` 标志 + DOM
- * `[data-edit-cell-css]` 存在性双重检查。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.antd.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'react'` / `'antd'` / `'./_compare/edit-cell.shared'`）。
+ * edit-cell demo 的 antd 段（右栏）。自管编辑/增删行 state。忠实复刻 antd edit-cell demo：
+ * antd 原生 components.body.cell/row + onCell（EditableRow 返回 <tr>、EditableCell 返回 <td>）+
+ * rowClassName='editable-row' + CSS。
  */
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import type { GetRef, InputRef, TableProps as AntdTableProps } from 'antd'
@@ -33,8 +14,8 @@ import {
 } from './_compare/edit-cell.shared'
 
 // ---------------------------------------------------------------------------
-// antd demo 配套 CSS（注入 document.head，仅注入一次；两子组件共用同一 CSS）。
-// 幂等：模块级 cssInjected 标志 + DOM [data-edit-cell-css] 存在性双重检查。
+// antd demo 配套 CSS（.editable-cell-value-wrap hover 边框），注入 document.head。
+// 两子组件共用同一 CSS，幂等：模块级 cssInjected 标志 + DOM [data-edit-cell-css] 双重检查。
 // ---------------------------------------------------------------------------
 
 type FormInstance<T> = GetRef<typeof Form<T>>
@@ -42,7 +23,6 @@ type FormInstance<T> = GetRef<typeof Form<T>>
 let cssInjected = false
 function injectEditCellCss() {
   if (cssInjected) return
-  // 幂等检查：Vite HMR 跨模块实例重置 cssInjected 时，避免重复注入 <style>（DOM 已存在则跳过）。
   if (document.head.querySelector('[data-edit-cell-css]')) {
     cssInjected = true
     return
@@ -158,11 +138,10 @@ export default function EditCellAntd({
 }: {
   virtual: boolean
 }) {
-  // ★ 编辑/增删行 state 各自独立（两栏对照时互不干扰，按原始 demo 决策「编辑各自独立」）。
+  // 编辑/增删行 state 各自独立（两栏对照时互不干扰）。
   const [dataSource, setDataSource] = useState<RecordType[]>(defaultData)
   const [count, setCount] = useState(defaultCount)
 
-  // 注入 antd demo 配套 CSS（仅注入一次；两子组件共用同一 CSS，幂等）。
   useEffect(() => {
     injectEditCellCss()
   }, [])
@@ -239,7 +218,7 @@ export default function EditCellAntd({
         bordered
         dataSource={dataSource}
         columns={columns as AntdColumnTypes}
-        // 虚拟化（决策 7）：ON→virtual+scroll.y=300（有分页，antd scroll.y 须数字）；OFF→不传，非虚拟（零回归）。
+        // ON→virtual+scroll.y=300（有分页，antd scroll.y 须数字）。
         virtual={virtual}
         scroll={virtual ? { y: 300 } : undefined}
       />

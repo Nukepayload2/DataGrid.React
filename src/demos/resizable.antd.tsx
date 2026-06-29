@@ -1,21 +1,12 @@
 /**
- * resizable demo 的 antd 段（右栏），从 resizable.tsx 拆出。
+ * resizable demo 的 antd 段（右栏）。
  *
- * === 特例：右栏不是 antd 同名 demo ===
+ * 特例：右栏不是 antd 同名 demo。antd 6.4.4 Table 无原生列宽拖拽（resizable）能力，右栏不渲染
+ * antd 同名 demo，而是一个说明区 + 一张静态 antd `<Table>` 作基线参照（同数据/同列，无拖拽手柄）。
+ * 列宽拖拽为 data-grid 增强能力，仅左栏演示。
  *
- * antd 6.4.4 Table **无原生列宽拖拽（resizable）能力** → 右栏不渲染 antd 同名 demo，而是
- * **一个说明区 + 一张静态 antd `<Table>` 作基线参照**（同数据/同列，无拖拽手柄）。
- * 列宽拖拽为 data-grid 增强（M7），仅左栏演示。
- *
- * - props 驱动 `{ virtual }`（由 resizable.tsx 父组件传）：
- *   * virtual：全局虚拟化开关（右栏 antd 静态基线 Table 也接入虚拟化，便于视觉对照）。
- * - 自包含：含 `antdColumns`（Name/Age 固定 width + Address/Tags/Description）+ 说明区 JSX +
- *   `<AntdTable>` JSX。说明区用 theme token（colorWarningBg/colorWarningBorder/colorText）自适应主题。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.antd.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'antd'` / `'./_compare/resizable.shared'`）。
+ * props 驱动 `{ virtual }`（由 resizable.tsx 父组件传）：全局虚拟化开关（右栏 antd 静态基线 Table
+ * 也接入虚拟化，便于视觉对照）。
  */
 import { Flex, Table as AntdTable, Tag, theme } from 'antd'
 import type { TableProps } from 'antd'
@@ -74,8 +65,7 @@ export default function ResizableAntd({
 
   return (
     <>
-      {/* 说明区：antd 6.4.4 Table 无原生列宽拖拽（resizable）能力，右栏仅作静态基线参照。
-          token 化（colorWarningBg/colorWarningBorder/colorText）自适应 light/dark/自定义主题。 */}
+      {/* 说明区：antd 6.4.4 Table 无原生列宽拖拽（resizable）能力，右栏仅作静态基线参照。 */}
       <div
         style={{
           padding: 12,
@@ -96,9 +86,8 @@ export default function ResizableAntd({
       <AntdTable<RecordType>
         columns={antdColumns}
         dataSource={data}
-        /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll:{y:340}（本右栏 antd 显式
-           pagination={false} 无分页条，扣除表头~55 → 约 340 塞进 split pane 限高）；
-           OFF 时 scroll=undefined，行为与改造前一致。 */
+        /* virtual 开关 ON 时叠加 virtual=true + scroll:{y:340}（本右栏 antd 显式 pagination={false}
+         无分页条，扣除表头~55 → 约 340 塞进 split pane 限高）；OFF 时 scroll=undefined。 */
         virtual={virtual}
         scroll={virtual ? { y: 340 } : undefined}
         pagination={false}

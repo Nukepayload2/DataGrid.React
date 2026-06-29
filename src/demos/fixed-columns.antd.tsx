@@ -1,15 +1,8 @@
 /**
- * fixed-columns demo 的 antd 段（右栏），从 fixed-columns.tsx 拆出。
+ * fixed-columns demo 的 antd 段（右栏）。
  *
- * - props 驱动 `{ bordered, size, virtual }`（由 fixed-columns.tsx 父组件传）。
- * - 自包含：含 `antdColumns`（Full Name/Age fixed start + Age sorter:true + Column 1-20 +
- *   Action fixed end）+ `<AntdTable>` JSX。
- * - 忠实复刻 antd 官方 fixed-columns demo：scroll.x + pagination:false。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.antd.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'antd'` / `'./_compare/fixed-columns.shared'`）。
+ * props：`{ bordered, size, virtual }`（与左栏 dg 子组件同款）。忠实复刻 antd 官方 fixed-columns
+ * demo：scroll.x + pagination:false。
  */
 import { Table as AntdTable } from 'antd'
 import type { TableColumnsType } from 'antd'
@@ -79,12 +72,11 @@ export default function FixedColumnsAntd({
       dataSource={dataSource}
       bordered={bordered}
       size={size}
-      /* 全局虚拟化开关接入：ON 时在原 scroll.x 基础上叠加 virtual=true + scroll.y:340
+      /* 虚拟化开关接入：ON 时在原 scroll.x 基础上叠加 virtual=true + scroll.y:340
          （antd 不认 true；本 demo 无分页故扣除表头~55 → 约 340 才能塞进 ~400px pane）。
-         ★ antd virtual 要求 scroll.x 必须为数字（字符串 'max-content' 会抛
-         "scroll.x must be number" error），故 ON 时改传数字 2000（按列宽估算：
-         2×100 fixed + 20×~120 普通列 ≈ 2600，取保险值 2000 足够触发横滚）；
-         OFF 时回原 'max-content'，行为与改造前一致。data-grid 左栏不受此限（保持 'max-content'）。 */
+         antd virtual 要求 scroll.x 必须为数字（字符串 'max-content' 会抛 "scroll.x must be number"），
+         故 ON 时改传数字 2000（按列宽估算取保险值足够触发横滚）；OFF 时回原 'max-content'。
+         data-grid 左栏不受此限（保持 'max-content'）。详见 docs/design-notes/virtualization.md */
       virtual={virtual}
       scroll={virtual ? { x: 2000, y: 340 } : { x: 'max-content' }}
       pagination={false}

@@ -1,5 +1,5 @@
 /**
- * 决策 9：component-token 左右对比 demo 的共享配置。
+ * component-token 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的数据、RecordType、title/footer。
  * 列定义因两侧类型不同（data-grid `ColumnType` vs antd `TableProps['columns']`，
@@ -10,7 +10,7 @@
  * 对照源：`G:\Projects\ant-design\components\table\demo\component-token.tsx`。
  */
 
-/** component-token / dynamic-settings 共享记录类型。两侧共用。 */
+/** component-token / dynamic-settings 共享记录类型。 */
 export interface RecordType {
   key: number
   name: string

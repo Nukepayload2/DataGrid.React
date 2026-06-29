@@ -1,5 +1,5 @@
 /**
- * 决策 9：nested-table 左右对比 demo 的共享配置（S24 嵌套子表格）。
+ * nested-table 左右对比 demo 的共享配置（嵌套子表格）。
  *
  * 提取两侧都复用的类型与数据（主表 + 子表）。
  * 列定义因类型不同（data-grid `ColumnType` / antd `ColumnsType`）由各自 demo 声明，
@@ -13,7 +13,7 @@
  *   - 三张主表演示 size：默认（large）/ `size="medium"` / `size="small"`。
  */
 
-/** 子表记录类型（expandedRowRender 内嵌套 Table 的数据）。两侧共用。 */
+/** 子表记录类型（expandedRowRender 内嵌套 Table 的数据）。 */
 export interface ExpandedDataType {
   key: React.Key
   date: string

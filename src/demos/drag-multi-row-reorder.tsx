@@ -1,30 +1,11 @@
 /**
- * ★ T11 demo：多行成块重排（multi-row reorder）。
- *
- * === 背景 ===
- *
- * 对齐 ag-grid community `rowDragMultiRow`（rowDragFeature.ts:141-148）：拖动一个**已选中**的行时，
+ * 多行成块重排（multi-row reorder）单栏 demo：拖动一个**已选中**的行时，
  * 连同其它选中行成块移动到目标位置（保持选中行间相对顺序）。
- *
- * === 本 demo 验证 ===
- *
- * data-grid Table + 行拖手柄（复用 S18 `.dg-drag-handle`）+ checkbox 多选（rowSelection）+
- * `gridOptions.multiRowReorder` 开关。
  *
  * - 默认开 multiRowReorder：勾选 3 行（含被拖行）→ 拖其中一行到别处 → 3 行成块移动到目标位置
  *   （保持 3 行之间的相对顺序，整块平移，不会拆散）。
- * - 关 multiRowReorder：只移被拖行（其它选中行原地不动，行为与 S17/S18 单行重排一致）。
+ * - 关 multiRowReorder：只移被拖行（其它选中行原地不动）。
  * - 边界：被拖行未选中 → 只移它（即使 multiRowReorder 开）；目标落在选中块内部 → no-op。
- *
- * === 实现（自研 pointer，复用 S17 useRowDragSort + T11 成块重排）===
- *
- * useRowDragSort 新增 `multiRowReorder` + `selectedRowKeys` 选项（T11）：
- *   - 拖拽结束（pointerup 触发重排前）判定 `multiRowReorder && 被拖行∈selection && selection数>1`
- *     → 用 `arrayMoveBlock` 把所有选中行作为一块移到目标位置；否则退化为单行 `arrayMove`（零回归）。
- *   - selection 从 rowSelection.selectedRowKeys（受控）透传到 hook。
- *
- * **单栏 demo（非双栏对照）**：本任务验证 data-grid 自身多行重排行为，无 antd 对照必要
- * （antd 用 dnd-kit 的多选拖拽需额外配置，且本任务核心是引擎成块重排算法正确性）。
  */
 
 import { useRef, useState } from 'react'
@@ -33,8 +14,7 @@ import type { FC } from 'react'
 import { Table } from '../table'
 import { useRowDragSort } from '../table'
 import type { ColumnType, TableRowSelection } from '../table'
-// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（本 demo 非 SplitDemo 无自动限高，
-// 故用 div height:400 包裹 Table 给虚拟窗口提供固定可滚动高度）
+// 本 demo 非 SplitDemo（无自动限高），ON 时用 div height:400 包裹 Table 提供虚拟窗口可滚动高度。
 import { useVirtualization } from './VirtualizationContext'
 import { DemoToolbar } from './_compare/DemoToolbar'
 
@@ -56,7 +36,7 @@ const initialData: RecordType[] = [
   { key: '6', name: 'Sansa Stark', age: 26, address: 'Winterfell' },
 ]
 
-/** 行拖手柄（与 drag-sorting-handler 同款：Button + 内联 HolderOutlined SVG + .dg-drag-handle class）。 */
+/** 行拖手柄（Button + 内联 HolderOutlined SVG + .dg-drag-handle class）。 */
 const InlineHolderOutlined: FC = () => (
   <svg
     viewBox="0 0 1024 1024"
@@ -95,9 +75,9 @@ export default function DragMultiRowReorderDemo() {
   const [dataSource, setDataSource] = useState<RecordType[]>(initialData)
   // 受控 selection（透传给 useRowDragSort 做成块重排判定）。
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
-  // multiRowReorder 开关（默认 true，对齐 gridOptions.multiRowReorder 默认）。
+  // multiRowReorder 开关（默认 true）。
   const [multiRowReorder, setMultiRowReorder] = useState(true)
-  // 全局虚拟化开关接入：开关 ON 时 Table 叠加 virtual=true + scroll.y，并用 div height:400 包裹
+  // ON 时 Table 叠加 virtual=true + scroll.y，并用 div height:400 包裹。
   const { virtual } = useVirtualization()
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -114,7 +94,7 @@ export default function DragMultiRowReorderDemo() {
     onSort: setDataSource,
     containerRef,
     handleSelector: '.dg-drag-handle',
-    // T11：多行成块重排——透传 multiRowReorder + selectedRowKeys。
+    // 多行成块重排——透传 multiRowReorder + selectedRowKeys。
     multiRowReorder,
     selectedRowKeys,
   })
@@ -144,8 +124,8 @@ export default function DragMultiRowReorderDemo() {
       </DemoToolbar>
 
       <div ref={containerRef} style={{ position: 'relative' }} {...containerProps}>
-        {/* 全局虚拟化开关接入：本 demo 非 SplitDemo（无自动限高），ON 时用固定 height:400 的
-            div 包裹 Table，给虚拟窗口提供可滚动高度；OFF 时不包（undefined），行为与改造前一致。 */}
+        {/* 本 demo 非 SplitDemo（无自动限高），ON 时用固定 height:400 的 div 包裹 Table
+            提供虚拟窗口可滚动高度。 */}
         <div style={virtual ? { height: 400 } : undefined}>
           <Table<RecordType>
             rowKey="key"
@@ -153,8 +133,8 @@ export default function DragMultiRowReorderDemo() {
             dataSource={dataSource}
             rowSelection={rowSelection}
             pagination={{}}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应填满上方 400px 包裹层，
-               虚拟窗口才有滚动区；多行成块拖拽命中区在虚拟窗口内，正常接入）；OFF 时回 undefined，行为与改造前一致。 */
+            /* ON 时 virtual=true + scroll.y:true（CSS 自适应填满上方 400px 包裹层，
+               虚拟窗口才有滚动区；多行成块拖拽命中区在虚拟窗口内，正常接入）。 */
             virtual={virtual}
             scroll={virtual ? { y: true } : undefined}
           />

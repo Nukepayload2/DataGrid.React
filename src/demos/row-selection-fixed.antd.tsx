@@ -1,5 +1,5 @@
 /**
- * row-selection-fixed demo 的 antd 段（右栏），从 row-selection-fixed.tsx 拆出。
+ * row-selection-fixed demo 的 antd 段（右栏）。
  *
  * - props 驱动 `{ selectionType, firstColFixed, selFixed, selectedKeys, onSelectedKeysChange, virtual }`
  *   （与左栏 dg 子组件同款签名）。
@@ -7,19 +7,13 @@
  *   fixed 'right'）+ `<AntdTable>` JSX + `antdRowSelection` 派生。
  * - 忠实复刻 antd 行为：antd useSelection 原生继承逻辑（对照基准）；fixed 用 antd 原生
  *   'left'/'right'（selFixed 'start'→'left', 'end'→'right', 'auto'→undefined 走邻列继承）。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.antd.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'antd'` / `'./_compare/row-selection-fixed.shared'`）。
  */
 import { useMemo } from 'react'
 import { Table as AntdTable } from 'antd'
 import type { TableProps } from 'antd'
 import { data, type RecordType } from './_compare/row-selection-fixed.shared'
 
-// 类型本地声明（与 dg 子文件同款）：scope 仅注入 'antd' / shared / '../table' / react 等，
-// 不能跨子文件 import（live 编辑下 require 表无 './row-selection-fixed.dg' key）。
+// 类型本地声明（与 dg 子文件同款）。
 type SelectionType = 'checkbox' | 'radio'
 type SelFixed = 'auto' | 'start' | 'end'
 
@@ -59,7 +53,7 @@ function buildAntdColumns(
 // 子组件
 // ---------------------------------------------------------------------------
 
-// ★ props 默认值同左栏 dg（合理有效初值，见 dg 子文件注释）。
+// props 默认值同左栏 dg（合理有效初值）。
 export default function RowSelectionFixedAntd({
   selectionType = 'checkbox',
   firstColFixed = true,
@@ -97,7 +91,7 @@ export default function RowSelectionFixedAntd({
       dataSource={data}
       /* 全局虚拟化开关接入：ON 时 virtual=true + 在原 scroll.x:1200 基础上合并 y:300
          （本 demo 有分页条，antd 表头/分页画在 scroll.y 之外，扣除后约 300 塞进 pane 限高；
-         OFF 时回原 scroll={{x:1200}}，行为与改造前一致）。 */
+         OFF 时回原 scroll={{x:1200}}）。 */
       virtual={virtual}
       scroll={virtual ? { x: 1200, y: 300 } : { x: 1200 }}
       pagination={false}

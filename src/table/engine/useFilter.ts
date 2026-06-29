@@ -1,63 +1,9 @@
 /**
- * 筛选状态机（S3 基础列筛选）。
+ * 筛选状态机 — 详见 docs/design-notes/filter-sorter.md
  *
- * **自研**——属表格核心逻辑（决策 6：data-grid 保留表格核心状态机自研；下拉 UI 用 antd）。
- *
- * === 状态模型 ===
- *
- * 内部维护 `Record<filterKey, filteredValue[]>`：每个**可筛选**叶子列一组激活值。
- * `filterKey` = column.key ?? dataIndex（与 sortKey 一致）。`filteredValue` 为 `Array<string|number>`，
- * 空数组表示"无激活筛选"（与 antd 一致：空数组 = 该列未筛选；null 同义）。
- *
- * 受控/非受控（与 useSorter 同款语义，对齐 antd）：
- *   - 受控：列上传 `filteredValue`（含 null/空数组显式受控）。该列的筛选状态由外部真理源驱动。
- *     **受控仍参与前端过滤**——与 antd `getFilterData` 一致（受控仅表示"状态来源 + onChange 通知"，
- *     不跳过数据处理）。引擎用 merged filteredValueMap（受控列取外部值、非受控列取内部 state）
- *     对 dataSource 过滤。
- *   - 非受控：列上传 `defaultFilteredValue`（仅初始化时生效）或都不传（初始为空）。
- *     引擎内部 state 持有，应用筛选时更新 state + 触发 onChange。
- *
- * 混合模式：antd 允许部分列受控、部分非受控。本 hook 同样支持：每列独立判定受控与否，
- * merged 状态取受控列用外部值、非受控列用内部 state。
- *
- * === 前端筛选（非受控列）===
- *
- * 对非受控列，引擎按 `filters` + `onFilter` + `filteredValue` 对 dataSource 过滤：
- *   - filterMultiple=true（默认）：保留命中**任一**激活值的 record（OR 语义，对齐 antd）。
- *   - filterMultiple=false：仅保留命中**唯一**激活值的 record（单选语义；多选时仍按 OR）。
- *   - filteredValue 为空 → 该列不过滤（保留全部）。
- *
- * 多列叠加：AND 语义——每列各自过滤后取交集（record 必须通过所有可筛选列的过滤）。
- *
- * === 与排序叠加（顺序：raw → sort → filter）===
- *
- * 对齐 antd：前端处理链为"先排序、后过滤"——
- *   1. useSorter 对 raw dataSource 排序 → sortedDataSource。
- *   2. useFilter 对 sortedDataSource 过滤 → filteredDataSource（最终渲染数据源）。
- *
- * 这样排序图标/排序态基于全量数据，筛选只是"在已排序的结果上裁剪"。与 antd `getFilterData`
- * 在排序后的数据上再过滤的语义一致。
- *
- * === onChange 分发 ===
- *
- * 本 hook 不直接调用 antd 全量 onChange（因为不持有排序态）。
- * 应用筛选（Dropdown 关闭/确定按钮）时，hook 调用 `onFilterChange(filters, currentDataSource)`，
- * 适配层 Table.tsx 在此回调里注入最新 sorter（从 useSorter 取），组装完整的
- * `onChange(pagination, filters, sorter, extra)`：
- *   - pagination：占位 `{}`（S11）。
- *   - filters：`{ [filterKey]: filteredValue[] | null }`——所有可筛选列均出现为 key；
- *     无激活筛选的列值为 `null`（对齐 antd）。
- *   - sorter：适配层从 useSorter 派生的最新排序结果。
- *   - extra：`{ currentDataSource, action: 'filter' }`。currentDataSource 为排序+筛选后的数据源
- *     （受控为传入 dataSource）。
- *
- * === 实现要点 ===
- *
- * 1. **filterKey 稳定性**：用 resolveFilterKey（column.key ?? dataIndex，与 sortKey 同算法）。
- *    无 key/dataIndex 的列不可筛选（filterable 判定时已排除）。
- * 2. **filters 扁平化**：children（S7 树形）本阶段扁平化为顶层项参与勾选（不做二级菜单 UI）。
- * 3. **不持有 filters/onFilter 配置**：本 hook 只管"哪些 value 被选中"；配置（filters 列表、onFilter 函数）
- *    由列树携带，渲染层（FilterDropdown）直接读。过滤计算时也读列树的 filters/onFilter。
+ * 维护 `Record<filterKey, filteredValue[]>`（每可筛选叶子列一组激活值）。
+ * 受控/非受控混合（每列独立判定）；处理链 raw → sort → filter；onChange 经适配层
+ * 注入 sorter 组装完整 onChange。配置（filters/onFilter）由列树携带，本 hook 只管"哪些 value 被选中"。
  */
 
 import { useCallback, useMemo, useState } from 'react'
@@ -68,7 +14,7 @@ import type { EngineFilterItem } from './types'
 export interface UseFilterOptions<RecordType> {
   /** 外部 columns（用于查列定义 + 过滤时取 filters/onFilter）。 */
   columns: Array<ColumnType<RecordType>>
-  /** 排序后的数据源（S3 输入：raw → sort → filter）。 */
+  /** 排序后的数据源（处理链 raw → sort → filter 的 sort 输出）。 */
   dataSource: Array<RecordType>
   /**
    * 筛选变化回调（**仅筛选部分**，不含 sorter）。
@@ -124,23 +70,19 @@ export function resolveFilterKey<RecordType>(
 }
 
 /**
- * 判断某列是否可筛选（S3/S5/S12）：
- *   - 内置模式（S3）：filters 非空（onFilter 非必需）。
- *   - 自定义面板模式（S5）：filterDropdown 存在（filters 可空、onFilter 非必需）。
- *   - onFilter 模式：onFilter 是函数（filters 可空）。
+ * 判断某列是否可筛选 — 详见 docs/design-notes/filter-sorter.md
  *
- * **对齐 antd `useFilter/index.tsx:38`**：`filters || filterDropdownIsDefined || 'onFilter' in column`
+ * 对齐 antd `useFilter/index.tsx:38`：`filters || filterDropdownIsDefined || 'onFilter' in column`
  * ——filters/filterDropdown/onFilter 任一存在即 filterable（渲染漏斗）。**onFilter 非必需**：
- * 服务端模式（S12 ajax）列声明 filters 但不传 onFilter，漏斗仍渲染，onChange 仍回传 filters，
- * 前端不过滤（数据由服务端处理）。
+ * 服务端模式列声明 filters 但不传 onFilter，漏斗仍渲染，onChange 仍回传 filters，前端不过滤。
  */
 export function isFilterable<RecordType>(
   column: ColumnType<RecordType> | undefined,
 ): boolean {
   if (!column) return false
-  // S5：自定义面板优先——有 filterDropdown 即可筛选（即使无 filters/onFilter）。
+  // 自定义面板优先——有 filterDropdown 即可筛选（即使无 filters/onFilter）。
   if (column.filterDropdown !== undefined && column.filterDropdown !== null) return true
-  // S3/S12：filters 已定义即 filterable（含空数组，对齐 antd truthy 判定：`filters: []`
+  // filters 已定义即 filterable（含空数组，对齐 antd truthy 判定：`filters: []`
   //   也渲染漏斗，点开空面板走 renderEmpty）。onFilter 非必需——服务端筛选时前端不过滤。
   if (column.filters) return true
   // 仅 onFilter（filters 空、filterDropdown 空）也视为可筛选（兜底）。
@@ -148,9 +90,10 @@ export function isFilterable<RecordType>(
 }
 
 /**
- * 把 ColumnFilterItem[]（含 children）扁平化为 value 列表（S7 树形筛选保留字段，本阶段扁平化）。
- * 注意：返回扁平 value 列表仅用于"判定某 value 是否在 filters 配置中"等辅助；
- * 实际渲染下拉 UI 用原始 ColumnFilterItem[]（保留 text）。引擎层 EngineFilterItem 同理。
+ * 把 ColumnFilterItem[]（含 children）扁平化为 value 列表 — 详见 docs/design-notes/filter-sorter.md（filters 扁平化）
+ *
+ * 树形筛选本阶段扁平化为顶层项参与勾选（不做二级菜单 UI）。返回扁平 value 列表仅用于
+ * "判定某 value 是否在 filters 配置中"等辅助；实际渲染下拉 UI 用原始 ColumnFilterItem[]（保留 text）。
  */
 export function flattenFilterValues(items: Array<ColumnFilterItem>): Array<string | number> {
   const out: Array<string | number> = []
@@ -206,7 +149,7 @@ function computeFilteredDataSource<RecordType>(
     if (key === undefined) continue
     const values = filteredValueMap.get(key)
     if (!values || values.length === 0) continue
-    // S12 守卫：filterable 放宽后，server 模式列可能无 onFilter（filters 非空但 onFilter 缺省）。
+    // 守卫：filterable 放宽后，server 模式列可能无 onFilter（filters 非空但 onFilter 缺省）。
     // 对齐 antd：无 onFilter 的列渲染漏斗但前端不过滤（数据由服务端处理），跳过该列。
     if (typeof c.onFilter !== 'function') continue
     activeFilters.push({ onFilter: c.onFilter, values })
@@ -236,7 +179,7 @@ function buildFiltersArg<RecordType>(
 }
 
 /**
- * 筛选状态机 hook（S3）。
+ * 筛选状态机 hook — 详见 docs/design-notes/filter-sorter.md
  */
 export function useFilter<RecordType>(
   options: UseFilterOptions<RecordType>,
@@ -318,6 +261,7 @@ export function useFilter<RecordType>(
   // === setFilterValue（Dropdown 应用/重置时调用）===
   // 仅更新内部非受控 state；onChange 分发通过 onFilterChange 回调（适配层注入 sorter）。
   // 受控列不更新内部 state（外部 filteredValue 是真理源），但仍构造新的 merged map 用于 onFilterChange。
+  // — 详见 docs/design-notes/filter-sorter.md（onChange 分发）
   const setFilterValue = useCallback(
     (filterKey: string, nextFilteredValue: Array<string | number> | null) => {
       const normalized = normalizeFilteredValue(nextFilteredValue)
@@ -364,6 +308,5 @@ export function useFilter<RecordType>(
   }
 }
 
-// EngineFilterItem 类型从 ./types 重新导出（渲染层 FilterDropdown 直接从 ./types 导入即可，
-// 此处保留是为了向后兼容早期实现；不影响 tree-shaking）。
+// EngineFilterItem 类型从 ./types 重新导出（渲染层 FilterDropdown 也可直接从 ./types 导入）。
 export type { EngineFilterItem }

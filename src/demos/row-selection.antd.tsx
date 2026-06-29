@@ -1,17 +1,7 @@
 /**
- * row-selection demo 的 antd 段（右栏），从 row-selection.tsx 拆出。
- *
- * - props 驱动 `{ selectionType, selectedKeys, onTypeChange, onSelectedKeysChange, virtual }`
- *   （由 row-selection.tsx 父组件传：selectionType 控制条 + 受控 selectedKeys 真理源
- *   + 切 type 时清空选择的外部回调 onTypeChange）。
- * - 自包含：含 `antdColumns` + `<AntdTable>` JSX + antd `<Radio.Group>` + antd `<Divider>`。
- * - 忠实复刻 antd row-selection demo：antd `<Radio.Group>` + antd `<Divider>` + antd 原生
- *   rowSelection（type 切换 + getCheckboxProps 禁用 + onChange 回调）。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.antd.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'antd'` / `'./_compare/row-selection.shared'`）。
+ * row-selection demo 的 antd 段（右栏），忠实复刻 antd row-selection demo。
+ * props 驱动 `{ selectionType, selectedKeys, onTypeChange, onSelectedKeysChange, virtual }`
+ * （由 row-selection.tsx 父组件传）。
  */
 import { Divider, Radio, Table as AntdTable } from 'antd'
 import type { TableProps } from 'antd'
@@ -55,8 +45,7 @@ export default function RowSelectionAntd({
   onSelectedKeysChange: (keys: Array<React.Key>) => void
   virtual: boolean
 }) {
-  // 右栏（antd）rowSelection：selectedRowKeys 受控（父共享 state）+ onChange 写回父 state。
-  // ★ 与 antd row-selection demo 逐字一致（onChange + getCheckboxProps），叠加 type + selectedRowKeys 受控。
+  // 右栏（antd）rowSelection：与 antd row-selection demo 同款 + 受控 selectedRowKeys（父共享 state）。
   const antdRowSelection: TableProps<RecordType>['rowSelection'] = {
     type: selectionType,
     selectedRowKeys: selectedKeys,
@@ -66,7 +55,7 @@ export default function RowSelectionAntd({
       onSelectedKeysChange(keys)
     },
     getCheckboxProps: (record: RecordType) => ({
-      disabled: record.name === 'Disabled User', // Column configuration not to be checked
+      disabled: record.name === 'Disabled User',
       name: record.name,
     }),
   }
@@ -81,7 +70,7 @@ export default function RowSelectionAntd({
         <Radio value="radio">Radio</Radio>
       </Radio.Group>
       <Divider />
-      {/* 虚拟化（决策 7）：ON→virtual+scroll.y=300（有分页，antd scroll.y 须数字）；OFF→不传，非虚拟（零回归）。 */}
+      {/* 虚拟化：ON→virtual+scroll.y=300（有分页，antd scroll.y 须数字）；OFF→不传，非虚拟。 */}
       <AntdTable<RecordType>
         rowSelection={antdRowSelection}
         columns={antdColumns}

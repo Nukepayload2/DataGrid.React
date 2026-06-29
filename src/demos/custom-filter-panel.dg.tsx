@@ -1,29 +1,13 @@
 /**
- * custom-filter-panel demo 的 data-grid 段（左栏），从 custom-filter-panel.tsx 拆出。
+ * custom-filter-panel demo 的 data-grid 段（左栏）。
  *
- * - props 驱动 `{ bordered, virtual }`（由 custom-filter-panel.tsx 父组件传）。
- * - 自包含：含 `useDgColumnSearch` 工厂 hook + 内联 `SearchOutlined` + `dgColumns`（Name/Age/Address
- *   三列均 `getColumnSearchProps`；Address 额外 sorter）+ `<Table>` JSX。
- * - 行为与改造前一致：filterDropdown（antd Input 搜索 + Space[Search/Reset/Filter/close] 四按钮）
- *   + filterIcon（放大镜，激活态 colorPrimary）+ onFilter + filterDropdownProps.onOpenChange
- *   （打开时 setTimeout 聚焦 Input）+ render（react-highlight-words 命中高亮，colorWarningBorderHover）。
- *   内联 SearchOutlined SVG（不直接依赖 @ant-design/icons）；HTMLInputElement ref。
+ * props 驱动 `{ bordered, virtual }`（由 custom-filter-panel.tsx 父组件传）。
+ * 自包含：含 `useDgColumnSearch` 工厂 hook + 内联 `SearchOutlined` + `dgColumns`（Name/Age/Address
+ * 三列均 `getColumnSearchProps`；Address 额外 sorter）+ `<Table>` JSX。
  *
- * === ★ 筛选/搜索 state 自管（局部交互）===
- * filterDropdown 内搜索词（searchText/searchedColumn/searchInput）属该 demo 的**局部交互状态**，
- * 强行共享会割裂两侧「忠实各自复刻」语义（点左栏搜索不应影响右栏的搜索词）。故 searchText/
- * searchedColumn/searchInput 在子组件内自管（`useDgColumnSearch` hook 内部 useState/useRef）。
- * 表格整体排序/筛选非受控（filterDropdown 内 confirm 应用为该列 filteredValue，由引擎内部管理）。
- * 编辑模式 propsFor 超集 {bordered,virtual,size,autoScroll} 已覆盖本子组件所需 props，无需额外兜底。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.dg.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'../table'` / `'./_compare/custom-filter-panel.shared'` / `'antd'` / `'react'` /
- * `'react-highlight-words'`），源码可原样展示无需路径改写。
- *
- * ★ react-highlight-words 已在 src/live/scope.ts baseScope 注入（package.json 已声明 ^0.21.0），
- *   live 编辑 require('react-highlight-words') 可正确解析。
+ * filterDropdown 内搜索词（searchText/searchedColumn/searchInput）属局部交互状态，子组件内自管
+ * （`useDgColumnSearch` hook 内部 useState/useRef）。表格整体排序/筛选非受控（filterDropdown 内 confirm
+ * 应用为该列 filteredValue，由引擎内部管理）。
  */
 import { useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
@@ -39,10 +23,9 @@ import type {
 import { data, type DataIndex, type RecordType } from './_compare/custom-filter-panel.shared'
 
 /**
- * 内联 SearchOutlined（放大镜）图标——避免直接依赖 @ant-design/icons（仅 antd 间接依赖）。
+ * 内联 SearchOutlined（放大镜）图标——避免 @ant-design/icons 直接依赖（仅 antd 间接依赖）。
  * 与 antd SearchOutlined 视觉一致（同一 SVG path）；size 跟随父节点 font-size（1em）。
- * 两侧共用：左栏 data-grid + 右栏 antd 均使用此组件（右栏替代 `@ant-design/icons` 直接 import，
- * 视觉零差异，仅 import 来源不同）。
+ * 两侧共用：左栏 data-grid + 右栏 antd 均使用此组件，视觉零差异，仅 import 来源不同。
  */
 function SearchOutlined({ style }: { style?: CSSProperties }): ReactNode {
   return (
@@ -60,7 +43,7 @@ function SearchOutlined({ style }: { style?: CSSProperties }): ReactNode {
 }
 
 // ---------------------------------------------------------------------------
-// getColumnSearchProps 工厂（行为与改造前一致；搜索 state 内部自管）
+// getColumnSearchProps 工厂（搜索 state 内部自管）
 // ---------------------------------------------------------------------------
 
 function useDgColumnSearch() {
@@ -182,12 +165,9 @@ function useDgColumnSearch() {
 // 子组件
 // ---------------------------------------------------------------------------
 
-// ★ props 默认值均为合理有效初值（坑5+坑7）：
-// - bordered=false（对齐改造前默认，antd custom-filter-panel demo 原本无边框）。
-// - virtual=false（OFF 回 undefined scroll，行为与改造前一致）。
+// props 默认值：bordered=false / virtual=false（OFF 回 undefined scroll）。
 // 搜索 state（searchText/searchedColumn/searchInput）子组件内自管（局部交互，见文件头说明）；
 // 排序/筛选非受控（confirm 应用为该列 filteredValue，由引擎内部管理）。
-// 编辑模式 propsFor 超集 {bordered,virtual,size,autoScroll} 已覆盖本子组件所需 props。
 export default function CustomFilterPanelDg({
   bordered = false,
   virtual = false,
@@ -195,7 +175,7 @@ export default function CustomFilterPanelDg({
   bordered: boolean
   virtual: boolean
 }) {
-  // 子组件内自管的搜索 state（局部交互，不提升父）。
+  // 子组件内自管的搜索 state（局部交互）。
   const getColumnSearchProps = useDgColumnSearch()
 
   const dgColumns: ColumnType<RecordType>[] = [
@@ -231,7 +211,7 @@ export default function CustomFilterPanelDg({
       pagination={{}}
       /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
          pane 限高，虚拟窗口才有滚动区；filterDropdown 下拉是表头 popover，不受虚拟化影响）；
-         OFF 时回 undefined，行为与改造前一致。 */
+         OFF 时回 undefined，无 scroll。 */
       virtual={virtual}
       scroll={virtual ? { y: true } : undefined}
     />

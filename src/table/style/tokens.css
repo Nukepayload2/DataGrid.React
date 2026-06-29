@@ -1,28 +1,16 @@
 /**
- * data-grid 样式层（F3）：antd v6 兼容的 CSS variables / design token。
+ * data-grid 样式层：antd v6 兼容的 CSS variables / design token。
+ * 详见 docs/design-notes/theme-tokens.md（token 桥接策略 + getComponentToken 剪枝坑 + 注入路径）。
  *
- * ★ 来源声明（决策 4）：
- *   token 名取自 antd 6.4.4 `components/table/style/index.ts` 的 `ComponentToken`
- *   定义（见该文件 `export interface ComponentToken { ... }`，逐字段对照）。
- *   antd v6 cssinjs 会把组件 token 以 `--<prefix>-<kebabCaseName>` 形式输出到 DOM
- *   （默认 prefix=ant），故 `headerBg` → `--ant-table-header-bg`、`rowHoverBg` → `--ant-table-row-hover-bg`、
- *   `cellPaddingBlock` → `--ant-table-cell-padding-block` 等（Table 组件 token 经 `prefixToken` 重命名
- *   加 `Table` 前缀，见 Table.tsx `tableTokenToCssVars`）。
+ * token 名取自 antd 6.4.4 `components/table/style/index.ts` 的 `ComponentToken`
+ * 定义（见该文件 `export interface ComponentToken { ... }`，逐字段对照）。
+ * antd v6 cssinjs 会把组件 token 以 `--<prefix>-<kebabCaseName>` 形式输出到 DOM
+ * （默认 prefix=ant），故 `headerBg` → `--ant-table-header-bg`、`rowHoverBg` → `--ant-table-row-hover-bg`、
+ * `cellPaddingBlock` → `--ant-table-cell-padding-block` 等（Table 组件 token 经 `prefixToken` 重命名
+ * 加 `Table` 前缀，见 Table.tsx `tableTokenToCssVars`）。
  *
- *   **未浏览器实测**：本任务为实施者，不做 chrome-devtools UI 对照验证（由后续验证者 agent 负责）。
- *   默认值参照 antd 6.4.4 `prepareComponentToken` 的派生结果（colorFillAlter / colorBgContainer /
- *   colorBorderSecondary / borderRadiusLG / padding 等）在默认主题下的实测取值，已尽量贴近。
- *
- * === 主题注入重构 Round 1：单位对齐（与 antd transformToken 同款）===
- *
- * antd 注入 `--ant-*` 时 number → `${v}px`（unitless 白名单除外，见 `transformToken`）。
- * 旧 fallback 用裸数字 + 消费者 `calc(var * 1px)` 换算。但主题注入后 `.dg-wrapper` 拿到的是
- * **antd 带单位 px 的值**（如 `--ant-table-cell-padding-block: 16px`），`calc(16px * 1px)` 无效。
- *
- * 修复：tokens.css fallback **全部改为带 px**（与 antd 注入格式一致），消费者直接 `var(--ant-*)`
- * （去掉 `calc(var * 1px)`，见 table.css）。这样 fallback 与 antd 注入格式统一，主题注入后无单位
- * 不一致。unitless 字段（如 expandIconScale）antd 自身不加 px——fallback 也用裸数字（仅 expandIconScale
- * 一项，dg 当前不消费，为完整性声明）。
+ * 单位对齐：antd 注入 `--ant-*` 时 number → `${v}px`（unitless 白名单除外）。tokens.css fallback
+ * 也用带 px 的格式，消费者直接 `var(--ant-*)`（不再 `calc(var * 1px)`，避免 `calc(16px * 1px)` 无效）。
  *
  * 使用方式：
  *   - 默认：`.dg-wrapper` 上自带本文件的 fallback 值，独立运行也视觉正确。
@@ -49,12 +37,11 @@
   --ant-table-header-sort-hover-bg: #f5f5f5;
   --ant-table-body-sort-bg: #fafafa;
   --ant-table-fixed-header-sort-active-bg: #fafafa;
-  /* ★ §11 head 返工：删除 `--ant-table-header-filter-hover-bg`（错误 token 名）。
-     antd Table 无 `tableHeaderFilterHoverBg` token——filter trigger hover bg 用的 Table 组件 token
-     名是 `tableHeaderFilterActiveBg`（filter.ts:68），但该 token 默认派生 = colorFillContent（alias），
-     antd DOM 不单独输出 `--ant-table-header-filter-active-bg`（与 alias 同值被删）。
-     故 hover bg 直接消费 alias `--ant-color-fill-content`（下方 fallback 已声明 rgba(0,0,0,0.06)），
-     table.css `.dg-filter-trigger:hover` 同步改用 alias token。这里不再重复声明 filter bg fallback。 */
+  /* filter trigger hover bg 不单独声明：antd Table 无 `tableHeaderFilterHoverBg` token，filter trigger
+     hover bg 用的 Table 组件 token 名是 `tableHeaderFilterActiveBg`（filter.ts:68），但该 token 默认派生 =
+     colorFillContent（alias），antd DOM 不单独输出（getComponentToken 剪枝与 alias 同值的键，详见
+     docs/design-notes/theme-tokens.md「getComponentToken 剪枝坑」）。hover bg 直接消费 alias
+     `--ant-color-fill-content`（下方 fallback 已声明），table.css `.dg-filter-trigger:hover` 同款。 */
 
   /* —— 颜色：底部 / 过滤下拉（Table component token）—— */
   --ant-table-footer-bg: #fafafa;
@@ -86,10 +73,10 @@
   --ant-table-cell-font-size-md: 14px;
   --ant-table-cell-font-size-sm: 14px;
 
-  /* —— 选择列宽（Table component token，M5 消费）—— */
+  /* —— 选择列宽（Table component token，选择列消费）—— */
   --ant-table-selection-column-width: 32px;
 
-  /* —— sticky 滚动条（Table component token，S34 消费）—— */
+  /* —— sticky 滚动条（Table component token，StickyScrollBar 消费）—— */
   /* antd 6.4.4 sticky.ts 用的 token 体系（非单一 stickyScrollBarBg）：
      - tableScrollBg（bar 容器背景，= colorSplit，很浅）：prepareComponentToken:582 派生。
      - tableScrollThumbBg（thumb 背景，= stickyScrollBarBg = colorTextPlaceholder）。
@@ -110,17 +97,17 @@
   /* 全局线宽/线型（alias token） */
   --ant-line-width: 1px;
   --ant-line-type: solid;
-  /* —— Round 2 新增 alias fallback：table.css 消费侧迁到 var(--ant-*) 后，独立运行（未接 antd 主题）
-     也需 fallback。接入 antd 主题后被 Table.tsx aliasTokenVars 注入的同名 var 覆盖。 —— */
+  /* 以下 alias fallback：table.css 消费侧用 var(--ant-*)，独立运行（未接 antd 主题）也需 fallback。
+     接入 antd 主题后被 Table.tsx aliasTokenVars 注入的同名 var 覆盖。 */
   /* 主色（alias token；sorter 激活 caret / filter 激活漏斗 / resizer 手柄 消费） */
   --ant-color-primary: #1677ff;
   /* 分割线色（alias token；fixed 列阴影 消费；antd fixed.ts getShadowStyle 用 colorSplit） */
   --ant-color-split: rgba(5, 5, 5, 0.06);
-  /* §11 head：filter-trigger hover 色消费（antd filter.ts:67 `color: colorIcon`，默认 rgba(0,0,0,0.45)）。
+  /* filter-trigger hover 色消费（antd filter.ts:67 `color: colorIcon`，默认 rgba(0,0,0,0.45)）。
      注：filter hover 用 colorIcon 而非 headerIconHoverColor（=colorIconHover*opacityLoading）——
      sorter hover 用 headerIconHoverColor（sorter.ts:104），两者语义不同，data-grid 须分别对齐。 */
   --ant-color-icon: rgba(0, 0, 0, 0.45);
-  /* §11 head：filter-trigger hover background 消费（antd filter.ts:68 `background: tableHeaderFilterActiveBg`，
+  /* filter-trigger hover background 消费（antd filter.ts:68 `background: tableHeaderFilterActiveBg`，
      prepareComponentToken:472 派生 headerFilterHoverBg: colorFillContent，默认主题 colorFillContent
      实测≈#f5f5f5）。注：headerFilterHoverBg token 在 prepareComponentToken 派生为 colorFillContent
      （未混 opacity），与 headerSortHoverBg(colorFillContent onBg solid) 视觉相近但语义不同——
@@ -137,23 +124,23 @@
   --ant-color-text-heading: rgba(0, 0, 0, 0.88);
   /* 正文文字色（alias token；antd `.ant-table` 经 resetComponent(token) 设 `color: colorText`，
      全表 body cell 通过继承拿到此色；展开图标 `color: inherit` 也解析到此色。
-     §11 C2 tree-data 种子 #2 修复：data-grid body 原本无 color 声明，继承浏览器默认纯黑
-     (rgb(0,0,0))——与 antd 的 rgba(0,0,0,0.88) 不符。改为显式消费 --ant-color-text 对齐。 */
+     data-grid body 原本无 color 声明，继承浏览器默认纯黑 (rgb(0,0,0))——与 antd 的 rgba(0,0,0,0.88)
+     不符。故显式消费 --ant-color-text 对齐。 */
   --ant-color-text: rgba(0, 0, 0, 0.88);
   /* 链接色族（alias token；展开图标 hover/focus/active color 消费）。
      antd expand.ts 第 55 行 `...operationUnit(token)`（components/style/index.tsx:169-198）在
      展开图标上注入 `:hover/:focus { color: colorLinkHover }`、`:active { color: colorLinkActive }`。
      默认主题 colorLinkHover=#69b1ff（genColorMapToken.ts:111 linkColors[4]）、
-     colorLinkActive=#0958d9（linkColors[7]）。§11 C2 tree-data 种子 #1 修复消费。 */
+     colorLinkActive=#0958d9（linkColors[7]）。 */
   --ant-color-link-hover: #69b1ff;
   --ant-color-link-active: #0958d9;
   /* 全局圆角（alias token；expand 图标 / filter 下拉圆角 消费） */
   --ant-border-radius: 6px;
-  /* paddingXS（alias token；§11 row-selection 选择列单元格 paddingInlineStart/End 消费）。
+  /* paddingXS（alias token；row-selection 选择列单元格 paddingInlineStart/End 消费）。
      antd selection.ts:54-55 给选择列单元格设 paddingXS（=4px 默认主题，不随 size 变化）。
      接入 antd 主题时由 Table.tsx aliasTokenVars 注入覆盖。 */
   --ant-padding-xs: 4px;
-  /* lineHeight（alias token，unitless；P2 任务 cell line-height 对齐 antd）。
+  /* lineHeight（alias token，unitless）。
      antd cell（th/td）不显式声明 line-height——通过 `.ant-table` 根节点的 `resetComponent(token)`
      （components/style/index.tsx:12-23 第 19 行）`lineHeight: token.lineHeight` 下推到所有 td/th。
      antd 全局 lineHeight 由 `genFontMapToken` → `getLineHeight(fontSize)` 算出
@@ -164,8 +151,8 @@
   --ant-line-height: 1.5715;
 
   /* —— data-grid 自身布局变量（非 antd token）——
-     直接消费 antd 带单位值（去掉旧 calc(*1px) 换算，与 antd 注入格式一致）。
-     ★ colorBgContainer 双消费：优先 --ant-table-color-bg-container（Table 组件 token，
+     直接消费 antd 带单位值（与 antd 注入格式一致）。
+     colorBgContainer 双消费：优先 --ant-table-color-bg-container（Table 组件 token，
        component-token demo 覆盖时由 Table.tsx tableTokenVars 注入），fallback 到
        --ant-color-bg-container（alias token，默认主题）。antd Table style 用 tableBg
        别名指向 var(--ant-table-color-bg-container)，data-grid 等效用 fallback 链。 */
@@ -183,9 +170,9 @@
   --dg-radius: var(--ant-table-header-border-radius);
   --dg-border: var(--ant-line-width) var(--ant-line-type) var(--ant-table-border-color);
 
-  /* —— Round 2 新增桥接：排序 / 图标 / 主色（之前 table.css 直接 fallback 硬编码，dark theme 不跟随）——
+  /* —— 排序 / 图标 / 主色 桥接：让 dark/自定义主题统一跟随。
      这些 Table component token（headerSortHoverBg/headerSortActiveBg/bodySortBg/headerIconColor/
-     headerIconHoverColor）由 prepareComponentToken 派生 + Round 1 tableTokenToCssVars 注入为
+     headerIconHoverColor）由 prepareComponentToken 派生 + tableTokenToCssVars 注入为
      --ant-table-*（headerIconColor → --ant-table-header-icon-color 等），已落在 .dg-wrapper。
      primary-color / resizer-color 无 Table 专属 token，走 alias --ant-color-primary（ConfigProvider
      theme.token.colorPrimary 控制，dark/自定义主色统一跟随）。 */
@@ -199,23 +186,23 @@
   --dg-resizer-color: var(--ant-color-primary);
 }
 
-/* size 变量切换：通过 dg-size-* 类覆写 padding / 字号 token（S27）。
+/* size 变量切换：通过 dg-size-* 类覆写 padding / 字号 token。
  *
- * ★ 三档视觉尺寸（对齐 antd v6 `components/table/style/index.ts:544-567`）：
+ * 三档视觉尺寸（对齐 antd v6 `components/table/style/index.ts:544-567`）：
  *   - large（默认，无 size 类或带 dg-size-large）：cell padding block 16 / inline 16 / font 14。
  *   - medium = middle（dg-size-middle，antd v5 'middle' 在 v6 映射为 'medium'，
  *     InternalTable.tsx:294）：cell padding block 12 (paddingSM) / inline 8 (paddingXS) / font 14。
  *   - small（dg-size-small）：cell padding block 8 (paddingXS) / inline 8 (paddingXS) / font 14。
  *
- * ★ 关于 compact（决策 4 实测结论，S27）：
+ * 关于 compact（实测结论）：
  *   antd v6 **Table 组件本身不存在 compact size**——`SizeType = 'small' | 'medium' | 'middle' | 'large'`
  *   （components/config-provider/SizeContext.tsx:6），Table style 也只输出 large/MD/SM 三档 token
  *   （components/table/style/index.ts:516-528）。`compact` 是 Button/Space/Input 等其它组件的尺寸概念，
- *   不属于 Table。data-grid 的 SizeType 在 S24 保留了 'compact'（用于 `<ConfigProvider componentSize>`
+ *   不属于 Table。data-grid 的 SizeType 保留了 'compact'（用于 `<ConfigProvider componentSize>`
  *   全局消费的兜底），Table 层把它视觉等价为 'small'（与 antd 6.4.4 实测最紧凑 Table 尺寸一致）。
  *   即 compact → dg-size-small，不单独造 antd 不存在的 token（避免臆测）。
  *
- * ★ 主题注入重构 Round 1：直接 `var(--ant-table-cell-*)`（antd 注入带 px），不再 `calc(var * 1px)`。
+ * 直接 `var(--ant-table-cell-*)`（antd 注入带 px），不再 `calc(var * 1px)`。
  */
 .dg-wrapper.dg-size-large {
   /* 显式 'large'：等价默认（无 size 类），这里仅为 sizeToClass 返回值提供明确的类（无样式覆写）。 */

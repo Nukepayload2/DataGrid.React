@@ -1,45 +1,9 @@
 /**
- * 分页状态机（S11 分页集成与位置）。
+ * 分页状态机 — 详见 docs/design-notes/pagination.md（引擎状态机 usePagination）
  *
- * **自研核心 + antd Pagination 控件**（决策 6：分页器 UI 用 antd，分页状态机/切片自研）。
- *
- * === 受控 / 非受控 ===
- *
- * - 受控：外部传 `current` / `pageSize`（任一传入即视为该字段受控，真理源在外部）。
- * - 非受控：内部 state（初始取 `defaultCurrent`（默认 1）/ `defaultPageSize`（默认 10））。
- * - 混合：允许 current 受控、pageSize 非受控（或反之），各字段独立判定。
- *
- * === total 派生 ===
- *
- * `total` 默认 = 当前页数据源长度（适配层传入 `dataSourceLength`，即排序+筛选后的长度）。
- * 外部传 `pagination.total` 覆盖（ajax 场景：服务端 total，前端 dataSource 仅当前页——S12）。
- *
- * === 越界回退（对齐 antd usePagination）===
- *
- * 若 `current > maxPage`（maxPage = ceil(total / pageSize)），回退到 `maxPage || 1`。
- * 此回退**仅影响派生的 effectiveCurrent**（渲染 + onChange 注入用），**不**回写内部 state
- * （避免渲染期副作用；与 antd 直接 mutate mergedPagination.current 一致——antd 也是每次 render
- * 重算而非 setState）。受控模式下同样只影响派生值（外部 current 不变，但切片用 effectiveCurrent）。
- *
- * === 切片 ===
- *
- * `pagedDataSource = dataSource.slice((effectiveCurrent-1)*pageSize, effectiveCurrent*pageSize)`。
- * pageSize <= 0 或 dataSource 为空 → 空切片（不崩）。
- *
- * === onChange 分发 ===
- *
- * 翻页/改 pageSize 时调 `onPaginationChange(nextCurrent, nextPageSize)`，适配层据此：
- *   - 非受控字段更新内部 state。
- *   - 触发 Table onChange(paginationState, filters, sorter, { action: 'paginate', currentDataSource })。
- *
- * `paginationState` = `{ current, pageSize, total }`（effective 值，含越界回退）。
- * `currentDataSource` = 分页**前**的全量数据源（与 antd 一致：antd onChange 的 currentDataSource
- * 是分页前的渲染数据）。
- *
- * === 不直接调 antd Pagination.onChange ===
- *
- * 适配层把本 hook 的 `onPaginationChange` 包成 antd `<Pagination>` 的 `onChange`/`onShowSizeChange`
- * （antd Pagination 自身只在用户交互时触发 onChange，与这里语义一致）。
+ * 受控/非受控 current/pageSize（各字段独立判定）；total 派生（数据源长度或外部覆盖）；
+ * 越界回退仅影响派生值；切片 + 服务端模式检测；onChange 经适配层组装 Table onChange。
+ * 分页器 UI 用 antd `<Pagination>`，状态机/切片自研。
  */
 
 import { useCallback, useMemo, useState } from 'react'
@@ -185,17 +149,17 @@ export function usePagination(
 }
 
 /**
- * 计算分页切片（不改原数组；越界/空安全）。
+ * 计算分页切片（不改原数组；越界/空安全）— 详见 docs/design-notes/pagination.md（服务端模式检测）
  *
- * **服务端模式检测（S12，对齐 antd `InternalTable.tsx:538-559`）**：
+ * 服务端模式检测（对齐 antd `InternalTable.tsx`）：
  *   - `pageSize <= 0` 或 `dataSource` 为空 → 空切片。
  *   - **`total !== undefined && dataSource.length < total`**（server/async 模式：
  *     dataSource 已是当前页、外部 total 表示服务端总量）→ 不切片（返回原 dataSource）；
  *     异常配置（`dataSource.length > pageSize`）仍切片 + 警告。
  *   - 否则（客户端模式：`total` 未定义或 `dataSource.length >= total`）→ 正常切片。
  *
- * 用法：server 模式（ajax demo：dataSource=当前页 10 行、外部 total=100）走「不切片」分支，
- * 客户端模式（S11 pagination demo：total=3=length）走「切片」分支，避免双重分页。
+ * 用法：server 模式（ajax demo：dataSource=当前页 10 行、外部 total=100）走「不切片」分支；
+ * 客户端模式（pagination demo：total=3=length）走「切片」分支，避免双重分页。
  */
 export function slicePage<RecordType>(
   dataSource: Array<RecordType>,
@@ -204,7 +168,7 @@ export function slicePage<RecordType>(
   total?: number,
 ): Array<RecordType> {
   if (pageSize <= 0 || dataSource.length === 0) return []
-  // 服务端/async 模式：dataSource 已是当前页（length < total）→ 不切片（对齐 antd InternalTable.tsx:547-557）。
+  // 服务端/async 模式：dataSource 已是当前页（length < total）→ 不切片（对齐 antd InternalTable.tsx）。
   if (total !== undefined && dataSource.length < total) {
     // 异常配置（dataSource.length > pageSize，疑似配置错误）→ 仍切片防数据过多，并警告。
     if (dataSource.length > pageSize) {

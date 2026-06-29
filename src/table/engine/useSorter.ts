@@ -1,70 +1,8 @@
 /**
- * 排序状态机（S1 单列 + S2 多列）。
+ * 排序状态机（单列 + 多列） — 详见 docs/design-notes/filter-sorter.md
  *
- * **自研**——lun 完全缺失排序能力（C 类），从零实现，对齐 antd 排序语义。
- *
- * === 状态模型（统一数组，与 antd `useSorter.ts` 同款）===
- *
- * 内部维护一个 `SortState[]`：每个**可排序**叶子列一条状态 `{ column, key, sortOrder,
- * multiplePriority }`。`sortOrder` 为 `'ascend' | 'descend' | null`，`multiplePriority`
- * 为 `number`（来自 `sorter.multiple`，**越大优先级越高**——对齐 antd `getSortData`：
- * `states.sort((a,b) => b.multiplePriority - a.multiplePriority)` 后依次应用 compare，
- * multiple 大的先比，是主排序键）或 `false`（非多列排序器）。
- *
- * - **多列排序器**（`sorter: { compare, multiple }` 中 `multiple` 为 number）：点击该列
- *   **只改该列自身的 sortOrder**，不互斥清空其它列（区别于单列语义）。
- * - **单列排序器**（`sorter` 为 boolean / 函数 / 对象但无 number `multiple`）：点击该列
- *   **清空所有其它列**（含多列），仅保留该列（与 S1 行为一致）。
- *
- * 受控/非受控：与 S1 一致——列上传 `sortOrder` 即受控；未传时由 `defaultSortOrder` 给初始值。
- * 多列下允许多列同时受控（外部传 `sortOrder`）。
- *
- * === sortDirections 循环（点击切换顺序）===
- *
- * 点击排序列表头时，对**该列自身**的 `sortOrder` 循环：
- *   - 当前为 null → 取 `sortDirections[0]`（默认 `'ascend'`）。
- *   - 当前非 null → 取 `sortDirections` 中 `indexOf(current) + 1`；越界（末尾）→ 回退 `null`。
- *   默认 `sortDirections = ['ascend', 'descend']`：null → ascend → descend → null。
- *
- * （与 antd `nextSortDirection` 一致；见 `ant-design/.../useSorter.tsx:52-57`。）
- *
- * === 多列优先级叠加（稳定排序链）===
- *
- * 非受控时，引擎对 dataSource 按以下方式排序：
- *   1. 取所有激活列（`sortOrder != null`），按 `multiplePriority` **从大到小**排序
- *      （即 multiple 值**大**的先排；与 antd `getSortData` 一致——`b.priority - a.priority`）。
- *   2. 在 `Array.prototype.sort` 的比较器里，**从大 multiple 到小 multiple 依次**应用 compare：
- *      找到第一个 `!= 0` 的结果即返回；都为 0 则保持稳定（返回 0）。
- *   3. 结果：**multiple 越大优先级越高**——multiple 大的列最先比较，是主排序键；
- *      multiple 小的列后比较，在主键相等时作为次级排序细化结果。与 antd 多列语义一致。
- *
- * 单列排序器（`multiplePriority === false`）按 antd 规则只可能存在一列（点击即清空其它），
- * 故其优先级等同于"最高"（独立链）。
- *
- * === 前端排序细节 ===
- *
- *   - `sorter: true`：默认比较——按 `dataIndex` 字段值升序比较（数值用 `-`，字符串用
- *     `localeCompare`，其它退化为 `<`/`>`）。descend 反转结果。
- *   - `sorter: (a,b)=>number`：自定义比较；descend 反转返回值。
- *   - `sorter: { compare }`：取 `compare`；descend 反转。
- *   - 稳定排序：`[...dataSource].sort()` 副本，不改原数组。
- *
- * 受控模式（对齐 antd）：**仍**用 mergedStates 调 getSortData 排序 dataSource。
- *   受控仅表示"状态来源 + onChange 通知"，不跳过数据处理（与 antd `getSortData(rawData,
- *   mergedSorterStates)` 一致——antd InternalTable 不管受控与否都把 mergedSorterStates 喂给
- *   getSortData）。onChange 仍只在用户交互（onSorterClick）时触发，避免外部 state 变化造成循环。
- *
- * === onChange 分发 ===
- *
- * 点击触发 `onChange(pagination, filters, sorter, extra)`：
- *   - sorter（对齐 antd `generateSorterInfo`）：
- *       * 0 个激活 → 单对象（`order: null`，data-grid 简化：保留触发表头列的 column/field/columnKey，
- *         order=null）。
- *       * 1 个激活 → 单对象 `{ column, order, field, columnKey }`。
- *       * >=2 个激活 → `SorterResult[]`（按 multiple 升序输出，仅含 order != null 的列）。
- *         注意：此为 onChange 输出顺序，与排序优先级方向（大者优先）无关；data-grid 这里
- *         沿用既有输出顺序以最小化破坏性变更。
- *   - extra：`{ currentDataSource, action: 'sort' }`。
+ * 维护 `SortState[]`（每可排序叶子列一条）；sortDirections 循环点击切换；多列按 multiple
+ * 优先级叠加（稳定排序链）；受控/非受控都调 getSortData 排序；onChange 经 generateSorterInfo 分发。
  */
 
 import { useCallback, useMemo, useState } from 'react'
@@ -90,8 +28,8 @@ export interface SortState<RecordType> {
   /** 当前排序方向（'ascend'/'descend'/null）。 */
   sortOrder: SortOrder
   /**
-   * 多列优先级。来自 `sorter.multiple`（number）——**越大越优先**（对齐 antd `getSortData`）。
-   * `false` 表示该列是单列排序器（非多列）。
+   * 多列优先级。来自 `sorter.multiple`（number）——越大越优先。`false` 表示单列排序器。
+   * — 详见 docs/design-notes/filter-sorter.md（排序状态模型/多列优先级叠加）
    */
   multiplePriority: number | false
 }
@@ -197,14 +135,13 @@ export interface UseSorterResult<RecordType> {
   sortOrderMap: Map<string, SortOrder>
   /**
    * 多列模式下，激活列（order != null）的"优先级序号"映射（sort key → 1-based 序号）。
-   * 序号按 multiple **降序**分配（multiple 最大=最高优先级=序号 1，对齐 antd `getSortData`
-   * 的实际比较顺序）。供表头显示优先级数字（S2）。单列模式下空 Map（不显示序号）。
+   * 序号按 multiple 降序分配（multiple 最大=最高优先级=序号 1）。供表头显示优先级数字。
+   * 单列模式下空 Map（不显示序号）。— 详见 docs/design-notes/filter-sorter.md（多列优先级叠加）
    */
   sortPriorityMap: Map<string, number>
   /**
    * 当前激活的排序列 key（单列语义的"主排序列"）：取激活列表中 multiple 最大（最高优先级）
-   * 的那个；无激活列时为 null。用于兼容 S1 的"当前排序列"概念（dg-column-sort 高亮在多列
-   * 下基于 sortOrderMap，此字段仅作辅助）。
+   * 的那个；无激活列时为 null。dg-column-sort 高亮在多列下基于 sortOrderMap，此字段仅作辅助。
    */
   activeColumnKey: string | null
   /**
@@ -217,8 +154,8 @@ export interface UseSorterResult<RecordType> {
    */
   onSorterClick: (columnKey: string) => void
   /**
-   * 当前 mergedStates 派生的 sorter 结果（S3 起接入：useFilter 的 onFilterChange 需要把
-   * "最新排序状态"注入 onChange 的 sorter 参数，而不依赖点击排序触发）。
+   * 当前 mergedStates 派生的 sorter 结果（useFilter 的 onFilterChange 注入 onChange.sorter 用，
+   * 而不依赖点击排序触发）。
    *
    * 返回值与 onSorterClick 触发 onChange 时的 sorter 同款（generateSorterInfo 逻辑）：
    *   - 0 激活 → `{}`。
@@ -245,8 +182,7 @@ export function resolveColumnSortKey<RecordType>(
  * - `init=true`（初始化）：受控列（带 sortOrder）+ 非受控 defaultSortOrder 均纳入。
  * - `init=false`（merged 计算）：仅纳入受控列；非受控由内部 state 维护。
  *
- * 注意：本引擎适配层在构建列树时已过滤分组列，`columns` 入参均为叶子列（无 children）；
- * 故这里不递归 children（与 antd 的递归差异不影响——适配层保证叶子）。
+ * 适配层在构建列树时已过滤分组列，`columns` 入参均为叶子列（无 children）；故这里不递归 children。
  */
 function collectSortStates<RecordType>(
   columns: Array<ColumnType<RecordType>>,
@@ -288,6 +224,7 @@ function collectSortStates<RecordType>(
  *
  * 与 antd 的细微差异：antd 在"0 激活但有 sorterStates"时会回退一个 `{ column: undefined,
  * order: undefined, ... }` 的 legacy 对象；data-grid 简化为 `{}`（调用方判 `!sorter.order` 即可）。
+ * — 详见 docs/design-notes/filter-sorter.md（onChange 分发）
  */
 function generateSorterInfo<RecordType>(
   states: Array<SortState<RecordType>>,
@@ -379,7 +316,7 @@ function getSortData<RecordType>(
 }
 
 /**
- * 排序状态机 hook（S1 单列 + S2 多列）。
+ * 排序状态机 hook（单列 + 多列）— 详见 docs/design-notes/filter-sorter.md
  */
 export function useSorter<RecordType>(
   options: UseSorterOptions<RecordType>,
@@ -441,12 +378,13 @@ export function useSorter<RecordType>(
   )
 
   // === sortPriorityMap（多列模式下激活列的优先级序号；单列模式空）===
-  // 编号方向对齐 antd `getSortData` 的实际优先级：multiple **大者优先**
+  // 编号方向对齐 antd `getSortData` 的实际优先级：multiple 大者优先
   // （`b.multiplePriority - a.multiplePriority` 降序应用 compare，multiple 大的先比 =
   // 主排序键 = 最高优先级）。故徽标编号 1 对应 multiple 最大（最高优先）的激活列，
   // 编号随 multiple 递减递增（如 multiple=3→1，multiple=2→2，multiple=1→3）。
   // 非多列（false）在多列模式下不会共存（triggerSorter 保证），这里把 false 当
   // +Infinity（最高优先级=编号 1）以保持语义一致。
+  // — 详见 docs/design-notes/filter-sorter.md（多列优先级叠加）
   const sortPriorityMap = useMemo(() => {
     const map = new Map<string, number>()
     if (!isMultipleMode) return map
@@ -473,7 +411,7 @@ export function useSorter<RecordType>(
     [dataSource, mergedStates],
   )
 
-  // === activeColumnKey（兼容 S1：取激活列中 multiple 最大的一个，即最高优先级）===
+  // === activeColumnKey（取激活列中 multiple 最大的一个，即最高优先级）===
   const activeColumnKey = useMemo(() => {
     const active = mergedStates
       .filter((s) => s.sortOrder !== null)
@@ -542,7 +480,7 @@ export function useSorter<RecordType>(
         // `triggerOnChange` 中 changeEventInfo.sorterStates → getSortData 的处理：onChange 里
         // currentDataSource 始终是按"本次交互后的 states"排序后的结果）。
         const currentDataSource = getSortData(dataSource, nextStates)
-        // pagination 占位 `{}`：适配层包装 onChange 时会替换为实际分页状态（S11），
+        // pagination 占位 `{}`：适配层包装 onChange 时会替换为实际分页状态，
         // useSorter 内部不持有分页态，故传占位（类型断言绕过——适配层忽略此参数）。
         onChange({} as TablePaginationState, {}, sorter, {
           currentDataSource,
@@ -553,7 +491,7 @@ export function useSorter<RecordType>(
     [columns, mergedStates, dataSource, onChange],
   )
 
-  // === 当前 sorter 结果（S3：useFilter 的 onFilterChange 注入 onChange.sorter 用）===
+  // === 当前 sorter 结果（useFilter 的 onFilterChange 注入 onChange.sorter 用）===
   // 与 onSorterClick 触发 onChange 时的 sorter 同款（generateSorterInfo 逻辑），但基于当前
   // mergedStates（而非"点击后的 nextStates"）。每次 mergedStates 变化时重算。
   const currentSorterResult = useMemo(

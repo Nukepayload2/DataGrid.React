@@ -1,37 +1,7 @@
 /**
- * edit-row demo 的 data-grid 段（左栏），从 edit-row.tsx 拆出。
- *
- * === 行级编辑 state 自管（子组件内）===
- * edit-row demo 的核心交互是行级编辑（一个 form 共享整表 + editingKey 区分当前编辑行）+ Edit/
- * Save/Cancel，这些都是表格内部交互态（无外部控制条直接操作）。按 SOP「交互 state（编辑/增删行/
- * 选择/展开/分页等）优先留子组件内自管；仅当父控制条需直接操作时才提升父」+ 本 demo 原始决策
- * 「编辑各自独立」（共用 form/data/editingKey 会冲突——两栏同时只能编辑一行、Form 共享串台），
- * 本子组件内部自管：
- *   - `form`（Form.useForm 整表共享）
- *   - `data`（表格数据，初始 originData 100 行）
- *   - `editingKey`（当前编辑行 key，''=无编辑）
- *   + `isEditing`/`edit`/`cancel`/`save`
- * 这与改造前 DgEditRowPane 的行为完全等价（components.body.cell + onCell + Form 外层）。
- *
- * === props 默认值（合理有效初值，坑5+坑7）===
- * - virtual=false（OFF 回 undefined scroll，行为与改造前一致）。
- * 编辑模式 propsFor 超集 {bordered,virtual,size,autoScroll} 已覆盖 virtual；行级编辑 state 全
- * 在子组件内自管，无需父级 prop 兜底——编辑模式单侧渲染也能完整演示 Edit/Save/Cancel（自管 state）。
- *
- * === ★ data-grid div 渲染适配（保留）===
- * EditableCell 返回**内容 ReactNode（不包 td）**，引擎渲染在 `.dg-cell-inner` 处。
- * Form 在 Table 外层（`Form component={false}` 不产生 DOM），Form.Item 在 EditableCell 内，
- * 通过 React FormContext（不依赖 DOM 层级）访问 Form 实例。无 components.body.row（区别 S15）。
- *
- * === ★ CSS 注入幂等保留（两子组件共用同一 CSS）===
- * `injectEditRowCss` 把 antd demo 配套 CSS（`.editable-row .ant-form-item-explain` 校验错误定位）
- * 注入 document.head。本子文件 + edit-row.antd.tsx 各自调用一次（useEffect），两子组件共用同一 CSS。
- * 幂等：模块级 `cssInjected` 标志 + DOM `[data-edit-row-css]` 存在性双重检查。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.dg.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'react'` / `'../table'` / `'antd'` / `'./_compare/edit-row.shared'`），源码可原样展示无需路径改写。
+ * edit-row demo 的 data-grid 段（左栏）。
+ * 行级编辑 state（form/data/editingKey）在子组件内自管（两栏各自独立，共用会冲突）。
+ * EditableCell 返回内容 ReactNode（不包 td），引擎渲染在 `.dg-cell-inner`。
  */
 import React, { useEffect, useState } from 'react'
 import { Form, Input, InputNumber, Popconfirm, Typography } from 'antd'
@@ -40,9 +10,8 @@ import type { TableProps } from '../table'
 import { originData, type RecordType } from './_compare/edit-row.shared'
 
 // ---------------------------------------------------------------------------
-// antd demo 配套 CSS（注入 document.head，仅注入一次；两子组件共用同一 CSS）。
-// 对齐 antd edit-row demo 的 .editable-row .ant-form-item-explain 定位（校验错误信息悬浮）。
-// 幂等：模块级 cssInjected 标志 + DOM [data-edit-row-css] 存在性双重检查。
+// antd demo 配套 CSS（.editable-row .ant-form-item-explain 校验错误定位）。
+// 注入 document.head，两子组件共用同一 CSS；幂等（模块级标志 + DOM 存在性双重检查）。
 // ---------------------------------------------------------------------------
 
 let cssInjected = false
@@ -80,12 +49,8 @@ interface DgEditableCellProps {
 }
 
 /**
- * data-grid 适配：返回**内容 ReactNode（不包 td）**。引擎把本组件渲染在 `.dg-cell-inner` 处。
- * editing 态 Form.Item + inputNode（InputNumber for number / Input for text）；
- * 展示态直接渲染 children。
- *
- * ★ Form.Item 此处无需 useContext 取 Form——外层 `<Form form>` 通过 React FormContext 自动透传
- * （Form context 不依赖 DOM 层级）。
+ * 返回内容 ReactNode（不包 td），引擎渲染在 `.dg-cell-inner` 处。editing 态 Form.Item +
+ * inputNode（InputNumber for number / Input for text）；展示态渲染 children。
  */
 const DgEditableCell: React.FC<React.PropsWithChildren<DgEditableCellProps>> = ({
   editing,
@@ -96,7 +61,7 @@ const DgEditableCell: React.FC<React.PropsWithChildren<DgEditableCellProps>> = (
 }) => {
   const inputNode = inputType === 'number' ? <InputNumber /> : <Input />
 
-  // ★ data-grid 适配：返回内容 ReactNode（不包 td）。
+  // data-grid 适配：返回内容 ReactNode（不包 td）。
   return (
     <>
       {editing ? (
@@ -125,7 +90,7 @@ export default function EditRowDg({
 }: {
   virtual: boolean
 }) {
-  // ★ 行级编辑 state 各自独立（两栏对照时互不干扰，按原始 demo 决策「编辑各自独立」）。
+  // 行级编辑 state 各自独立（两栏对照时互不干扰）。
   const [form] = Form.useForm()
   const [data, setData] = useState<RecordType[]>(originData)
   const [editingKey, setEditingKey] = useState('')
@@ -210,9 +175,8 @@ export default function EditRowDg({
   }) as DgColumnTypes
 
   return (
-    // ★ Form 在 Table 外层（component={false} 不产生 DOM）。Form.Item 在 EditableCell 内，
-    //   通过 React FormContext（不依赖 DOM 层级）访问此 Form 实例——data-grid 的 div 渲染层级
-    //   不影响 context 透传。无 components.body.row（区别 S15 的 EditableRow）。
+    // Form 在 Table 外层（component={false} 不产生 DOM）。Form context 不依赖 DOM 层级，
+    // data-grid 的 div 渲染层级不影响 context 透传到 EditableCell 内的 Form.Item。
     <Form form={form} component={false}>
       <Table<RecordType>
         components={{ body: { cell: DgEditableCell } }}
@@ -221,8 +185,7 @@ export default function EditRowDg({
         dataSource={data}
         columns={mergedColumns}
         pagination={{ onChange: cancel }}
-        // 虚拟化（决策 7）：ON→virtual+scroll.y=true（CSS 自适应高度，SplitDemo 限高 pane body 提供可滚动区域）；OFF→不传，非虚拟全量 DOM（零回归）。
-        // 编辑态单元格在虚拟窗口内正常工作（Form context 透传不依赖 DOM 层级）。
+        // 虚拟化开关：ON→virtual+scroll.y=true（CSS 自适应高度）；OFF→不传，非虚拟全量 DOM。
         virtual={virtual}
         scroll={virtual ? { y: true } : undefined}
       />

@@ -15,12 +15,12 @@
  *   #/docs[/<section>]  → DocsPage
  *   else                → notFound
  *
- * ★ 主题/虚拟化单一真理源不变：useTheme(themeMode/setThemeMode/isDark) +
+ * 主题/虚拟化单一真理源：useTheme(themeMode/setThemeMode/isDark) +
  *   useVirtualization(virtual/setVirtual)。dark/light 顶栏 Segmented 驱动全站。
  *
- * ★ 源码懒加载（task #54 重构：原 Tabs 预览/源码 → 预览区上方 + Collapse 下方）：
+ * 源码懒加载：
  *   - 非 split demo：useDemoSource（只读 CodeView），按 view.kind==='demo' 加载。
- *   - split demo（试点 basic）：useSplitDemoSource（dg+antd 两段 LiveEditor），展开折叠区
+ *   - split demo：useSplitDemoSource（dg+antd 两段 LiveEditor），展开折叠区
  *     才加载源码；LiveEditor 内部按需 dynamic import sucrase（默认渲染路径不加载编译器）。
  */
 
@@ -57,7 +57,7 @@ import { useSplitDemoSource } from './useSplitDemoSource'
 import ThemeEditorModal from './ThemeEditorModal'
 import { useTheme, type ThemeMode } from './theme/ThemeContext'
 import { useVirtualization } from './demos/VirtualizationContext'
-// ★ live 编辑接入（task #54）：SplitDemoPreview 承载默认/编辑双模式；LiveEditor/scope/stripComments
+// SplitDemoPreview 承载默认/编辑双模式；LiveEditor/scope/stripComments
 //   仅 split demo 展开折叠区时才渲染（默认渲染路径不加载 sucrase——LiveEditor 内部按需 dynamic import）。
 import { SplitDemoPreview } from './demos/_compare/SplitDemoPreview'
 import LiveEditor from './live/LiveEditor'
@@ -67,7 +67,7 @@ import { stripComments } from './live/stripComments'
 const { Header, Sider, Content } = Layout
 const { Title, Link } = Typography
 
-// ★ split demo 名集合（模块顶层 glob 自动发现）：有 *.dg.tsx 段的 demo 即视为 split demo。
+// split demo 名集合（模块顶层 glob 自动发现）：有 *.dg.tsx 段的 demo 即视为 split demo。
 //   glob 相对路径 './demos/*.dg.tsx'（App.tsx 在 src/）。key 形如 './demos/basic.dg.tsx'，
 //   用正则取 '/' 后、'.dg.tsx' 前的部分。
 const splitDemoNames = new Set(
@@ -89,10 +89,10 @@ type View =
 
 function App() {
   const segments = useHashRoute()
-  // ★ 全局主题 store（单一真理源）。
+  // 全局主题 store（单一真理源）。
   const { themeMode, setThemeMode } = useTheme()
   const isDark = themeMode === 'dark'
-  // ★ 全局虚拟化开关（单一真理源）。
+  // 全局虚拟化开关（单一真理源）。
   const { virtual, setVirtual } = useVirtualization()
 
   // 侧栏折叠状态。
@@ -101,7 +101,7 @@ function App() {
   const [openKeys, setOpenKeys] = useState<string[]>([])
   // 主题编辑器 Modal 开关。
   const [themeModalOpen, setThemeModalOpen] = useState(false)
-  // ★ live 编辑（task #54）：split demo 编辑产物。null = 未编辑/重置（默认模式渲染真实 DemoComp）。
+  // split demo 编辑产物。null = 未编辑/重置（默认模式渲染真实 DemoComp）。
   // view 变化（切 demo）时 useEffect 重置为 null。
   const [editedDg, setEditedDg] = useState<ComponentType<Record<string, unknown>> | null>(null)
   const [editedAntd, setEditedAntd] = useState<ComponentType<Record<string, unknown>> | null>(null)
@@ -146,7 +146,7 @@ function App() {
     setEditedAntd(null)
   }, [view])
 
-  // ★ live 编辑白名单：用 glob 自动发现所有 *.dg.tsx 的 demo 名（即「split demo 集合」）。
+  // split demo 集合：用 glob 自动发现所有 *.dg.tsx 的 demo 名。
   //   有 .dg.tsx 段的 demo 自动接入 split + 编辑；无 .dg.tsx 段的降级为只读 CodeView。
   //   新增 demo 只需把 <name>.dg.tsx 文件放进 src/demos/ 即自动接入，无需改本文件。
   const isSplitDemo = (n: string) => splitDemoNames.has(n)
@@ -188,7 +188,7 @@ function App() {
           alignItems: 'center',
           gap: 16,
           paddingInline: 16,
-          // ★ Header 背景跟随全局主题（沿用改造前视觉）。
+          // Header 背景跟随全局主题。
           background: isDark ? '#141414' : '#001529',
           borderBottom: isDark ? '1px solid #303030' : 'none',
         }}
@@ -216,13 +216,13 @@ function App() {
         <div style={{ flex: 1 }} />
 
         {/*
-          ★ 主题编辑器入口（门户重构）：从顶栏按钮打开 Modal，不再走 demo 路由。
+          主题编辑器入口：从顶栏按钮打开 Modal，不再走 demo 路由。
           ThemeEditorPanel 行为零变化，只是承载形态从路由 demo 改为 Modal。
         */}
         <Button onClick={() => setThemeModalOpen(true)}>主题编辑器</Button>
 
         {/*
-          ★ 顶栏全局 dark/light 切换（单一真理源）。
+          顶栏全局 dark/light 切换（单一真理源）。
           Segmented 直接写 setThemeMode → ThemeProvider 重渲染 → ConfigProvider algorithm
           切换 → 全站 antd cssinjs 重算 + data-grid Table.tsx useToken realToken 重算 →
           .dg-wrapper --ant-* 刷新。
@@ -241,7 +241,7 @@ function App() {
           }}
         />
         {/*
-          ★ 全局虚拟化开关（单一真理源）：顶栏 Switch 驱动 VirtualizationProvider 的 virtual
+          全局虚拟化开关（单一真理源）：顶栏 Switch 驱动 VirtualizationProvider 的 virtual
           状态 → 接入的对比 demo 两侧（data-grid + antd）Table 的 virtual 属性 + SplitDemo
           pane body 限高同步变化。
         */}
@@ -288,9 +288,9 @@ function App() {
               />
               {/*
                 预览区（上方）：
-                - split demo（试点 basic）：SplitDemoPreview 承载默认/编辑双模式。默认模式
+                - split demo：SplitDemoPreview 承载默认/编辑双模式。默认模式
                   渲染真实 DemoComp（零编辑开销）；任一 edited 非空切编辑模式。
-                - 非 split demo：直接渲染 DemoComp（行为与改造前一致）。
+                - 非 split demo：直接渲染 DemoComp。
               */}
               {isSplit ? (
                 <SplitDemoPreview
@@ -333,7 +333,7 @@ function App() {
                             gap: 16,
                           }}
                         >
-                          {/* ★ key={view.name}：切 demo 时 remount → LiveEditor 内部 code state
+                          {/* key={view.name}：切 demo 时 remount → LiveEditor 内部 code state
                               重新取新 initialCode（否则 useState(initialCode) 仅 mount 取一次，
                               切 demo 不刷新页面时 code 停留在旧 demo 源码）。App 已有 useEffect
                               清 editedDg/editedAntd，此处 remount 与之一致。 */}

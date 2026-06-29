@@ -1,5 +1,5 @@
 /**
- * 决策 9：grouping-columns 左右对比 demo 的共享配置。
+ * grouping-columns 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型与数据生成函数：
  *   - `DataType`：antd 官方 grouping-columns demo 的记录类型（9 字段）。
@@ -7,11 +7,11 @@
  *
  * 列定义因两侧类型差异（data-grid `ColumnType` 含 `fixed:'start'/'end'` 逻辑属性 +
  * 多级表头 children 任意深度 vs antd `TableColumnsType` 含 `fixed:'left'/'right'`）以及
- * data-grid 引擎不支持原生 filters/sorter 组合的展示意图（S1/S3 自研任务才覆盖），
+ * data-grid 引擎不支持原生 filters/sorter 组合的展示意图，
  * 列定义保留在各自 demo 文件，但字段（title/dataIndex/key/width/children 嵌套结构）逐字一致。
  */
 
-/** antd grouping-columns demo 的记录类型。两侧共用。 */
+/** 记录类型。两侧共用。 */
 export interface DataType {
   key: string | number
   name: string

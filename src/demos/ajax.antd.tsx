@@ -1,19 +1,6 @@
 /**
- * ajax demo 的 antd 段（右栏），从 ajax.tsx 拆出。
- *
- * === 异步加载 state 自管（子组件内）===
- * 与 ajax.dg 对称，本子组件内部自管：data / loading / tableParams / selectedRowKeys
- * + fetchData + useEffect[deps] + handleTableChange + onSelectChange。
- * 忠实复刻 antd ajax demo（loading + 受控分页 + onChange + preserveSelectedRowKeys）。
- *
- * === props 默认值（合理有效初值，坑5+坑7）===
- * - virtual=false（OFF 回 undefined scroll，行为与改造前一致）。
- * 编辑模式 propsFor 超集 {bordered,virtual,size,autoScroll} 已覆盖 virtual。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.antd.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'antd'` / `'./_compare/ajax.shared'`）。
+ * ajax demo 的 antd 段（右栏）。自管异步加载 state，忠实复刻 antd ajax demo
+ * （loading + 受控分页 + onChange + preserveSelectedRowKeys）。
  */
 import { useEffect, useState } from 'react'
 import { Table as AntdTable } from 'antd'
@@ -50,8 +37,7 @@ const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
 // 子组件（自管异步加载 state）
 // ---------------------------------------------------------------------------
 
-// 把 antd SorterResult 收敛到 demo 共享 TableParams 窄类型（field?: string，
-// order?: 'ascend'|'descend'）。
+// 收敛 antd SorterResult 到 demo 共享 TableParams 窄类型（field?: string）。
 function normalizeSorter(
   sorter:
     | { field?: unknown; order?: 'ascend' | 'descend' | null }
@@ -69,7 +55,6 @@ export default function AjaxAntd({
 }: {
   virtual: boolean
 }) {
-  // ★ 异步加载 state 全在子组件内自管（拆子文件后两栏各自独立，不再共享 state）。
   const [data, setData] = useState<RecordType[]>([])
   const [loading, setLoading] = useState(false)
   const [tableParams, setTableParams] = useState<TableParams>({
@@ -144,8 +129,7 @@ export default function AjaxAntd({
       loading={loading}
       onChange={handleChange}
       rowSelection={antdRowSelection}
-      /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 分页条画在 scroll.y 之外，
-         需扣除表头~55 与分页条~64 → 约 280 才能塞进 ~400px pane；OFF 时回 undefined）。 */
+      /* ON 时 virtual=true + scroll.y:280（antd 分页条画在 scroll.y 之外，需扣除表头与分页条高）。 */
       virtual={virtual}
       scroll={virtual ? { y: 280 } : undefined}
     />

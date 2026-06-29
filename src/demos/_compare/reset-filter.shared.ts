@@ -1,5 +1,5 @@
 /**
- * 决策 9：reset-filter 左右对比 demo 的共享配置。
+ * reset-filter 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型与数据。列定义因两侧类型不同（data-grid `ColumnType` 与
  * antd `TableProps['columns']` 的 sorter/filters 类型归属不同；filter 下拉控件
@@ -9,12 +9,12 @@
  *
  * 与 antd `components/table/demo/reset-filter.tsx` 逐字一致。
  *
- * ★ 注意：reset-filter 与 custom-filter-panel 的 data 第 2/3 行顺序不同
- *   （antd 官方两份 demo 各自独立声明），故各自单独建 shared 文件，不复用 head.shared。
+ * 注意：reset-filter 与 custom-filter-panel 的 data 第 2/3 行顺序不同
+ * （antd 官方两份 demo 各自独立声明），故各自单独建 shared 文件，不复用 head.shared。
  */
 
 /**
- * antd reset-filter demo 的记录类型。两侧共用。
+ * 记录类型。两侧共用。
  *
  * 除 antd 原版 name/age/address 外，本 demo 额外加 status/tag/empty 三个字段
  * 用于触发 locale 的 3 个 key（filterSearchPlaceholder / filterCheckAll / filterEmptyText）
@@ -33,7 +33,7 @@ export interface RecordType {
   empty: string
 }
 
-/** antd reset-filter demo 的数据（4 行）。两侧共用，保证对照基准一致。 */
+/** 数据（4 行）。两侧共用，保证对照基准一致。 */
 export const data: RecordType[] = [
   { key: '1', name: 'John Brown', age: 32, address: 'New York No. 1 Lake Park', status: 'active', tag: 'vip', empty: '' },
   { key: '2', name: 'Jim Green', age: 42, address: 'London No. 1 Lake Park', status: 'inactive', tag: 'normal', empty: '' },

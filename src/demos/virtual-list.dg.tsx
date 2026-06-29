@@ -1,25 +1,9 @@
 /**
- * virtual-list demo 的 data-grid 段（左栏），从 virtual-list.tsx 拆出。
+ * virtual-list demo 的 data-grid 段（左栏）。
  *
- * === 强制虚拟 demo（自管虚拟，不消费全局开关）===
- * 本 demo 自身永久 `virtual=true` + `scroll={{x:2000, y:true}}`（决策 7：CSS 自适应高度，
- * 父容器 height:440 对齐右栏表体 y:400）。**子组件内部硬编码 virtual/scroll，不接 virtual prop**，
- * 不依赖父组件/propsFor 的 virtual。父组件 SplitDemo `virtualizable={false}`。
+ * 强制虚拟 demo：自身永久 `virtual=true` + `scroll={{x:2000, y:true}}`，内部硬编码不接 virtual prop。
  *
- * - props 驱动 `{ bordered, fixed, expanded, empty, merged, data, tableRef }`
- *   （由 virtual-list.tsx 父组件传；编辑模式 SplitDemoPreview 仅传超集 {bordered,virtual,size,
- *   autoScroll}，其余靠默认值兜底，data 默认 getData(10000) 非空避免编辑态空表——T1 坑）。
- * - 自包含：含 `dgMergedColumns` / `dgPlainColumns` / `dgShortColumns` 三套列定义 +
- *   `useMemo` 列选择（fixed/merged/expanded 推导）+ `dgExpandable`（决策 2：展开内容不计入虚拟窗口）
- *   + `<Table>` JSX。
- * - 行为与改造前一致：virtual + scroll.x:2000 + rowKey="id" + gridOptions{rowHeight:40,headerHeight:40}
- *   + mergedColumns/plainColumns 切换 + Expandable（展开强制 plainColumns，合并与展开互斥）
- *   + rowSelection（展开关闭时 radio 单选列对齐右栏 antd，展开时关闭）。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.dg.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'../table'` / `'./_compare/virtual-list.shared'`），源码可原样展示无需路径改写。
+ * props：`{ bordered, fixed, expanded, empty, merged, data, tableRef }`（由父组件传）。
  */
 import { useMemo } from 'react'
 import type { Ref } from 'react'
@@ -138,15 +122,11 @@ export interface VirtualListDgProps {
   expanded: boolean
   /** 是否空表（共享控制条驱动；true 时 dataSource=[]）。 */
   empty: boolean
-  /** data-grid 专属：是否启用合并（对照点）。antd 侧 merged 由 fixed+expanded 推导。 */
+  /** data-grid 专属：是否启用合并（差异点）。antd 侧 merged 由 fixed+expanded 推导。 */
   merged: boolean
-  /** 行数据（父组件 useMemo(getData(count)) 下发）。默认 getData(10000) 非空（编辑态兜底）。 */
+  /** 行数据（父组件 useMemo(getData(count)) 下发）。 */
   data: RecordType[]
-  /**
-   * 父组件持有的 data-grid Table ref（用于双侧 scrollTo 对照）。
-   * 类型 `React.Ref<TableRef>` 对齐 Table 组件 ref prop（父 useRef<TableRef>(null) 生成的
-   * RefObject<TableRef> 可赋值）。编辑模式 SplitDemoPreview 不传（undefined），内部 Table 自建实例。
-   */
+  /** 父组件持有的 data-grid Table ref（用于双侧 scrollTo 对照）。 */
   tableRef?: Ref<TableRef>
 }
 
@@ -159,14 +139,13 @@ export default function VirtualListDg({
   data = getData(10000),
   tableRef,
 }: VirtualListDgProps) {
-  // ----- 左栏（data-grid）列选择逻辑（与改造前一致）-----
+  // 列选择：非 fixed 时只显示前 3 列；展开时强制 plainColumns（合并与展开互斥）。
   const dgColumns = useMemo<ColumnType<RecordType>[]>(() => {
-    if (!fixed) return dgShortColumns // 与 antd 一致：非 fixed 时只显示前 3 列。
-    // 展开启用时强制 plainColumns（与 antd demo "Expandable 开关切到展开时清 onCell" 一致）。
+    if (!fixed) return dgShortColumns
     return merged && !expanded ? dgMergedColumns : dgPlainColumns
   }, [fixed, merged, expanded])
 
-  // ----- 左栏（data-grid）expandable（决策 2：展开内容不计入虚拟窗口）-----
+  // 展开内容不计入虚拟窗口（窗口按收起态 rowHeight 算）—详见 docs/design-notes/virtualization.md
   const dgExpandable = useMemo(() => {
     if (!expanded) return undefined
     return {
@@ -180,11 +159,9 @@ export default function VirtualListDg({
   }, [expanded])
 
   return (
-    /* ★ 决策 7：父容器需有明确 height。
-       对齐右栏 antd `scroll.y:400`：右栏 400 是**表体高**，整表=表头(~40)+表体(400)≈440。
-       左栏 `height` 是**整表高**（含表头），故取 440 与右栏表体区像素级对齐。
-       虚拟滚动窗口高度由容器 clientHeight 实时测量（ResizeObserver），CSS 自动适应。
-       （验证者实测后如发现表头实际高≠40，微调此处。） */
+    /* 父容器需有明确 height：对齐右栏 antd scroll.y:400 表体区——右栏 400 是表体高，
+       整表=表头(~40)+表体(400)≈440；左栏 height 是整表高（含表头），取 440 像素级对齐。
+       虚拟窗口高度由容器 clientHeight 实时测量（ResizeObserver）。 */
     <div style={{ height: 440 }}>
       <Table<RecordType>
         ref={tableRef}
@@ -195,11 +172,9 @@ export default function VirtualListDg({
         rowKey="id"
         dataSource={empty ? [] : data}
         expandable={dgExpandable}
-        // 对齐右栏 antd：展开关闭时显示 radio 单选列（columnWidth:48），
-        // 展开时关闭（避免展开图标列与选择列并存的视觉拥挤，忠实 antd demo）。
+        // 展开关闭时显示 radio 单选列（对齐右栏 antd）；展开时关闭避免图标列与选择列并存。
         rowSelection={expanded ? undefined : { type: 'radio', columnWidth: 48 }}
-        // 行高约定：每行 40px 作未测兜底/初值；虚拟窗口 offset/padding 由 RO 实测真实高驱动
-        // （measured-first + 约定 40px 兜底，详见 task-plan §1.2 决策 2）。
+        // 每行 40px 作未测兜底；虚拟窗口由 RO 实测真实高驱动。
         gridOptions={{ rowHeight: 40, headerHeight: 40 }}
       />
     </div>

@@ -1,55 +1,44 @@
 /**
- * data-grid 汇总栏组件（S22 自研任务）。
+ * data-grid 汇总栏组件。
  *
  * 对齐 antd v6 `Table.Summary` / `Table.Summary.Row` / `Table.Summary.Cell`：
  *   - `Summary`：容器（`fixed?: boolean` 控制 sticky bottom）。
  *   - `Summary.Row`：行容器。
  *   - `Summary.Cell`：`index`（列索引，0-based）+ `colSpan` + `children`。
  *
- * === 设计：声明式 + 引擎驱动定位（适配 data-grid 的 CSS Grid）===
+ * 设计：声明式 + 引擎驱动定位（适配 data-grid 的 CSS Grid）。
  *
  * data-grid 用 div + CSS Grid 渲染，单元格是 grid item（非 td）。summary 的 Cell 也需要
  * 作为 grid item 放到 grid 末尾的 summary 区，并按 `index` + `colSpan` 定位到正确的列轨道。
  *
- * 三个组件本身都是**透明/轻量**的（不重度参与布局计算）：
+ * 三个组件本身都是透明/轻量的（不重度参与布局计算）：
  *   - `Summary`：返回 children（与 rc-table 一致，纯语法糖）。fixed 标志由适配层解析后
  *     通过 Context 透传给下游 Cell。
  *   - `Row`：返回 children，但用 Context.Provider 包裹，把"当前行的 grid-row 线号"+ fixed
- *     标志传给其 Cell 子节点。rowLine 由**引擎渲染时 cloneElement 注入**（引擎遍历 Summary
+ *     标志传给其 Cell 子节点。rowLine 由引擎渲染时 cloneElement 注入（引擎遍历 Summary
  *     的 children 逐个 Row 注入 `__rowLine`，详见 GridTable.renderSummary）。
  *   - `Cell`：渲染为 `div.dg-cell.dg-cell-summary`（真实 DOM，作为 grid item），inline style
  *     设 `gridColumn: <index+1> / span <colSpan>`、`gridRow: <rowLine>`、fixed 时加 sticky bottom。
  *
- * === 行号注入流程 ===
- *
- * summary 可能有多行（antd demo 示例1：Total 行 + Balance 行）。流程：
- *   1. 适配层 Table.tsx 解析 `summary` prop：
- *        - 函数 → 用 pagedDataSource 调用得到 ReactNode。
- *        - ReactNode → 原样。
- *      把 ReactNode 传给 GridTable。
- *   2. GridTable 在 grid-template-rows 末尾为 summary 分配 N 条 track（N = 解析得到的行数），
- *      算出 summary 区起始线（startLine = headerRows + bodyRows + 1）。
+ * 行号注入流程：
+ *   1. 适配层 Table.tsx 解析 `summary` prop（函数 → 用 pagedDataSource 调用；ReactNode → 原样）。
+ *   2. GridTable 在 grid-template-rows 末尾为 summary 分配 N 条 track，算出 summary 区起始线
+ *      （startLine = headerRows + bodyRows + 1）。
  *   3. GridTable 渲染 summary 区时遍历 Summary 容器的 children（各 Row），用 cloneElement
  *      给每个 Row 注入 `__rowLine = startLine + rowIndex` + `__fixed`。
  *   4. Row 通过 Context 把 rowLine + fixed 传给其 Cell 子节点。
  *   5. Cell 消费 Context，inline 设 gridRow + gridColumn；fixed 时加 sticky bottom。
  *
- * === fixed（sticky bottom）===
+ * fixed（sticky bottom）：每个 summary Cell 加 `position: sticky; bottom: 0`（钉底，不透明背景
+ * 由 CSS 保证，不需 z-index）。固定列 summary 格另由横向 sticky 补 `z-index: 2`（与表体固定列
+ * 同 z 级），横滚时盖住同栈 summary 普通格（z-auto）。fixed 标志经 Summary（适配层解析）→
+ * 引擎 cloneElement → Row Context → Cell。sticky bottom 需要 summary 与表体在同一滚动容器内
+ * （即 .dg-scroll / .dg-grid 同容器）；引擎把 summary 渲染到 grid 末尾，与表体共享滚动容器。
  *
- * `Table.Summary fixed` → summary 区整体 sticky 到滚动容器底部（配合 scroll.y）。
- * 实现：每个 summary Cell 加 `position: sticky; bottom: 0`（钉底，不透明背景由 CSS 保证，
- * 不需 z-index）。固定列 summary 格另由横向 sticky 补 `z-index: 2`（与表体固定列同 z 级，
- * 任务 T），横滚时盖住同栈 summary 普通格（z-auto）。
- * fixed 标志经 Summary（适配层解析）→ 引擎 cloneElement → Row Context → Cell。
+ * 与 antd 的差异：antd summary 是真实 `<tfoot><tr><td>` DOM；data-grid 是 div + CSS Grid（无 tfoot）；
+ * antd summary 的 colSpan 用 `<td colspan>`，data-grid 用 `gridColumn: span N`。功能等价。
  *
- * sticky bottom 需要 summary 与表体在**同一滚动容器**内（即 .dg-scroll / .dg-grid 同容器）。
- * 引擎把 summary 渲染到 grid 内（grid 末尾），与表体共享滚动容器，故 sticky bottom 生效。
- *
- * === 与 antd 的差异 ===
- *
- * - antd summary 是真实 `<tfoot><tr><td>` DOM；data-grid 是 div + CSS Grid（无 tfoot）。
- * - antd summary 的 colSpan 用 `<td colspan>`；data-grid 用 `gridColumn: span N`。
- * - 功能等价：summary 行在表体底部，Cell 按 index+colSpan 定位，fixed sticky bottom。
+ * 详见 [docs/design-notes/summary.md](../../../docs/design-notes/summary.md)。
  */
 
 import {
@@ -72,7 +61,7 @@ export interface SummaryRowContextValue {
   /** 是否 sticky bottom（来自 Summary.fixed，经引擎注入）。 */
   fixed: boolean
   /**
-   * 叶子列横向 sticky 信息（任务 J）：长度 === 叶子列数，每项含 side/offset/width/isEdge。
+   * 叶子列横向 sticky 信息：长度 === 叶子列数，每项含 side/offset/width/isEdge。
    * 来自引擎 cloneElement 注入（与表体固定列同源 useStickyColumns.leafSticky）。
    * Cell 按 `index` 取对应项，叠加横向 sticky left/right，使 summary 固定列横滚时贴边。
    */
@@ -135,7 +124,7 @@ export interface SummaryRowProps {
   /** 引擎内部注入：是否 sticky bottom。调用方不传。 */
   __fixed?: boolean
   /**
-   * 引擎内部注入：叶子列横向 sticky 信息（任务 J）。调用方不传。
+   * 引擎内部注入：叶子列横向 sticky 信息。调用方不传。
    * 与表体固定列同源（useStickyColumns.leafSticky），透传给 Cell 实现横向 sticky。
    */
   __leafSticky?: Array<LeafStickyInfo | undefined>
@@ -185,26 +174,15 @@ export function SummaryCell(props: SummaryCellProps): ReactNode {
     if (rowCtx.fixed) {
       cellStyle.position = 'sticky'
       cellStyle.bottom = '0'
-      // ★ 任务 T：不再统一设 zIndex=2。普通 summary 格保持 z-auto（同表体普通格），
-      //   仅 sticky bottom 钉底（不透明背景由 CSS 保证）。固定列 summary 格由改动 A 拿 z2 盖普通格。
+      // 普通summary 格不设 zIndex（保持 z-auto，同表体普通格），仅 sticky bottom 钉底
+      //   （不透明背景由 CSS 保证）。固定列 summary 格由下方横向 sticky 分支显式赋 z-index 盖普通格。
     }
-    // 任务 J + 任务 X：固定列横向 sticky —— summary 固定列 cell 横滚时贴左/右边缘，与表体固定列一致。
+    // 固定列横向 sticky —— summary 固定列 cell 横滚时贴左/右边缘，与表体固定列一致。
     // info 取自 Context 的 leafSticky[index]（与表体固定列同源 useStickyColumns.leafSticky）。
     //
-    // ★ 任务 X 修正：原 J 实现用 `colSpan === 1` 守卫一刀切跳过所有 colSpan>1 合并格，但 antd 对
-    //   覆盖同侧固定列的合并格照样 sticky（实测 antd sticky demo summary idx0 colSpan=2 覆盖 Full Name+Age
-    //   两个 fixed-start → sticky left:0）。读 antd rc-table 源码确认：
-    //     - Footer/Cell.js:25 `getCellFixedInfo(index, index+mergedColSpan-1, ...)` 传 [colStart, colEnd] 区间。
-    //     - utils/fixUtil.js:6-10 `startColumn.fixed==='left'` → fixLeft=offsets[colStart]（起始 leaf offset）；
-    //       `endColumn.fixed==='right'` → fixRight=offsets[colEnd]（末 leaf offset）。
-    //   即合并格只要起始列 fixed-start 或末列 fixed-end 就 sticky（offset 取边界 leaf）。
-    //
-    //   本实现采用「区间全同侧」判定（比 antd 边界判定更严格，避免合并格跨固定/非固定边界时 sticky
-    //   错位的边缘情况），与 useStickyColumns 多级表头分组格判定（177-225 行）一致——summary 合并格
-    //   与表头分组格行为对称。对 antd 官方所有 demo（sticky idx0 全 fixed-start / summary 示例2 Balance
-    //   全非固定）结果与 antd 完全一致；仅「合并格跨固定/非固定边界」的合成场景本实现更保守（不 sticky）。
-    //
-    //   判定：扫描 [index, index+colSpan) 区间 leafSticky，全存在且全同 side（全 start 或全 end）→ sticky。
+    // 合并格 sticky 判定采用「区间全同侧」（详见 docs/design-notes/summary.md）：
+    //   扫描 [index, index+colSpan) 区间 leafSticky，全存在且全同 side（全 start 或全 end）→ sticky。
+    //   offset 取边界 leaf（start 侧用起始 leaf，end 侧用末 leaf），与 antd fixUtil 一致。
     const info = rowCtx.leafSticky?.[index]
     if (info?.side) {
       let allSameSide = true
@@ -216,10 +194,7 @@ export function SummaryCell(props: SummaryCellProps): ReactNode {
         }
       }
       if (allSameSide) {
-        // offset 取边界 leaf（对齐 antd fixUtil）：
-        //   - start 侧：起始 leaf offset（`stickyOffsets.left[colStart]`）—— info 即 leafSticky[index]。
-        //   - end 侧：末 leaf offset（`stickyOffsets.right[colEnd]`）—— 取 leafSticky[index+colSpan-1]。
-        // start 侧直接用 info；end 侧末 leaf = 区间最后一项（全同侧已保证 side 一致，仅 offset 不同）。
+        // offset 取边界 leaf：start 侧用 info（leafSticky[index]）；end 侧用区间最后一项。
         const edgeInfo =
           info.side === 'end' ? rowCtx.leafSticky?.[index + colSpan - 1] ?? info : info
         const stickyH = stickyCellStyle(edgeInfo)
@@ -228,7 +203,7 @@ export function SummaryCell(props: SummaryCellProps): ReactNode {
           cellStyle.position = 'sticky'
           if ('left' in stickyH) cellStyle.left = stickyH.left
           if ('right' in stickyH) cellStyle.right = stickyH.right
-          // ★ 任务 T：固定列横向 sticky 显式赋 z-index（=2，stickyCellStyle 给的），
+          // 固定列横向 sticky 显式赋 z-index（=2，stickyCellStyle 给的），
           //   与表体固定列（z2）对齐，横滚时盖住同栈 summary 普通格（z-auto）。
           cellStyle.zIndex = stickyH.zIndex
         }

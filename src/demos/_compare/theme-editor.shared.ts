@@ -1,5 +1,5 @@
 /**
- * 决策 9：theme-editor demo 的共享配置。
+ * theme-editor demo 的共享配置。
  *
  * 与 component-token.shared 同款结构（RecordType + dataSource），但数据行更丰富
  * （含可排序列 Age 数值差异 + 可筛选列 Address 取值分布），用于触发：
@@ -10,7 +10,7 @@
  * 两侧（data-grid + antd）共用同一份，列定义因类型不同保留在各 demo 文件。
  */
 
-/** theme-editor 共享记录类型。两侧共用。 */
+/** 共享记录类型。两侧共用。 */
 export interface RecordType {
   key: number
   name: string

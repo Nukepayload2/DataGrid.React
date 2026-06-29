@@ -1,93 +1,34 @@
 /**
- * 复刻 antd `colspan-rowspan` demo：
- *   `G:\Projects\ant-design\components\table\demo\colspan-rowspan.tsx`
+ * colspan-rowspan 双栏对照 demo：表头列合并（column.colSpan）+ 单元格行/列合并
+ * （onCell 返回 {rowSpan, colSpan}，含 =0 不渲染）。共享 `Bordered` 开关同步驱动左栏
+ * data-grid 与右栏 antd Table。
  *
- * === 决策 9 双栏对照 ===
- *
- * - **左栏（data-grid Table）**：表头列合并（column.colSpan）+ 单元格行/列合并
- *   （onCell 返回 {rowSpan, colSpan}，含 =0 不渲染）。行为与改造前一致（M3 已实现合并：
- *   columnTree.applyHeaderColSpan 表头合并、cellMerge.computeCellMergePlan 单元格合并）。
- * - **右栏（antd Table）**：忠实复刻 antd 官方 colspan-rowspan demo（同列定义、同 onCell、
- *   同 5 行数据、bordered）。
- * - **共享控制条**：`Bordered`（初值 true）同时驱动两侧。
- * - **共享数据**：`DataType` + `data` + `sharedOnCell` 见 `_compare/colspan-rowspan.shared.ts`。
- *
- * === antd demo 行为拆解（5 行 × 6 列，两侧同）===
- *
- * 列定义（前序）：
- *   1. RowHead (key)       rowScope='row'        —— 行标题列（视觉加粗）。
- *   2. Name (name)         onCell: index===1 → colSpan:5   —— 第 2 行 Name 向右合并 5 列。
- *   3. Age (age)           onCell: sharedOnCell (index===1 → colSpan:0) —— 第 2 行被覆盖。
- *   4. Home phone (tel)    表头 colSpan:2 + onCell:
- *                          - index===3 → rowSpan:2（第 4 行向下合并 2 行）
- *                          - index===4 → rowSpan:0（被覆盖）
- *                          - index===1 → colSpan:0（被 Name 的 colSpan:5 覆盖）
- *   5. Phone (phone)       表头 colSpan:0（被 Home phone 的 colSpan:2 覆盖，不渲染表头格）
- *                          onCell: sharedOnCell (index===1 → colSpan:0)
- *   6. Address (address)   onCell: sharedOnCell (index===1 → colSpan:0)
- *
- * 预期渲染结果（与 antd 一致，两侧应同）：
+ * 预期渲染结果（5 行 × 6 列，两侧同）：
  *   - 表头：5 个可见格（RowHead | Name | Home phone 跨 2 列 | Address）。Phone 表头被 Home phone 覆盖。
  *   - 第 1 行：正常 6 格。
- *   - 第 2 行（index===1）：Name 跨 5 列（覆盖 Age/Home phone/Phone/Address），共 2 格（RowHead + Name）。
+ *   - 第 2 行（index===1）：Name 跨 5 列（覆盖 Age/Home phone/Phone/Address），共 2 格。
  *   - 第 3 行：正常 6 格。
  *   - 第 4 行（index===3）：Home phone 向下合并 2 行（覆盖第 5 行同列）。共 6 格。
  *   - 第 5 行（index===4）：Home phone 被覆盖（rowSpan:0），共 5 格。
- *
- * === M3 实现说明 ===
- *
- * - 表头合并（column.colSpan）：引擎 columnTree.applyHeaderColSpan 把 colSpan>=2 的叶子表头格
- *   gridColumnEnd 扩展，后续 colSpan-1 个叶子表头格标 covered=true（不渲染 DOM）。
- * - 单元格合并（column.onCell）：cellMerge.computeCellMergePlan 对每格算 hidden + colSpan/rowSpan；
- *   hidden 格不渲染 DOM；左上角格设 grid-column/grid-row 的 span。
- * - rowScope='row'：视觉对齐 antd `<th scope="row">`——headerBg 灰底 + headerColor 文字色 +
- *   加粗（.dg-cell-rowscope 消费 --dg-header-bg/--dg-header-color，font-weight:600=fontWeightStrong）。
- * - bordered：保留（与 antd demo 一致，便于看清合并边界）。
- *
- * === §11 外观对齐（CSS Grid 范围内）===
- *
- * - rowScope 灰底 + 文字色：原仅 font-weight 加粗（白底），antd `<th scope="row">` 走 tbody>tr>th
- *   规则有 headerBg 背景。补 background/color 对齐。
- * - 跨列表头居中：Home phone 表头格 colSpan:2，antd th[colspan] 居中。data-grid 叶子表头格加
- *   data-header-colspan 属性（GridTable），CSS 触发 justify-content:center。
- * - 跨列表头无分割竖线（非 bordered）：antd th[colspan] 不画 ::before 分割线，data-grid 补
- *   :not([data-header-colspan]) 排除（bordered 默认开，此差异仅在切 bordered=false 时可见）。
- *
- * === 拆子文件（live 编辑接入，同 basic 模式）===
- *
- * 父文件只保留「外壳职责」：bordered state + useVirtualization + DemoToolbar(Switch Bordered +
- * 文字提示) + SplitDemo 外壳 + children 对照说明。两侧表格 JSX 与 columns 拆到子文件：
- *   - `./colspan-rowspan.dg`：`ColspanRowspanDg({bordered, virtual})`（左栏）
- *   - `./colspan-rowspan.antd`：`ColspanRowspanAntd({bordered, virtual})`（右栏）
- *
- * 这样：
- *   - 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `ColspanRowspanDemo`，零编辑开销。
- *   - live 编辑模式：SplitDemoPreview 静态 import 真实子组件，并按 editedDg/editedAntd 替换。
  */
 
 import { useState } from 'react'
 import { Space, Switch, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
-// ★ 拆子文件后，左/右栏 JSX + columns 由子组件提供（props 驱动）。DataType/data/sharedOnCell
-//   现在由子文件各自 import colspan-rowspan.shared，父文件不再需要。
 import ColspanRowspanDg from './colspan-rowspan.dg'
 import ColspanRowspanAntd from './colspan-rowspan.antd'
 
 export default function ColspanRowspanDemo() {
-  // ★ 共享状态：同一个 bordered 同时驱动两侧（初值 true 对齐 antd demo）。
+  // 共享状态：同一个 bordered 同时驱动两侧（初值 true 对齐 antd demo）。
   const [bordered, setBordered] = useState(true)
-  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y（原两侧均无 scroll）
   const { virtual } = useVirtualization()
-  // 控制条 chrome 文字色 token 化（colorTextSecondary≈rgba(0,0,0,0.65)），暗主题自适应。
+  // 控制条文字色 token 化（colorTextSecondary），暗主题自适应。
   const { token } = theme.useToken()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个 bordered 状态同时驱动两侧。
-          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0。 */}
       <DemoToolbar>
         <Space>
           <Switch
@@ -112,53 +53,57 @@ export default function ColspanRowspanDemo() {
         right={<ColspanRowspanAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明（决策 9 B11，合并单元格）：</strong>本 demo 左右并排呈现 data-grid 与 antd
-          colspan-rowspan，方便对照修 bug。
+          <strong>对照说明：</strong>本 demo 左右并排呈现 data-grid 与 antd colspan-rowspan。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>表头列合并</strong>：Home phone 列 <code>colSpan:2</code> 跨 2 列 + Phone 列
-              <code>colSpan:0</code> 被覆盖不渲染表头格。data-grid columnTree.applyHeaderColSpan 扩展
-              gridColumnEnd + 后续标 covered；antd 原生。两侧表头均为 5 可见格。
+              <strong>表头 / 单元格合并实现机制</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：Home phone 列 <code>colSpan:2</code>（表头跨 2 列）+
+                  Phone 列 <code>colSpan:0</code>（被覆盖）；第 2 行 Name <code>colSpan:5</code> 向右合并；
+                  第 4 行 Home phone <code>rowSpan:2</code> 向下合并、第 5 行 <code>rowSpan:0</code> 被覆盖。
+                  data-grid 用 <code>columnTree.applyHeaderColSpan</code>（表头）+
+                  <code>cellMerge.computeCellMergePlan</code>（单元格）算 <code>hidden</code> + span；
+                  antd 原生 <code>colspan/rowspan</code>。</li>
+                <li><strong>触发条件</strong>：列定义含 <code>colSpan</code> 或单元格 <code>onCell</code>
+                  返回 <code>rowSpan/colSpan</code>（始终）。</li>
+                <li><strong>差异原因</strong>：data-grid 用 CSS Grid，把被覆盖格标 <code>hidden</code> 不渲染
+                  DOM、左上角格设 <code>grid-column/grid-row</code> span；antd 原生 <code>&lt;table&gt;</code>
+                  直接用 <code>colspan/rowspan</code> 属性。两侧合并区最终一致。详见
+                  <code>docs/design-notes/header.md</code>。</li>
+              </ul>
             </li>
             <li>
-              <strong>单元格列合并</strong>：第 2 行（index===1）Name <code>colSpan:5</code> 向右合并 5 列
-              （覆盖 Age/Home phone/Phone/Address）；Age/Phone/Address 列 onCell sharedOnCell 返回
-              <code>colSpan:0</code> 被覆盖。Home phone 列 index===1 同样 colSpan:0。
+              <strong>rowScope='row' 视觉</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：RowHead 列两侧均渲染灰底 + 文字色 + 加粗（视觉套 antd
+                  <code>tbody &gt; tr &gt; th</code> 规则）。</li>
+                <li><strong>触发条件</strong>：<code>rowScope='row'</code>（始终）。</li>
+                <li><strong>差异原因</strong>：antd 把该列渲染为 <code>&lt;th scope="row"&gt;</code> 自动套
+                  <code>tbody&gt;tr&gt;th</code> 样式；data-grid 用 <code>.dg-cell-rowscope</code> 消费
+                  <code>--dg-header-bg/--dg-header-color</code> + <code>font-weight:600</code> 还原。两侧视觉一致。</li>
+              </ul>
             </li>
             <li>
-              <strong>单元格行合并</strong>：第 4 行（index===3）Home phone <code>rowSpan:2</code> 向下合并
-              2 行；第 5 行（index===4）Home phone <code>rowSpan:0</code> 被覆盖不渲染。data-grid
-              cellMerge.computeCellMergePlan 算 hidden + span；antd 原生。两侧合并区应一致。
+              <strong>跨列表头居中</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：Home phone 表头格 <code>colSpan:2</code> 文字居中。
+                  antd 给 <code>&lt;th colspan&gt;</code> <code>textAlign:center</code>；data-grid
+                  <code>.dg-cell-header[data-header-colspan]</code> 触发 <code>justify-content:center</code>。</li>
+                <li><strong>触发条件</strong>：表头列含 <code>colSpan &gt;= 2</code>（始终）。</li>
+                <li><strong>差异原因</strong>：data-grid 表头格是 grid item（flex 布局），
+                  用 <code>justify-content</code> 而非 <code>text-align</code> 居中。效果等价。</li>
+              </ul>
             </li>
             <li>
-              <strong>rowScope='row'</strong>：RowHead 列单元格渲染为 antd <code>&lt;th scope="row"&gt;</code>
-              （rc-table scopeCellComponent=th），视觉套用 antd <code>tbody &gt; tr &gt; th</code> 规则——
-              <strong>headerBg 灰底（#fafafa）+ headerColor 文字色 + 加粗</strong>。data-grid
-              <code>.dg-cell-rowscope</code> 消费 <code>--dg-header-bg</code>/<code>--dg-header-color</code>，
-              两侧 RowHead 列视觉一致（灰底加粗）。
-            </li>
-            <li>
-              <strong>渲染格数对照</strong>：表头 5 格 + 第 1/3 行各 6 格 + 第 2 行 2 格（RowHead + Name 跨 5）
-              + 第 4 行 6 格 + 第 5 行 5 格（Home phone 被 rowSpan:0 覆盖）。
-            </li>
-            <li>
-              <strong>跨列表头居中</strong>：Home phone 表头格 <code>colSpan:2</code>，antd 给
-              <code>&lt;th colspan&gt;</code> 居中（<code>textAlign:center</code>）。data-grid
-              <code>.dg-cell-header[data-header-colspan]</code> 触发 <code>justify-content:center</code>，
-              两侧 Home phone 表头文字均居中。
-            </li>
-            <li>
-              <strong>合并 × 边框</strong>：合并格（跨多列/多行）作为单个 grid item，border 只画在外边缘
-              （bordered 模式由 <code>.dg-bordered .dg-cell</code> 的 border-inline-end + 通用 border-bottom
-              提供）；合并区域内无线（无 double-line / 无缺线），与 antd 一致。
-            </li>
-            <li>
-              <strong>合并 × hover（column-aware）</strong>：合并格（<code>rowSpan:2</code>，跨第 4-5 行）在
-              其跨度内**任一行**被 hover 时都加 hover 背景（<code>dg-row-hover</code> 类驱动，grid item 跨 2 行
-              整块染色）——即 hover 第 4 行**或**第 5 行，Home phone 合并格都高亮。对齐 antd 6.4.4 / rc-table
-              column-aware hover：rc-table <code>Cell/useHoverState</code> 的 <code>inHoverRange</code> 用
-              <em>区间相交</em>判定（<code>cellStartRow &lt;= hoverRow &lt;= cellStartRow+rowSpan-1</code>），
-              合并 td 视觉占跨度行空间就高亮，而非按 DOM 行归属。普通格（rowSpan=1）退化为只高亮所在行（零回归）。
+              <strong>合并格 hover（column-aware）</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：合并格（<code>rowSpan:2</code> 跨第 4-5 行）在其跨度内任一行
+                  被 hover 时都高亮——hover 第 4 行或第 5 行，Home phone 合并格都染色。</li>
+                <li><strong>触发条件</strong>：hover 合并格跨度内的任意行。</li>
+                <li><strong>差异原因</strong>：antd rc-table <code>inHoverRange</code> 用区间相交判定
+                  （<code>cellStartRow &lt;= hoverRow &lt;= cellStartRow+rowSpan-1</code>）；data-grid 合并格作为
+                  单个 grid item 跨 2 行整块染色（<code>dg-row-hover</code> 驱动）。两侧语义一致。</li>
+              </ul>
             </li>
           </ul>
         </div>

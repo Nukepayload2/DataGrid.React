@@ -1,7 +1,7 @@
 /**
- * 决策 9：demo 左右对比框架样式（SplitDemo）。
+ * demo 左右对比框架样式（SplitDemo）。布局机制详见 `docs/design-notes/layout.md`。
  *
- * 横竖排改由 **纯 CSS flex-wrap + 每 pane min-width** 自动决定（无 JS、无媒体查询）：
+ * 横竖排由 **纯 CSS flex-wrap + 每 pane min-width** 自动决定（无 JS、无媒体查询）：
  *   - `.dg-compare` 是 flex-wrap 容器（`display:flex; flex-wrap:wrap; gap:16px`）。
  *   - 每个 pane `flex:1 1 0; min-width: var(--pane-min, 480px)`。
  *   - 容器放得下两个 ≥ min-width 的 pane（≥ `--pane-min` × 2 + gap）→ 同行横排
@@ -14,7 +14,7 @@
  * `.dg-compare__note`（说明区）位于 `.dg-compare` 容器之外（SplitDemo 中渲染为
  * 兄弟节点），恒居底部，横竖排都不变。
  *
- * === 任务 M：全局 dark/light 切换（`.dg-compare--dark` 修饰类）===
+ * 全局 dark/light 切换（`.dg-compare--dark` 修饰类）：
  *
  * `.dg-compare--dark`：isDark=true 时 SplitDemo 给 `.dg-compare` 容器加的修饰类。dark 下
  *   pane/title/note 原硬编码浅色（#fff/#fafafa/#f0f0f0）会变成"深色表格坐在刺眼白底
@@ -132,7 +132,7 @@
   height: 400px;
 }
 
-/* === 任务 M：dark chrome 覆盖（主题控制条已弃用移除，仅保留 pane/title/note dark）===
+/* === dark chrome 覆盖（主题控制条已弃用移除，仅保留 pane/title/note dark）===
  *
  * isDark=true 时 SplitDemo 给两类节点分别加 dark 修饰类（覆盖原硬编码浅色为 antd dark
  * 默认值；两侧表格本身由 ConfigProvider darkAlgorithm 驱动，不在此处处理，仅 chrome）：

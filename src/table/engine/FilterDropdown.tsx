@@ -1,71 +1,22 @@
 /**
- * 筛选下拉面板（S3）——**用 antd 组件组装**（决策 6：非表格核心部位用 antd）。
+ * 筛选下拉面板——用 antd 组件组装（Dropdown / Checkbox.Group / Radio.Group / Tree / Button）。
  *
- * === 组件构成（全部 antd）===
+ * 面板形态：menu（Checkbox.Group 多选 / Radio.Group 单选）/ tree（antd `<Tree checkable>`）/
+ * 自定义（`column.filterDropdown`）。
  *
- * - `Dropdown`（antd）：负责弹出层定位、点击外部关闭、ESC 关闭、触发器绑定。
- *   - `trigger={['click']}`：点漏斗打开。
- *   - `open` 受控：本组件持有 open state，配合 filterOnClose 控制"关闭即应用 vs 仅确定按钮应用"。
- *   - `onOpenChange`：下拉打开/关闭时回调（用于 filterOnClose=true 时关闭即应用）。
- * - `Checkbox.Group`（antd，filterMultiple=true 默认）：多选；命中任一保留（OR）。
- * - `Radio.Group`（antd，filterMultiple=false）：单选。
- * - `Button`（antd）：底部"确定"/"重置"按钮。
+ * 语义要点：
+ * - **filterOnClose**：true（默认）关闭即应用草稿；false 仅"确定"按钮才应用（关闭丢弃）。
+ * - **localSelected**：面板内勾选是本地草稿，与外部 filteredValue 解耦；打开时重置为 filteredValue。
+ * - **重置**：清空草稿（不立即应用）；下次关闭/确定时应用为空。
  *
- * === filterOnClose 语义 ===
- *
- * - `true`（默认，对齐 antd v6）：关闭下拉（点外部/ESC/确定）即把**当前面板勾选**应用为 filteredValue。
- *   实现：onOpenChange(open=false) 时调 onApply(localSelected)；确定按钮同时 setOpen(false) + onApply。
- * - `false`：只有点"确定"才应用；点外部/ESC 关闭**丢弃**未确认勾选（恢复到上次应用的 filteredValue）。
- *   实现：onOpenChange(open=false) 时若非确定触发 → 重置 localSelected 回 props.filteredValue（丢弃）；
- *   确定按钮 → onApply(localSelected) + setOpen(false)。
- *
- * === localSelected 本地草稿 ===
- *
- * 下拉打开时，面板内的勾选是"本地草稿"（localSelected state），与外部 filteredValue 解耦。
- * 这样：
- *   - filterOnClose=true：关闭时草稿 → 应用为 filteredValue（一次性 commit）。
- *   - filterOnClose=false：关闭时草稿丢弃，确定时才 commit。
- * 与 antd v6 filterDropdown 的 confirm/clearFilters 语义对齐（S5 自定义面板会用完整 confirm API）。
- *
- * === 重置按钮 ===
- *
- * "重置"把 localSelected 清空（仅清草稿，不立即应用）；下次关闭/确定时应用为空（清除筛选）。
- * 对齐 antd resetFilters（v6 默认 reset 后需 confirm/close 才生效）。
- *
- * === 不实现（后续任务）===
- *
- * - filterDropdown 自定义面板（S5）：已实现（customDropdown 存在即取代内置面板）。
- * - 自定义 filterIcon（S5）：已实现（customIcon）。
- * - filterMode='tree'（S7）：已实现（见下 tree 面板分支）。
- *
- * === S7 树形面板（filterMode='tree'）===
- *
- * `filterMode='tree'`（默认 'menu'）时，内置下拉用 **antd `<Tree checkable>`** 渲染 filters（含 children）
- * 的树形结构。决策 6：非表格核心控件用 antd。
- *
- * - treeData 由 filters+children 转换：`{ key: value, title: text, children }`（getTreeData）。
- * - `checkedKeys={localSelected}`、`onCheck` → setLocalSelected；`selectable={false}`；`autoExpandParent` + `defaultExpandAll`。
- * - 父子联动：`checkStrictly={false}`（filterMultiple=true 默认时）→ 勾父自动勾全部子、勾全部子自动勾父
- *   （antd Tree 默认联动行为）。filterMultiple=false 时 `checkStrictly={true}`（仅勾选中节点）。
- * - filterSearch（tree 模式也渲染搜索框）：用 antd Tree `filterTreeNode` 过滤树节点
- *   （命中节点 + 保留祖先链维持结构，对齐 antd）；输入为空显全树。
- * - 顶部可选 "全选" Checkbox（filterMultiple=true 时）：checked = 全部叶子已勾；indeterminate = 部分勾。
- *   对齐 antd filter-in-tree 行为。
- * - 勾选值收集：localSelected 含所有勾选 value（叶子 + 直接勾选的父）。confirm/onApply 时原样传出，
- *   useFilter 对每个 value 调 onFilter（OR，S3 既有机制）。**不做"只取叶子"额外过滤**（对齐 antd
- *   ——antd onCheck 返回含半选逻辑的 checked keys，onFilter 对每个 checked key 判定）。
- * - 关闭清空（useEffect[open]）对 tree 同样生效（S6 既有）。
+ * 详见 [docs/design-notes/filter-sorter.md](../../../docs/design-notes/filter-sorter.md)。
  */
 
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { Button, Checkbox, Dropdown, Empty, Input, Radio, Tree } from 'antd'
 import type { DropdownProps } from 'antd'
-// ★ 决策 6 统一化：filter 图标改用 `@ant-design/icons`（与 SortIndicator 的
-// CaretUp/DownOutlined 一致；该包已是 package.json 直接依赖 ^6.2.5）。
-// antd Table 默认 filterIcon = `<FilterFilled />`（见 antd
-// components/table/hooks/useFilter/FilterDropdown.tsx:549），**默认/激活态都用同一个
-// FilterFilled**——激活视觉差异纯由 `.dg-filter-trigger-active`（color: colorPrimary）驱动，
-// **不切换图标**。旧实现自绘 FilterIcon（Outlined↔Filled 切换）与 antd 不符（默认态多画了线框）。
+// filter 图标用 `@ant-design/icons` 的 FilterFilled（与 antd Table 默认 filterIcon 一致）。
+// 默认/激活态都用同一个 FilterFilled——激活视觉差异由 `.dg-filter-trigger-active`（color）驱动，不切换图标。
 import { FilterFilled } from '@ant-design/icons'
 // ConfigContext 从 antd 内部 es 路径导入（与 Table.tsx 一致；antd 主入口不导出 ConfigContext）。
 // renderEmpty 签名：RenderEmptyHandler = (componentName: string) => ReactNode。
@@ -78,28 +29,9 @@ import type {
 } from '../types'
 import { TABLE_LOCALE_DEFAULT } from '../types'
 
-/**
- * 漏斗图标（默认渲染）。
- *
- * ★ §11 视觉统一化（对齐 antd 6.4.4）：直接渲染 `@ant-design/icons` 的 `FilterFilled`，
- * 与 antd Table 默认 filterIcon 完全一致（FilterDropdown.tsx:549）。
- *   - **默认态与激活态都用同一个 FilterFilled**——antd 不切换 Outlined/Filled。
- *   - 激活视觉差异由外层 `.dg-filter-trigger-active`（color: colorPrimary）驱动（filter.ts:71-73）。
- *   - color 由父级 `.dg-filter-trigger` 的 color 控制（currentColor，icon 设 fontSize 继承触发器）。
- *
- * 旧实现自绘 SVG 并在 activated 时切换 Filled/Outlined，默认态渲染了线框漏斗，与 antd
- * 右栏的实心漏斗不一致；已废弃。`activated` 参数保留仅用于自定义 `customIcon`/`triggerRender`
- * 回调签名兼容（antd filterIcon 也接收 `filtered: boolean`）。
- */
-
-/**
- * 放大镜图标（自绘 SVG，对齐 antd SearchOutlined 视觉）。
- *
- * 用于 S6 筛选项搜索框前缀。自绘而非引入 @ant-design/icons 的 SearchOutlined：
- * 该图标仅在 filter 搜索框前缀这一处使用（非表格核心交互元素），且与 FilterFilled 不同，
- * antd FilterDropdown 内部也用 `<SearchOutlined />` 组件——但为保持本文件搜索前缀视觉与
- * antd filter 搜索框一致，自绘 path 取自 @ant-design/icons-svg asn（与 antd 渲染结果一致）。
- */
+// 放大镜图标（自绘 SVG，对齐 antd SearchOutlined 视觉）。
+// 自绘而非引入 @ant-design/icons：仅 filter 搜索框前缀一处用，path 取自 @ant-design/icons-svg asn
+// （与 antd FilterDropdown 内部 `<SearchOutlined />` 渲染一致）。
 function SearchOutlined() {
   return (
     <svg
@@ -133,54 +65,52 @@ export interface FilterDropdownProps {
   /** 触发器渲染（漏斗图标）。可由外部覆盖；默认根据 activated 渲染 FilterOutlined/FilterFilled。 */
   triggerRender?: (activated: boolean) => React.ReactNode
   /**
-   * S5 自定义筛选面板（透传 `column.filterDropdown`）。
-   * 存在时**取代**内置 Checkbox/Radio 面板：引擎把它渲染进 antd Dropdown popupRender，
+   * 自定义筛选面板（透传 `column.filterDropdown`）。
+   * 存在时取代内置 Checkbox/Radio 面板：引擎把它渲染进 antd Dropdown popupRender，
    * 并按 antd 兼容签名注入 props（selectedKeys/setSelectedKeys/confirm/clearFilters/visible/close）。
    */
   customDropdown?:
     | React.ReactNode
     | ((props: DgFilterDropdownProps) => React.ReactNode)
   /**
-   * S5 自定义漏斗图标（透传 `column.filterIcon`）。
-   * 覆盖默认 FilterOutlined/FilterFilled；triggerRender 仍可进一步覆盖（兼容 S3 内置 API）。
+   * 自定义漏斗图标（透传 `column.filterIcon`）。
+   * 覆盖默认 FilterFilled；triggerRender 仍可进一步覆盖。
    */
   customIcon?: React.ReactNode | ((filtered: boolean) => React.ReactNode)
   /**
-   * S5 透传给 antd Dropdown 的 props（`column.filterDropdownProps`）。
+   * 透传给 antd Dropdown 的 props（`column.filterDropdownProps`）。
    * open 受控 / onOpenChange 订阅 / triggerClassName / overlayClassName 等。
    */
   dropdownProps?: ColumnFilterDropdownProps
   /**
-   * S6 筛选项搜索（透传 `column.filterSearch`）。
+   * 筛选项搜索（透传 `column.filterSearch`）。
    * - `true`：默认 contains 匹配（item.text 转字符串 trim+toLowerCase 后包含输入即命中）。
    * - `(input, record) => boolean`：自定义匹配；`input` 为已 normalize 输入，`record` 为筛选项。
    * - `false`/undefined：不渲染搜索框。
    *
-   * menu 模式（默认）与 tree 模式（S7）均消费：menu 过滤 flatItems；tree 用 antd Tree `filterTreeNode`
+   * menu 模式（默认）与 tree 模式均消费：menu 过滤 flatItems；tree 用 antd Tree `filterTreeNode`
    * 过滤树节点（保留祖先链）。自定义面板（`customDropdown` 存在）不消费此字段。
    */
   filterSearch?: true | ((input: string, record: EngineFilterItem) => boolean)
   /**
-   * S7 筛选下拉展示模式（透传 `column.filterMode`，默认 'menu'）。
+   * 筛选下拉展示模式（透传 `column.filterMode`，默认 'menu'）。
    * - `'tree'`：内置下拉用 antd `<Tree checkable>` 渲染 filters（含 children）的树形结构。
-   * - `'menu'` / undefined：Checkbox.Group（多选）/ Radio.Group（单选）扁平列表（S3 既有）。
+   * - `'menu'` / undefined：Checkbox.Group（多选）/ Radio.Group（单选）扁平列表。
    *
    * 仅内置面板消费（customDropdown 存在时被取代，filterMode 无效）。
    */
   filterMode?: 'menu' | 'tree'
   /**
-   * ★ 接口全兼容（决策 3 第二步）：Table 级 `getPopupContainer`（来自 TableProps.getPopupContainer）。
+   * Table 级 `getPopupContainer`（来自 TableProps.getPopupContainer）。
    *
-   * 作为筛选下拉 antd Dropdown 的**默认** getPopupContainer：
+   * 作为筛选下拉 antd Dropdown 的默认 getPopupContainer：
    *   - 列级 `dropdownProps.getPopupContainer`（`column.filterDropdownProps.getPopupContainer`）优先。
    *   - 列级未指定时用本字段（Table 级默认）。
    *   - 两者都未指定时 antd Dropdown 走默认（document.body）。
-   *
-   * 未提供（undefined）时不影响现有行为（零回归）。
    */
   getPopupContainer?: (triggerNode: HTMLElement) => HTMLElement
   /**
-   * ★ T6 i18n：Table 级 `locale`（来自 TableProps.locale）。FilterDropdown 消费其中
+   * Table 级 `locale`（来自 TableProps.locale）。FilterDropdown 消费其中
    * filterConfirm/filterReset/filterEmptyText/filterSearchPlaceholder/filterCheckAll
    * （+ @deprecated filterCheckall 别名）。未传时回退到 `TABLE_LOCALE_DEFAULT`（antd en_US 同款英文）。
    */
@@ -195,8 +125,8 @@ export interface FilterDropdownProps {
 }
 
 /**
- * 扁平化筛选项（含 children，S7 树形保留）为顶层项参与勾选列表。
- * 本阶段不渲染二级菜单 UI；children 出现时扁平化展示（与 useFilter.flattenFilterValues 配套）。
+ * 扁平化筛选项（含 children）为顶层项参与勾选列表。
+ * 不渲染二级菜单 UI；children 出现时扁平化展示（与 useFilter.flattenFilterValues 配套）。
  */
 function flattenFilterItems(items: Array<EngineFilterItem>): Array<EngineFilterItem> {
   const out: Array<EngineFilterItem> = []
@@ -211,7 +141,7 @@ function flattenFilterItems(items: Array<EngineFilterItem>): Array<EngineFilterI
 }
 
 /**
- * S7：antd Tree 的 treeData 节点类型（对齐 antd `DataNode` 子集：key/title/children）。
+ * antd Tree 的 treeData 节点类型（对齐 antd `DataNode` 子集：key/title/children）。
  */
 interface FilterTreeNode {
   key: React.Key
@@ -220,7 +150,7 @@ interface FilterTreeNode {
 }
 
 /**
- * S7：把 EngineFilterItem[]（含 children）转为 antd Tree 的 treeData（对齐 antd getTreeData）。
+ * 把 EngineFilterItem[]（含 children）转为 antd Tree 的 treeData（对齐 antd getTreeData）。
  *   - key = value（与 onFilter/onCompare 的 value 同源）。
  *   - title = text（任意 ReactNode）。
  *   - children 递归。
@@ -239,7 +169,7 @@ function toTreeData(filters: Array<EngineFilterItem>): Array<FilterTreeNode> {
 }
 
 /**
- * S7：递归收集所有**叶子** value（对齐 antd flattenKeys）。
+ * 递归收集所有叶子 value（对齐 antd flattenKeys）。
  * 用于"全选" Checkbox 的 checked/indeterminate 判定——只看叶子，因为父节点勾选是联动的（非独立）。
  */
 function collectLeafValues(filters: Array<EngineFilterItem>): Array<string | number> {
@@ -258,7 +188,7 @@ function collectLeafValues(filters: Array<EngineFilterItem>): Array<string | num
 }
 
 /**
- * S7：归一化 antd Tree onCheck 的 keys 参数为 string[]/number[] 数组。
+ * 归一化 antd Tree onCheck 的 keys 参数为 string[]/number[] 数组。
  * antd Tree 在 `checkStrictly=false` 时 onCheck 第一参为 `{ checked: Key[], halfChecked: Key[] }`，
  * `checkStrictly=true` 时为 `Key[]`；统一处理。
  */
@@ -290,11 +220,11 @@ export function FilterDropdown({
   getPopupContainer,
   locale,
 }: FilterDropdownProps) {
-  // S5：自定义面板模式（column.filterDropdown 存在且非 null）。
+  // 自定义面板模式（column.filterDropdown 存在且非 null）。
   const isCustom = customDropdown !== undefined && customDropdown !== null
-  // S7：树形内置面板模式（仅非自定义面板时生效）。
+  // 树形内置面板模式（仅非自定义面板时生效）。
   const isTree = !isCustom && filterMode === 'tree'
-  // ★ T6 i18n：解析 locale 文案（未传字段回退到 antd en_US 同款默认值，保持英文默认行为零回归）。
+  // 解析 locale 文案（未传字段回退到 antd en_US 同款默认值）。
   //   filterCheckall（小写 l）是 antd @deprecated 别名——消费处用 filterCheckall ?? filterCheckAll
   //   （对齐 antd FilterDropdown.tsx:434）。
   const localeFilterConfirm = locale?.filterConfirm ?? TABLE_LOCALE_DEFAULT.filterConfirm
@@ -322,7 +252,7 @@ export function FilterDropdown({
   // 扁平化筛选项（渲染 Checkbox/Radio 项用）。
   const flatItems = useMemo(() => flattenFilterItems(filters), [filters])
 
-  // === S6 筛选项搜索 ===
+  // === 筛选项搜索 ===
   // 仅 menu 模式内置面板渲染搜索框（自定义面板 customDropdown 存在时不消费 filterSearch）。
   const hasSearch = !isCustom && (filterSearch === true || typeof filterSearch === 'function')
   const [searchValue, setSearchValue] = useState('')
@@ -355,7 +285,7 @@ export function FilterDropdown({
     })
   }, [hasSearch, normalizedSearchValue, flatItems, filterSearch])
 
-  // === S7 树形筛选（filterMode='tree'）辅助 ===
+  // === 树形筛选（filterMode='tree'）辅助 ===
   // 把 filters（含 children）转为 antd Tree 的 treeData：{ key: value, title: text, children }。
   // key 用 value（与 onFilter/onCompare 的 value 同源）；title 用 text。
   const treeData = useMemo(() => toTreeData(filters), [filters])
@@ -429,10 +359,10 @@ export function FilterDropdown({
     }
   }, [hasSearch, normalizedSearchValue, filterSearch])
 
-  // === S23：filter 下拉内 filters 为空时的占位（对齐 antd FilterDropdown.tsx:395,410）===
+  // === filter 下拉内 filters 为空时的占位（对齐 antd FilterDropdown.tsx:395,410）===
   // antd 语义：当 `column.filters` 为空数组（`(column.filters||[]).length===0`）时，filter 下拉
   // 的菜单区渲染 `renderEmpty('Table.filter')` 占位（默认 antd Empty SIMPLE + locale.filterEmptyText）。
-  //   ★ 注意：`'Table.filter'` 是 **filter 下拉内 filters 空时的占位**，**不是**表体筛选无结果。
+  //   注意：`'Table.filter'` 是 filter 下拉内 filters 空时的占位，不是表体筛选无结果。
   //   表体 empty（含筛选无结果）由 Table.tsx 的 mergedEmptyNode 统一处理（用 'Table'，不区分）。
   // data-grid 仅内置面板（menu/tree）消费此占位；自定义面板（customDropdown 存在）不消费。
   // 默认文案 "No filters"（antd en_US 默认 filterEmptyText；data-grid 暂未透传 Table locale 到此）。
@@ -452,18 +382,17 @@ export function FilterDropdown({
   // 内置面板 filters 为空（无筛选项可勾选）→ 显示占位。对齐 antd `(column.filters||[]).length===0`。
   const filtersEmpty = !isCustom && filters.length === 0
 
-  // 漏斗激活态：当前应用的 filteredValue 非空 → FilterFilled（高亮）；否则 FilterOutlined（灰）。
+  // 漏斗激活态：当前应用的 filteredValue 非空 → 高亮；否则灰。
   const activated = !!filteredValue && filteredValue.length > 0
 
   // 应用草稿：调 onApply + 关闭下拉。
   //
-  // ★ 关闭动作延迟到下一个宏任务（setTimeout 0）——不在原生 click 分发期间卸载弹出层。
+  // 关闭动作延迟到下一个宏任务（setTimeout 0）——不在原生 click 分发期间卸载弹出层。
   //   原因：antd v6 rc-dropdown 的弹出层 portaled 到 body，与表头格不在同一 DOM 子树，
   //   但 React 17+ 根委托（root delegation）+ 同步卸载弹出层会出现"事件分发途中目标节点被
   //   移除"的边界——残余的 click 派发可能落到弹出层背后坐标处的元素（如表头格），从而误触
-  //   发表头 onClick（onSorterClick）——表现为"点 OK 还冒出一个 sortOrder"（Bug-B 现象 3）。
-  //   延迟关闭让原生 click 分发完整结束后再卸载弹出层，彻底切断误派发路径。
-  //   onApply 仍同步调用（保证 onChange 在用户交互当下立刻 fire，对齐 antd confirm 语义）。
+  //   发表头 onClick（onSorterClick）。延迟关闭让原生 click 分发完整结束后再卸载弹出层，
+  //   彻底切断误派发路径。onApply 仍同步调用（保证 onChange 在用户交互当下立刻 fire）。
   const applyAndClose = useCallback(() => {
     onApply(localSelected.slice())
     setTimeout(() => setOpen(false), 0)
@@ -478,7 +407,7 @@ export function FilterDropdown({
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
       setOpen(nextOpen)
-      // S5：透传 onOpenChange 给调用方（column.filterDropdownProps.onOpenChange）。
+      // 透传 onOpenChange 给调用方（column.filterDropdownProps.onOpenChange）。
       dropdownProps?.onOpenChange?.(nextOpen)
       if (!nextOpen) {
         // 关闭下拉。
@@ -496,10 +425,10 @@ export function FilterDropdown({
     [filterOnClose, localSelected, onApply, filteredValue, dropdownProps],
   )
 
-  // === S5：自定义面板 antd 兼容 props ===
+  // === 自定义面板 antd 兼容 props ===
   // confirm/clearFilters/close 由引擎提供给 filterDropdown 回调。
   //   - confirm({ closeDropdown })：把当前草稿应用为 filteredValue。
-  //     ★ closeDropdown 默认 true（对齐 antd doFilter 默认 { closeDropdown: true }）：
+  //     closeDropdown 默认 true（对齐 antd doFilter 默认 { closeDropdown: true }）：
   //     confirm() 不带参数 → 应用并关闭；confirm({ closeDropdown: false }) → 应用但保持打开。
   //   - clearFilters({ closeDropdown, confirm })：清空草稿；confirm=true 时立即应用清空；closeDropdown=true 关闭。
   //   - close()：仅关闭下拉（不改变 filteredValue）。
@@ -534,47 +463,46 @@ export function FilterDropdown({
   // 下拉面板内容（Checkbox.Group / Radio.Group / Tree + 按钮）。
   // 不用 antd Menu 包装（Menu.Item 内嵌 Checkbox/Radio 视觉不佳），改用 popupRender 直接渲染自定义面板。
   // antd Dropdown v6：popupRender 返回 ReactNode 作为弹出层内容。
-  // S7：filterMode='tree' 时菜单区改用 antd `<Tree checkable>` 渲染树形结构（决策 6）。
+  // filterMode='tree' 时菜单区改用 antd `<Tree checkable>` 渲染树形结构。
   const builtinPanel = (
     <div
       className="dg-filter-dropdown"
       data-multiple={filterMultiple ? '1' : '0'}
       data-filter-mode={isTree ? 'tree' : 'menu'}
-      // 阻止面板内点击（勾选 / OK / Reset）冒泡到 body——双重保险，避免任何 document 级
-      // 监听器或坐标误派发触发表头格 onClick（Bug-B 现象 3 的根因之一）。
+      // 阻止面板内点击（勾选 / OK / Reset）冒泡到 body——避免任何 document 级
+      // 监听器或坐标误派发触发表头格 onClick。
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
       <div className="dg-filter-dropdown-menu">
-        {/* S23：filters 为空（无筛选项可勾选）时显示占位（对齐 antd FilterDropdown.tsx:410）。
+        {/* filters 为空（无筛选项可勾选）时显示占位（对齐 antd FilterDropdown.tsx:410）。
             替代搜索框+列表/树区；底部 Reset/OK 按钮仍保留（antd 同款）。 */}
         {filtersEmpty ? (
           <div className="dg-filter-dropdown-empty">{filterEmptyNode}</div>
         ) : (
           <>
-        {/* S6/S7：筛选项搜索框（仅当 filterSearch 非 falsy 时渲染）。位于列表/树顶部。
+        {/* 筛选项搜索框（仅当 filterSearch 非 falsy 时渲染）。位于列表/树顶部。
             onKeyDown stopPropagation 避免按键冒泡触发表头 onClick（与面板整体 onClick stopPropagation 一致）。
             menu 模式过滤 flatItems；tree 模式过滤树节点（filterTreeNode）。 */}
         {hasSearch ? (
           <div className="dg-filter-dropdown-search" onKeyDown={(e) => e.stopPropagation()}>
             <Input
               prefix={<SearchOutlined />}
-              // ★ §11 filter-search 对齐：antd enUS locale filterSearchPlaceholder = 'Search in filters'
-              // （locale/en_US.ts:29）。T6：已透传 Table locale，未传时回退到 antd enUS 默认值。
+              // antd enUS locale filterSearchPlaceholder = 'Search in filters'（locale/en_US.ts:29）。
+              // 未传 Table locale 时回退到 antd enUS 默认值。
               placeholder={localeFilterSearchPlaceholder}
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               // htmlSize=1 对齐 antd：绕开 input 默认 min-width（让 popup 宽度由外层约束）。
               htmlSize={1}
               className="dg-filter-dropdown-search-input"
-              // ★ §11 filter-search 对齐：antd FilterSearch（FilterSearch.tsx:25-33）**无 allowClear**
-              // —— filter 搜索框不带清除（×）按钮。原 data-grid 误加 allowClear（右栏 antd 无），
-              // 去掉以对齐。用户用关闭下拉或手动删除清空（antd 同款行为）。
+              // antd FilterSearch（FilterSearch.tsx:25-33）无 allowClear——filter 搜索框不带清除（×）按钮。
+              // 用户用关闭下拉或手动删除清空（antd 同款行为）。
             />
           </div>
         ) : null}
         {isTree ? (
-          // === S7 树形面板（filterMode='tree'）===
+          // === 树形面板（filterMode='tree'）===
           // antd `<Tree checkable>`：父子联动（checkStrictly=!filterMultiple）。
           // 对齐 antd FilterDropdown.tsx filterMode==='tree' 分支。
           <div className="dg-filter-dropdown-tree">
@@ -586,9 +514,9 @@ export function FilterDropdown({
                 className="dg-filter-dropdown-checkall"
                 onChange={onCheckAll}
               >
-                {/* ★ §11 filter-in-tree 对齐：antd enUS locale filterCheckAll = 'Select all items'
+                {/* antd enUS locale filterCheckAll = 'Select all items'
                     （locale/en_US.ts:28；消费处 antd FilterDropdown.tsx:434 `{locale?.filterCheckall ?? locale?.filterCheckAll}`）。
-                    T6：已透传 Table locale，未传时回退到 antd enUS 默认值。原硬编码 'Select All' 与 antd 不符。 */}
+                    未传 Table locale 时回退到 antd enUS 默认值。 */}
                 {localeFilterCheckAll}
               </Checkbox>
             ) : null}
@@ -616,10 +544,9 @@ export function FilterDropdown({
           // antd：`const isEmpty = items.every(item => item === null)` → 搜索无匹配时所有 item 为 null →
           // 显示 empty 占位（与 filters 列表本身为空时同一个 renderEmpty('Table.filter')）。
           // data-grid：visibleItems（经 filterSearch 过滤）为空等价 antd 的 isEmpty → 显示同一占位。
-          // ★ §11 filter-search 修复：原实现渲染空 Checkbox/Radio.Group（空白），antd 显示 empty 占位。
           <div className="dg-filter-dropdown-empty">{filterEmptyNode}</div>
         ) : filterMultiple ? (
-          // === menu 多选（Checkbox.Group，S3 既有）===
+          // === menu 多选（Checkbox.Group）===
           <Checkbox.Group
             value={localSelected}
             onChange={(values) => setLocalSelected(values as Array<string | number>)}
@@ -634,7 +561,7 @@ export function FilterDropdown({
             </div>
           </Checkbox.Group>
         ) : (
-          // === menu 单选（Radio.Group，S3 既有）===
+          // === menu 单选（Radio.Group）===
           <Radio.Group
             value={localSelected[0] ?? null}
             onChange={(e) => setLocalSelected(e.target.value == null ? [] : [e.target.value])}
@@ -663,7 +590,7 @@ export function FilterDropdown({
     </div>
   )
 
-  // === S5 自定义面板 ===
+  // === 自定义面板 ===
   // 把 column.filterDropdown（函数或节点）渲染进弹出层。
   // 函数模式注入 antd 兼容 FilterDropdownProps（selectedKeys/setSelectedKeys/confirm/clearFilters/
   // visible/close/prefixCls/filters）。
@@ -700,9 +627,9 @@ export function FilterDropdown({
     builtinPanel
   )
 
-  // 触发器图标优先级：triggerRender（S3 内置 API）> customIcon（S5 filterIcon）> 默认 FilterFilled。
+  // 触发器图标优先级：triggerRender（内置 API）> customIcon（column.filterIcon）> 默认 FilterFilled。
   // 注：GridTable 不会同时传 triggerRender 与 customIcon；这里 triggerRender 优先仅为兼容。
-  // ★ 默认图标对齐 antd：始终渲染 `<FilterFilled />`（antd FilterDropdown.tsx:549），
+  // 默认图标对齐 antd：始终渲染 `<FilterFilled />`（antd FilterDropdown.tsx:549），
   //   不随 activated 切换 Outlined/Filled；激活高亮由外层 .dg-filter-trigger-active 的 color 驱动。
   const triggerIcon = triggerRender
     ? triggerRender(activated)
@@ -712,7 +639,7 @@ export function FilterDropdown({
         : customIcon
       : <FilterFilled />
 
-  // 触发器：默认漏斗图标（FilterOutlined 灰 / FilterFilled 高亮）；可由 triggerRender 覆盖。
+  // 触发器：默认漏斗图标（激活高亮）；可由 triggerRender 覆盖。
   const trigger = (
     <span
       className={[
@@ -730,7 +657,7 @@ export function FilterDropdown({
     </span>
   )
 
-  // === S5 dropdownProps 合并 ===
+  // === dropdownProps 合并 ===
   // - open 受控优先（filterDropdownProps.open 覆盖内部 state）。
   // - onOpenChange：handleOpenChange 内部已调用 dropdownProps.onOpenChange，这里只传 handleOpenChange。
   // - overlayClassName 合并到 classNames.root（v6 推荐方式）。
@@ -746,7 +673,7 @@ export function FilterDropdown({
   // antd Dropdown props 子集（只挑支持的；避免类型不兼容）。
   const dropdownRestProps: Partial<DropdownProps> = {}
   if (dropdownProps?.align) dropdownRestProps.align = dropdownProps.align as DropdownProps['align']
-  // ★ 接口全兼容（决策 3 第二步）：getPopupContainer 优先级——列级 dropdownProps.getPopupContainer
+  // getPopupContainer 优先级——列级 dropdownProps.getPopupContainer
   //   > Table 级 getPopupContainer（本组件 prop）> antd Dropdown 默认（document.body）。
   //   与 antd InternalTable.tsx:492 `getPopupContainer || getContextPopupContainer` 同款语义。
   const effectiveGetPopupContainer =

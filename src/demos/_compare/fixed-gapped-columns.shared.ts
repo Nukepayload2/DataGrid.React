@@ -1,5 +1,5 @@
 /**
- * 决策 9：fixed-gapped-columns 左右对比 demo 的共享配置。
+ * fixed-gapped-columns 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型与数据：
  *   - `DataType`：antd 官方 fixed-gapped-columns demo 的记录类型（4 字段）。
@@ -10,7 +10,7 @@
  * 但字段（title/dataIndex/key/width/render）逐字一致，验证「分散固定列堆叠」对照。
  */
 
-/** antd fixed-gapped-columns demo 的记录类型。两侧共用。 */
+/** 记录类型。两侧共用。 */
 export interface DataType {
   key: string | number
   name: string

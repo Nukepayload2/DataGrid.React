@@ -1,5 +1,5 @@
 /**
- * 决策 9：expand 左右对比 demo 的共享配置（M9 行展开）。
+ * expand 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型与数据（Name/Age/Address/Action + description）。
  * 列定义因类型不同（data-grid `ColumnType` / antd `ColumnsType`）由各自 demo 声明，
@@ -11,7 +11,7 @@
  *   - 默认非受控展开态。
  */
 
-/** antd expand demo 的记录类型。两侧共用。 */
+/** 记录类型。两侧共用。 */
 export interface RecordType {
   key: React.Key
   name: string
@@ -20,7 +20,7 @@ export interface RecordType {
   description: string
 }
 
-/** antd expand demo 的数据（4 行，第 3 行 "Not Expandable"）。两侧共用。 */
+/** 数据（4 行，第 3 行 "Not Expandable"）。两侧共用。 */
 export const data: RecordType[] = [
   {
     key: 1,

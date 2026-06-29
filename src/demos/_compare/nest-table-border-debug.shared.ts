@@ -1,5 +1,5 @@
 /**
- * 决策 9：nest-table-border-debug 左右对比 demo 的共享配置（D1 边缘任务）。
+ * nest-table-border-debug 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型与数据（主表 + 子表 + Dropdown items）。
  * 列定义因类型不同（data-grid `ColumnType` / antd `TableColumnsType`）由各自 demo 声明，
@@ -11,11 +11,11 @@
  *     Status(Badge "Finished") / Upgrade Status / Action），`pagination={false}`，
  *     子 Table 的 `bordered` 由共享 `childTableBordered` state 驱动。
  *   - 顶部 Form（inline）：Root Table Bordered / Child Table Bordered 两个 Switch，
- *     **同一组 state 同时驱动两侧主表与子表**（决策 9 双驱动）。
+ *     **同一组 state 同时驱动两侧主表与子表**。
  *   - 3 行主表数据 + 3 行子表数据。
  */
 
-/** 子表记录类型（expandedRowRender 内嵌套 Table 的数据）。两侧共用。 */
+/** 子表记录类型（expandedRowRender 内嵌套 Table 的数据）。 */
 export interface ExpandedDataType {
   key: React.Key
   date: string

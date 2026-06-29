@@ -1,5 +1,5 @@
 /**
- * 决策 9：row-selection-fixed 左右对比 demo 的共享配置。
+ * row-selection-fixed 左右对比 demo 的共享配置。
  *
  * 复刻 antd 测试 `Table.rowSelection.test.tsx:807-829`（selection 列邻列 fixed 继承）
  * + useSelection.tsx:694-717 的继承逻辑，提取两侧都复用的类型与数据。
@@ -10,13 +10,13 @@
  * 占位列 width 100、末列 Action width 100 fixed 末尾，render `<a>action</a>`）。
  */
 
-/** row-selection-fixed demo 的记录类型。两侧共用。 */
+/** 记录类型。两侧共用。 */
 export interface RecordType {
   key: string
   name: string
 }
 
-/** row-selection-fixed demo 的数据（4 行）。两侧共用，保证对照基准一致。 */
+/** 数据（4 行）。两侧共用，保证对照基准一致。 */
 export const data: RecordType[] = [
   { key: '1', name: 'Edward King 0' },
   { key: '2', name: 'Edward King 1' },

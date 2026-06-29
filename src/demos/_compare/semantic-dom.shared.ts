@@ -1,5 +1,5 @@
 /**
- * 决策 9 / Semantic DOM demo：共享数据 + 类型。
+ * Semantic DOM 左右对比 demo 的共享数据 + 类型。
  *
  * 用于 `src/demos/semantic-dom.tsx` 左右对比 demo（data-grid vs antd）。
  * 数据/列形状对齐 antd `_semantic.tsx` 官方 demo（Personal Info 分组表头 + 6 行），

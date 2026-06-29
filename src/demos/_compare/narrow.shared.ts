@@ -1,11 +1,11 @@
 /**
- * 决策 9：narrow 左右对比 demo 的共享配置。
+ * narrow 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型、数据、列形状。narrow demo 列简单（Name/Age/Address 纯文本），
  * 两侧列定义字段一致，仅类型不同，故提供原始列数据由两侧各自加类型。
  */
 
-/** antd narrow demo 的记录类型。两侧共用。 */
+/** 记录类型。两侧共用。 */
 export interface RecordType {
   key: React.Key
   name: string
@@ -13,7 +13,7 @@ export interface RecordType {
   address: string
 }
 
-/** antd narrow demo 的数据（200 行）。两侧共用。 */
+/** 数据（200 行）。两侧共用。 */
 export const dataSource = Array.from({ length: 200 }).map<RecordType>((_, key) => ({
   key,
   name: 'Sample Name',

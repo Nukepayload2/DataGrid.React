@@ -1,7 +1,7 @@
 /**
- * data-grid demo 框架：轻量 hash 路由（F4）。
+ * data-grid demo 框架：轻量 hash 路由。
  *
- * 自建极简路由，避免引入 react-router 这类重型依赖（决策：发布形态为项目内组件 + dev demo）。
+ * 自建极简路由，避免引入 react-router 这类重型依赖（发布形态为项目内组件 + dev demo）。
  *
  * 路由约定：
  *   #/              → demo 列表首页
@@ -21,7 +21,7 @@ export interface DemoMeta {
   /** 懒加载组件。 */
   element: () => Promise<{ default: ComponentType }>
   /**
-   * 决策 9：是否为左右对比 demo（左 data-grid / 右 antd 同名 demo）。
+   * 是否为左右对比 demo（左 data-grid / 右 antd 同名 demo）。
    * opt-in：未声明时当作 false（其它 demo 不受影响）。列表页会显示「对比」徽章。
    */
   compare?: boolean

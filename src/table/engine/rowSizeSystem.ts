@@ -1,9 +1,8 @@
 /**
  * rowSizeSystem — 行尺寸纯函数系统（动态行高前缀和）。
  *
- * 同构移植自 react-virtuoso 的 `sizeSystem.ts` 纯函数部分
- * （`G:\Projects\react-virtuoso\packages\react-virtuoso\src\sizeSystem.ts`），
- * 去除 urx/分组/recalc/log，改写为 data-grid 风格。
+ * 核心数据结构与查询 API 的详细说明见 docs/design-notes/virtualization.md
+ * （「rowSizeSystem」节）。
  *
  * 核心数据结构：
  *  - sizeTree (AATree<number>)：key=段起始行 index，value=该段行高。
@@ -80,7 +79,6 @@ export function initialRowSizeState(): RowSizeState {
 
 /**
  * 将一批 SizeRange 合并进 sizeTree，返回新的 [sizeTree, syncStart]。
- * 同构移植自 react-virtuoso insertRanges()。
  *
  * 合并逻辑：
  *  1) 空 sizeTree：在 key=0 插入第一段高度。
@@ -146,8 +144,7 @@ function insertRanges(sizeTree: AANode<number>, ranges: SizeRange[]): readonly [
 
 /**
  * 主入口：把新一批 SizeRange 应用到 state，返回新 state（或原 state 去重）。
- * 等价于 react-virtuoso sizeStateReducer 的核心：
- *  insertRanges → 若 sizeTree 未变则返回原 state → createOffsetTree 增量重建。
+ * 流程：insertRanges → 若 sizeTree 未变则返回原 state → createOffsetTree 增量重建。
  */
 export function applySizeRanges(state: RowSizeState, ranges: SizeRange[], gap: number): RowSizeState {
   const sizeTree = state.sizeTree
@@ -179,7 +176,6 @@ export function applySizeRanges(state: RowSizeState, ranges: SizeRange[], gap: n
 
 /**
  * 增量重建 offsetTree：从 syncStart 起之后的断点重算，之前的原样保留。
- * 同构移植自 react-virtuoso createOffsetTree()。
  *
  * 步骤：
  *  1) syncStart === 0：offsetTree 清空，从零开始。
@@ -246,7 +242,6 @@ function createOffsetTree(
 
 /**
  * 查询第 index 行的顶边 offset（距列表顶的像素距离）。O(log n)。
- * 同构移植自 react-virtuoso offsetOf()。
  *
  *  - offsetTree 空 → 返回 0。
  *  - 二分找 index<=给定 index 的最大断点 (startIndex, offset, size)。
@@ -318,7 +313,7 @@ export function isEmptySizeTree(state: RowSizeState): boolean {
   return empty(state.sizeTree)
 }
 
-/** 把 sizeTree 展开成 SizeRange 列表（用于调试/序列化）。同构移植自 sizeTreeToRanges。 */
+/** 把 sizeTree 展开成 SizeRange 列表（用于调试/序列化）。 */
 export function sizeTreeToRanges(state: RowSizeState): SizeRange[] {
   return walk(state.sizeTree).map(({ k: startIndex, v: size }, index, sizeArray) => {
     const nextSize = sizeArray[index + 1]
@@ -329,7 +324,7 @@ export function sizeTreeToRanges(state: RowSizeState): SizeRange[] {
 
 /**
  * 给定 [startOffset, endOffset] 像素区间，返回与之相交的 offsetTree 段 Range 列表。
- * 用于渲染窗口计算。同构移植自 rangesWithinOffsets。
+ * 用于渲染窗口计算。
  */
 export function rangesWithinOffsets(
   state: RowSizeState,

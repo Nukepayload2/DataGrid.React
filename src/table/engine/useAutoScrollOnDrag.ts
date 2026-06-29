@@ -1,78 +1,24 @@
 /**
- * T9：拖拽中自动滚动容器（autoScrollOnDrag）。
+ * 拖拽中自动滚动容器（autoScrollOnDrag）— 详见 docs/design-notes/drag-sort.md（「auto-scroll」节）。
  *
- * === 背景 ===
+ * 行拖 / 列拖的 hit-test 实时遍历已渲染的 `[data-row-index]` / `[data-leaf-index]` 单元格算 over index。
+ * 虚拟列表下只渲染可视区行；当用户把行拖到容器底部边缘下方时，可视区外的行没有 DOM，hit-test 会
+ * "卡住"在可视区最后一行——drop 目标永远在末行，无法到达远处位置。
  *
- * 行拖（`useRowDragSort`）/ 列拖（`useColumnDragSort`）的 hit-test 实时遍历**已渲染的**
- * `[data-row-index]` / `[data-leaf-index]` 单元格算 over index（见各 hook 的 hitTest）。
- * 虚拟列表（M4）下只渲染可视区行；当用户把行拖到容器底部边缘下方时，可视区外的行**没有 DOM**，
- * hit-test 会"卡住"在可视区最后一行——drop 目标永远在末行，无法到达远处位置。
+ * 解决：拖拽中指针接近容器边缘 → 渐进加速滚动容器 → scroll 事件触发虚拟引擎重算已渲染行 →
+ * DOM 行边界变化 → 下一帧 hit-test 自动跟随到新位置。
  *
- * 解决：拖拽中指针接近容器边缘 → 渐进加速滚动容器 → 滚动事件触发虚拟引擎（useVirtualList）
- * 重算已渲染行 → DOM 行边界变化 → 下一帧 hit-test 自动跟随到新位置。
- *
- * 参考（ag-grid community 行为，**不抄 API 名**）：
- *   - `G:\Projects\ag-grid\packages\ag-grid-community\src\columnMove\columnDrag\moveColumnFeature.ts:22-26`
- *     SCROLL_MOVE_WIDTH=100 / SCROLL_ACCELERATION_RATE=5 / SCROLL_TIME_INTERVAL=100 +
- *     needToMoveLeft/needToMoveRight 定时器（列拖横向自动滚动）。
- *   - `G:\Projects\ag-grid\packages\ag-grid-community\src\dragAndDrop\rowDragFeature.ts:78-105`
- *     AutoScrollService + onScrollCallback 触发 hit-test nudge 重算（行拖纵向）。
- *
- * === 实现（自研 RAF 循环，非 dnd-kit 自带 autoscroll）===
- *
- * 选择自研 RAF 而非 @dnd-kit/core 自带 autoscroll 的理由：
- *   - data-grid 的拖拽 hook（S17/S18/S19）是**自研 pointer**（决策 6：grid 渲染无"行/列 DOM"，
- *     dnd-kit 的 useSortable 需要行/列 DOM 元素，会破坏 CSS Grid 布局）。dnd-kit 的 autoscroll
- *     与其 DndContext/useDraggable 强耦合——我们的自研拖拽 hook 不在 DndContext 内，无法享受。
- *   - 自研 RAF 循环足够简单（边缘检测 + scrollBy + cleanup），且与现有 hit-test（每帧重新读 DOM）
- *     兼容：滚动后 DOM 边界变化，下一次 pointermove 的 hit-test 自动跟随。
- *
- * === 关键设计 ===
- *
- * 1. **滚动容器定位**：拖拽 hook 的 `containerRef`（外层相对定位 div）**不是**滚动容器本身。
- *    data-grid 的滚动容器是它内部的 `.dg-scroll`（GridTable 在 scroll.x / scroll.y / virtual /
- *    hasFixed 时自包一层，见 GridTable.tsx:1742 FloatingScrollBar 包装的 `dg-scroll` 类）。
- *    本 hook 运行时用 `containerRef.current.querySelector('.dg-scroll')` 定位；找不到（无 scroll
- *    配置的纯表格，无 `.dg-scroll` 子元素）则向上遍历 offsetParent 链找最近的可滚动祖先
- *    （`overflow-x/y` 非 visible）作为兜底。两者都失败则 auto-scroll 为 no-op（不报错）。
- *
- * 2. **边缘检测 + 加速**：每帧（RAF）读最新 pointer（指针坐标由调用方在 pointermove 时
- *    实时写到 ref）+ 滚动容器 `getBoundingClientRect()`：
- *    - 距边缘 < 阈值（EDGE_THRESHOLD = 100px，对齐 ag-grid SCROLL_MOVE_WIDTH）→ 触发滚动。
- *    - 速度 = `(1 - dist/threshold) * MAX_SPEED`（dist=0 贴边时 = MAX_SPEED；dist=threshold
- *      边缘时 = 0；线性渐进，对齐 ag-grid SCROLL_ACCELERATION_RATE 量级）。
- *    - MAX_SPEED = 15 px/帧（≈ 900 px/s @ 60fps，足够跟上用户拖拽速度）。
- *    - 行拖（vertical=true）→ 纵向滚动（顶部边缘向上滚 / 底部边缘向下滚）；
- *      列拖（vertical=false）→ 横向滚动（左边缘向左滚 / 右边缘向右滚）。
- *
- * 3. **与虚拟引擎的协同（本 hook 仅负责滚动，hit-test 跟随由调用方处理）**：调用
- *    `scrollContainer.scrollBy(dx, dy)` 会触发原生 `scroll` 事件 →
- *    - useVirtualList 的 onScroll 监听器（useVirtualList.ts:491）→ 重算可视区 start/end +
- *      paddingTop/paddingBottom → 新行进入 DOM。
- *    - FloatingScrollBar 的 onScroll（FloatingScrollBar.tsx:325）→ 同步悬浮滚动条 thumb 位置。
- *
- *    ★ 但 hit-test **不会**随 scroll 自动重跑——指针停在容器边缘不动时没有 pointermove 事件，
- *      被拖行/让位行的 over/yield 会冻结在旧值。故**调用方需自行监听 scroll 在拖拽中重跑 hit-test**
- *      （见 useRowDragSort 的 `onScrollDuringDrag`：scroll → requestAnimationFrame 重算 recomputeFromPointer
- *      重算 over/yield/指示线）。本 hook 不挂 scroll 监听，纯职责：边缘检测 + scrollBy。
- *
- * 4. **生命周期**：拖拽开始时（pointerdown 启动拖拽）调用 `start(pointerId)`；拖拽结束
- *    （pointerup/cancel）或组件卸载时 `stop()`。RAF 循环在 stop 时 cancelAnimationFrame，
- *    指针坐标 ref 在 stop 时重置（防止 stale 数据）。
- *
- * 5. **零回归**：仅在拖拽中且指针在阈值内才触发 scrollBy；中间拖拽（距边缘 > 阈值）速度为 0
- *    → 等价不滚动。`autoScroll=false` 时整个 hook 完全 no-op。
+ * 自研 RAF 循环（边缘检测 + scrollBy + cleanup），不依赖 @dnd-kit autoscroll（与其 DndContext 强耦合）。
+ * 本 hook 仅负责滚动；hit-test 跟随由调用方在 scroll 事件中重跑（见 useRowDragSort 的 onScrollDuringDrag）。
  */
 
 import { useCallback, useEffect, useRef } from 'react'
 
-/** 边缘阈值（指针距容器边缘 < 此值时触发自动滚动）。对齐 ag-grid SCROLL_MOVE_WIDTH=100。 */
+/** 边缘阈值（指针距容器边缘 < 此值时触发自动滚动）。 */
 const EDGE_THRESHOLD = 100
 
 /**
- * 最大滚动速度（px/帧，@60fps ≈ 900 px/s）。
- * 对齐 ag-grid SCROLL_ACCELERATION_RATE=5 × SCROLL_TIME_INTERVAL=100ms 量级（每 100ms 滚 ~50px
- * → 等效 ~300 px/s；data-grid 取稍快 15px/帧 ≈ 900 px/s，确保跟上用户拖拽速度）。
+ * 最大滚动速度（px/帧，@60fps ≈ 900 px/s）。确保跟上用户拖拽速度。
  */
 const MAX_SPEED = 15
 
@@ -85,7 +31,7 @@ export interface PointerPositionRef {
 }
 
 /**
- * 定位滚动容器。
+ * 定位滚动容器。详见 docs/design-notes/drag-sort.md（「auto-scroll」节）。
  *
  * 优先级：
  *   1. `root.querySelector('.dg-scroll')`：data-grid 的标准滚动容器（GridTable 在 scroll.x /

@@ -1,33 +1,9 @@
 /**
- * 树形数据扁平化 + 展开状态 hook（S13）。
+ * 树形数据扁平化 + 展开状态 hook — 详见 docs/design-notes/tree-data.md
  *
- * 纯 React 实现，参考 rc-table 的 `useFlattenRecords` + `useExpand` 语义，**不抄 rc-table 代码**。
- *
- * === 核心职责 ===
- *
- * 1. **树形数据检测**（`detectTreeData`）：dataSource 中任一 record 的 `record[childrenColumnName]`
- *    是非空数组 → 树形模式。
- *
- * 2. **扁平化**（DFS）：把嵌套 children 按展开状态扁平化为普通 record 数组——
- *    与 rc-table `useFlattenRecords.fillRecords` 同语义：
- *      - 仅当某 record 的 key 在 `expandedKeySet` 中时，才递归扁平化其 children；
- *        否则只 push 自身（子孙行不渲染）。
- *      - 每行附带 `{ level, parentKey, hasChildren }`（level 从 0 起算顶层）。
- *
- * 3. **展开状态机**（`useTreeExpand`）：受控 `expandedRowKeys` / 非受控
- *    `defaultExpandAllRows` / `defaultExpandedRowKeys`；点展开图标 toggle。
- *
- * === 与 M9 expandedRowRender 互斥 ===
- *
- * antd 行为：tree-data（record.children 嵌套）与 expandable.expandedRowRender 不可同时启用
- * （antd 会 warning）。data-grid 中：**树形模式优先**——树形检测命中时，expandState 不启用
- * （由 Table.tsx 适配层控制：树形模式下不构造 engineExpandState）。
- *
- * === ★ 决策 2（行高口径）===
- *
- * 树形展开行视为普通表格行——扁平化后的每行都是引擎的一个数据行。非虚拟路径走约定 `rowHeight`（track），
- * 虚拟路径同样被 RO 实测（measured-first + 约定 `rowHeight` 兜底），不再"只走约定"。
- * （详见 task-plan §1.2 决策 2 + GridTable.tsx 文件头注释）。
+ * 树形检测（detectTreeData）+ DFS 扁平化（按展开状态过滤未展开父行的子孙）+ 展开状态机
+ * （受控/非受控）。参考 rc-table `useFlattenRecords` + `useExpand` 语义。树形模式与 expandedRowRender
+ * 互斥（树形优先）；行高口径见 tree-data.md。
  */
 
 import { useCallback, useMemo, useState } from 'react'
@@ -67,7 +43,7 @@ export interface UseTreeDataResult<RecordType> {
   treeEnabled: boolean
   /**
    * 扁平化后的 record 数组（按展开状态过滤未展开父行的子孙行）。
-   * 非树形模式 → 原样返回 dataSource（零回归）。
+   * 非树形模式 → 原样返回 dataSource。
    */
   flattenedData: Array<RecordType>
   /**
@@ -92,9 +68,12 @@ export interface UseTreeDataResult<RecordType> {
 
 /**
  * 判定 dataSource 是否含树形数据：任一 record 的 `record[childrenColumnName]` 是非空数组。
+ * 仅看顶层（与 antd `useExpand` 一致）— 详见 docs/design-notes/tree-data.md（树形检测）
  *
- * 与 rc-table `useExpand.expandableType === 'nest'` 判定同语义（mergedData.some(record =>
- * record[mergedChildrenColumnName]））。
+ * 与 rc-table `useExpand.expandableType === 'nest'` 判定同语义（`mergedData.some(record =>
+ * record[mergedChildrenColumnName])`）。若顶层无 children 但深层有 → 视为非树形（与 antd 一致），
+ * 避免遍历整棵树开销。注：antd `useSelection` 用 flattenData（全树扁平），tree-data demo 顶层
+ * John Brown sr. 含 children 即命中。
  */
 export function detectTreeData<RecordType>(
   dataSource: Array<RecordType>,
@@ -104,24 +83,17 @@ export function detectTreeData<RecordType>(
     if (record && typeof record === 'object') {
       const children = (record as any)[childrenColumnName]
       if (Array.isArray(children) && children.length > 0) return true
-      // 顶层 record 无 children 但下层可能有——antd 仅看顶层？实测 antd：
-      //   useExpand 的判定是 `mergedData.some(...)`（仅顶层）。但 useSelection 用
-      //   `flattenData`（全树扁平）。tree-data demo 顶层 John Brown sr. 含 children 即命中。
-      //   这里也仅看顶层（与 antd useExpand 一致），避免遍历整棵树开销。
-      //   若顶层无 children 但深层有 → 视为非树形（与 antd 一致）。
     }
   }
   return false
 }
 
 /**
- * 递归扁平化：DFS 遍历，仅展开的父行的 children 才被递归扁平化（其余只 push 自身）。
+ * 递归扁平化：DFS 遍历，仅展开的父行的 children 才被递归扁平化（其余只 push 自身）— 详见 docs/design-notes/tree-data.md（扁平化）
  *
- * 返回扁平化后的 record 数组 + 同序的 rowInfo 数组（一一对应）。
- *
- * 与 rc-table `useFlattenRecords.fillRecords` 同语义：
- *   - 先 push 自身（无论是否展开）。
- *   - 若该 record 含非空 children 且 key 在 expandedKeySet 中 → 递归扁平化每个 child（level+1）。
+ * 返回扁平化后的 record 数组 + 同序的 rowInfo 数组（一一对应）。与 rc-table
+ * `useFlattenRecords.fillRecords` 同语义：先 push 自身（无论是否展开）；若该 record 含非空
+ * children 且 key 在 expandedKeySet 中 → 递归扁平化每个 child（level+1）。
  */
 function flattenTree<RecordType>(
   records: Array<RecordType>,
@@ -157,10 +129,10 @@ function flattenTree<RecordType>(
 }
 
 /**
- * 递归收集所有 key（不论展开）+ parent→children 映射 + 所有含 children 的 key 集合。
+ * 递归收集所有 key（不论展开）+ parent→children 映射 + 所有含 children 的 key 集合 — 详见 docs/design-notes/tree-data.md（全树结构）
  *
- * 用于 checkStrictly=false 父子联动：需要全树结构（不受展开状态影响）。
- * 与 antd `convertDataToEntities`（rc-tree）同语义——构建全树 keyEntities 结构。
+ * 用于 checkStrictly=false 父子联动：需要全树结构（不受展开状态影响）。与 antd
+ * `convertDataToEntities`（rc-tree）同语义——构建全树 keyEntities 结构。
  */
 function collectAllKeys<RecordType>(
   records: Array<RecordType>,
@@ -200,7 +172,7 @@ export function useTreeData<RecordType>(
   )
 
   // === 全树结构（不受展开状态影响）：parentChildrenMap + expandableKeySet ===
-  // 仅树形模式下计算（非树形 → 空 Map/Set，零回归）。
+  // 仅树形模式下计算（非树形 → 空 Map/Set）。
   const { parentChildrenMap, expandableKeySet } = useMemo(() => {
     const pcm = new Map<React.Key, Array<React.Key>>()
     const eks = new Set<React.Key>()
@@ -254,8 +226,8 @@ export function useTreeData<RecordType>(
       expandable?.onExpandedRowsChange?.(next)
       // onExpand 第二参 record：toggleExpand 在引擎层只传 key（无 record 引用）——这里改用 key 查
       // dataSource 取 record。对齐 antd `onExpand(expanded, record)`。
-      // 实测 antd tree-data demo 不消费 onExpand（仅 onChange/onSelect），故 record 缺失不影响 demo。
-      // 这里仍尽力回填（从 dataSource 递归查找）。
+      // 实测 antd tree-data demo 不消费 onExpand（仅 onChange/onSelect），故 record 缺失不影响 demo，
+      // 这里仍尽力回填（从 dataSource 递归查找）。— 详见 docs/design-notes/tree-data.md（onExpand 回填 record）
       if (expandable?.onExpand) {
         const rec = findRecordByKey(dataSource, childrenColumnName, rowKey, key)
         expandable.onExpand(willExpand, rec as RecordType)
@@ -265,11 +237,11 @@ export function useTreeData<RecordType>(
   )
 
   // === 扁平化（按展开状态过滤）===
-  // 非树形 → 原样 dataSource + 空 rowInfoMap（零回归）。
+  // 非树形 → 原样 dataSource + 空 rowInfoMap。
   // 树形 → DFS 扁平化 + rowInfoMap。
   const { flattenedData, rowInfoMap } = useMemo(() => {
     if (!treeEnabled) {
-      // 非树形：扁平化退化为原 dataSource（零回归）；rowInfoMap 空。
+      // 非树形：扁平化退化为原 dataSource；rowInfoMap 空。
       return { flattenedData: dataSource, rowInfoMap: new Map<React.Key, TreeRowInfo>() }
     }
     const outRecords: Array<RecordType> = []

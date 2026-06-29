@@ -1,22 +1,15 @@
 /**
- * basic demo 的 data-grid 段（左栏），从 basic.tsx 拆出。
+ * basic demo 的 data-grid 段（左栏）。
  *
- * - props 驱动 `{ bordered, virtual }`（由 basic.tsx 父组件传）。
- * - 自包含：含 `dgColumns` + `<Table>` JSX + `InlineTag` 本地辅助。
- * - 行为与改造前一致：内联最小 Tag、Action 用 `<span>` + flex。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.dg.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'../table'` / `'./_compare/basic.shared'`），源码可原样展示无需路径改写。
+ * props：`{ bordered, virtual }`（由父组件传）。左栏用内联最小 Tag、Action 用 `<span>` + flex
+ * （避免引入 antd Tag/Space）。
  */
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { data, tagColor, type RecordType } from './_compare/basic.shared'
 
 /**
- * 左栏内联最小 Tag（data-grid 不依赖 antd Tag；视觉等价 antd 预设色）。
- * 改造前行为保留。
+ * 左栏内联最小 Tag：data-grid 不依赖 antd Tag，用手写预设色色板 + 边框/背景还原外观。
  */
 const inlineTagColorMap: Record<string, string> = {
   geekblue: '#2f54eb',
@@ -113,8 +106,8 @@ export default function BasicDg({
       columns={dgColumns}
       dataSource={data}
       bordered={bordered}
-      /* pagination={{}}：对齐 antd 默认分页条（antd 6.4.4 对任意行数都渲染 .ant-pagination，
-         即便行数 ≤ pageSize 也会渲染 disabled 态分页条；data-grid 不传=不渲染）。 */
+      /* pagination={{}}：对齐 antd 默认分页条（antd 对任意行数都渲染分页条；data-grid 不传=不渲染）。
+         详见 docs/design-notes/pagination.md */
       pagination={{}}
       virtual={virtual}
       scroll={virtual ? { y: true } : undefined}

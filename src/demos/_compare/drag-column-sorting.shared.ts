@@ -1,5 +1,5 @@
 /**
- * 决策 9：drag-column-sorting 左右对比 demo 的共享配置。
+ * drag-column-sorting 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型与数据。列定义因两侧类型/render 不同各自保留在 demo 文件，但均引用本文件的
  * `RecordType` 与 `data`（数据本身非拖拽目标，固定不动；拖拽对象是列）。
@@ -17,7 +17,7 @@
  *  右 transform 平移整列 + body cell 虚线 + DragOverlay 预览）。
  */
 
-/** antd drag-column-sorting demo 的记录类型。两侧共用。 */
+/** 记录类型。两侧共用。 */
 export interface RecordType {
   key: string
   name: string
@@ -28,7 +28,7 @@ export interface RecordType {
 }
 
 /**
- * antd drag-column-sorting demo 的数据（4 行）。两侧共用，保证对照基准一致。
+ * 数据（4 行）。两侧共用，保证对照基准一致。
  * 数据本身固定（非拖拽目标），拖拽对象是列顺序。
  */
 export const data: RecordType[] = [

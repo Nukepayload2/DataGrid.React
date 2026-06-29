@@ -1,8 +1,7 @@
 /**
- * 单元格合并计算（M3）。
+ * 单元格合并计算。详见 docs/design-notes/header.md「表体合并」节。
  *
- * 算法移植自 lun `TableColumn.tsx:70-114` 的 `updateMergeInfo` 思路
- * （合并区域左上角格设 span，被覆盖格自动隐藏），**用纯 TS 重写**，不引 Vue / Web Component。
+ * 思路：合并区域左上角格设 span，被覆盖格自动隐藏。
  *
  * === 输入输出 ===
  *
@@ -19,10 +18,9 @@
  *    - `colSpan === 0` 或 `rowSpan === 0`：用户主动声明该格被覆盖 → 标 `hidden=true`（且不作为
  *      合并左上角；其 colSpan/rowSpan 当 0 处理，不向下/右扩展覆盖）。
  *
- * 2. **覆盖传播阶段**（与 lun `updateMergeInfo` 一致）：扫描每个**非隐藏**格，
- *    若其声明 `colSpan >= 2` 或 `rowSpan >= 1` 组成的矩形覆盖区域（不含自身），把区域内
- *    所有格标 `hidden=true`。被覆盖格的 colSpan/rowSpan 不参与后续扩展（即只允许"第一层"
- *    合并传播，与 antd / lun 行为一致——合并区域内不会再嵌套合并）。
+ * 2. **覆盖传播阶段**：扫描每个**非隐藏**格，若其声明 `colSpan >= 2` 或 `rowSpan >= 1` 组成的
+ *    矩形覆盖区域（不含自身），把区域内所有格标 `hidden=true`。被覆盖格的 colSpan/rowSpan 不参与
+ *    后续扩展（即只允许"第一层"合并传播，与 antd 行为一致——合并区域内不会再嵌套合并）。
  *
  *    边界裁剪：覆盖区域若超出列数/行数，自动截断（与 antd 行为一致：合并区域不能越过末列/末行）。
  *
@@ -35,7 +33,7 @@
  * 渲染层（GridTable）据此：
  *   - `hidden === true`：**跳过该格的 DOM 渲染**（不占 grid 位置）。
  *   - 否则：在 multi 路径下用 `grid-column: <startCol> / span <colSpan>` +
- *     `grid-row: <startRow> / span <rowSpan>` 放置（显式定位，与 M1 表头格共享同一套线号）。
+ *     `grid-row: <startRow> / span <rowSpan>` 放置（显式定位，与表头格共享同一套线号）。
  *
  * 关键：被覆盖格**完全不渲染 DOM**（而非渲染一个 0 大小的占位 div），这是 grid 布局下避免
  * 空洞/重叠的最稳做法——grid 显式定位下，不存在的 grid item 不影响其它 item 的放置。

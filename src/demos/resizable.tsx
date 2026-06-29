@@ -1,61 +1,20 @@
 /**
- * M7 列宽拖拽调整 demo（增强能力，antd 无原生 resizable demo，自建演示）。
+ * 列宽拖拽调整 demo（data-grid 增强能力，antd 无原生 resizable demo，自建演示）。
  *
- * === 决策 9 双栏对照（特例：右栏无 antd 原生对应）===
- *
- * - **左栏（data-grid Table）**：行为与改造前一致——`resizable` + `resizableMinWidth`/
- *   `resizableMaxWidth` 演示 pointer 拖拽改列宽 + min/max 约束 + 部分列给 width / 部分不给
- *   （max-content → 首次拖拽转 px）。
- * - **右栏（antd 无原生 resizable）**：antd 6.4.4 Table **无原生列宽拖拽（resizable）能力**
- *   → 右栏**不渲染 antd 同名 demo**，而是一个说明区 + 一张静态 antd `<Table>` 作基线参照
- *   （同数据/同列，无拖拽手柄）。SplitDemo 的 `right` 传该说明区 + 静态基线 Table。
- * - **共享状态 + 控制条**：`resizable` / `minWidth` / `maxWidth` 三个控件只驱动左栏
- *   data-grid（右栏无此能力，控制条不作用于右栏——说明区已标注）。
- * - **共享数据**：`RecordType` + `data` 见 `_compare/resizable.shared.ts`。
- *
- * === 为什么右栏这样处理 ===
- *
- * antd Table 列宽策略是声明式（`column.width` / table layout 自动），**无交互式列宽拖拽**。
- * 若强行用 react-resizable 等第三方 wrapper 复刻 antd「社区方案」会让右栏变成非 antd 原生
- * 的三方拼装（偏离「右栏忠实 antd 原生」原则）。故按 task #38 规约，**resizable 右栏仅
- * 显示说明 + 静态基线 Table 作视觉对照**，列宽拖拽仅 data-grid 演示。
- *
- * === 两侧保留的差异 ===
- *
- * 1. **拖拽能力**：左栏有；右栏无（antd 原生不支持）。
- * 2. **Tag 实现**：左栏内联最小 Tag（引擎不依赖 antd Tag）；右栏 antd `<Tag>`（预设色 blue）。
- * 3. **Action 布局**：左栏内联 `<span>` + flex；右栏 antd `<Space>`。
- *
- * === 验证点（M7 + 决策 9）===
- *
- * 1. 鼠标移到左栏表头格右边缘 → 出现蓝色竖条手柄 + col-resize 光标。
- * 2. 按住拖拽 → 列宽实时变化（无抖动）；松手后列宽保持。
- * 3. 拖到 min/max 约束后无法继续缩/放。
- * 4. 关闭 resizable → 左栏表头无手柄。
- * 5. 右栏说明区文字清晰、静态基线 Table 渲染正确（同数据，无拖拽）。
- *
- * === 拆子文件（task #56：live 编辑接入，同 basic 模式）===
- *
- * 父文件只保留「外壳职责」：resizable/minWidth/maxWidth state（控制条只驱动左栏，因右栏
- * 无 resizable 能力）+ useVirtualization + DemoToolbar(Switch resizable + InputNumber min/max
- * + hint) + SplitDemo 外壳 + children 对照说明。
- * 左栏表格 JSX 与 columns 拆到子文件：
- *   - `./resizable.dg`：`ResizableDg({resizable, minWidth, maxWidth, virtual})`（左栏）
- * 右栏（特例）说明区 + 静态基线 antd Table 拆到子文件：
- *   - `./resizable.antd`：`ResizableAntd({virtual})`（右栏：说明区 + 静态基线，无拖拽）
- *
- * ★ 状态提升说明：resizable/minWidth/maxWidth 留父——父渲染控制条需直接读写它们。
- *   控制条只作用于左栏（右栏 antd 无 resizable 能力，不传这三个 prop）。
+ * 双栏对照（特例：右栏无 antd 原生对应）：
+ * - 左栏（data-grid Table）：`resizable` + `resizableMinWidth`/`resizableMaxWidth` 演示 pointer
+ *   拖拽改列宽 + min/max 约束 + 部分列给 width / 部分不给（max-content → 首次拖拽转 px）。
+ * - 右栏（antd 无原生 resizable）：antd 6.4.4 Table 无原生列宽拖拽（resizable）能力，右栏不渲染
+ *   antd 同名 demo，而是一个说明区 + 一张静态 antd `<Table>` 作基线参照（同数据/同列，无拖拽手柄）。
+ * - 共享状态 + 控制条：`resizable` / `minWidth` / `maxWidth` 三个控件只驱动左栏 data-grid
+ *   （右栏无此能力，控制条不作用于右栏）。共享数据见 `_compare/resizable.shared.ts`。
  */
 
 import { useState } from 'react'
 import { InputNumber, Space, Switch, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
-// ★ 拆子文件后，左/右栏 JSX + columns 由子组件提供（props 驱动）。RecordType/data 现在由
-//   子文件各自 import resizable.shared；父文件不再需要。
 import ResizableDg from './resizable.dg'
 import ResizableAntd from './resizable.antd'
 
@@ -67,16 +26,12 @@ export default function ResizableDemo() {
   const [resizable, setResizable] = useState(true)
   const [minWidth, setMinWidth] = useState(30)
   const [maxWidth, setMaxWidth] = useState(400)
-  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y（原两侧均无 scroll）
   const { virtual } = useVirtualization()
-  // 主题 token：控制条内 hint 文字色 token 化（colorTextTertiary≈rgba(0,0,0,0.45)），暗主题自适应。
   const { token } = theme.useToken()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 控制条：仅驱动左栏 data-grid（右栏 antd 无 resizable 能力，故不作用于右栏）。
-          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0；
-          原 flex 布局（wrap/gap/alignItems）通过 style 透传保留。 */}
+      {/* 控制条：仅驱动左栏 data-grid（右栏 antd 无 resizable 能力）。 */}
       <DemoToolbar
         style={{
           display: 'flex',
@@ -137,30 +92,48 @@ export default function ResizableDemo() {
         right={<ResizableAntd virtual={virtual} />}
       >
         <div>
-          <strong>对照说明（决策 9 B20 / M7 列宽拖拽）：</strong>
-          左右并排呈现 data-grid resizable 与 antd 基线。
+          <strong>对照说明：</strong>左右并排呈现 data-grid resizable 与 antd 基线。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>右栏无 antd 原生对应</strong>：antd 6.4.4 Table 无原生
-              <code> resizable</code> 能力，右栏仅显示说明 + 静态基线 Table（无拖拽手柄）。
-              列宽拖拽为 data-grid 增强（M7），仅左栏演示。
+              <strong>右栏无 antd 原生对应</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：antd 6.4.4 Table 无原生 <code>resizable</code> 能力，
+                  右栏仅显示说明 + 静态基线 Table（无拖拽手柄）；左栏支持拖拽。</li>
+                <li><strong>触发条件</strong>：鼠标移到左栏表头格右边缘（data-grid 手柄出现）即出现差异。</li>
+                <li><strong>差异原因</strong>：antd 列宽策略是声明式（<code>column.width</code> / table
+                  layout 自动），无交互式列宽拖拽；列宽拖拽为 data-grid 增强。为不偏离「右栏忠实 antd 原生」
+                  原则，右栏不复刻社区方案（react-resizable 等），仅作静态基线参照。</li>
+              </ul>
             </li>
             <li>
-              <strong>拖拽（左栏）</strong>：鼠标移到表头格<strong>右边缘</strong>出现蓝色竖条
-              手柄（col-resize 光标），按住拖拽实时改列宽（pointer capture 无抖动），松手保持。
+              <strong>min/max 约束</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：左栏 <code>resizableMinWidth</code>/<code>resizableMaxWidth</code>
+                  约束拖拽范围（默认 min 30px，可调）；右栏无此能力。</li>
+                <li><strong>触发条件</strong>：拖拽到 min/max 边界时。</li>
+                <li><strong>差异原因</strong>：仅 data-grid 提供 min/max 约束选项，是拖拽能力的扩展参数。</li>
+              </ul>
             </li>
             <li>
-              <strong>min/max 约束</strong>：控制条
-              <code> resizableMinWidth</code>/<code>resizableMaxWidth</code>
-              约束拖拽范围（默认 min 30px，可调）。
+              <strong>无 width 列首次拖拽转 px</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：左栏 Address / Tags / Description 不给 width（max-content），
+                  首次拖拽即转为受控 px；Name / Age 给固定 width。</li>
+                <li><strong>触发条件</strong>：对无 width 列发起首次拖拽时。</li>
+                <li><strong>差异原因</strong>：data-grid 无 width 列按内容宽度（max-content）布局，
+                  拖拽需要 px 受控值，故首次拖拽从内容宽度转为 px。详见
+                  <code>docs/design-notes/column-width.md</code>。</li>
+              </ul>
             </li>
             <li>
-              <strong>无 width 列</strong>：Address / Tags / Description 不给 width（max-content），
-              首次拖拽即转为受控 px；Name / Age 给固定 width。
-            </li>
-            <li>
-              <strong>Tag 实现</strong>：左栏内联最小 Tag（蓝 #1677ff）；右栏 antd
-              <code>&lt;Tag color="blue"&gt;</code>。
+              <strong>Tag 实现差异</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：左栏用内联最小 Tag（data-grid 不依赖 antd Tag）；右栏用 antd
+                  <code>&lt;Tag color="blue"&gt;</code>。</li>
+                <li><strong>触发条件</strong>：Tags 列渲染即出现。</li>
+                <li><strong>差异原因</strong>：data-grid 引擎刻意不依赖 antd Tag，用内联 span 视觉等价 antd
+                  预设色 blue。</li>
+              </ul>
             </li>
           </ul>
         </div>

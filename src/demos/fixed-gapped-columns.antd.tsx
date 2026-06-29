@@ -1,16 +1,8 @@
 /**
- * fixed-gapped-columns demo 的 antd 段（右栏），从 fixed-gapped-columns.tsx 拆出。
+ * fixed-gapped-columns demo 的 antd 段（右栏）。
  *
- * - props 驱动 `{ bordered, size, virtual }`（由 fixed-gapped-columns.tsx 父组件传）。
- * - 自包含：含 `antdColumns`（分散固定列堆叠：start 侧 FullName + Column1 不相邻、end 侧 Action1 +
- *   Action3 不相邻）+ `<AntdTable>` JSX。
- * - 忠实复刻 antd 官方 fixed-gapped-columns demo：分散固定列堆叠 + bordered + scroll x max-content +
- *   pagination false。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.antd.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'antd'` / `'./_compare/fixed-gapped-columns.shared'`）。
+ * props：`{ bordered, size, virtual }`（与左栏 dg 子组件同款）。忠实复刻 antd 官方
+ * fixed-gapped-columns demo：分散固定列堆叠 + bordered + scroll x max-content + pagination false。
  */
 import { Table as AntdTable } from 'antd'
 import type { TableColumnsType } from 'antd'
@@ -86,8 +78,9 @@ export default function FixedGappedColumnsAntd({
       columns={antdColumns}
       dataSource={dataSource}
       size={size}
-      // ★ 虚拟化透传；ON 时 scroll.x 'max-content' 转数字 2000 + y:300（antd virtual 需数字 y）；
-      // OFF 回退原 max-content（零回归）。
+      // 虚拟化开关接入：ON 时 scroll.x 'max-content' 转数字 2000 + y:300（antd virtual 需数字 x/y，
+      // 'max-content' 会抛 "scroll.x must be number"）；OFF 回退原 max-content。
+      // 详见 docs/design-notes/virtualization.md
       virtual={virtual}
       scroll={virtual ? { x: 2000, y: 300 } : { x: 'max-content' }}
       pagination={false}

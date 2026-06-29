@@ -1,25 +1,15 @@
 /**
- * colspan-rowspan demo 的 data-grid 段（左栏），从 colspan-rowspan.tsx 拆出。
+ * colspan-rowspan demo 的 data-grid 段（左栏）。
  *
- * - props 驱动 `{ bordered, virtual }`（由 colspan-rowspan.tsx 父组件传）。
- * - 自包含：含 `dgColumns`（表头列合并 column.colSpan + 单元格行/列合并 onCell，含 =0 不渲染）
- *   + `<Table>` JSX。
- * - 行为与改造前一致：M3 已实现合并（columnTree.applyHeaderColSpan 表头合并 +
- *   cellMerge.computeCellMergePlan 单元格合并）；rowScope='row' 视觉对齐 antd `<th scope="row">`。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.dg.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'../table'` / `'./_compare/colspan-rowspan.shared'`），源码可原样展示无需路径改写。
+ * props：`{ bordered, virtual }`（由父组件传）。表头列合并 column.colSpan + 单元格行/列合并 onCell
+ * （含 =0 不渲染）。rowScope='row' 视觉对齐 antd `<th scope="row">`。
  */
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { data, sharedOnCell, type DataType } from './_compare/colspan-rowspan.shared'
 
 // ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义
-//
-// 列定义逐字搬自改造前 colspan-rowspan.tsx（与 antd 官方 demo 同结构）：
+// 左栏（data-grid）列定义（与 antd 官方 demo 同结构）：
 //   - RowHead (key)       rowScope='row'        —— 行标题列（视觉加粗 + 灰底）。
 //   - Name (name)         onCell: index===1 → colSpan:5（第 2 行向右合并 5 列）。
 //   - Age (age)           onCell: sharedOnCell（index===1 → colSpan:0 被覆盖）。
@@ -92,15 +82,13 @@ export default function ColspanRowspanDg({
       columns={dgColumns}
       dataSource={data}
       bordered={bordered}
-      /* pagination={{}}：对齐 antd 默认分页条（antd 6.4.4 即便 5 行也渲染 disabled 态分页条）。
-         data-grid 不传=不渲染，故补齐使两侧分页器存在性一致。 */
+      /* pagination={{}}：对齐 antd 默认分页条（antd 即便 5 行也渲染 disabled 态分页条）。
+         data-grid 不传=不渲染，故补齐使两侧分页器存在性一致。详见 docs/design-notes/pagination.md */
       pagination={{}}
-      /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll:{y:true}（data-grid 数据区域模式，
-         CSS 自适应填满 SplitDemo 给的 400px 限高，虚拟窗口才有滚动区；本 demo 仅 5 行故实际
-         不滚动，但 prop 接入保持开关语义完整）。
-         ★ 合并单元格 × 虚拟：M3×M4 组合，跨虚拟窗口边界的合并（rowSpan 跨越可见区裁剪边界）
-         是已知 §9 简化，本 demo 仅 5 行不触发，正常接入。
-         OFF 时 scroll=undefined，行为与改造前一致。 */
+      /* 虚拟化开关接入：ON 时 virtual=true + scroll:{y:true}（数据区域模式，CSS 自适应填满 SplitDemo
+         给的 400px 限高；本 demo 仅 5 行故实际不滚动，prop 接入保持开关语义完整）。
+         合并单元格 × 虚拟：跨虚拟窗口边界的合并（rowSpan 跨越可见区裁剪边界）是已知简化，
+         本 demo 仅 5 行不触发。详见 docs/design-notes/virtualization.md */
       virtual={virtual}
       scroll={virtual ? { y: true } : undefined}
     />

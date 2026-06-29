@@ -1,50 +1,8 @@
 /**
- * 复刻 antd `expand` demo（M9 行展开）：
- *   `G:\Projects\ant-design\components\table\demo\expand.tsx`
+ * expand demo：左右并排呈现 data-grid 与 antd 行展开。
  *
- * === 决策 9 双栏对照 ===
- *
- * - **左栏（data-grid Table）**：行为与改造前一致（`expandable.expandedRowRender`
- *   渲染 description + `rowExpandable` 禁用 "Not Expandable" 行 + grid 0fr↔1fr 过渡）。
- * - **右栏（antd Table）**：忠实复刻 antd expand demo（antd `<Table>` + antd expandable）。
- * - **共享状态 + 控制条**：`expandedRowKeys` 受控（同一份 state 同时驱动两侧）+
- *   顶部全宽按钮组「Expand All / Collapse All」一键展开/收起可展开行（同步驱动两侧）。
- *   antd demo 原本非受控展开，决策 9 下改为受控 + 按钮组，便于对照两侧展开行为同步。
- * - **共享数据**：`RecordType` + `data`（4 行，第 3 行 "Not Expandable"）见
- *   `_compare/expand.shared.ts`。
- *
- * === antd demo 要素 ===
- *
- * - `expandable.expandedRowRender(record)`：展开内容渲染 description。
- * - `expandable.rowExpandable(record)`：record.name === 'Not Expandable' 的行不可展开
- *   → 图标禁用（与 antd 一致）。
- *
- * === 两侧保留的差异 ===
- *
- * - 基本逐字复刻（columns / expandable 一致）。
- * - 展开过渡实现差异：左栏 data-grid grid track `0fr↔1fr`（lun 思路，纯 React 重写）；
- *   右栏 antd 内置展开动画。
- *
- * === 验证点（M9 + 决策 9）===
- *
- * 1. 每行第一列渲染展开图标；点击展开/收起。
- * 2. "Not Expandable" 行图标禁用（灰、cursor not-allowed、点击无反应）——两侧一致。
- * 3. 顶部「Expand All」按钮一键展开两侧所有可展开行（3 行，"Not Expandable" 不展开）。
- * 4. 「Collapse All」一键收起两侧所有行。
- * 5. 同一行展开/收起两侧同步（共享 expandedRowKeys 受控）。
- *
- * === 拆子文件（task #56：live 编辑接入，同 basic 模式）===
- *
- * 父文件只保留「外壳职责」：expandedRowKeys state（受控真理源，驱动两侧 + 顶部按钮组）+
- * useVirtualization + DemoToolbar(Expand All / Collapse All 按钮组) + SplitDemo 外壳 +
- * children 对照说明 + T7 验证面 CSS（.dg-demo-expanded-row）。
- * 两侧表格 JSX 与 columns 拆到子文件：
- *   - `./expand.dg`：`ExpandDg({expandedRowKeys, onExpandedRowsChange, virtual})`（左栏）
- *   - `./expand.antd`：`ExpandAntd({expandedRowKeys, onExpandedRowsChange, virtual})`（右栏）
- *
- * ★ 状态提升说明：expandedRowKeys 必须留父——父渲染顶部 Expand All / Collapse All 按钮
- *   组需直接读写它；且同一 state 驱动两侧同步。子组件接 expandedRowKeys + onExpandedRowsChange
- *   回调（配置型 state 提升，默认值 []，纯瞬时态合理）。
+ * 共享 `expandedRowKeys` 受控（同一份 state 同时驱动两侧）+ 顶部「Expand All / Collapse All」
+ * 一键展开/收起可展开行。第 3 行 "Not Expandable" 不可展开（rowExpandable 过滤）。
  */
 
 import { useState } from 'react'
@@ -52,10 +10,8 @@ import { Button, Space, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
 import { data } from './_compare/expand.shared'
-// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（决策2——展开内容直接渲染但不参与虚拟窗口大小）
+// ON 时叠加 virtual + scroll.y（展开内容直接渲染但不参与虚拟窗口大小）
 import { useVirtualization } from './VirtualizationContext'
-// ★ 拆子文件后，左/右栏 JSX + columns + expandable 派生由子组件提供（props 驱动）。RecordType/data
-//   现在由子文件各自 import expand.shared；父文件只保留 data（用于 Expand All 派生可展开行 key）。
 import ExpandDg from './expand.dg'
 import ExpandAntd from './expand.antd'
 
@@ -64,10 +20,10 @@ import ExpandAntd from './expand.antd'
 // ---------------------------------------------------------------------------
 
 export default function ExpandDemo() {
-  // ★ 共享状态：同一份 expandedRowKeys 同时驱动两侧表格（受控）。
+  // 共享状态：同一份 expandedRowKeys 同时驱动两侧表格（受控）。
   // 可展开行 = 除 "Not Expandable" 外的 3 行（rowExpandable 过滤）。
   const [expandedRowKeys, setExpandedRowKeys] = useState<Array<React.Key>>([])
-  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y
+  // ON 时两栏叠加 virtual=true + scroll.y
   const { virtual } = useVirtualization()
   const { token } = theme.useToken()
 
@@ -80,21 +36,16 @@ export default function ExpandDemo() {
   // 一键收起所有行。
   const collapseAll = () => setExpandedRowKeys([])
 
-  // onExpandedRowsChange 回调（两侧同款）：
-  // - 左栏 data-grid `onExpandedRowsChange(keys: Key[])`。
-  // - 右栏 antd `onExpandedRowsChange(expandedKeys: Key[])`。
-  // 两者均为 Key 数组，规整成 React.Key[] 后回写共享 state（驱动两侧同步）。
+  // onExpandedRowsChange 回调（两侧同款）：规整成 React.Key[] 后回写共享 state（驱动两侧同步）。
   const onExpandedRowsChange = (keys: Array<React.Key>) => {
     setExpandedRowKeys([...keys])
   }
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ T7 验证面：展开行的视觉标记 class（dg-demo-expanded-row）。
-          verifier 检查：展开某行后，该行所有单元格底色变浅黄；收起后恢复。
-          class 由 expandable.expandedRowClassName 返回，仅展开行追加。 */}
+      {/* 展开行视觉标记 class（仅左栏 data-grid 用，展开行底色变浅黄便于核对）。 */}
       <style>{`.dg-demo-expanded-row { background: var(--ant-color-warning-bg) !important; }`}</style>
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一状态同时驱动两侧表格。 */}
+      {/* 共享控制条：全宽，在 SplitDemo 上方。 */}
       <DemoToolbar>
         <Space>
           <Button onClick={expandAll}>Expand All</Button>
@@ -128,32 +79,32 @@ export default function ExpandDemo() {
         }
       >
         <div>
-          <strong>对照说明（决策 9 B10 / M9 行展开）：</strong>
-          左右并排呈现 data-grid 与 antd expand demo（expandable.expandedRowRender +
-          rowExpandable 禁用 "Not Expandable" 行）。
+          <strong>对照说明：</strong>
+          左右并排呈现 data-grid 与 antd 行展开（expandable.expandedRowRender + rowExpandable 禁用 "Not Expandable" 行）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>共享展开状态</strong>：顶部「Expand All / Collapse All」一键展开/收起
-              可展开行，<strong>同一份 expandedRowKeys 同时驱动两侧</strong>（受控，切换一次、左右同步 diff）。
+              <strong>展开过渡实现</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：左栏 data-grid 用 CSS Grid track <code>0fr↔1fr</code> 过渡；右栏 antd 内置展开动画。</li>
+                <li><strong>触发条件</strong>：展开/收起任意行。</li>
+                <li><strong>差异原因</strong>：data-grid 用 CSS Grid 渲染，展开内容行 track 从 0fr 动画到 1fr；antd 原生 <code>&lt;table&gt;</code> 用 rc-motion。详见 <code>docs/design-notes/expand.md</code>。</li>
+              </ul>
             </li>
             <li>
-              <strong>rowExpandable</strong>：第 3 行 "Not Expandable" 图标禁用
-              （灰、cursor not-allowed、点击无反应），Expand All 也不会展开它——两侧一致。
+              <strong>expandRowByClick + expandedRowClassName</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：左栏 data-grid 开启 <code>expandRowByClick: true</code>（点击行体切换展开，且不阻止 <code>onRow.onClick</code>）+ <code>expandedRowClassName</code> 给展开行追加 <code>dg-demo-expanded-row</code> class（浅黄底）；右栏 antd 不开。</li>
+                <li><strong>触发条件</strong>：点击行体非图标单元格（左栏），或展开任意行（左栏加 class）。</li>
+                <li><strong>差异原因</strong>：data-grid 侧额外演示「点击行体展开」与「展开行视觉标记」两项能力，antd demo 仅图标展开。</li>
+              </ul>
             </li>
             <li>
-              <strong>展开过渡差异</strong>：左栏 data-grid grid track <code>0fr↔1fr</code>
-              过渡（lun 思路，纯 React 重写）；右栏 antd 内置展开动画。
-            </li>
-            <li>
-              <strong>与 antd demo 差异</strong>：antd demo 原本非受控展开；决策 9 下改为受控 +
-              按钮组，便于对照两侧展开行为同步。
-            </li>
-            <li>
-              <strong>T7 expandRowByClick + expandedRowClassName（仅左栏 data-grid）</strong>：
-              左栏开启 <code>expandRowByClick: true</code>——点击<strong>行体</strong>（任意非图标单元格）
-              切换该行展开/收起，且<strong>不阻止</strong> <code>onRow.onClick</code>（共存，对齐 antd）；
-              同时 <code>expandedRowClassName</code> 给展开行追加 <code>dg-demo-expanded-row</code> class
-              （浅黄底，verifier 检查 DOM/视觉）。右栏 antd 不开（对照）。
+              <strong>展开控制方式</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：本 demo 两栏均受控（共享 expandedRowKeys + Expand All / Collapse All 按钮组）；antd 官方 demo 原本非受控展开。</li>
+                <li><strong>触发条件</strong>：点击图标、行体或顶部按钮组。</li>
+                <li><strong>差异原因</strong>：本 demo 为对照两侧展开行为同步，改为受控 + 按钮组（同一 state 驱动两侧）。</li>
+              </ul>
             </li>
           </ul>
         </div>

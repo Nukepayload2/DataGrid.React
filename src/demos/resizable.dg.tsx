@@ -1,20 +1,13 @@
 /**
- * resizable demo 的 data-grid 段（左栏），从 resizable.tsx 拆出。
+ * resizable demo 的 data-grid 段（左栏）。
  *
- * - props 驱动 `{ resizable, minWidth, maxWidth, virtual }`（由 resizable.tsx 父组件传）：
+ * props 驱动 `{ resizable, minWidth, maxWidth, virtual }`（由 resizable.tsx 父组件传）：
  *   * resizable：是否开启列宽拖拽（控制条 Switch）。
  *   * minWidth：拖拽最小宽度约束（控制条 InputNumber，px）。
  *   * maxWidth：拖拽最大宽度约束（控制条 InputNumber，px）。
  *   * virtual：全局虚拟化开关。
- * - 自包含：含 `dgColumns`（Name/Age 固定 width + Address/Tags/Description 无 width max-content）+
- *   `<Table>` JSX + `InlineTag` 本地辅助。
- * - 行为与改造前一致：`resizable` + `resizableMinWidth`/`resizableMaxWidth` 演示 pointer 拖拽改列宽
- *   + min/max 约束 + 部分列给 width / 部分不给（max-content → 首次拖拽转 px）。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.dg.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'../table'` / `'./_compare/resizable.shared'`），源码可原样展示无需路径改写。
+ * 自包含：含 `dgColumns`（Name/Age 固定 width + Address/Tags/Description 无 width max-content）+
+ * `<Table>` JSX + `InlineTag` 本地辅助。
  */
 import { Table } from '../table'
 import type { ColumnType } from '../table'
@@ -22,7 +15,6 @@ import { data, type RecordType } from './_compare/resizable.shared'
 
 /**
  * 左栏内联最小 Tag（data-grid 不依赖 antd Tag；视觉等价 antd 预设色 blue）。
- * 改造前行为保留。
  */
 function InlineTag({
   color,
@@ -52,7 +44,7 @@ function InlineTag({
 }
 
 // ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 行为与改造前一致
+// 左栏（data-grid）列定义
 // ---------------------------------------------------------------------------
 
 const dgColumns: ColumnType<RecordType>[] = [
@@ -104,11 +96,7 @@ const dgColumns: ColumnType<RecordType>[] = [
   },
 ]
 
-// ★ props 默认值合理有效初值：
-// - resizable=true（默认开启拖拽，编辑模式未编辑侧仍可拖拽，行为正常）。
-// - minWidth=30 / maxWidth=400（与父控制条初值一致，min/max 约束有效范围；非 0/异常值）。
-// 编辑模式 SplitDemoPreview 的 propsFor 超集 {bordered,virtual,size,autoScroll} 不含
-// resizable/minWidth/maxWidth，此时子组件用默认值 → 拖拽开启 + 合理约束（合理有效初值）。
+// props 默认值：resizable=true / minWidth=30 / maxWidth=400（与父控制条初值一致的有效约束范围）。
 export default function ResizableDg({
   resizable = true,
   minWidth = 30,
@@ -124,9 +112,8 @@ export default function ResizableDg({
     <Table<RecordType>
       columns={dgColumns}
       dataSource={data}
-      /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll:{y:true}（data-grid 数据区域模式，
-         CSS 自适应填满 SplitDemo 给的 400px 限高，虚拟窗口才有滚动区）；
-         OFF 时 scroll=undefined，行为与改造前一致。 */
+      /* virtual 开关 ON 时叠加 virtual=true + scroll:{y:true}（数据区域模式，CSS 自适应填满
+         SplitDemo 给的 400px 限高，虚拟窗口才有滚动区）；OFF 时 scroll=undefined。 */
       virtual={virtual}
       scroll={virtual ? { y: true } : undefined}
       gridOptions={{

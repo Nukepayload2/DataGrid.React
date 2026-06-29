@@ -1,12 +1,12 @@
 /**
- * 决策 9：basic 左右对比 demo 的共享配置。
+ * basic 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型与数据。列定义因两侧类型/render 不同（data-grid `ColumnType` 用内联
  * 最小 Tag；antd `TableProps['columns']` 用 antd `<Tag>`/`<Flex>`/`<Space>`），保留在各自
  * demo 文件，但均引用本文件的 `RecordType` 与 `data`。
  */
 
-/** antd basic demo 的记录类型。两侧共用。 */
+/** 记录类型。两侧共用。 */
 export interface RecordType {
   key: string
   name: string
@@ -15,7 +15,7 @@ export interface RecordType {
   tags: string[]
 }
 
-/** antd basic demo 的数据（3 行）。两侧共用，保证对照基准一致。 */
+/** 数据（3 行）。两侧共用，保证对照基准一致。 */
 export const data: RecordType[] = [
   {
     key: '1',
@@ -41,7 +41,7 @@ export const data: RecordType[] = [
 ]
 
 /**
- * 计算 Tag 颜色（antd basic demo 的逻辑：tag.length > 5 → geekblue；'kawaii' → volcano；
+ * 计算 Tag 颜色（tag.length > 5 → geekblue；'kawaii' → volcano；
  * 否则 green）。两侧 render 复用此函数保证颜色判定一致。
  */
 export function tagColor(tag: string): string {

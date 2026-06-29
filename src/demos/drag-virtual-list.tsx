@@ -1,45 +1,17 @@
 /**
- * T9 验收 demo：虚拟列表 + 行拖拽排序 + autoScrollOnDrag（拖到边缘自动滚动）。
- *
- * === 背景（为什么要这个 demo）===
+ * 虚拟列表 + 行拖拽排序 + autoScrollOnDrag demo。
  *
  * 行拖（`useRowDragSort`）的 hit-test 实时遍历**已渲染的** `[data-row-index]` 单元格算
- * over index。虚拟列表（M4）下只渲染可视区行；当用户把行拖到容器底部边缘下方时，可视区外的
- * 行**没有 DOM**，hit-test 会"卡住"在可视区最后一行——drop 目标永远在末行，无法到达远处位置。
+ * over index。虚拟列表下只渲染可视区行；当用户把行拖到容器底部边缘下方时，可视区外的行没有 DOM，
+ * hit-test 会"卡住"在可视区最后一行——drop 目标永远在末行，无法到达远处位置。
  *
- * T9 的 `gridOptions.autoScrollOnDrag`（默认 true）解决此问题：拖拽近边缘 → 渐进加速滚动容器 →
- * 滚动事件触发虚拟引擎（useVirtualList）重算已渲染行 → DOM 行边界变化 → 下一帧 hit-test 自动
- * 跟随到新位置。
+ * `gridOptions.autoScrollOnDrag`（默认 true）解决此问题：拖拽近边缘 → 渐进加速滚动容器 →
+ * 滚动事件触发虚拟引擎重算已渲染行 → DOM 行边界变化 → 下一帧 hit-test 自动跟随到新位置。
  *
- * === demo 设计（让 verifier 能直观验证 auto-scroll）===
- *
- * - **10000 行虚拟列表 + 行拖拽手柄列**：数据量大到必须虚拟，且拖一行需要穿越很远才能到达目标。
- * - **scroll.y=true（数据区域模式）**：表体限高纵向滚动（容器高 440px，每行 40px → 可视 ~10 行）。
- * - **autoScrollOnDrag 开关**（默认 true）：verifier 可对照开/关下的差异：
- *   - 开：拖一行到容器**底部边缘** → 容器自动向下滚动 → 露出更多行 → 蓝色指示线跟随到新位置
- *     （可一路拖到第 10000 行附近再松手，确认 drop 指示线到达正确行）。
- *   - 关：拖到容器底部边缘 → 不滚动 → 指示线"卡住"在可视区最后一行（无法到达远处行）。
- * - **当前拖拽 / 当前 scrollTop 显示**：便于 verifier 观察拖拽中 over index + 滚动位置变化。
- *
- * === 验证步骤（verifier）===
- *
- * 1. 打开 demo（默认 10000 行 + autoScrollOnDrag 开）。
- * 2. 按住某行的**手柄列**（首列 HolderOutlined 图标）开始拖拽。
- * 3. 向下移动指针到表体容器**底部边缘**（距底部 < 100px）→ 确认容器**自动向下滚动**，露出更多行，
- *    蓝色指示线跟随到新位置（不再卡在末行）。
- * 4. 一路拖到接近第 10000 行 → 松手 → 确认该行被重排到目标位置（"当前拖拽"显示 from/over index）。
- * 5. 同样向上拖到**顶部边缘** → 确认向上自动滚动。
- * 6. 关闭 AutoScroll 开关 → 重复 2-3 → 确认拖到底部边缘**不滚动**、指示线卡在末行（对照差异）。
- *
- * === 实现要点 ===
- *
- * - 复用 `useRowDragSort` + `handleSelector: '.dg-drag-handle'`（S18 手柄列拖拽）。
- * - `autoScroll` 从开关传入（对齐 `gridOptions.autoScrollOnDrag` 语义，默认 true）。
- * - 行拖 hit-test + auto-scroll RAF 都通过外层 `containerRef` 定位；auto-scroll 内部用
- *   `containerRef.current.querySelector('.dg-scroll')` 找到真正的滚动容器（GridTable 在
- *   scroll.y=true 时自包一层 `.dg-scroll`）。
- * - 数据：自造 10000 行简单 record（key/name/age/address），用 `crypto.randomUUID` 不必要——
- *   直接用 index 作 key。
+ * 10000 行虚拟列表 + 手柄列拖拽；scroll.y=true 表体限高（容器 440px，每行 40px → 可视 ~10 行）。
+ * autoScrollOnDrag 开关可对照开/关下的差异。auto-scroll 内部用
+ * `containerRef.current.querySelector('.dg-scroll')` 找到真正的滚动容器
+ * （GridTable 在 scroll.y=true 时自包一层 `.dg-scroll`）。
  */
 
 import { useEffect, useRef, useState } from 'react'
@@ -132,7 +104,7 @@ export default function DragVirtualListDemo() {
     onSort: setDataSource,
     containerRef,
     handleSelector: '.dg-drag-handle',
-    // T9：autoScrollOnDrag 开关（默认 true，对齐 gridOptions.autoScrollOnDrag 默认）。
+    // autoScrollOnDrag 开关（默认 true，对齐 gridOptions.autoScrollOnDrag 默认）。
     autoScroll,
   })
 
@@ -186,21 +158,6 @@ export default function DragVirtualListDemo() {
             scrollTop: {Math.round(scrollTop)} px · 共 {totalCount} 行
           </span>
         </Space>
-        <div style={{ marginTop: 8, fontSize: 12, color: token.colorTextSecondary }}>
-          <strong>T9 验收步骤：</strong>
-          <ol style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-            <li>按住首列手柄图标开始拖拽某行。</li>
-            <li>
-              向下移动指针到表体容器<strong>底部边缘</strong>（距底部 &lt; 100px）→
-              确认容器<strong>自动向下滚动</strong>，蓝色指示线跟随到新位置（不卡在末行）。
-            </li>
-            <li>一路拖到接近末行（第 10000 行）→ 松手 → 确认重排到目标位置。</li>
-            <li>同样向上拖到<strong>顶部边缘</strong> → 确认向上自动滚动。</li>
-            <li>
-              关闭 AutoScroll 开关 → 重复 → 确认拖到底部边缘<strong>不滚动</strong>、指示线卡在末行。
-            </li>
-          </ol>
-        </div>
       </DemoToolbar>
 
       {/* 表格容器（外层相对定位：指示线作为其子元素绝对定位）。 */}

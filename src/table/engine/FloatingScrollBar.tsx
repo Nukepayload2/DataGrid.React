@@ -1,48 +1,41 @@
 /**
  * data-grid 悬浮自定义滚动条（macOS 风格：细线默认 + hover 变粗）。
  *
- * === 设计目标（用户明确）===
+ * 设计目标：
  *
- * 1. **纵向悬浮滚动条**（scroll.y === true 启用）：用悬浮自定义滚动条替换浏览器原生纵向滚动条。
- *    - 默认：右侧悬浮一条**细线**（thumb 视觉宽 ~2px，半透明灰 rgba(0,0,0,0.25)）。
+ * 1. 纵向悬浮滚动条（scroll.y === true 启用）：替换浏览器原生纵向滚动条。
+ *    - 默认：右侧悬浮一条细线（thumb 视觉宽 ~2px，半透明灰）。
  *    - 8px hit test 区域：实际可交互/hover 命中区 8px（比视觉线宽，方便鼠标命中）。
- *    - hover（鼠标进入 8px hit 区）：线条变**真的滚动条**（thumb 视觉宽 ~8px，实色 rgba(0,0,0,0.45)），
- *      transition 0.2s。
- *    - 滚动条位于**数据区域**（表头下方、summary 上方，表体右侧）——不延伸到表头/summary。
+ *    - hover（鼠标进入 8px hit 区）：线条变粗（thumb 视觉宽 ~8px，实色），transition 0.2s。
+ *    - 滚动条位于数据区域（表头下方、summary 上方，表体右侧）——不延伸到表头/summary。
  *
- * 2. **横向悬浮滚动条**（scroll.x 启用，决策 8）：用悬浮自定义滚动条替换浏览器原生横向滚动条。
- *    - 默认：底部悬浮一条**细线**（thumb 视觉高 ~2px，半透明灰）。
+ * 2. 横向悬浮滚动条（scroll.x 启用）：替换浏览器原生横向滚动条。
+ *    - 默认：底部悬浮一条细线（thumb 视觉高 ~2px，半透明灰）。
  *    - hit 区上下各 8px（thumb 居中），hover 变粗 8px。
- *    - 定位**数据区域底部**（summary 上方，bottom=summary 高度）。
+ *    - 定位数据区域底部（summary 上方，bottom=summary 高度）。
  *
- * === 实现要点 ===
+ * 实现要点：
  *
- * 1. **不接管滚动行为**：原生容器仍 `overflow-y/x: auto`（保留原生滚轮 + 程序 scrollLeft/scrollTop
+ * 1. 不接管滚动行为：原生容器仍 `overflow-y/x: auto`（保留原生滚轮 + 程序 scrollLeft/scrollTop
  *    + scroll 事件）；视觉原生滚动条通过 CSS（`scrollbar-width: none` / `::-webkit-scrollbar{width/height:0}`）
- *    隐藏。本组件只**同步显示**反映 scroll 位置的悬浮 thumb，并支持**拖动 thumb** 驱动容器 scroll。
+ *    隐藏。本组件只同步显示反映 scroll 位置的悬浮 thumb，并支持拖动 thumb 驱动容器 scroll。
  *
- * 2. **定位锚点**：悬浮条**绝对定位**在**数据区域**（纵向：top=表头高，bottom=summary 高，right=0；
- *    横向：left=0，right=0，bottom=summary 高）。
- *    因滚动容器 overflow 会卷动其 absolute 子元素，悬浮条不能直接放在滚动容器内部（会随内容滚走）。
- *    故采用：组件返回一个**包装层** `.dg-scroll-wrap`（position:relative，overflow:visible），
- *    内部放滚动容器（scrollRef）+ 悬浮条（absolute 相对 wrap 定位）。这样悬浮条钉在 wrap 上，
- *    不随容器内容滚动。GridTable 在 scroll.y/scroll.x 分支调用 `<FloatingScrollBar><内容/></FloatingScrollBar>`。
+ * 2. 定位锚点：悬浮条绝对定位在数据区域（纵向：top=表头高，bottom=summary 高，right=0；
+ *    横向：left=0，right=0，bottom=summary 高）。滚动容器 overflow 会卷动其 absolute 子元素，
+ *    故悬浮条不能直接放在滚动容器内部。组件返回一个包装层 `.dg-scroll-wrap`（position:relative，
+ *    overflow:visible），内部放滚动容器 + 悬浮条（absolute 相对 wrap 定位）。GridTable 在
+ *    scroll.y/scroll.x 分支调用 `<FloatingScrollBar><内容/></FloatingScrollBar>`。
  *
- * 3. **表头/summary 高度测量**：用 ResizeObserver 监听 grid 内的"表头区"和"summary 区"高度变化。
- *    表头高度 = grid 内所有 `.dg-cell-header` 的最大底部（相对 grid 顶部）。
- *    summary 高度 = grid 内所有 `.dg-cell-summary` 的并集高度（fixed summary 在底部）。
+ * 3. 表头/summary 高度测量：ResizeObserver 监听 grid 内的"表头区"和"summary 区"高度变化。
  *
- * 4. **交互**：
- *    - hover：hit 容器 `:hover` → CSS 让 thumb 变粗（width/height 2px→8px + background 变实色）。纯 CSS。
- *    - 拖动 thumb：pointerdown → setPointerCapture → pointermove 换算 delta → 更新容器 scroll。
- *    - 滚轮：容器原生 overflow-y/x:auto 处理 → scroll 事件同步 thumb 位置。
- *    - 同步：监听容器 scroll + ResizeObserver（容器/内容尺寸变）→ 重算 thumb 尺寸/位置/可见性。
+ * 4. 交互：hover（CSS 让 thumb 变粗，纯 CSS）；拖动 thumb（pointerdown → setPointerCapture →
+ *    pointermove 换算 delta → 更新容器 scroll）；滚轮（容器原生 overflow 处理 → scroll 事件同步 thumb）；
+ *    同步（容器 scroll + ResizeObserver → 重算 thumb 尺寸/位置/可见性）。
  *
- * 5. **可见性**：内容不溢出 → 隐藏悬浮条（display:none）。
- *
- * === 零回归 ===
+ * 5. 可见性：内容不溢出 → 隐藏悬浮条（display:none）。
  *
  * 仅 scroll.y/scroll.x 启用时渲染（GridTable 显式调用本组件）；无 scroll 路径完全不渲染本组件。
+ * 详见 [docs/design-notes/scrollbar.md](../../../docs/design-notes/scrollbar.md)。
  */
 import {
   useCallback,
@@ -54,15 +47,15 @@ import {
 } from 'react'
 
 /**
- * 测量"表头区高度"（表头 sticky 区相对**滚动容器**顶部的距离）。
+ * 测量"表头区高度"（表头 sticky 区相对滚动容器顶部的距离）。
  *
- * 表头区 = `.dg-cell-header` 元素相对**滚动容器**顶部的最大底部偏移。
+ * 表头区 = `.dg-cell-header` 元素相对滚动容器顶部的最大底部偏移。
  * showHeader=false 时无表头格 → 返回 0（悬浮条从顶部开始）。
  *
- * ★ Bug1 修复：参照系必须是**滚动容器**（container），不是 `.dg-grid`（grid）。
+ * 参照系必须是滚动容器（container），不是 `.dg-grid`（grid）：
  *   - `.dg-grid` 是全量内容（虚拟下高 40 万 px），其 `getBoundingClientRect().top`
  *     随 scrollTop 变负（≈ -scrollTop）；
- *   - 表头 sticky 相对**滚动容器顶**固定，视觉位置不动；
+ *   - 表头 sticky 相对滚动容器顶固定，视觉位置不动；
  *   - 若参照 grid：`r.bottom - gridRect.top ≈ scrollTop + 40`，headerH 随 scrollTop 暴涨
  *     → 悬浮条 hit 容器 top=headerH 被推出 wrap、thumb transform 锁 0 → 滚动条消失。
  *   - 改参照 container：`r.bottom - containerRect.top ≈ 40`（恒定），headerH 稳定≈40。
@@ -91,18 +84,14 @@ function measureHeaderHeight(
  * summary 区 = `.dg-cell-summary` 元素的并集高度（顶部偏移最小值到底部偏移最大值的范围）。
  * 无 summary → 返回 0（悬浮条延伸到底部）。
  *
- * ★ Bug1 修复（同 measureHeaderHeight）：参照系改为**滚动容器**（container）。
- *   summary 是 `position: sticky; bottom: 0` 相对滚动容器底部固定；用 container 作参照
- *   才能在任意 scrollTop 下稳定测得其高度（不随 grid 的 -scrollTop 偏移而漂移）。
+ * 参照系同为滚动容器（container）：summary 是 `position: sticky; bottom: 0` 相对滚动容器底部固定；
+ * 用 container 作参照才能在任意 scrollTop 下稳定测得其高度（不随 grid 的 -scrollTop 偏移而漂移）。
  *
- * ★ 任务 #51 修复：仅当 summary 确实 sticky bottom 固定时才计高，否则返回 0。
- *   原实现无论 summary 是否 sticky bottom 都返回其高度，导致数据区域模式（scroll.y:true）下
- *   summary 未 fixed 时横向浮动条错误压在底部上方一行（用户称「跨一行」）——条总是预留一行空间。
- *   判定依据：取第一个 summary cell 的 getComputedStyle，仅当 `position==='sticky'` 且
- *   `bottom` 解析为 0（任务 T：SummaryCell fixed 分支注入 position:sticky;bottom:0）时才计高；
- *   否则返回 0（让条贴数据区底部，对齐 antd：表头→表体→summary→横向条在 summary 上方数据区底，
- *   未固定时不为 summary 预留浮动条空间）。recomputeVertical 消费同一函数，summary 未固定时
- *   纵向 thumb 也延伸到底（正向修复）。
+ * 仅当 summary 确实 sticky bottom 固定时才计高，否则返回 0：未固定时若计高会让横向浮动条错误压在
+ * 底部上方一行（条总是预留一行空间）。判定依据：取第一个 summary cell 的 getComputedStyle，仅当
+ * `position==='sticky'` 且 `bottom` 解析为 0（SummaryCell fixed 分支注入 position:sticky;bottom:0）
+ * 时才计高；否则返回 0（让条贴数据区底部，未固定时不为 summary 预留浮动条空间）。
+ * recomputeVertical 消费同一函数，summary 未固定时纵向 thumb 也延伸到底。
  */
 function measureSummaryHeight(
   grid: HTMLElement | null,
@@ -112,7 +101,7 @@ function measureSummaryHeight(
   const containerRect = container.getBoundingClientRect()
   const summaries = grid.querySelectorAll<HTMLElement>('.dg-cell-summary')
   if (summaries.length === 0) return 0
-  // 任务 #51：判定 summary 是否确实 sticky bottom 固定（取第一个 summary cell 探测）。
+  // 判定 summary 是否确实 sticky bottom 固定（取第一个 summary cell 探测）。
   // 未固定时（position 非 sticky / bottom 非 0）→ 直接返回 0，不为 summary 预留浮动条空间。
   const firstStyle = getComputedStyle(summaries[0])
   const isStickyBottom =
@@ -153,7 +142,7 @@ export interface FloatingScrollBarProps {
   /** 包装层的 inline style（semantic.section.style 等）。 */
   wrapStyle?: CSSProperties
   /**
-   * 决策 8：是否渲染横向悬浮滚动条（scroll.x 启用）。
+   * 是否渲染横向悬浮滚动条（scroll.x 启用）。
    * 横向悬浮条定位数据区域底部（summary 上方），细线 2px + hit 上下各 8px + hover 变粗 8px + 拖动/同步。
    * 默认 false（仅纵向悬浮条）。
    */
@@ -161,7 +150,7 @@ export interface FloatingScrollBarProps {
 }
 
 /**
- * 悬浮滚动条包装组件（纵向 + 横向，决策 7 + 决策 8）。
+ * 悬浮滚动条包装组件（纵向 + 横向）。
  *
  * 渲染结构：
  * ```
@@ -205,7 +194,7 @@ export function FloatingScrollBar({
   // === 纵向悬浮条 state ===
   const vThumbRef = useRef<HTMLDivElement | null>(null)
   const vHitRef = useRef<HTMLDivElement | null>(null)
-  // ★ 修复 C：state **不含 transform** —— transform 由 DOM 直接写（onScroll / recompute），
+  // state 不含 transform —— transform 由 DOM 直接写（onScroll / recompute），
   //   避免 React 重渲染用 state.transform 覆盖 DOM transform 造成滚动中闪烁。
   const [vThumbStyle, setVThumbStyle] = useState<CSSProperties>({
     height: 0,
@@ -221,10 +210,10 @@ export function FloatingScrollBar({
     startScrollTop: number
   } | null>(null)
 
-  // === 横向悬浮条 state（决策 8）===
+  // === 横向悬浮条 state ===
   const hThumbRef = useRef<HTMLDivElement | null>(null)
   const hHitRef = useRef<HTMLDivElement | null>(null)
-  // ★ 修复 C（同纵向）：state 不含 transform，横向 thumb 位置由 DOM 直接写。
+  // state 不含 transform，横向 thumb 位置由 DOM 直接写（同纵向）。
   const [hThumbStyle, setHThumbStyle] = useState<CSSProperties>({
     width: 0,
     display: 'none',
@@ -268,16 +257,16 @@ export function FloatingScrollBar({
     // track 高度 = clientHeight - headerH - summaryH（数据区可视高）。
     const trackHeight = Math.max(0, clientHeight - headerH - summaryH)
     // thumb 高度 = clientHeight × (clientHeight / scrollHeight)，最少 32px
-    // （修复 A：从 24 提高到 32，让 thumb 视觉更清晰，避免滚动中「滚到中途看不见」）。
+    // （让 thumb 视觉更清晰，避免滚动中「滚到中途看不见」）。
     const thumbHeight = Math.max(32, trackHeight * (clientHeight / scrollHeight))
     const maxScroll = scrollHeight - clientHeight
     const scrollTop = container.scrollTop
     const thumbMaxOffset = Math.max(0, trackHeight - thumbHeight)
     const ratio = maxScroll > 0 ? scrollTop / maxScroll : 0
     const thumbOffset = ratio * thumbMaxOffset
-    // ★ 修复 C：thumb **位置（transform）由 DOM 单一路径负责**。
+    // thumb 位置（transform）由 DOM 单一路径负责。
     //   recompute 与 onScroll 都通过 `thumb.style.transform = ...` 直接写 DOM，
-    //   state（vThumbStyle）**不携带 transform**，只管几何（height）+ 可见性（display）。
+    //   state（vThumbStyle）不携带 transform，只管几何（height）+ 可见性（display）。
     //   这样 React 重渲染时不会用 state.transform 覆盖 DOM 上 onScroll 刚写的 transform，
     //   消除「state transform ↔ DOM transform 竞争覆盖」导致的滚动中 thumb 闪烁。
     setVThumbStyle((prev) => {
@@ -289,7 +278,7 @@ export function FloatingScrollBar({
     thumb.style.transform = `translateY(${thumbOffset}px)`
   }, [])
 
-  // 核心：重算横向 thumb 几何（决策 8）。
+  // 核心：重算横向 thumb 几何。
   const recomputeHorizontal = useCallback(() => {
     const container = innerScrollRef.current
     const thumb = hThumbRef.current
@@ -312,7 +301,7 @@ export function FloatingScrollBar({
       )
       return
     }
-    // thumb 宽度 = track 宽度 × (clientWidth / scrollWidth)，最少 32px（与纵向一致，修复 A）。
+    // thumb 宽度 = track 宽度 × (clientWidth / scrollWidth)，最少 32px（与纵向一致）。
     const trackWidth = clientWidth
     const thumbWidth = Math.max(32, trackWidth * (clientWidth / scrollWidth))
     const maxScroll = scrollWidth - clientWidth
@@ -320,7 +309,7 @@ export function FloatingScrollBar({
     const thumbMaxOffset = Math.max(0, trackWidth - thumbWidth)
     const ratio = maxScroll > 0 ? scrollLeft / maxScroll : 0
     const thumbOffset = ratio * thumbMaxOffset
-    // ★ 修复 C（同纵向）：state 不携带 transform，位置由 DOM 直接写（单一源）。
+    // state 不携带 transform，位置由 DOM 直接写（单一源，同纵向）。
     setHThumbStyle((prev) => {
       if (prev.width === thumbWidth && prev.display === 'block') return prev
       return { width: thumbWidth, display: 'block' }
@@ -417,7 +406,7 @@ export function FloatingScrollBar({
       startY: e.clientY,
       startScrollTop: container.scrollTop,
     }
-    // ★ 修复：onUp 注册在 window 上，触发时 pointerdown 事件对象 e 的 currentTarget 已为 null，
+    // onUp 注册在 window 上，触发时 pointerdown 事件对象 e 的 currentTarget 已为 null，
     //   导致 `e.currentTarget.releasePointerCapture` 抛 null。这里在 pointerdown 入口
     //   （e.currentTarget = hit 容器有效）把捕获目标元素引用存进闭包，set/release 都用同一元素。
     const hitEl = e.currentTarget
@@ -444,7 +433,7 @@ export function FloatingScrollBar({
   }
 
   // 横向拖动（pointerdown 绑在 hit 容器，整个 8px hit 区可靠抓取）：pointerdown → capture
-  // （hit 容器自身）→ move 换算 → 容器 scrollLeft（决策 8）。thumb ref 保留但不绑 pointerdown。
+  // （hit 容器自身）→ move 换算 → 容器 scrollLeft。thumb ref 保留但不绑 pointerdown。
   const onHHitPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const container = innerScrollRef.current
     if (!container) return
@@ -462,7 +451,7 @@ export function FloatingScrollBar({
       startX: e.clientX,
       startScrollLeft: container.scrollLeft,
     }
-    // ★ 修复（同纵向）：onUp 注册在 window 上，触发时 e.currentTarget 已为 null。
+    // 同纵向：onUp 注册在 window 上，触发时 e.currentTarget 已为 null。
     //   在 pointerdown 入口把捕获目标元素引用存进闭包，set/release 都用同一元素。
     const hitEl = e.currentTarget
     hitEl.setPointerCapture(e.pointerId)
@@ -506,7 +495,7 @@ export function FloatingScrollBar({
       {/* 纵向悬浮滚动条 hit 容器：绝对定位数据区右侧（top=表头高，bottom=summary 高，right=0，width=8px）。
           hit 容器宽度 = 8px（= thumb 展开后宽度，整个 8px 都是抓取/hover 区；pointer-events:auto 使该
           8px 可抓可 hover，区外点击穿透）。onPointerDown 绑在 hit 容器，整个 8px 区可靠抓取。
-          ★ 任务 K：thumb 贴右边缘（CSS right:0; left:auto），transform 仅 translateY（无 translateX），
+          thumb 贴右边缘（CSS right:0; left:auto），transform 仅 translateY（无 translateX），
             hover 变粗时向左生长（右边缘不动，原位贴边）。默认 width 2px，hit 容器 :hover 时 8px（CSS）。 */}
       <div
         ref={vHitRef}
@@ -523,10 +512,10 @@ export function FloatingScrollBar({
           style={vThumbStyle}
         />
       </div>
-      {/* 横向悬浮滚动条（决策 8）：绝对定位数据区底部（summary 上方）。
+      {/* 横向悬浮滚动条：绝对定位数据区底部（summary 上方）。
           hit 容器高度 = 8px（= thumb 展开后高度，整个 8px 都是抓取/hover 区；pointer-events:auto 使该
           8px 可抓可 hover，区外点击穿透）。onPointerDown 绑在 hit 容器，整个 8px 区可靠抓取。
-          ★ 任务 K：thumb 贴底边缘（CSS bottom:0; top:auto），transform 仅 translateX（无 translateY），
+          thumb 贴底边缘（CSS bottom:0; top:auto），transform 仅 translateX（无 translateY），
             hover 变粗时向上生长（底边缘不动，原位贴边）。默认 height 2px，hit 容器 :hover 时 8px（CSS）。 */}
       {horizontal ? (
         <div

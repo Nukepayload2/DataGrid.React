@@ -1,5 +1,5 @@
 /**
- * 决策 9：summary 左右对比 demo 的共享配置。
+ * summary 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型与数据：
  *   - `DataType`：antd 官方 summary demo 示例1 的记录类型（Name/Borrow/Repayment）。
@@ -10,7 +10,7 @@
  * 列定义因两侧类型不同（data-grid `ColumnType` 与 antd `TableColumnsType`），
  * 保留在各自 demo 文件，但字段逐字一致。
  *
- * antd summary demo 两个示例（S22 汇总）：
+ * antd summary demo 两个示例：
  *   - 示例1（计算总计）：bordered + pagination:false + 函数 summary 接收 pageData。
  *   - 示例2（fixed sticky bottom）：bordered + scroll:{x:2000, y:500} + pagination:false
  *     + Table.Summary fixed。

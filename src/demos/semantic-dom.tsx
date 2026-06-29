@@ -1,60 +1,19 @@
 /**
- * Semantic DOM 兼容性对比 demo（item3 B-impl）。
+ * Semantic DOM 兼容性对比 demo。
  *
- * 对齐 antd `_semantic.tsx` 的 13 槽位思路 + data-grid 的双栏对比框架。本 demo 同时验证
- * 三件事：
+ * 对齐 antd `_semantic.tsx` 的 13 槽位思路，三件事对照：
+ * 1. 13 槽位 classNames/styles 染色对照（每槽一种霓虹色 outline）。
+ * 2. a11y 属性兼容矩阵（role / aria-sort / aria-expanded / aria-label / aria-colspan 等，
+ *    demo 下方说明区表格）。
+ * 3. 排序 aria-sort 专项（Age 列 sorter，点击表头观察两侧 aria-sort 同步）。
  *
- * 1. **13 槽位 classNames/styles 染色对照**：给两侧表格各传一套高对比 classNames/styles
- *    （每槽一种霓虹色 outline + data-slot 标注），让每个槽位视觉可辨。预期差异：
- *      - dg 的 header.wrapper / body.wrapper **不染色**（架构限制：dg 无 thead/tbody 容器，
- *        仅有逻辑槽位接口，渲染层无对应 DOM）。
- *      - dg 的 header.row / body.row 染色**分散到行内所有 cell**（grid 无 tr，行 class 透传
- *        到该行所有单元格；本次 B-impl 已补 header.row 注入，与 body.row 对称）。
- *      - 其余 9 槽位（root/section/content/title/footer/header.cell/body.cell/pagination.root/
- *        pagination.item）两侧视觉等价。
- *
- * 2. **a11y 对比**（demo 下方说明区表格）：列出 role(table/row/rowgroup/columnheader/
- *    gridcell/rowheader) / aria-sort / aria-expanded / aria-label / aria-colspan 等 a11y
- *    属性，分 antd（真 table 天然/显式）vs dg 现状 vs dg 补齐后 三栏对照。
- *
- * 3. **排序 aria-sort 专项**：Age 列可排序（sorter: true），点击表头时两侧表头 aria-sort
- *    同步 ascending ↔ descending ↔ （未设）。用 devtools Elements 面板点表头观察 aria-sort
- *    属性变化。
- *
- * 详见兼容矩阵：`docs/semantic-dom-compat.md`。
- *
- * ★ 架构天花板说明：data-grid 用 div + CSS Grid 渲染（非真 `<table>`），行＝多 cell 直接铺
- *   在 grid 上**无行容器**，故无法构成有效 ARIA table 结构（role=table/row/rowgroup/
- *   columnheader/gridcell/rowheader 需父子层级才有效）。本 demo 不强行加这些 role（避免
- *   无效 ARIA），仅在 doc 记录天花板。补行容器是未来架构工作。
- *
- * === 拆子文件（live 编辑接入，同 basic / style-class 模式）===
- *
- * 父文件只保留「外壳职责」：SplitDemo 外壳（virtualizable={false}：本 demo 展示完整 DOM 结构 /
- * a11y 矩阵，虚拟化会隐藏非可视行破坏检视目的，故排除——全局「Virtual」开关对它不生效）+
- * children 对照说明（13 槽位染色对照表 + a11y 兼容矩阵 + aria-sort 专项）。两侧表格 JSX +
- * columns + 13 槽位 classNames/styles 染色配置拆到子文件：
- *   - `./semantic-dom.dg`：`SemanticDomDg({bordered, virtual})`（左栏）
- *   - `./semantic-dom.antd`：`SemanticDomAntd({bordered, virtual})`（右栏）
- *
- * ★ classNames/styles 配置（dgClassNames/dgStyles + antd 同款）全部搬入子组件，父文件不再持有
- *   （live 编辑子组件源码可独立展示/编译）。
- *
- * ★ state 提升决策（SOP）：本 demo 无共享控制条（virtualizable={false} 不接全局开关，也无
- *   Bordered/Size 等 Switch）。sortOrder 瞬时态仅用于「在各自表格下方显示当前值」——按 SOP
- *   「交互 state 优先留子组件内自管；仅当父控制条需直接操作时才提升」，sortOrder 留在子组件
- *   内部自管（onChange 回写本地 state + 渲染在表格下方），父文件不再持有 sortOrder state。
- *
- * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `SemanticDomDemo`，零编辑开销；
- * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
- * 子组件 props 全部带默认值（bordered=false/virtual=false），编辑态超集 props
- * {bordered,virtual,size,autoScroll} 不全也不崩（两块 Table 完整可演示）。
+ * 架构天花板：data-grid 用 div + CSS Grid 渲染（非真 `<table>`），行＝多 cell 直接铺在 grid
+ * 上无行容器，故无法构成有效 ARIA table 结构 — 详见 docs/design-notes/layout.md。
+ * 完整兼容矩阵：docs/semantic-dom-compat.md。
  */
 
 import type { CSSProperties } from 'react'
 import { SplitDemo } from './_compare/SplitDemo'
-// ★ 拆子文件后，左/右栏 JSX + columns + 13 槽位 classNames/styles 染色配置由子组件提供。
-//   SemanticRecord/semanticData 现在由子文件各自 import semantic-dom.shared；父文件不再需要。
 import SemanticDomDg from './semantic-dom.dg'
 import SemanticDomAntd from './semantic-dom.antd'
 
@@ -109,7 +68,7 @@ const a11yMatrix: A11yRow[] = [
   {
     attr: 'aria-sort（可排序列表头）',
     antd: '显式（useSorter.tsx:246-248）',
-    dgNow: '✅ 已补（B-impl：ascending/descending，未排序不设）',
+    dgNow: '✅ 已补（ascending/descending，未排序不设）',
     dgAfter: '✅ 已补',
   },
   {
@@ -127,13 +86,13 @@ const a11yMatrix: A11yRow[] = [
   {
     attr: 'aria-colspan（合并数据格）',
     antd: '天然（<td colspan>）',
-    dgNow: '✅ 已补（B-impl：colSpan>=2 时设）',
+    dgNow: '✅ 已补（colSpan>=2 时设）',
     dgAfter: '✅ 已补',
   },
   {
     attr: 'aria-rowspan（合并数据格）',
     antd: '天然（<td rowspan>）',
-    dgNow: '✅ 已补（B-impl：rowSpanTracks>=2 时设）',
+    dgNow: '✅ 已补（rowSpanTracks>=2 时设）',
     dgAfter: '✅ 已补',
   },
 ]
@@ -164,7 +123,7 @@ const slotMatrix: SlotRow[] = [
   {
     slot: 'header.row',
     color: '#ff0055',
-    dgRender: '✅ B-impl 已补（透传到表头行所有 cell）',
+    dgRender: '✅ 透传到表头行所有 cell',
     antdRender: '<tr>',
   },
   {
@@ -238,8 +197,7 @@ export default function SemanticDomDemo() {
 
       <SplitDemo
         minPaneWidth={520}
-        // ★ virtualizable={false}：本 demo 展示完整 DOM 结构 / a11y 矩阵，虚拟化会隐藏非可视行
-        // 破坏检视目的，故排除——全局「Virtual」开关对它不生效（ON 时也不加 `.dg-compare--virtual` 限高）。
+        // virtualizable={false}：虚拟化会隐藏非可视行破坏 DOM 检视目的，故排除全局开关。
         virtualizable={false}
         left={<SemanticDomDg />}
         right={<SemanticDomAntd />}
@@ -327,24 +285,17 @@ export default function SemanticDomDemo() {
             <p style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)', marginTop: 6 }}>
               <strong>架构天花板</strong>：dg 用 div + CSS Grid 渲染，行＝多 cell 直接铺在 grid 上
               <strong> 无行容器</strong>，故 role=table/row/rowgroup/columnheader/gridcell/rowheader
-              无法构成有效 ARIA 结构（需父子层级）。补行容器是未来架构工作；详见
-              <code> docs/semantic-dom-compat.md</code>。
+              无法构成有效 ARIA 结构（需父子层级）。详见
+              <code> docs/design-notes/layout.md</code> 与 <code>docs/semantic-dom-compat.md</code>。
             </p>
           </div>
 
           {/* aria-sort 专项 */}
           <div>
             <h3 style={{ margin: '0 0 8px' }}>aria-sort 专项验证</h3>
-            <ol style={{ margin: 0, paddingLeft: 20, fontSize: 12, color: 'rgba(0,0,0,0.75)' }}>
-              <li>用 devtools Elements 面板选中两侧 Age 列表头格（<code>.dg-cell-header</code> /
-                <code> th</code>）。</li>
-              <li>点击 Age 表头：观察 <code>aria-sort</code> 属性
-                — <code>ascending</code> → <code>descending</code> → （未设）循环。</li>
-              <li>两侧 <code>aria-sort</code> 语义一致（ascending/descending 同款）。</li>
-            </ol>
-            <p style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)', marginTop: 6 }}>
-              <strong>虚拟化开关不生效</strong>：本 demo 展示完整 DOM 结构 / a11y 矩阵，
-              虚拟化会隐藏非可视行破坏检视目的，故排除。
+            <p style={{ margin: 0, fontSize: 12, color: 'rgba(0,0,0,0.75)' }}>
+              点击 Age 表头排序，两侧表头 <code>aria-sort</code> 在
+              <code> ascending</code> → <code>descending</code> → （未设）循环，语义一致。
             </p>
           </div>
         </div>

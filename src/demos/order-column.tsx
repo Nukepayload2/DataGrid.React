@@ -1,49 +1,15 @@
 /**
- * 复刻 antd `order-column` demo（M9 + M5 + S10）：
- *   `G:\Projects\ant-design\components\table\demo\order-column.tsx`
- *
- * === 决策 9 双栏对照 ===
- *
- * - **左栏（data-grid Table）**：行为与改造前一致（columns 用 `Table.EXPAND_COLUMN` +
- *   `Table.SELECTION_COLUMN` 哨兵控制展开/选择列位置：Name → 展开 → Age → 选择 → Address；
- *   rowSelection + expandable.expandedRowRender）。
- * - **右栏（antd Table）**：忠实复刻 antd order-column demo（antd `<Table>` + antd
- *   `Table.EXPAND_COLUMN` / `Table.SELECTION_COLUMN` 哨兵 + antd rowSelection + expandable）。
- * - **共享数据**：`RecordType` + `data`（4 行，第 3 行 "Not Expandable" 仅文字）见
- *   `_compare/order-column.shared.ts`。
- * - **无独立控制条**：本 demo antd 原始结构无控制条（哨兵位置由 columns 数组静态决定），
- *   无需共享控件；两栏直接静态呈现。
- *
- * === 两侧保留的差异 ===
- *
- * - 基本逐字复刻（columns 顺序 / rowSelection / expandable 一致）。
- * - 哨兵类型差异：左栏 `Table.EXPAND_COLUMN/SELECTION_COLUMN` 来自 data-grid 引擎
- *   （`types.ts` 同款哨兵对象），右栏 antd `Table.EXPAND_COLUMN/SELECTION_COLUMN` 来自
- *   antd 本体。两侧 columns 数组结构等价。
- * - 左栏额外页面下方展示 selectedKeys（便于无 console 环境验证）；antd demo 无。
- * - 左栏 rowSelection 用受控 selectedRowKeys（便于页面下方显示），右栏 antd 用 `rowSelection={{}}`
- *   非受控（与 antd demo 逐字一致）。此差异不影响哨兵位置验证（核心目标）。
- *
- * === 拆子文件（task：live 编辑接入，同 expand 模式）===
- *
- * 父文件只保留「外壳职责」：selectedKeys state（左栏受控真理源，驱动父底部 selectedKeys 可视化区）+
- * useVirtualization + SplitDemo 外壳 + children 对照说明 + 左栏选中态可视化区。
- * 两侧表格 JSX 与 columns 拆到子文件：
- *   - `./order-column.dg`：`OrderColumnDg({selectedKeys, onSelectedKeysChange, virtual})`（左栏）
- *   - `./order-column.antd`：`OrderColumnAntd({virtual})`（右栏，rowSelection 非受控自管）
- *
- * ★ 状态提升说明：左栏 dg 的 selectedKeys 必须留父——父底部「左栏 data-grid selectedKeys」
- *   可视化区需直接读取它（便于无 console 环境验证选择功能）。右栏 antd rowSelection={{}}
- *   非受控（与 antd demo 逐字一致），选择 state 在子组件内自管，父无需也不读取它。
+ * order-column 双栏对照 demo：复刻 antd
+ *   `G:\Projects\ant-design\components\table\demo\order-column.tsx`。
+ * 共享数据驱动左栏 data-grid 与右栏 antd Table 的 `EXPAND_COLUMN` +
+ * `SELECTION_COLUMN` 哨兵控制展开/选择列位置（Name → 展开 → Age → 选择 → Address）。
  */
 
 import { useState } from 'react'
 import { theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
-// 虚拟化开关（决策 7）：顶栏 Switch 全局驱动两侧 Table 的 virtual + scroll.y。
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
-// ★ 拆子文件后，左/右栏 JSX + columns + expandable/rowSelection 派生由子组件提供（props 驱动）。
-//   RecordType/data 现在由子文件各自 import order-column.shared；父文件不再需要。
 import OrderColumnDg from './order-column.dg'
 import OrderColumnAntd from './order-column.antd'
 
@@ -52,12 +18,11 @@ import OrderColumnAntd from './order-column.antd'
 // ---------------------------------------------------------------------------
 
 export default function OrderColumnDemo() {
-  // 左栏 rowSelection 受控（便于页面下方显示 selectedKeys，对照验证选择功能）。
+  // 左栏 rowSelection 受控（便于页面下方显示 selectedKeys）。
   const [selectedKeys, setSelectedKeys] = useState<Array<React.Key>>([])
-  // 虚拟化开关（决策 7）：顶栏 Switch ON 时两侧 Table 接入 virtual + scroll.y。
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y。
   const { virtual } = useVirtualization()
-  // 主题 token：选中态可视化区文字色 token 化（colorTextSecondary≈rgba(0,0,0,0.65)、
-  // colorTextTertiary≈rgba(0,0,0,0.45)），暗主题自适应。
+  // 主题 token：选中态可视化区文字色 token 化，暗主题自适应。
   const { token } = theme.useToken()
 
   // 左栏 dg 选择变化写回父 state（驱动父底部 selectedKeys 可视化区刷新）。
@@ -83,31 +48,46 @@ export default function OrderColumnDemo() {
         right={<OrderColumnAntd virtual={virtual} />}
       >
         <div>
-          <strong>对照说明（决策 9 B9 / S10 列顺序）：</strong>
-          左右并排呈现 data-grid 与 antd order-column demo（EXPAND_COLUMN + SELECTION_COLUMN
-          哨兵控制展开/选择列位置）。
+          <strong>对照说明：</strong>左右并排呈现 data-grid 与 antd order-column demo，
+          共享数据驱动两侧 EXPAND_COLUMN + SELECTION_COLUMN 哨兵控制展开/选择列位置
+          （Name → 展开 → Age → 选择 → Address，两侧一致）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>列顺序</strong>：Name → <strong>展开列（EXPAND_COLUMN）</strong> → Age →
-              <strong> 选择列（SELECTION_COLUMN）</strong> → Address。两侧一致。
+              <strong>哨兵常量来源</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：左栏 <code>Table.EXPAND_COLUMN/SELECTION_COLUMN</code>
+                  来自 data-grid 引擎；右栏 antd 同名哨兵来自 antd 本体。</li>
+                <li><strong>触发条件</strong>：columns 数组中放置哨兵项以决定展开/选择列插入位置。</li>
+                <li><strong>差异原因</strong>：data-grid 在引擎内重新声明了与 antd 等价的哨兵常量对象
+                  （供 data-grid 列体系消费），语义/结构对齐 antd，两侧 columns 数组结构等价。</li>
+              </ul>
             </li>
             <li>
-              <strong>哨兵来源差异</strong>：左栏 <code>Table.EXPAND_COLUMN/SELECTION_COLUMN</code>
-              来自 data-grid 引擎；右栏 antd 同名哨兵来自 antd 本体。结构等价。
+              <strong>rowSelection 受控语义</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：左栏 data-grid 用受控 <code>selectedRowKeys</code>
+                  （驱动父底部选中态可视化区）；右栏 antd 用 <code>rowSelection={"{}"}</code> 非受控
+                  （antd demo 逐字一致，选择 state 由 antd 内部管理）。</li>
+                <li><strong>触发条件</strong>：勾选任意行时。</li>
+                <li><strong>差异原因</strong>：仅左栏需要受控以便页面下方显示 selectedKeys 对照验证，
+                  右栏忠实复刻 antd demo 的非受控行为。差异仅在选择 state 管理，不影响哨兵位置。</li>
+              </ul>
             </li>
             <li>
-              <strong>M9 × M5 组合</strong>：勾选 / 展开独立工作，互不干扰；4 行均可展开
-              （antd demo 未设 rowExpandable，"Not Expandable" 仅文字）。
-            </li>
-            <li>
-              <strong>rowSelection 受控差异</strong>：左栏受控（便于页面下方显示 selectedKeys）；
-              右栏 antd <code>{'{'}{'}'}</code> 非受控（与 antd demo 逐字一致）。不影响哨兵位置验证。
+              <strong>左栏选中态可视化区</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：页面下方显示左栏 data-grid 的 <code>selectedKeys</code>，
+                  antd demo 无此区。</li>
+                <li><strong>触发条件</strong>：左栏任意选择变化。</li>
+                <li><strong>差异原因</strong>：双栏对照需在无 console 环境验证选择功能，额外加可视化区；
+                  右栏 antd 非受控故不参与此对照。</li>
+              </ul>
             </li>
           </ul>
         </div>
       </SplitDemo>
 
-      {/* 左栏选中态可视化（便于无 console 环境验证选择功能）。 */}
+      {/* 左栏选中态可视化区（data-grid 受控 selectedKeys，antd demo 无此区）。 */}
       <div
         style={{
           marginTop: 16,

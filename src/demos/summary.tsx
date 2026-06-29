@@ -1,76 +1,14 @@
 /**
- * 复刻 antd summary demo：`G:\Projects\ant-design\components\table\demo\summary.tsx`。
+ * summary demo：左右并排呈现 data-grid 与 antd summary（示例1 计算总计 + 示例2 fixed sticky bottom）。
  *
- * === 决策 9 双栏对照（S22 汇总 summary）===
- *
- * - **左栏（data-grid Table）**：行为与改造前一致——示例1 计算总计 + 示例2 fixed sticky bottom。
- * - **右栏（antd Table）**：忠实复刻 antd summary demo（antd 原生 `<Table>` + 同 columns/data +
- *   同 summary 函数）。antd 官方 demo 用 `antd-style` createStyles 自定义细滚动条，
- *   data-grid 项目未装 antd-style（决策 6），右栏删除 className（两侧均用浏览器默认滚动条）。
- * - **共享数据**：`DataType` / `FixedDataType` / `dataSource` / `fixedDataSource` 见
- *   `_compare/summary.shared.ts`，两侧复用（子文件各自 import）。
- * - **无共享控制条**：summary demo 的两示例各自独立（示例1 静态 + 示例2 固定开关嵌在 Table.Summary
- *   fixed 属性中），不像 tree-table-ellipsis 有顶部 Switch；为忠实复刻 antd demo 结构，
- *   本 demo 不加控制条（两示例直接并排）。每示例左右各一对（共 4 张表）。
- *
- * === antd demo 要素（两示例，S22 汇总）===
- *
- * 示例 1（计算总计）：
- * - bordered + pagination:false。
- * - 3 列：Name / Borrow / Repayment。4 行数据。
- * - `summary={(pageData) => ...}`：函数接收当前页数据，计算 totalBorrow / totalRepayment，
- *   返回两行 summary：
- *     * Total 行：Name=Total，Borrow=`<Text type="danger">{totalBorrow}</Text>`，
- *       Repayment=`<Text>{totalRepayment}</Text>`。
- *     * Balance 行：Name=Balance，Borrow colSpan=2 = `<Text type="danger">{totalBorrow - totalRepayment}</Text>`。
- *
- * 示例 2（fixed sticky bottom）：
- * - bordered + scroll:{x:2000, y:500}（antd 数字）/ {x:2000, y:true}（data-grid 决策 7 CSS 自适应）+
- *   pagination:false。
- * - 2 列：Name（fixed, width:100）/ Description。20 行数据。
- * - `summary={() => <Table.Summary fixed>...}`：fixed sticky bottom，单行 Summary。
- *
- * === data-grid 实现（S22）要点 ===
- *
- * - `summary` prop：函数（接收 pagedDataSource 当前页数据）/ ReactNode。
- * - `Table.Summary`（容器，`fixed` 可选）/ `Table.Summary.Row`（行）/ `Table.Summary.Cell`
- *   （`index` 列索引 0-based + `colSpan` 跨列）。
- * - data-grid 用 CSS Grid 渲染：summary Cell 作为 grid item，按 `index`+`colSpan` 定位
- *   （`gridColumn: <index+1> / span <colSpan>`，`gridRow` 由引擎注入）。
- * - `fixed` sticky bottom：summary cell `position: sticky; bottom: 0`（配合 scroll.y）。
- *
- * === 两侧保留的差异 ===
- *
- * 1. **scroll.y**：示例2 左栏 data-grid `scroll.y:true`（决策 7 CSS 自适应高度，父容器 height:550，
- *    对齐右栏 antd scroll.y:500 表体 + 表头 ~50 总高）；右栏 antd 数字 `scroll.y:500`（忠实官方）。
- * 2. **antd-style 细滚动条**：antd 官方 demo 用 antd-style 自定义细滚动条；data-grid 项目未装
- *    antd-style（决策 6），两侧均用浏览器默认（data-grid 侧走 #35 悬浮滚动条）。
- * 3. **DOM 结构**：antd summary 是 `<tfoot><tr><td colspan>`；data-grid 是 div + CSS Grid（无 tfoot）。
- *    视觉等价：summary 在表体底部，Cell 按 index+colSpan 定位，fixed sticky bottom。
- *
- * === 拆子文件（task：live 编辑接入）===
- *
- * 父文件只保留「外壳职责」：useVirtualization + 两个 SplitDemo（示例1 / 示例2 各一对左右栏）
- * + children 对照说明 + 底部说明区。两侧表格 JSX + columns + Summary 子组件拆到子文件：
- *   - `./summary.dg`：导出 `SummaryTotalDg` / `SummaryFixedDg`（命名，父按示例选用）+ `SummaryDg`（默认，live 编辑用）。
- *   - `./summary.antd`：导出 `SummaryTotalAntd` / `SummaryFixedAntd`（命名）+ `SummaryAntd`（默认，live 编辑用）。
- *
- * ★ 状态提升说明：本 demo 无共享控制条（两示例各自独立），virtual 是唯一父传 prop（顶栏全局开关）。
- *   示例2 `Table.Summary fixed` 是 summary 节点属性（非控制条开关），不提升父，留在子组件固定为 true
- *   （对齐改造前行为）。示例数据用 shared 初始数据（非空），子组件默认值合理有效。
- *
- * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `SummaryDemo`，零编辑开销；
- * live 编辑模式 SplitDemoPreview 静态 import 真实子组件默认导出并按 editedDg/editedAntd 替换
- * （编辑态展示单侧两示例堆叠，不对照——Phase 1 简化）。
+ * 两示例各自独立（示例1 静态 + 示例2 固定开关嵌在 Table.Summary fixed 属性中），
+ * 故无共享控制条，两示例直接并排，每示例左右各一对。
  */
 
 import { Flex, Typography, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
-// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高）
+// ON 时叠加 virtual + scroll.y（split pane 自动限高）
 import { useVirtualization } from './VirtualizationContext'
-// ★ 拆子文件后，左/右栏 JSX + columns + Summary 子组件由子组件提供（props 驱动）。DataType/
-//   FixedDataType/dataSource/fixedDataSource 现在由子文件各自 import summary.shared；父文件不再需要。
-//   父按示例分别取命名导出（示例1 / 示例2 各一对左右栏）。
 import { SummaryTotalDg, SummaryFixedDg } from './summary.dg'
 import { SummaryTotalAntd, SummaryFixedAntd } from './summary.antd'
 
@@ -81,10 +19,10 @@ const { Text } = Typography
 // ---------------------------------------------------------------------------
 
 export default function SummaryDemo() {
-  // 全局虚拟化开关接入：开关 ON 时两侧叠加 virtual=true。
-  // - 示例 1：ON 时叠加 scroll.y（两侧 pagination={false} → antd y:340，无分页条高需扣除）。
-  // - 示例 2：已自带 scroll（dg y:true 数据区域模式 / antd y:500 忠实官方），ON 时仅叠加 virtual
-  //   （从数据区域模式切到虚拟）；scroll 原值保留，与开关无关（fixed sticky bottom 仍生效）。
+  // ON 时两侧叠加 virtual=true。
+  // - 示例 1：ON 时叠加 scroll.y（两侧 pagination={false}，antd y:340 扣除无分页条高）。
+  // - 示例 2：已自带 scroll（dg y:true / antd y:500），ON 时仅叠加 virtual（从数据区域切到虚拟）；
+  //   scroll 原值保留（fixed sticky bottom 仍生效）。
   const { virtual } = useVirtualization()
   const { token } = theme.useToken()
 
@@ -114,10 +52,9 @@ export default function SummaryDemo() {
 
         {/*
           示例 2（fixed sticky bottom）：两侧并排对照。
-          左栏 data-grid scroll.y:true（决策 7 CSS 自适应高度，父容器 height:550，
-          对齐右栏 antd scroll.y:500 表体 + 表头 ~50 总高）。
+          左栏 data-grid scroll.y:true（父容器 height:550，对齐右栏 antd scroll.y:500 表体 + 表头 ~50）。
           右栏 antd scroll.y:500（忠实官方数字）。
-          minPaneWidth=600（2 列，scroll.x:2000 宽表）→ 横排阈值 ≈ 1216。
+          minPaneWidth=600 → 横排阈值 ≈ 1216。
         */}
         <div>
           <div
@@ -152,27 +89,44 @@ export default function SummaryDemo() {
         }}
       >
         <p style={{ margin: '0 0 4px' }}>
-          <b>对照说明（决策 9 B16 / S22 汇总 summary）：</b>
-          左右并排呈现 data-grid 与 antd summary demo（示例1 计算总计 + 示例2 fixed sticky bottom）。
+          <b>对照说明：</b>
+          左右并排呈现 data-grid 与 antd summary（示例1 计算总计 + 示例2 fixed sticky bottom）。
         </p>
-        <p style={{ margin: 0 }}>
-          - 示例 1：<code>summary=&#123;(pageData) =&gt; ...&#125;</code> 计算总计——
+        <p style={{ margin: '0 0 8px' }}>
+          <b>示例 1</b>：两侧均 <code>summary=&#123;(pageData) =&gt; ...&#125;</code> 计算总计——
           Total 行（Borrow=<Text type="danger">195</Text> / Repayment=<Text>88</Text>）+
           Balance 行（colSpan=2 = <Text type="danger">107</Text>）。
         </p>
-        <p style={{ margin: 0 }}>
-          - 示例 2：<code>&lt;Table.Summary fixed&gt;</code> sticky bottom——表体纵向滚动时 summary
-          固定底部；左 data-grid <code>scroll.y:true</code>（决策 7 CSS 自适应高度，父容器 height:550，
-          对齐右栏 antd scroll.y:500 表体 + 表头 ~50 总高）；
-          右 antd <code>scroll.y:500</code>（忠实官方数字）。
+        <p style={{ margin: '0 0 8px' }}>
+          <b>示例 2</b>：两侧均 <code>&lt;Table.Summary fixed&gt;</code> sticky bottom——表体纵向滚动时
+          summary 固定底部。
         </p>
-        <p style={{ margin: 0 }}>
-          - <code>Table.Summary.Cell</code>：<code>index</code>（列索引 0-based）+ <code>colSpan</code>（跨列）。
-        </p>
-        <p style={{ margin: 0 }}>
-          - antd-style 细滚动条差异：antd 官方 demo 用 antd-style；项目未装（决策 6），两侧均用默认滚动条
-          （data-grid 侧走 #35 悬浮滚动条）。
-        </p>
+        <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+          <li>
+            <strong>DOM 结构</strong>
+            <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+              <li><strong>差异行为</strong>：antd summary 是 <code>&lt;tfoot&gt;&lt;tr&gt;&lt;td colspan&gt;</code>；data-grid 是 div + CSS Grid（无 tfoot），Cell 按 <code>index</code>（0-based）+ <code>colSpan</code> 定位。</li>
+              <li><strong>触发条件</strong>：渲染任意 summary。</li>
+              <li><strong>差异原因</strong>：data-grid 用 CSS Grid，summary Cell 作为 grid item（<code>gridColumn</code> 由 index+colSpan 推导），与表体同处一个 grid；antd 原生 <code>&lt;table&gt;</code> 用 tfoot/colspan。视觉等价（summary 在表体底部，fixed sticky bottom）。详见 <code>docs/design-notes/summary.md</code>。</li>
+            </ul>
+          </li>
+          <li>
+            <strong>scroll.y 取值</strong>
+            <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+              <li><strong>差异行为</strong>：示例 2 左栏 data-grid <code>scroll.y:true</code>（父容器 height:550）；右栏 antd 数字 <code>scroll.y:500</code>。</li>
+              <li><strong>触发条件</strong>：示例 2 表体纵向滚动。</li>
+              <li><strong>差异原因</strong>：data-grid 用 CSS 自适应高度（容器 clientHeight 实时测量），antd 需数字像素高度。</li>
+            </ul>
+          </li>
+          <li>
+            <strong>滚动条外观</strong>
+            <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+              <li><strong>差异行为</strong>：data-grid 侧用悬浮滚动条；antd 侧用浏览器默认滚动条。</li>
+              <li><strong>触发条件</strong>：任意滚动。</li>
+              <li><strong>差异原因</strong>：antd 官方 demo 用 antd-style 自定义细滚动条，data-grid 项目未装 antd-style，两侧均不引入；data-grid 侧走引擎悬浮滚动条。详见 <code>docs/design-notes/scrollbar.md</code>。</li>
+            </ul>
+          </li>
+        </ul>
       </div>
     </div>
   )

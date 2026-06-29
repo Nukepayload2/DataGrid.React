@@ -1,5 +1,5 @@
 /**
- * 决策 9：tree-data 左右对比 demo 的共享配置。
+ * tree-data 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型与数据。列定义（Name/Age/Address）为纯文本、两侧一致，
  * 也合并到此（按各 demo 文件本地类型 ColumnType<T> / TableColumnsType<T> 分别 cast 引用）。
@@ -8,7 +8,7 @@
  * 默认 childrenColumnName='children'。
  */
 
-/** antd tree-data demo 的记录类型（含递归 children）。两侧共用。 */
+/** 记录类型（含递归 children）。两侧共用。 */
 export interface RecordType {
   key: React.ReactNode
   name: string

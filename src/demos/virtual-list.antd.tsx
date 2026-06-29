@@ -1,26 +1,10 @@
 /**
- * virtual-list demo 的 antd 段（右栏），从 virtual-list.tsx 拆出。
+ * virtual-list demo 的 antd 段（右栏），忠实复刻 antd 官方 virtual-list demo。
  *
- * === 强制虚拟 demo（自管虚拟，不消费全局开关）===
- * 本 demo 自身永久 `virtual=true` + `scroll={{x:2000, y:400}}` + `pagination={false}`。
- * **子组件内部硬编码 virtual/scroll，不接 virtual prop**，不依赖父组件/propsFor 的 virtual。
- * 父组件 SplitDemo `virtualizable={false}`。
+ * 强制虚拟 demo：自身永久 `virtual=true` + `scroll={{x:2000, y:400}}` + `pagination={false}`，
+ * 内部硬编码不接 virtual prop。
  *
- * - props 驱动 `{ bordered, fixed, expanded, empty, data, tableRef }`
- *   （由 virtual-list.tsx 父组件传；编辑模式 SplitDemoPreview 仅传超集 {bordered,virtual,size,
- *   autoScroll}，其余靠默认值兜底，data 默认 getData(10000) 非空避免编辑态空表——T1 坑）。
- * - 自包含：含 `antdFixedColumns` / `antdShortColumns` 两套列定义 + `useMemo` 列选择
- *   （fixed/expanded 推导：fixed=false→short，expanded=true→清 onCell）+ `antdExpandable`
- *   + `<AntdTable>` JSX。
- * - 忠实复刻 antd 官方 virtual-list demo：virtual + scroll={{x:2000,y:400}} + pagination={false}
- *   + rowSelection（展开关闭时 radio）+ expandable + fixedColumns。
- *   注：antd 侧 merged 行为由 fixed+expanded 推导（fixed 时展开关闭即合并、展开即清 onCell），
- *       无独立 merged prop（与左栏 data-grid 保留独立 Merged 开关作对照点）。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.antd.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'antd'` / `'./_compare/virtual-list.shared'`）。
+ * props：`{ bordered, fixed, expanded, empty, data, tableRef }`（由父组件传）。
  */
 import { useMemo } from 'react'
 import type { Ref } from 'react'
@@ -44,7 +28,7 @@ const antdFixedColumns: NonNullable<TableProps<RecordType>['columns']> = [
   },
   {
     // 官方 antd virtual-list demo 此处为 'FistName'（笔误）。两侧统一为正确拼写「FirstName」
-    // 以消除标题层面的可见差异（列定义对齐任务要求）。
+    // 以消除标题层面的可见差异。
     title: 'FirstName',
     dataIndex: 'firstName',
     width: 120,
@@ -128,13 +112,9 @@ export interface VirtualListAntdProps {
   expanded: boolean
   /** 是否空表（共享控制条驱动；true 时 dataSource=[]）。 */
   empty: boolean
-  /** 行数据（父组件 useMemo(getData(count)) 下发）。默认 getData(10000) 非空（编辑态兜底）。 */
+  /** 行数据（父组件 useMemo(getData(count)) 下发）。 */
   data: RecordType[]
-  /**
-   * 父组件持有的 antd Table ref（用于双侧 scrollTo 对照）。
-   * 类型 `React.Ref<AntdTableRef>` 对齐 AntdTable ref prop（父 useRef<AntdTableRef|null>(null)
-   * 生成的 MutableRefObject 可赋值）。编辑模式 SplitDemoPreview 不传（undefined），内部 AntdTable 自建实例。
-   */
+  /** 父组件持有的 antd Table ref（用于双侧 scrollTo 对照）。 */
   tableRef?: Ref<AntdTableRef>
 }
 
@@ -146,14 +126,13 @@ export default function VirtualListAntd({
   data = getData(10000),
   tableRef,
 }: VirtualListAntdProps) {
-  // ----- 右栏（antd）列选择逻辑（对齐 antd demo mergedColumns useMemo）-----
+  // 列选择：非 fixed 时只显示前 3 列；展开时清 onCell（合并与展开互斥）。
   const antdColumns = useMemo<NonNullable<TableProps<RecordType>['columns']>>(() => {
     if (!fixed) return antdShortColumns
     if (!expanded) return antdFixedColumns
     return antdFixedColumns.map((col) => ({ ...col, onCell: undefined }))
   }, [expanded, fixed])
 
-  // ----- 右栏（antd）expandable（忠实 antd demo expandableProps）-----
   const antdExpandable = useMemo<TableProps<RecordType>['expandable']>(() => {
     if (!expanded) return undefined
     return {
@@ -166,9 +145,6 @@ export default function VirtualListAntd({
   }, [expanded])
 
   return (
-    /* antd 官方 virtual-list demo 忠实复刻：
-       virtual + scroll={{ x:2000, y:400 }} + pagination={false} +
-       rowSelection（展开关闭时 radio）+ expandable + fixedColumns。 */
     <AntdTable<RecordType>
       ref={tableRef}
       bordered={bordered}

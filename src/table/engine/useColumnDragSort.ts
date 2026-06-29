@@ -1,77 +1,11 @@
 /**
- * 列拖拽排序 hook（S19 列拖拽排序）。
+ * 列拖拽排序 hook — 详见 docs/design-notes/drag-sort.md。
  *
- * === ★ 方案选择：自研 pointer 列拖拽（与 S17/S18 行拖拽同族）===
+ * 采用事件委托（命中 `[data-leaf-index]` 叶子表头格）+ setPointerCapture + 水平 hit-test +
+ * 垂直指示线 + arrayMove。不引入 @dnd-kit/*（CSS Grid 渲染下 dnd-kit 的 DOM 元素 transform 模型
+ * 会破坏 grid 布局，详见 drag-sort.md「为什么不用 dnd-kit」）。
  *
- * task-plan §4.7 S19 原指定依赖 `@dnd-kit/*`（方案 A：components.header.cell/body.cell +
- * onHeaderCell/onCell + dnd-kit restrictToHorizontalAxis）。但 data-grid 用 **CSS Grid 渲染**，
- * "列"不是 DOM 元素——单元格直接是 grid item，`grid-column`/`grid-row` 显式定位。
- *
- * 方案 A（dnd-kit + onHeaderCell 透传 id）的问题：
- *   - antd demo 用 components.header.cell = TableHeaderCell（useSortable）挂 listeners；data-grid 的
- *     表头格是 grid item（div + grid-column/grid-row 定位），dnd-kit 的 transform 平移会破坏 grid 布局
- *     （跨列移动 transform 与 grid-column 定位冲突），且 dnd-kit 的 DragOverlay/portaling 在 grid 下
- *     无对应"列容器"概念。
- *   - 与 S17 同款理由（CSS Grid 不适配 dnd-kit 的 DOM 元素模型）。
- *
- * 决策 6 允许：拖拽属表格核心交互，可自研。S17 `useRowDragSort` 已验证 data-grid 风格的 pointer 拖拽
- * 自研模式成熟（事件委托 + setPointerCapture + hit-test + 指示线 + arrayMove）。S19 是**列方向**版本
- * （区别 S17/S18 垂直行重排）。
- *
- * === 核心机制（方案 B 列方向）===
- *
- * 采用**事件委托**：调用方在外层容器挂 `containerProps.onPointerDown`，hook 内部判定
- * `target.closest('[data-leaf-index]')` 是否命中**叶子表头格**（data-grid 引擎给每个叶子表头格打
- * `data-leaf-index="<叶子列号>"` 属性——见 GridTable HeaderCell / ColumnCells；分组表头格 `data-leaf`
- * 为 '0' 无 data-leaf-index，故天然不触发列拖拽，正确）。命中则启动列拖拽。
- * 无需修改引擎渲染层、无需 components 机制、无需 onHeaderCell 透传。
- *
- * 1. **拖拽手势**（事件委托）：
- *    - pointerdown 落在叶子表头格 `[data-leaf-index]` 内 → 解析 leaf-index → 启动列拖拽。
- *    - 仅左键（button===0）启动。
- *    - preventDefault + stopPropagation（避免触发排序点击 S1 / 列宽拖拽 M7 / 文本选区）。
- *    - `target.setPointerCapture(pointerId)`：锁定后续 pointermove/up。
- *    - 记录起始态：dragging col-index、起始 clientX、pointerId。
- *
- * 2. **水平 hit-test（实时算 over col index，restrictToHorizontalAxis 等效）**：
- *    列宽在 data-grid 下非固定（max-content / resizable），故不假设固定列宽。
- *    hit-test 实时读 DOM：容器内所有 `[data-leaf-index]` 表头格按 leaf-index 取每个的
- *    `getBoundingClientRect()`（left/right），pointermove 时找 pointer X 落在哪两列之间
- *    （或在首列之左 / 末列之右）→ 算出 over index（插入位置）。
- *    仅水平 hit-test（restrictToHorizontalAxis 等效——纵向上指针位置不影响 over 计算）。
- *
- * 3. **垂直指示线**：返回 `indicator`（绝对定位 div 的 top/height/left），调用方在**外层相对定位容器**
- *    内渲染一条蓝色竖线（列间隙，跨表头+表体高度），指示"松手后该列会插入的位置"。
- *    指示线是外层容器的子元素，**不是 grid item**，不影响 grid-template-columns 计算（零回归）。
- *
- * 4. **pointerup**：释放 pointer capture，清拖拽态。若 over index 与 dragging index 不同 →
- *    调用 `onSort(arrayMove(columns, from, to))`，调用方据此 setState 重排 **columns**（区别 S17 重排
- *    dataSource）。arrayMove 算法对齐 @dnd-kit/sortable。
- *
- * === 与 antd drag-column-sorting demo 的差异 ===
- *
- * - antd 用 components.header.cell + dnd-kit useSortable（transform 跟随指针平移整列内容）+ body cell
- *   DragIndexContext borderInline 虚线指示 + DragOverlay 预览。
- * - data-grid 不平移整列（列是 grid item 集，平移会破坏布局），改为**垂直指示线**提示列插入位置 +
- *   松手后重排 columns（列瞬间到新位置）。视觉与 antd 略异（antd 拖拽中表头跟随指针 + body cell 虚线边；
- *   data-grid 拖拽中显示垂直指示线），但功能等价（列重排），且不破坏 CSS Grid 布局。
- * - antd 表头挂 listeners 在 `<th>`；data-grid 拖拽手势通过事件委托——命中任意叶子表头格。
- *
- * === 回归保证 ===
- *
- * - 本 hook **不修改引擎渲染层**（GridTable/columnTree/types 零改动）。
- * - 非列拖拽 demo（basic/head/virtual-list/树形/编辑/行拖拽等）不调用本 hook → 完全不受影响。
- * - 仅依赖引擎给叶子表头格打的 `data-leaf-index` 属性（M2 起就有，flat/multi 两路径稳定存在）。
- * - 与 S17/S18 行拖拽（命中 `[data-row-index]` body 单元格）正交——两者命中不同属性，互不干扰。
- *
- * === 与各能力的组合 ===
- *
- * - M1 多级表头：分组表头格无 data-leaf-index（data-leaf='0'），不触发列拖拽；仅叶子表头格可拖（正确）。
- *   ★ 注意：多级表头下叶子列重排仅在同父分组内才有语义意义，跨分组重排复杂——本任务 demo 用单层表头
- *   （与 antd drag-column-sorting demo 一致，5 列单层）。
- * - M2 固定列：固定列也可拖（但固定列重排会改变 left/right 分组，语义复杂）；demo 无固定列。
- * - M7 列宽拖拽：resizer pointerdown 已 stopPropagation，不会冒泡触发列拖拽（互不干扰）。
- * - S1 排序：表头格 onClick 排序——本 hook pointerdown preventDefault+stopPropagation，避免与排序冲突。
+ * 与行拖（useRowDragSort，命中 `[data-row-index]`）命中不同属性，两者正交互不干扰。
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -89,7 +23,7 @@ export function arrayMoveColumns<T>(arr: Array<T>, from: number, to: number): Ar
 }
 
 /**
- * ★ T10：判断某列是否锁定位置（`gridColumnOptions.lockPosition === true`）。
+ * 判断某列是否锁定位置（`gridColumnOptions.lockPosition === true`）。
  *
  * 锁定列自身不可被重排——其它列可在其周围重排，但锁定列自身 index（相对原 columns 数组）
  * 不变。实现采用"可动列子序列重排"算法：从 columns 中抽出所有可动列（按原顺序），在可动列子序列
@@ -102,9 +36,9 @@ function isColumnLocked<ColumnType>(col: ColumnType): boolean {
 }
 
 /**
- * ★ T10：锁定列友好的列重排算法。
+ * 锁定列友好的列重排算法 — 详见 docs/design-notes/drag-sort.md（「列拖：锁定列」节）。
  *
- * 给定原 columns、被拖列 fromIndex、目标插入位置 toIndex（已用 @dnd-kit 语义：to = 目标列 index，
+ * 给定原 columns、被拖列 fromIndex、目标插入位置 toIndex（@dnd-kit 语义：to = 目标列 index，
  * 即 arrayMove 把 from 移到 to），返回重排后的新数组。锁定列（`lockPosition:true`）保持原 index
  * 不动——只在非锁定列子序列上做 arrayMove，再把结果按原位填回锁定列之间的空隙。
  *
@@ -223,7 +157,7 @@ export interface UseColumnDragSortOptions<ColumnType> {
    */
   containerRef: React.RefObject<HTMLElement | null>
   /**
-   * ★ T9：拖拽到容器边缘时是否自动滚动容器（横向，列拖专用）。
+   * 拖拽到容器边缘时是否自动滚动容器（横向，列拖专用）。
    *
    * - `true`（默认）：拖拽近左右边缘触发横向自动滚动。
    * - `false`：禁用。
@@ -233,9 +167,9 @@ export interface UseColumnDragSortOptions<ColumnType> {
    */
   autoScroll?: boolean
   /**
-   * ★ T10：列重排全局开关（对齐 `gridOptions.columnReorder`，默认 true）。
+   * 列重排全局开关（对齐 `gridOptions.columnReorder`，默认 true）。
    *
-   * - `true` / undefined：允许列拖拽（保持 S19 总是可拖行为）。
+   * - `true` / undefined：允许列拖拽。
    * - `false`：全局禁用——任何列头 pointerdown 都不启动拖（总闸，优先于单列 movable/lockPosition）。
    *
    * 单列粒度：`gridColumnOptions.movable === false` 的列不可发起拖（其它列仍可拖）；
@@ -280,12 +214,12 @@ export function useColumnDragSort<ColumnType>(
   options: UseColumnDragSortOptions<ColumnType>,
 ): UseColumnDragSortResult {
   const { columns, onSort, containerRef } = options
-  // ★ T9：autoScrollOnDrag 默认 true（对齐 gridOptions.autoScrollOnDrag 默认 + ag-grid 默认行为）。
+  // autoScrollOnDrag 默认 true（对齐 gridOptions.autoScrollOnDrag 默认 + ag-grid 默认行为）。
   const autoScrollEnabled = options.autoScroll ?? true
-  // ★ T10：columnReorder 默认 true（对齐 gridOptions.columnReorder 默认 + S19 总是可拖行为）。
+  // columnReorder 默认 true（对齐 gridOptions.columnReorder 默认）。
   const reorderEnabled = options.reorder ?? true
 
-  // T9：拖拽中自动滚动容器（横向边缘检测 RAF + scrollBy）。
+  // 拖拽中自动滚动容器（横向边缘检测 RAF + scrollBy）。
   const { pointerRef: autoScrollPointerRef, start: startAutoScroll, stop: stopAutoScroll } =
     useAutoScrollOnDrag({ containerRef, vertical: false, autoScroll: autoScrollEnabled })
 
@@ -380,7 +314,7 @@ export function useColumnDragSort<ColumnType>(
     (e: React.PointerEvent) => {
       // 仅主键（左键）启动拖拽。
       if (e.button !== 0) return
-      // ★ T10：全局总闸——columnReorder=false 时所有列头不可拖（对齐 ag-grid suppressMovableColumns）。
+      // 全局总闸——columnReorder=false 时所有列头不可拖（对齐 ag-grid suppressMovableColumns）。
       if (!reorderEnabled) return
       const target = e.target as HTMLElement | null
       // 命中判定：target 最近祖先含 [data-leaf-index] 的叶子表头格。
@@ -391,7 +325,7 @@ export function useColumnDragSort<ColumnType>(
       if (idxAttr === null) return
       const index = Number.parseInt(idxAttr, 10)
       if (!Number.isFinite(index)) return
-      // ★ T10：单列粒度判定（对齐 ag-grid workOutDraggable：
+      // 单列粒度判定（对齐 ag-grid workOutDraggable：
       //   !suppressMovableColumns && !colDef.suppressMovable && !colDef.lockPosition）。
       //   movable=false（suppressMovable）→ 此列不可发起拖；
       //   lockPosition=true → 此列自身不可发起拖（且重排算法跳过其 index，见 arrayMoveColumnsRespectLocks）。
@@ -432,7 +366,7 @@ export function useColumnDragSort<ColumnType>(
         })
       }
 
-      // ★ T9：初始化 auto-scroll 指针坐标 + 启动 RAF 边缘检测循环（横向）。
+      // 初始化 auto-scroll 指针坐标 + 启动 RAF 边缘检测循环（横向）。
       autoScrollPointerRef.current = { clientX: e.clientX, clientY: e.clientY }
       startAutoScroll()
 
@@ -440,7 +374,7 @@ export function useColumnDragSort<ColumnType>(
       const nativeMove = (ev: PointerEvent) => {
         const drag = dragRef.current
         if (!drag || ev.pointerId !== drag.pointerId) return
-        // ★ T9：实时更新指针坐标供 auto-scroll RAF 循环读取。
+        // 实时更新指针坐标供 auto-scroll RAF 循环读取。
         autoScrollPointerRef.current = { clientX: ev.clientX, clientY: ev.clientY }
         const result = hitTest(ev.clientX)
         if (!result) return
@@ -470,12 +404,12 @@ export function useColumnDragSort<ColumnType>(
         drag.el.removeEventListener('pointerup', nativeUp)
         drag.el.removeEventListener('pointercancel', nativeUp)
         dragRef.current = null
-        // ★ T9：拖拽结束，停止 auto-scroll RAF 循环。
+        // 拖拽结束，停止 auto-scroll RAF 循环。
         stopAutoScroll()
         // 最终 overIndex（state 中已是最新）。from===over 不重排。
         setDragState((cur) => {
           if (cur && cur.fromIndex !== cur.overIndex) {
-            // ★ T10：用尊重锁定列的重排算法（锁定列 index 不变，可动列在剩余槽位间重排）。
+            // 用尊重锁定列的重排算法（锁定列 index 不变，可动列在剩余槽位间重排）。
             // 无锁定列时内部退化为普通 arrayMoveColumns（零回归 + 性能更优）。
             const next = arrayMoveColumnsRespectLocks(columns, cur.fromIndex, cur.overIndex)
             onSort(next)
@@ -484,10 +418,9 @@ export function useColumnDragSort<ColumnType>(
         })
         setIndicator({ visible: false, left: 0, top: 0, height: 0 })
       }
-      // TODO: 同步行拖 BUG1/#36 修复——pointer 监听应挂 window（AbortController 批量管理）+
-      //   拖拽中挂 scroll 监听重跑 hit-test（见 useRowDragSort 的 onScrollDuringDrag）。
-      //   当前挂 el，列拖虚拟 + autoScroll 场景若 from cell 滚出视口被虚拟引擎卸载，会丢 move/up
-      //   监听导致 drop 卡死。后续对称修复（与 useRowDragSort 同款 window + AbortController + scroll RAF）。
+      // TODO: pointer 监听当前挂 el，列拖虚拟 + autoScroll 场景若 from cell 滚出视口被虚拟引擎卸载，
+      //   会丢 move/up 监听导致 drop 卡死。后续应改挂 window + AbortController 批量管理 +
+      //   拖拽中挂 scroll 监听重跑 hit-test（与 useRowDragSort 同款修复，详见 drag-sort.md 已知简化）。
       el.addEventListener('pointermove', nativeMove)
       el.addEventListener('pointerup', nativeUp)
       el.addEventListener('pointercancel', nativeUp)
@@ -515,7 +448,7 @@ export function useColumnDragSort<ColumnType>(
         }
         dragRef.current = null
       }
-      // ★ T9：卸载时确保 auto-scroll RAF 已停（防止组件卸载后 RAF 继续跑）。
+      // 卸载时确保 auto-scroll RAF 已停（防止组件卸载后 RAF 继续跑）。
       stopAutoScroll()
     }
   }, [stopAutoScroll])

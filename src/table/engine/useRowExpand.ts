@@ -1,28 +1,8 @@
 /**
- * 行展开状态管理 hook（M9）。
+ * 行展开状态管理 hook — 详见 docs/design-notes/expand.md（引擎状态机 useRowExpand）
  *
- * 纯 React 实现（lun 用 Vue `useValueModel`/`useValueSet`/`useExpandMethods`，
- * 这里只用 useState/useMemo/useCallback 重写，不抄 lun 代码）。
- *
- * === 核心职责 ===
- *
- * 1. **受控/非受控 expandedRowKeys 管理**：
- *    - 受控（`expandedRowKeys` 传入）：直接以该数组为真理源；切换时只回调 `onExpandedRowsChange`/`onExpand`。
- *    - 非受控（仅 `defaultExpandedRowKeys` / `defaultExpandAllRows`）：内部 useState 持有当前展开 keys。
- *
- * 2. **可展开行判定**：综合 `expandable.rowExpandable(record)` 与 `expandedRowRender(record,...)`
- *    是否返回 null/undefined，决定某行是否"真正可展开"（会渲染展开图标 + 插入展开 track）。
- *    - lun 思路：`rowExpandedRenderer(row)` 返回 null 的行不加入 expandableKeySet。
- *
- * 3. **展开切换**：toggleExpand(key, record) → 生成新数组 + 触发回调。
- *
- * 4. **派生查询**：isExpanded(key)、expandableKeySet（Set，所有可展开 key）。
- *
- * === ★ 决策 2（虚拟 × 展开）===
- *
- * 本 hook **不感知虚拟滚动**。展开状态只决定"某行是否展开"，
- * 虚拟窗口（`useVirtualList`）仍只按"收起态"约定行高算 [start, end)；
- * 展开内容 track 在 GridTable 渲染层插入，溢出渲染（决策 2）。
+ * 受控/非受控 expandedRowKeys 管理；可展开行判定（rowExpandable + expandedRowRender）；
+ * 展开 toggle 生成新数组 + 触发回调。本 hook 不感知虚拟滚动（展开内容 track 在渲染层插入）。
  */
 
 import { useCallback, useMemo, useState } from 'react'
@@ -52,11 +32,11 @@ export interface UseRowExpandResult<RecordType> {
 }
 
 /**
- * 计算"某行是否真正可展开"（对齐 antd 语义，不重复调用 expandedRowRender）：
- *   - 必须提供 expandedRowRender（否则整表无展开）。
- *   - rowExpandable 若提供：返回 false 的行不可展开（图标禁用、不插展开 track）。
- *   - 不调用 expandedRowRender 来探测可展开性（避免重复渲染 + 副作用）——与 antd 一致：
- *     antd 只在展开时才 mount 调用 expandedRowRender。
+ * 计算"某行是否真正可展开"（对齐 antd 语义，不重复调用 expandedRowRender）— 详见 docs/design-notes/expand.md
+ *
+ * 必须提供 expandedRowRender（否则整表无展开）；rowExpandable 若提供返回 false 的行不可展开。
+ * 不调用 expandedRowRender 来探测可展开性（避免重复渲染 + 副作用）——与 antd 一致：
+ * antd 只在展开时才 mount 调用 expandedRowRender。
  */
 function computeExpandable<RecordType>(
   expandable: Expandable<RecordType> | undefined,

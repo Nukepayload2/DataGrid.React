@@ -1,14 +1,8 @@
 /**
- * basic demo 的 antd 段（右栏），从 basic.tsx 拆出。
+ * basic demo 的 antd 段（右栏）。
  *
- * - props 驱动 `{ bordered, virtual }`（由 basic.tsx 父组件传）。
- * - 自包含：含 `antdColumns` + `<AntdTable>` JSX。
- * - 忠实复刻 antd basic demo：antd `<Tag>` + `<Flex>` + `<Space>`。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.antd.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'antd'` / `'./_compare/basic.shared'`）。
+ * props：`{ bordered, virtual }`（与左栏 dg 子组件同款）。忠实复刻 antd basic demo：
+ * antd `<Tag>` + `<Flex>` + `<Space>`。
  */
 import { Flex, Space, Table as AntdTable, Tag } from 'antd'
 import type { TableProps } from 'antd'
@@ -69,9 +63,8 @@ export default function BasicAntd({
       columns={antdColumns}
       dataSource={data}
       bordered={bordered}
-      /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且表头/默认
-         分页画在 scroll.y 之外，需扣除表头~55 与分页条~64 → 约 280 才能塞进 ~400px pane；
-         OFF 时回 undefined，行为与改造前一致）。 */
+      /* 虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd virtual 需数字 y，扣除表头~55 与
+         分页条~64 塞进 ~400px pane）。详见 docs/design-notes/virtualization.md */
       virtual={virtual}
       scroll={virtual ? { y: 280 } : undefined}
     />

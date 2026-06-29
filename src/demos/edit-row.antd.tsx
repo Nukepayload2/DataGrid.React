@@ -1,26 +1,7 @@
 /**
- * edit-row demo 的 antd 段（右栏），从 edit-row.tsx 拆出。
- *
- * === 行级编辑 state 自管（子组件内）===
- * 与 edit-row.dg.tsx 同构：行级编辑 state 全在子组件内自管（form + data + editingKey +
- * isEditing/edit/cancel/save），两栏各自独立（原始 demo 决策「编辑各自独立」）。
- *
- * === props 默认值（合理有效初值，坑5+坑7）===
- * - virtual=false（OFF 回 undefined scroll，行为与改造前一致）。
- *
- * === 忠实复刻 antd edit-row demo ===
- * antd 原生 `components.body.cell` 返回 `<td>` + onCell + Form 外层 + `rowClassName='editable-row'`
- * + CSS（.editable-row .ant-form-item-explain 定位）。
- *
- * === ★ CSS 注入幂等保留（两子组件共用同一 CSS）===
- * `injectEditRowCss` 把 antd demo 配套 CSS 注入 document.head。本子文件 + edit-row.dg.tsx 各自
- * 调用一次（useEffect），两子组件共用同一 CSS。幂等：模块级 `cssInjected` 标志 + DOM
- * `[data-edit-row-css]` 存在性双重检查。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.antd.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'react'` / `'antd'` / `'./_compare/edit-row.shared'`）。
+ * edit-row demo 的 antd 段（右栏）。
+ * 行级编辑 state 全在子组件内自管，两栏各自独立。antd 原生 `components.body.cell` 返回
+ * `<td>` + onCell + Form 外层 + `rowClassName='editable-row'` + 配套 CSS。
  */
 import React, { useEffect, useState } from 'react'
 import type { TableProps as AntdTableProps } from 'antd'
@@ -28,8 +9,8 @@ import { Form, Input, InputNumber, Popconfirm, Table as AntdTable, Typography } 
 import { originData, type RecordType } from './_compare/edit-row.shared'
 
 // ---------------------------------------------------------------------------
-// antd demo 配套 CSS（注入 document.head，仅注入一次；两子组件共用同一 CSS）。
-// 幂等：模块级 cssInjected 标志 + DOM [data-edit-row-css] 存在性双重检查。
+// antd demo 配套 CSS（.editable-row .ant-form-item-explain 校验错误定位）。
+// 注入 document.head，两子组件共用同一 CSS；幂等（模块级标志 + DOM 存在性双重检查）。
 // ---------------------------------------------------------------------------
 
 let cssInjected = false
@@ -100,7 +81,7 @@ export default function EditRowAntd({
 }: {
   virtual: boolean
 }) {
-  // ★ 行级编辑 state 各自独立（两栏对照时互不干扰，按原始 demo 决策「编辑各自独立」）。
+  // 行级编辑 state 各自独立（两栏对照时互不干扰）。
   const [form] = Form.useForm()
   const [data, setData] = useState<RecordType[]>(originData)
   const [editingKey, setEditingKey] = useState('')
@@ -193,7 +174,7 @@ export default function EditRowAntd({
         columns={mergedColumns}
         rowClassName="editable-row"
         pagination={{ onChange: cancel }}
-        // 虚拟化（决策 7）：ON→virtual+scroll.y=300（有分页，antd scroll.y 须数字）；OFF→不传，非虚拟（零回归）。
+        // 虚拟化开关：ON→virtual+scroll.y=300（有分页，antd scroll.y 须数字）；OFF→不传，非虚拟。
         virtual={virtual}
         scroll={virtual ? { y: 300 } : undefined}
       />

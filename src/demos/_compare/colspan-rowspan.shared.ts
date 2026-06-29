@@ -1,5 +1,5 @@
 /**
- * 决策 9：colspan-rowspan 左右对比 demo 的共享配置。
+ * colspan-rowspan 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型、数据、合并 onCell 共享函数：
  *   - `DataType`：6 字段记录（key/name/age/tel/phone/address）。
@@ -11,7 +11,7 @@
  * 重载签名不同）保留在各自 demo 文件，但 colSpan/onCell/rowScope 字段逐字一致。
  */
 
-/** antd colspan-rowspan demo 的记录类型。两侧共用。 */
+/** 记录类型。两侧共用。 */
 export interface DataType {
   key: string
   name: string

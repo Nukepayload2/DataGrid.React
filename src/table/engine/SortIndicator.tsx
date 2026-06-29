@@ -1,29 +1,23 @@
 /**
- * 表头排序指示器（S1 + S2，决策 6 统一化）。
+ * 表头排序指示器。
  *
- * 三态视觉对齐 antd 6.4.4（实测 `#/demos/head` 右栏 antd 栏 computed style）：
- *   - 升序（sortOrder='ascend'）：CaretUpOutlined 高亮（主色 #1677ff），CaretDownOutlined 灰。
+ * 三态视觉对齐 antd 6.4.4：
+ *   - 升序（sortOrder='ascend'）：CaretUpOutlined 高亮（主色），CaretDownOutlined 灰。
  *   - 降序（sortOrder='descend'）：CaretDownOutlined 高亮（主色），CaretUpOutlined 灰。
- *   - 无（sortOrder=null）：两 caret 均灰（headerIconColor = rgba(0,0,0,0.294)）。
+ *   - 无（sortOrder=null）：两 caret 均灰（headerIconColor）。
  *
- * **决策 6 统一化**：caret 改用 `@ant-design/icons` 的 `CaretUpOutlined`/`CaretDownOutlined`
- * （与 antd Table 内部 sort icon 一致——antd 也是用这两个 icon 组件渲染 caret）。
- * 旧实现用 CSS border 三角形画 caret，与 antd 实际 SVG icon 在小尺寸下有视觉差异（border 三角
- * 锐度/比例略不同）；改用 icon 组件后像素级一致。
- *
+ * caret 用 `@ant-design/icons` 的 `CaretUpOutlined`/`CaretDownOutlined`（与 antd Table 内部 sort icon 一致）。
  * 结构对齐 antd `.ant-table-column-sorter-inner`（两 caret 垂直堆叠，inline-flex column），
  * active caret 有 `margin-top: -3.6px` 上提（对齐 antd `&-up + &-down { marginTop: -0.3em }`）。
  *
- * === S2 多列优先级序号 ===
+ * 多列优先级序号：`priority`（1-based，可选）非空时，在 caret 右侧显示一个数字徽标（如 1/2/3…），
+ * 表示该列在多列排序中的优先级。编号语义：1 = 最高优先级 = `sorter.multiple` 最大（对齐 antd
+ * `getSortData` 的 `b.multiplePriority - a.multiplePriority` 比较顺序——multiple 大者先比较 = 主排序键）。
  *
- * `priority`（1-based，可选）非空时，在 caret 右侧显示一个数字徽标（如 1/2/3…），表示该列在
- * 多列排序中的优先级。编号语义：**1 = 最高优先级 = `sorter.multiple` 最大**（对齐 antd
- * `getSortData` 的 `b.multiplePriority - a.multiplePriority` 实际比较顺序——multiple 大者先比较 =
- * 主排序键 = 最高优先级）。即 Chinese(multiple=3)→1、Math(multiple=2)→2、English(multiple=1)→3。
+ * 这是 data-grid 增强，非 antd 对齐项：antd 官方 multiple-sorter demo 与 sorter.ts 样式均无此徽标。
+ * 仅当该列激活（sortOrder 非 null）且多列模式下由适配层传入 priority；其它情况不渲染数字。
  *
- * ★ **data-grid 增强，非 antd 对齐项**：antd 6.4.4 官方 multiple-sorter demo 与 sorter.ts 样式均
- *   无此徽标。仅当该列处于激活态（sortOrder 非 null）且多列模式下由适配层传入 priority；其它
- *   情况不渲染数字（视觉与 S1 一致，零回归）。
+ * 详见 [docs/design-notes/filter-sorter.md](../../../docs/design-notes/filter-sorter.md)。
  */
 
 import { CaretDownOutlined, CaretUpOutlined } from '@ant-design/icons'
@@ -33,7 +27,7 @@ export interface SortIndicatorProps {
   /** 当前排序方向。 */
   sortOrder: SortOrder
   /**
-   * 多列排序优先级序号（S2，1-based，可选）。
+   * 多列排序优先级序号（1-based，可选）。
    * 仅当该列激活（sortOrder 非 null）且适配层判定需显示序号时传入；undefined/0 时不渲染。
    */
   priority?: number
@@ -41,7 +35,7 @@ export interface SortIndicatorProps {
 
 /**
  * 渲染排序三态指示器（CaretUpOutlined + CaretDownOutlined 垂直堆叠）。
- * 多列模式下可附加优先级数字徽标（S2）。
+ * 多列模式下可附加优先级数字徽标。
  */
 export function SortIndicator({ sortOrder, priority }: SortIndicatorProps) {
   const ascendActive = sortOrder === 'ascend'

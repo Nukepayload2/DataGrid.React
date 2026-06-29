@@ -1,23 +1,21 @@
 /**
- * 决策 9：demo 左右对比框架外壳组件（SplitDemo）。
+ * demo 左右对比框架外壳组件（SplitDemo）。
  *
  * 用途：把 data-grid Table 与 antd Table 并排（50/50）呈现，方便对照修 bug
  * （视觉/行为差异一目了然）。每个 demo 的"数据/列/交互配置"由调用方各自准备，
  * SplitDemo 只负责左右并排布局 + 标题栏 + 独立滚动 + 窄容器堆叠。
  *
- * === 全局深色/浅色切换（任务 T16：改由 App 顶栏全局驱动）===
+ * === 全局深色/浅色切换 ===
  *
- * **重构前**（任务 M）：本组件自管一个 antd `<Switch>` + 内层 `<ConfigProvider theme={{ algorithm }}>`。
- * **重构后**（任务 T16）：dark/light 切换移到 App 顶栏全局 Segmented（ThemeProvider 单一真理源），
- * 本组件删除本地 isDark state + Switch + 内层 ConfigProvider。所有用 SplitDemo 的对比 demo
- * 改由顶栏统一切 dark（单一真理源，避免每个 demo 各自维护切换）。
+ * dark/light 切换由 App 顶栏全局 Segmented 驱动（ThemeProvider 单一真理源），
+ * 本组件不持有本地 isDark state / Switch / 内层 ConfigProvider——避免每个 demo 各自维护切换。
  *
  *   - **algorithm 切换**：ThemeProvider 顶层 ConfigProvider（src/main.tsx 包 ThemeProvider）完成，
  *     两侧表格（data-grid + antd）都在此作用域内，algorithm 变 → realToken 重算 → 自动 dark。
  *     - 右栏 antd Table：ConfigProvider 天然驱动。
  *     - 左栏 data-grid Table：Table.tsx useToken realToken 重算 → .dg-wrapper --ant-* 刷新。
- *   - **外壳 chrome（pane/title/note）**：compare.css 原硬编码浅色（#fff/#fafafa/#f0f0f0），
- *     dark 下会变成"深色表格坐在刺眼白底卡片里"。本组件仍从 useTheme 读 themeMode → 拼
+ *   - **外壳 chrome（pane/title/note）**：compare.css 硬编码浅色（#fff/#fafafa/#f0f0f0），
+ *     dark 下会变成"深色表格坐在刺眼白底卡片里"。本组件从 useTheme 读 themeMode → 拼
  *     `.dg-compare--dark` 修饰类（覆盖 pane→#141414、title/note→#1d1d1d、border→#303030、
  *     文字→rgba(255,255,255,0.85/0.65)）。显式颜色最稳（chrome 在 ConfigProvider 外层 div
  *     上无 --ant-* 可消费）。
@@ -51,7 +49,7 @@
  * 优势：无 JS、无 ResizeObserver、无 useLayoutEffect、无首帧闪烁、无媒体查询断点，
  * 阈值由 `minPaneWidth` 纯 CSS 表达。
  *
- * 通用、可复用、opt-in：不影响未迁移的 demo（它们不 import 本组件）。
+ * 通用、可复用、opt-in：不 import 本组件的 demo 不受影响。
  *
  * === stickyMode（页面级 sticky demo 专用，默认 false）===
  *
@@ -64,17 +62,16 @@
  * （放开 sticky 滚动祖先，不裁剪、不自滚），让**页面**滚动驱动 sticky。表格自身 `scroll.x` 横向
  * 滚动是 Table 内部容器，不受 pane overflow 影响（仍正常）。
  *
- * 仅页面级 sticky demo（如 sticky.tsx 的 S34 `sticky.offsetHeader`）需要传 true；其余 demo
+ * 仅页面级 sticky demo（如 sticky.tsx 的 `sticky.offsetHeader`）需要传 true；其余 demo
  * 默认 false，行为完全不变（pane 圆角裁剪 + body 独立滚动）。
  */
 
 import { type CSSProperties, type ReactNode } from 'react'
 import './compare.css'
-// ★ 任务 T16：dark/light 切换改由 App 顶栏全局驱动（ThemeProvider 单一真理源）。
-//   删除本地 isDark state + Switch + 内层 ConfigProvider theme={{algorithm}}。
+// dark/light 切换由 App 顶栏全局驱动（ThemeProvider 单一真理源）。
 //   useTheme 读全局 themeMode → 拼 .dg-compare--dark 修饰类（chrome 显式 dark 颜色）。
 import { useTheme } from '../../theme/ThemeContext'
-// ★ 全局虚拟化开关：useVirtualization 读顶栏 Switch 状态（VirtualizationProvider 单一真理源）。
+// 全局虚拟化开关：useVirtualization 读顶栏 Switch 状态（VirtualizationProvider 单一真理源）。
 //   virtualizable !== false && virtual 时给容器加 .dg-compare--virtual → compare.css 限高 pane body。
 import { useVirtualization } from '../VirtualizationContext'
 
@@ -108,7 +105,7 @@ export interface SplitDemoProps {
    *   适用于绝大多数 demo（容器内滚动）。
    * - **true**：pane + body 均 `overflow:visible`（不裁剪、不自滚），放开 sticky 上下文，
    *   让**页面**滚动驱动子组件 sticky（表头钉视口顶 `offsetHeader`）。仅页面级 sticky demo
-   *   （如 sticky.tsx 的 S34 `sticky.offsetHeader:64`）需要传 true。
+   *   （如 sticky.tsx 的 `sticky.offsetHeader:64`）需要传 true。
    *
    * 表格自身 `scroll.x` 横向滚动是 Table 内部容器，不受 pane overflow 影响（两种模式都正常）。
    * 实现机制：true 时给 `.dg-compare` 容器加修饰类 `.dg-compare--sticky`，compare.css 内该类
@@ -142,13 +139,12 @@ export function SplitDemo({
   virtualizable = true,
   children,
 }: SplitDemoProps) {
-  // ★ 任务 T16：dark/light 改由 App 顶栏全局驱动（ThemeProvider 单一真理源）。
-  //   本组件不再持有 isDark state、不再渲染 Switch、不再包内层 ConfigProvider。
+  // dark/light 由 App 顶栏全局驱动（ThemeProvider 单一真理源）。
   //   只从 useTheme 读 themeMode → 拼 .dg-compare--dark 修饰类（chrome 显式 dark 颜色）。
   //   algorithm 切换由 ThemeProvider 顶层 ConfigProvider 完成（两侧表格自动响应）。
   const { themeMode } = useTheme()
   const isDark = themeMode === 'dark'
-  // ★ 全局虚拟化开关：读顶栏 Switch 状态。virtualizable !== false && virtual 时容器加
+  // 全局虚拟化开关：读顶栏 Switch 状态。virtualizable !== false && virtual 时容器加
   //   .dg-compare--virtual（compare.css 限高 pane body）。virtualizable=false 的 demo 不参与。
   const { virtual } = useVirtualization()
 
@@ -175,9 +171,8 @@ export function SplitDemo({
   return (
     <>
       {/*
-        ★ 任务 T16：本地主题控制条已删除——dark/light 切换移到 App 顶栏全局 Segmented。
-          chrome（pane/title/note）显式 dark 颜色仍由 .dg-compare--dark /
-          .dg-compare__note--dark 修饰类提供（由全局 themeMode 驱动）。
+        chrome（pane/title/note）显式 dark 颜色由 .dg-compare--dark /
+        .dg-compare__note--dark 修饰类提供（由全局 themeMode 驱动）。
       */}
       <div className={containerClassName} style={containerStyle}>
         <section className="dg-compare__pane">

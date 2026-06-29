@@ -5,7 +5,7 @@
  *
  * 1. **默认模式**（editedDg && editedAntd 都 null）：`return <>{children}</>`，渲染真实
  *    `BasicDemo`（由 App 传 `<DemoComp/>`）。**零编辑开销**：不加载 sucrase、不编译、不
- *    走 evalModule、不包 ErrorBoundary——与改造前完全等价。
+ *    走 evalModule、不包 ErrorBoundary。
  *
  * 2. **编辑模式**（editedDg 或 editedAntd 任一非 null）：用 `SplitDemo` 外壳，左/右栏按是否
  *    有 edited 产物分别渲染：
@@ -16,7 +16,7 @@
  *      edited 产物变化时清旧错误，让新组件重试。
  *    - 无 edited → 渲染真实子组件（fallback 到该侧默认实现）。
  *
- *    编辑模式 bordered 固定 false（简化，Phase 1 接受——Switch Bordered 仅在默认模式可见）。
+ *    编辑模式 bordered 固定 false（简化——Switch Bordered 仅在默认模式可见）。
  *
  * === 子组件 glob 自动发现 ===
  *
@@ -30,7 +30,7 @@
  *
  * `propsFor(_name, virtual)` 返回所有子组件签名的超集（bordered/size/virtual/autoScroll）。
  * 不同 demo 子组件按各自签名收所需 props；约定「子组件解构参数全部带默认值」，
- * 因此即便超集 props 不全，子组件仍有兜底默认值，不崩。bordered 固定 false（Phase 1 简化，
+ * 因此即便超集 props 不全，子组件仍有兜底默认值，不崩。bordered 固定 false（简化，
  * Switch Bordered 仅在默认模式可见）。
  *
  * === 与 App 的契约 ===
@@ -77,7 +77,7 @@ const REAL_DG = buildRealMap(dgModules)
 const REAL_ANTD = buildRealMap(antdModules)
 
 /**
- * 编辑模式统一超集 props（bordered 固定 false，Phase 1 简化）。
+ * 编辑模式统一超集 props（bordered 固定 false，简化）。
  * - {bordered:false, virtual, size:'medium', autoScroll:true}
  *
  * 不同 demo 子组件按各自签名收所需 props；子组件解构参数全部带默认值，超集 props 不全也不崩。

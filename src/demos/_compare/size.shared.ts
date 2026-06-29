@@ -1,12 +1,12 @@
 /**
- * 决策 9：size 左右对比 demo 的共享配置。
+ * size 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型、数据、列形状（size demo 列简单：Name/Age/Address 纯文本，
  *两侧列定义可共享形状，仅类型不同——data-grid `ColumnType` vs antd `TableProps['columns']`，
  * 但字段完全一致，故提供原始 column 数据由两侧各自加类型）。
  */
 
-/** antd size demo 的记录类型。两侧共用。 */
+/** 记录类型。两侧共用。 */
 export interface RecordType {
   key: React.Key
   name: string
@@ -14,7 +14,7 @@ export interface RecordType {
   address: string
 }
 
-/** antd size demo 的数据（3 行）。两侧共用。 */
+/** 数据（3 行）。两侧共用。 */
 export const data: RecordType[] = [
   { key: '1', name: 'John Brown', age: 32, address: 'New York No. 1 Lake Park' },
   { key: '2', name: 'Jim Green', age: 42, address: 'London No. 1 Lake Park' },

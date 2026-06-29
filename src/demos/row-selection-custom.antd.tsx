@@ -1,16 +1,11 @@
 /**
- * row-selection-custom demo 的 antd 段（右栏），从 row-selection-custom.tsx 拆出。
+ * row-selection-custom demo 的 antd 段（右栏）。
  *
  * - props 驱动 `{ selectedRowKeys, onSelectedRowKeysChange, virtual }`（与左栏 dg 子组件同款）。
  * - 自包含：含 `antdColumns`（Name/Age/Address）+ 右栏 `antdSelections`（3 内置哨兵
  *   + odd/even 自定义，与 antd demo 逐字一致）+ `<AntdTable>` JSX。
  * - 忠实复刻 antd row-selection-custom demo：pagination={false}（46 行全显）+
  *   rowSelection.selections + 受控 selectedRowKeys。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.antd.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'antd'` / `'./_compare/row-selection-custom.shared'`）。
  */
 import { Table as AntdTable } from 'antd'
 import type { TableProps } from 'antd'

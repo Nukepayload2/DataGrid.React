@@ -2,50 +2,18 @@
  * 复刻 antd `fixed-columns-header` demo：
  *   `G:\Projects\ant-design\components\table\demo\fixed-columns-header.tsx`
  *
- * antd 原版用 `scroll={{ x: 'max-content', y: 55 * 5 }}` 同时实现：
- *   (a) 固定列（横向 sticky）—— M2 ✅
- *   (b) 固定表头（纵向 sticky，y 控制表体高度）—— M8 ✅
+ * antd 原版用 `scroll={{ x: 'max-content', y: 55 * 5 }}` 同时实现固定列（横向 sticky）+
+ * 固定表头（纵向 sticky，y 控制表体高度）。
  *
- * === 决策 9 双栏对照 ===
- *
- * - **左栏（data-grid Table）**：固定列（Name/Age fixed start + Action fixed end）+
- *   `scroll={{ x: 'max-content', y: true }}`（决策 7 数据区域模式，表头固定 + 表体滚动 +
+ * 双栏对照：
+ * - 左栏（data-grid Table）：固定列（Name/Age fixed start + Action fixed end）+
+ *   `scroll={{ x: 'max-content', y: true }}`（数据区域模式，表头固定 + 表体滚动 +
  *   纵/横悬浮滚动条）+ 父容器 height:330（CSS 自适应高度，对齐 antd y:55*5=275 表体 + 表头 ~55）。
- * - **右栏（antd Table）**：忠实复刻 antd 官方 fixed-columns-header demo（同列结构 +
+ * - 右栏（antd Table）：忠实复刻 antd 官方 fixed-columns-header demo（同列结构 +
  *   `scroll={{ x:'max-content', y:55*5 }}` + 100 行）。
- * - **共享控制条**：`Bordered` 开关同时驱动两侧表格。antd demo 原本无控制条，此处加最小
- *   开关便于对照。共享数据见 `_compare/fixed-columns-header.shared.ts`。
+ * - 共享控制条：`Bordered` 开关同时驱动两侧表格。共享数据见 `_compare/fixed-columns-header.shared.ts`。
  *
- * === corner cell 双 sticky（M8 × M2）===
- *
- * 左上角（Name/Age fixed start 的表头格）与右上角（Action fixed end 的表头格）同时：
- *   - 横向 sticky（left/right，M2，zIndex 3）
- *   - 纵向 sticky（top:0，M8，zIndex 4）
- * 单元素双 sticky 浏览器原生支持（与 antd rc-table corner cell 一致）。角单元格 z-index 取
- * **最高（5）**（仅纵向 4 的中间表头格、仅横向 3 的固定列表头格都低于它），保证横向滚动时
- * 中间表头格不会盖住 corner cell，纵向滚动时固定列表头格也不被普通表头盖住。
- *
- * === 两侧保留并如实呈现的差异（对照修 bug 的意义所在）===
- *
- * 1. **scroll.y**：左栏 data-grid `scroll.y:true`（决策 7 CSS 自适应高度，父容器 height:330≈
- *    antd y:55*5=275 表体 + 表头 ~55）；右栏 antd 数字 `scroll.y:55*5`（忠实官方）。
- * 2. **createStyles 细滚动条**：antd 官方 demo 用 antd-style 自定义细滚动条；data-grid 项目未装
- *    antd-style（决策 6），两侧均用浏览器默认滚动条（data-grid 侧走 #35 悬浮滚动条）。
- * 3. **★ §9 右固定列脱离观察**（task #38 同源 narrow gap）：左栏含 `scroll.x:'max-content'` +
- *    Action fixed 'end' + 中间 Column 8-20 无 width（max-content），横滚到最右时 data-grid
- *    右固定列 Action 可能脱离容器右边缘（§9 已登记：无 width 列 max-content vs antd width+flex
- *    fill）。右栏 antd 无此问题。如实保留对照，登记 §9 不修。
- *
- * === 拆子文件（task #56：live 编辑接入，同 basic 模式）===
- *
- * 父文件只保留「外壳职责」：bordered state + useVirtualization + DemoToolbar(Switch Bordered)
- * + SplitDemo 外壳 + children 对照说明。两侧表格 JSX 与 columns 拆到子文件：
- *   - `./fixed-columns-header.dg`：`FixedColumnsHeaderDg({bordered, virtual})`（左栏）
- *   - `./fixed-columns-header.antd`：`FixedColumnsHeaderAntd({bordered, virtual})`（右栏）
- *
- * 这样：
- *   - 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `FixedColumnsHeaderDemo`，零编辑开销。
- *   - live 编辑模式：SplitDemoPreview 静态 import 真实子组件，并按 editedDg/editedAntd 替换。
+ * corner cell 双 sticky — 详见 docs/design-notes/fixed-column.md
  */
 
 import { useState } from 'react'
@@ -53,8 +21,6 @@ import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
 import { useVirtualization } from './VirtualizationContext'
-// ★ 拆子文件后，左/右栏 JSX + columns 由子组件提供（props 驱动）。DataType/dataSource
-//   现在由子文件各自 import fixed-columns-header.shared，父文件不再需要。
 import FixedColumnsHeaderDg from './fixed-columns-header.dg'
 import FixedColumnsHeaderAntd from './fixed-columns-header.antd'
 
@@ -63,15 +29,12 @@ import FixedColumnsHeaderAntd from './fixed-columns-header.antd'
 // ---------------------------------------------------------------------------
 
 export default function FixedColumnsHeaderDemo() {
-  // ★ 共享状态：同一个状态同时驱动两侧表格。
+  // 共享状态：同一个状态同时驱动两侧表格。
   const [bordered, setBordered] = useState(false)
-  // ★ 虚拟化开关（决策 9 对照）：两侧表格同步切换虚拟/非虚拟。
   const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。
-          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0。 */}
       <DemoToolbar>
         <Space wrap>
           <Switch
@@ -91,43 +54,44 @@ export default function FixedColumnsHeaderDemo() {
       */}
       <SplitDemo
         minPaneWidth={900}
-        left={
-          /* 左栏 data-grid：决策 7 父容器需有明确 height（330，≈antd 表体 275 + 表头 ~55）。
-             scroll.y:true 数据区域模式，表体 flex:1 填满容器剩余空间。 */
-          <FixedColumnsHeaderDg bordered={bordered} virtual={virtual} />
-        }
-        right={
-          /* antd 官方 fixed-columns-header demo 忠实复刻：
-             Full Name/Age fixed start + Action fixed end +
-             scroll x max-content + y 55*5 + 100 行。 */
-          <FixedColumnsHeaderAntd bordered={bordered} virtual={virtual} />
-        }
+        left={<FixedColumnsHeaderDg bordered={bordered} virtual={virtual} />}
+        right={<FixedColumnsHeaderAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明（决策 9 B13，固定列 + 固定表头 M2×M8）：</strong>
-          本 demo 左右并排呈现 data-grid 与 antd fixed-columns-header，方便对照修 bug。
+          <strong>对照说明：</strong>左右并排呈现 data-grid 与 antd fixed-columns-header。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>固定列 + 固定表头</strong>：Full Name + Age 固定 <code>start</code>（左），
-              Action 固定 <code>end</code>（右）；表头纵向固定（表体滚动时表头钉顶）。
-              corner cell（左上 Name/Age 表头格 + 右上 Action 表头格）双 sticky
-              （横向 left/right + 纵向 top:0），z-index 最高（5），横向滚动不被中间表头格盖住。
+              <strong>scroll.y 取值差异</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：左栏 data-grid 用 <code>scroll.y:true</code>（布尔，
+                  父容器 height:330 ≈ antd 表体 275 + 表头 ~55）；右栏 antd 用数字
+                  <code>scroll.y:55*5</code>（忠实官方）。</li>
+                <li><strong>触发条件</strong>：表格进入固定表头模式（表体纵向滚动、表头钉顶）即出现。</li>
+                <li><strong>差异原因</strong>：data-grid 用纯 CSS flex 自适应高度（<code>y:true</code> 仅
+                  支持布尔，需父容器明确高度）；antd 接受数字 max-height 语义。两侧表体均可纵向滚动、
+                  表头钉顶，视觉等价。</li>
+              </ul>
             </li>
             <li>
-              <strong>scroll.y 差异</strong>：左栏 data-grid <code>scroll.y:true</code>
-              （决策 7 数据区域模式 + CSS 自适应高度，父容器 height:330≈ antd 表体 275 + 表头 ~55）；
-              右栏 antd 数字 <code> scroll.y:55*5 </code>（忠实官方）。两侧表体均可纵向滚动、表头钉顶。
+              <strong>滚动条样式差异</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：左栏走悬浮滚动条（macOS 风格细条），右栏用浏览器默认滚动条。</li>
+                <li><strong>触发条件</strong>：表体或表头区域出现滚动条即出现。</li>
+                <li><strong>差异原因</strong>：antd 官方 demo 用 antd-style 自定义细滚动条，data-grid 项目
+                  未装该依赖，故右栏退回浏览器默认。</li>
+              </ul>
             </li>
             <li>
-              <strong>createStyles 滚动条差异</strong>：antd 官方 demo 用 antd-style 自定义细滚动条；
-              data-grid 项目未装 antd-style，左侧走 #35 悬浮滚动条（macOS 风格），右侧用浏览器默认。
-            </li>
-            <li>
-              <strong>★ §9 右固定列脱离观察</strong>（task #38 同源 narrow gap）：左栏含
-              <code> scroll.x:'max-content' </code>+ Action fixed 'end' + 中间 Column 8-20 无 width
-              （max-content），横滚到最右时 data-grid 右固定列 Action 可能脱离容器右边缘
-              （§9 已登记：无 width 列 max-content vs antd width+flex fill）；右栏 antd 无此问题。
-              如实保留对照，登记 §9 不修。
+              <strong>右固定列在边界宽度下可能脱离容器右边缘</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：左栏横向滚到最右时，右固定列 Action 可能脱离容器右边缘；
+                  右栏 antd 无此问题。</li>
+                <li><strong>触发条件</strong>：左栏含 <code>scroll.x:'max-content'</code> + Action fixed
+                  <code>'end'</code> + 中间 Column 8-20 无 width（max-content）。</li>
+                <li><strong>差异原因</strong>：无 width 列在 data-grid 下按 max-content 取内容宽度，
+                  与 antd 的 width + flex fill 列宽策略不同，边界宽度下计算结果偏移。详见
+                  <code>docs/design-notes/fixed-column.md</code>。</li>
+              </ul>
             </li>
           </ul>
         </div>

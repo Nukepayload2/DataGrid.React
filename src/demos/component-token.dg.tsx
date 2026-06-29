@@ -1,33 +1,9 @@
 /**
- * component-token demo 的 data-grid 段（左栏），从 component-token.tsx 拆出。
+ * component-token demo 的 data-grid 段（左栏）。
  *
- * - props 驱动 `{ bordered, loading, size, expandableEnabled, showTitle, showHeader,
- *   showFooter, rowSelectionEnabled, hasData, tableLayout, top, bottom, ellipsis, yScroll,
- *   xScroll, virtual }`（由 component-token.tsx 父组件传，全量动态面板 state）。
- * - 自包含：含 `dgColumns`（Name + Age sorter + Address filters/onFilter + Action render 内联
- *   DownOutlined）+ `dgDefaultExpandable`（expandedRowRender 显示 description）+ `<Table>` JSX +
- *   内联 `DownOutlined` SVG（两侧各自声明，零额外依赖）。
- * - 行为与改造前一致——`<ConfigProvider theme.components.Table>` token 覆盖由父级包裹提供，
- *   data-grid 适配层 `theme.useToken()` 读取 → `buildTableTokenCssVars` 映射为 `.dg-wrapper`
- *   inline `--ant-*` CSS variables 注入（覆盖 tokens.css fallback）→ 视觉随 token 变化。
- *
- * === ★ columns/expandable/DownOutlined 配置搬入子组件（task S30 live 编辑接入）===
- * 原父文件的 `dgColumns` / `dgDefaultExpandable` / 内联 `DownOutlined` 全部搬入本子组件。
- * DownOutlined 为纯内联 SVG（零依赖），两侧子组件各自声明（同款，与 edit-cell CSS 注入两侧
- * 各自幂等注入同款策略一致）——保证子组件自包含可独立展示/编译。
- *
- * === props 默认值（合理有效初值，坑5+坑7）===
- * 全量控制面板 state 默认值对齐改造前父级初值：bordered/loading/showTitle/ellipsis/yScroll=false，
- * size='large'，expandableEnabled/rowSelectionEnabled/showHeader/showFooter/hasData=true，
- * tableLayout/xScroll='unset'，top='none'，bottom='bottomEnd'，virtual=false。
- * 编辑模式 propsFor 超集 {bordered,virtual,size,autoScroll} 仅覆盖 bordered/virtual/size，
- * 其余 state 靠默认值兜底——子组件单侧渲染完整演示一张带 expandable + rowSelection +
- * filters/sorter + pagination[top,bottom] 的 10 行表格（合理有效初值）。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.dg.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'antd'` / `'../table'` / `'./_compare/component-token.shared'`），源码可原样展示无需路径改写。
+ * 列定义（Name + Age sorter + Address filters/onFilter + Action render 内联 DownOutlined）+
+ * defaultExpandable。ConfigProvider theme token 由父级包裹提供。
+ * props 见 ComponentTokenDgProps（全量动态面板 state + virtual）。
  */
 import { Space } from 'antd'
 import { Table } from '../table'
@@ -44,12 +20,7 @@ import {
   type RecordType,
 } from './_compare/component-token.shared'
 
-// ---------------------------------------------------------------------------
-// 内联 DownOutlined（More 链接右侧的小箭头）——避免直接依赖 @ant-design/icons
-// （仅 antd 间接依赖，与 nested-table / custom-filter-panel / drag-sorting-handler 约定一致）。
-// SVG 路径取自 ant-design-icons DownOutlined。两侧子组件各自声明（自包含）。
-// ---------------------------------------------------------------------------
-
+// 内联 DownOutlined（More 链接右侧小箭头）— 避免 @ant-design/icons 直接依赖。两侧各自声明。
 function DownOutlined() {
   return (
     <svg
@@ -65,11 +36,6 @@ function DownOutlined() {
   )
 }
 
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 + defaultExpandable
-// ---------------------------------------------------------------------------
-
-// data-grid 列定义（render 用内联 DownOutlined SVG）。
 const dgColumns: ColumnType<RecordType>[] = [
   { title: 'Name', dataIndex: 'name' },
   {
@@ -104,18 +70,10 @@ const dgColumns: ColumnType<RecordType>[] = [
   },
 ]
 
-// data-grid defaultExpandable（expandedRowRender 显示 description）。
 const dgDefaultExpandable: Expandable<RecordType> = {
   expandedRowRender: (record: RecordType) => <p>{record.description}</p>,
 }
 
-// ---------------------------------------------------------------------------
-// 子组件
-// ---------------------------------------------------------------------------
-
-// 共享 size 类型：'large'/'medium'/'small' 在两侧都被接受
-// （data-grid 用 'medium'（= 'middle'）；antd v6 也接受 'medium' 别名（= 'middle'），
-// 不含 data-grid 独有的 'compact'，避免与 antd SizeType 不兼容）。
 type SharedSize = 'large' | 'medium' | 'small'
 
 export interface ComponentTokenDgProps {
@@ -155,15 +113,13 @@ export default function ComponentTokenDg({
   xScroll = 'unset',
   virtual = false,
 }: ComponentTokenDgProps) {
-  // 派生：data-grid expandable（按开关启用/禁用）。
   const dgExpandable = expandableEnabled ? dgDefaultExpandable : undefined
-  // 派生：data-grid rowSelection（按开关启用/禁用）。
   const dgRowSelection: TableRowSelection<RecordType> | undefined = rowSelectionEnabled
     ? {}
     : undefined
 
-  // 决策 7：scroll.y 仅 true/undefined（不支持数字）。yScroll 开关 → y:true（CSS 自适应高度）。
-  // ★ 全局虚拟化开关接入：virtual ON 时 data-grid y 强制 true（无论 yScroll）。
+  // scroll.y:true 数据区域模式需父容器有明确 height — 详见 docs/design-notes/virtualization.md
+  // virtual ON → 400 有界（虚拟裁剪需有界区）；yScroll ON → 240；都 OFF → undefined。
   const dgScroll: { x?: number | string; y?: true } = {}
   if (yScroll || virtual) {
     dgScroll.y = true
@@ -184,11 +140,6 @@ export default function ComponentTokenDg({
   const resolvedTableLayout = tableLayout === 'fixed' ? ('fixed' as const) : undefined
 
   return (
-    /* 决策 7：scroll.y:true 数据区域模式需父容器有明确 height。
-       ★ virtual ON → 400 有界（virtual 模式需有界区才能虚拟裁剪 + 可滚动，参考 fixed-header 394 /
-          virtual-list 440 量级取 400；dgScroll.y 已在派生处由 virtual 强制 true）；
-       yScroll ON（virtual OFF）→ 240 fixed-header（原语义不变）；
-       都 OFF → undefined（零回归，行为与改造前一致）。 */
     <div style={virtual ? { height: 400 } : yScroll ? { height: 240 } : undefined}>
       <Table<RecordType>
         bordered={bordered}
@@ -204,8 +155,6 @@ export default function ComponentTokenDg({
         pagination={{ placement: [top, bottom] }}
         columns={dgTableColumns}
         dataSource={hasData ? sharedData : []}
-        /* 全局虚拟化开关接入：ON 时 virtual=true（dgScroll.y 已在派生处由 virtual 强制 true）；
-           OFF 时 virtual 不传，dgScroll 仅由 yScroll 控制，行为与改造前一致。 */
         virtual={virtual}
       />
     </div>

@@ -1,5 +1,5 @@
 /**
- * 决策 9：tree-table-ellipsis 左右对比 demo 的共享配置。
+ * tree-table-ellipsis 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型与数据：
  *   - `RecordType`：antd 官方 tree-table-ellipsis demo 的记录类型（含递归 children）。
@@ -9,13 +9,13 @@
  * 受顶部 Switch 共享驱动（columns 在渲染时动态拼装 fixed），保留在各自 demo 文件，
  * 但字段（title/dataIndex/key/width/ellipsis）逐字一致。
  *
- * antd tree-table-ellipsis demo 关键要素（S25 issue #36583 复现）：
+ * antd tree-table-ellipsis demo 关键要素：
  *   - children 嵌套（默认 childrenColumnName='children'）+ name 超长（验证 ellipsis）。
  *   - Name 列 `ellipsis:true + width:'30%' + fixed`（Switch 切换）。
  *   - rowSelection columnWidth:100（前置哨兵列）+ expandable.defaultExpandAllRows。
  */
 
-/** antd tree-table-ellipsis demo 的记录类型（含递归 children）。两侧共用。 */
+/** 记录类型（含递归 children）。两侧共用。 */
 export interface RecordType {
   key: React.ReactNode
   name: string

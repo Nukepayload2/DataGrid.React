@@ -1,12 +1,12 @@
 /**
- * 决策 9：jsx 左右对比 demo 的共享配置。
+ * jsx 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型与数据。列定义两侧都用 JSX `<Table.Column>`/`<Table.ColumnGroup>`
  * 子元素声明（data-grid 与 antd 各自从自家 Table 静态属性解构），render 内 Tag/Flex/Space
  * 各自实现，故列不在此共享；仅共享 `RecordType` + `data`。
  */
 
-/** antd jsx demo 的记录类型。两侧共用。 */
+/** 记录类型。两侧共用。 */
 export interface RecordType {
   key: React.Key
   firstName: string
@@ -16,7 +16,7 @@ export interface RecordType {
   tags: string[]
 }
 
-/** antd jsx demo 的数据（3 行）。两侧共用。 */
+/** 数据（3 行）。两侧共用。 */
 export const data: RecordType[] = [
   {
     key: '1',
@@ -45,7 +45,7 @@ export const data: RecordType[] = [
 ]
 
 /**
- * 计算 Tag 颜色（antd jsx demo 的逻辑）。两侧 render 复用此函数保证颜色判定一致。
+ * 计算 Tag 颜色。两侧 render 复用此函数保证颜色判定一致。
  */
 export function tagColor(tag: string): string {
   let color = tag.length > 5 ? 'geekblue' : 'green'

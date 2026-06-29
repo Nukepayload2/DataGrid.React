@@ -1,16 +1,16 @@
 /**
- * 决策 9：ajax 左右对比 demo 的共享配置（S12 远程数据 + loading）。
+ * ajax 左右对比 demo 的共享配置（远程数据 + loading）。
  *
  * 提取两侧都复用的类型 + 本地 mock 全量数据 + 模拟服务端请求函数。列定义因两侧类型
  * 不同（data-grid `ColumnType` vs antd `TableProps['columns']`）保留在各自 demo 文件，
  * 但均引用本文件的 `RecordType`。
  *
- * === ★ 数据来源决策（重要，与 antd demo 的差异）===
+ * === 数据来源差异（与 antd demo）===
  *
  * antd ajax demo 用**真实 fetch 外部 mockapi.io**（`https://...mockapi.io/api/users`）。
  * 本 demo（左右两栏）**统一改用本地 mock 全量数据 + setTimeout 模拟请求延迟**：
  *   - 避免外部网络依赖（chrome-devtools 自动化验证不稳定）。
- *   - 避免网络副作用（任务规约：避免副作用 + 决策 6 非核心能力不依赖外部）。
+ *   - 避免网络副作用（本仓库 demo 不依赖外部网络）。
  *   - **机制与 antd 完全一致**：loading 态 / 服务端分页 / 服务端排序 / 服务端筛选 /
  *     onChange 触发请求 / preserveSelectedRowKeys 跨页保留勾选——均在 demo 内对齐 antd
  *     行为，仅"数据源"从远程 fetch 换成本地切片。
@@ -18,7 +18,7 @@
  *     完全一致（便于 diff 对照）。
  */
 
-/** antd ajax demo 的记录类型。两侧共用。 */
+/** 记录类型。两侧共用。 */
 export interface RecordType {
   id: number
   name: string

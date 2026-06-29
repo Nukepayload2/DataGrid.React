@@ -1,28 +1,8 @@
 /**
- * drag-sorting demo 的 antd 段（右栏），从 drag-sorting.tsx 拆出。
- *
- * === 拖拽 state 自管（子组件内）===
- * 与 drag-sorting.dg.tsx 同构：拖拽 dataSource 全在子组件内自管（useState + onDragEnd 的 arrayMove），
- * 两栏各自独立（原始 demo 决策「两栏独立」）。
- *
- * === props 默认值（合理有效初值，坑5+坑7）===
- * - bordered=false（无边框，对齐 antd drag-sorting 默认）。
- * - virtual=false（OFF 回 undefined scroll，行为与改造前一致）。
- * 注意：本子组件不接 autoScroll（antd 无对应概念，仅左栏 data-grid 有 autoScrollOnDrag）。
- *
- * === 忠实复刻 antd 官方 drag-sorting.tsx ===
- * `@dnd-kit/*` DndContext + PointerSensor（distance:1）+ restrictToVerticalAxis +
- * SortableContext（verticalListSortingStrategy）+ `components.body.row = Row` useSortable +
- * transform 跟随指针 + cursor:move + isDragging zIndex 9999 + `onDragEnd` arrayMove。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.antd.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'react'` / `'antd'` / `'@dnd-kit/core'` / `'@dnd-kit/modifiers'` / `'@dnd-kit/sortable'` /
- * `'@dnd-kit/utilities'` / `'./_compare/drag-sorting.shared'`）。
- *
- * ★ type import（`import type { DragEndEvent } from '@dnd-kit/core'`）被 sucrase 编译时剥离，
- * require 表只需 value（namespace），故 scope.ts 只注入 @dnd-kit/* 的 value 不注 type。
+ * drag-sorting demo 的 antd 段（右栏）。
+ * 拖拽 dataSource 全在子组件内自管（useState + onDragEnd 的 arrayMove），两栏各自独立。
+ * 忠实复刻 antd 官方 drag-sorting.tsx：@dnd-kit DndContext + PointerSensor(distance:1) +
+ * restrictToVerticalAxis + SortableContext + components.body.row=Row(useSortable) + transform。
  */
 import type { DragEndEvent } from '@dnd-kit/core'
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
@@ -87,7 +67,7 @@ export default function DragSortingAntd({
   bordered: boolean
   virtual: boolean
 }) {
-  // ★ 拖拽 dataSource 各自独立（两栏对照时互不干扰，按原始 demo 决策「两栏独立」）。
+  // 拖拽 dataSource 各自独立（两栏对照时互不干扰）。
   const [dataSource, setDataSource] = useState<RecordType[]>(initialData)
 
   // PointerSensor distance:1（对齐官方——稍微移动才触发，避免误触点击）。
@@ -125,8 +105,7 @@ export default function DragSortingAntd({
           columns={antdColumns}
           dataSource={dataSource}
           bordered={bordered}
-          /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:300（antd 不认 true，数字像素高度）；
-             OFF 时回 undefined，行为与改造前一致。 */
+          // 虚拟化开关：ON→virtual+scroll.y:300（antd 不认 true，数字像素高度）；OFF→回 undefined，非虚拟。
           virtual={virtual}
           scroll={virtual ? { y: 300 } : undefined}
         />

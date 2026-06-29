@@ -1,5 +1,5 @@
 /**
- * 决策 9：expand-sticky 左右对比 demo 的共享配置（M9 展开列位置 + 合并×展开）。
+ * expand-sticky 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型与数据（Team/Name/Age/Address/Action + description）。
  * 列定义因类型不同（data-grid `ColumnOrSentinel` / antd `ColumnsType`，且含哨兵
@@ -12,12 +12,12 @@
  *   - `expandable.expandedRowRender(record)` 渲染 description。
  *   - antd demo 原本用 `expandable.expandedRowOffset: 3`（v5.26+ **已废弃**，
  *     官方建议改用 `Table.EXPAND_COLUMN`）—— 左栏 data-grid 本就用 EXPAND_COLUMN
- *     控位置；**右栏 antd 为忠实复刻 antd demo 原样保留 `expandedRowOffset: 3`**
+ *     控位置；右栏 antd 为忠实复刻 antd demo 原样保留 `expandedRowOffset: 3`
  *     （antd 本体仍接受该 prop，内部转为 EXPAND_COLUMN 等效行为），对照两侧
  *     展开列位置是否一致。
  */
 
-/** antd expand-sticky demo 的记录类型。两侧共用。 */
+/** 记录类型。两侧共用。 */
 export interface RecordType {
   key: React.Key
   team: string
@@ -27,7 +27,7 @@ export interface RecordType {
   description: string
 }
 
-/** antd expand-sticky demo 的数据（4 行，Team A/B 各 2 行）。两侧共用。 */
+/** 数据（4 行，Team A/B 各 2 行）。两侧共用。 */
 export const data: RecordType[] = [
   {
     key: 1,

@@ -1,23 +1,14 @@
 /**
- * reset-filter demo 的 antd 段（右栏），从 reset-filter.tsx 拆出。
+ * reset-filter demo 的 antd 段（右栏）。
  *
- * - props 驱动 `{ filteredInfo, sortedInfo, bordered, virtual, onChange }`（与左栏 dg 子组件同款签名）：
- *   * filteredInfo / sortedInfo：受控筛选/排序真理源（父持有，控制条三按钮 + onChange 共同写回）。
- *   * bordered：表格边框开关（控制条驱动）。
- *   * virtual：全局虚拟化开关。
- *   * onChange：写回父级共享 state 的回调（两栏共用同一份 state → 两侧受控同步）。
- * - 自包含：含 `buildAntdColumns(filteredInfo, sortedInfo)`（受控 filteredValue/sortOrder + ellipsis +
- *   三列均带 key）+ `<AntdTable>` JSX。
- * - 忠实复刻 antd reset-filter demo：antd 原生受控 filteredValue/sortOrder + antd Button 外部按钮重置。
+ * props 驱动 `{ filteredInfo, sortedInfo, bordered, virtual, onChange }`（与左栏 dg 子组件同款签名）：
+ * - filteredInfo / sortedInfo：受控筛选/排序真理源（父持有，控制条三按钮 + onChange 共同写回）。
+ * - bordered：表格边框开关（控制条驱动）。
+ * - virtual：全局虚拟化开关。
+ * - onChange：写回父级共享 state 的回调（两栏共用同一份 state → 两侧受控同步）。
  *
- * === ★ 受控组合（S1 + S3）===
- * 同左栏 dg 子组件：受控 filteredValue/sortOrder 由父级 filteredInfo/sortedInfo 驱动；排序/筛选全部
- * 受控，无子组件内部 state。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.antd.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'antd'` / `'./_compare/reset-filter.shared'`）。
+ * 自包含：含 `buildAntdColumns(filteredInfo, sortedInfo)`（受控 filteredValue/sortOrder + ellipsis +
+ * 三列均带 key）+ `<AntdTable>` JSX。排序/筛选全部受控，无子组件内部 state。
  */
 import { Table as AntdTable } from 'antd'
 import type { TableProps } from 'antd'
@@ -75,7 +66,7 @@ function buildAntdColumns(
       sortOrder: sortedInfo.columnKey === 'address' ? sortedInfo.order : null,
       ellipsis: true,
     },
-    // ★ locale 对照列（右栏不传 locale → 英文，与左栏中文对照）。
+    // locale 文案对照列（右栏不传 locale → 英文，与左栏中文对照）。
     // Status：filterSearch=true → antd 下拉渲染搜索框，placeholder='Search'（对照左栏「搜索」）。
     {
       title: 'Status',
@@ -122,7 +113,7 @@ function buildAntdColumns(
 // 子组件
 // ---------------------------------------------------------------------------
 
-// ★ props 默认值同左栏 dg（合理有效初值，见 dg 子文件注释）。
+// props 默认值同左栏 dg（见 dg 子文件注释）。
 export default function ResetFilterAntd({
   filteredInfo = {},
   sortedInfo = {},
@@ -146,7 +137,7 @@ export default function ResetFilterAntd({
       bordered={bordered}
       /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且表头/默认
          分页画在 scroll.y 之外，需扣除表头~55 与分页条~64 → 约 280 才能塞进 pane 限高；
-         OFF 时回 undefined，行为与改造前一致）。 */
+         OFF 时回 undefined，无 scroll）。 */
       virtual={virtual}
       scroll={virtual ? { y: 280 } : undefined}
     />

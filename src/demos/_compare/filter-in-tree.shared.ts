@@ -1,5 +1,5 @@
 /**
- * 决策 9：filter-in-tree 左右对比 demo 的共享配置。
+ * filter-in-tree 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型与数据。列定义因两侧类型不同（data-grid `ColumnType` 与
  * antd `TableProps['columns']` 的 filters/filterMode/filterSearch/onFilter 类型归属不同），
@@ -9,7 +9,7 @@
  * 数据与 antd `components/table/demo/filter-in-tree.tsx` 逐字一致。
  */
 
-/** antd filter-in-tree demo 的记录类型。两侧共用。 */
+/** 记录类型。两侧共用。 */
 export interface RecordType {
   key: React.Key
   name: string
@@ -17,7 +17,7 @@ export interface RecordType {
   address: string
 }
 
-/** antd filter-in-tree demo 的数据（4 行）。两侧共用，保证对照基准一致。 */
+/** 数据（4 行）。两侧共用，保证对照基准一致。 */
 export const data: RecordType[] = [
   { key: '1', name: 'John Brown', age: 32, address: 'New York No. 1 Lake Park' },
   { key: '2', name: 'Jim Green', age: 42, address: 'London No. 1 Lake Park' },

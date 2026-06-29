@@ -1,5 +1,5 @@
 /**
- * 决策 9：row-selection-custom-debug 左右对比 demo 的共享配置（D1 边缘任务）。
+ * row-selection-custom-debug 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型与数据。两侧 `renderCell` 逻辑逐字一致（同款合并行 +
  * checked:node 渲染），但因类型不同（data-grid `TableRowSelection` / antd
@@ -13,13 +13,13 @@
  *     `{ props: { rowSpan: index % 2 === 0 ? 2 : 0 }, children: <>{String(checked)}: {node}</> }`。
  */
 
-/** row-selection-custom-debug demo 记录类型。两侧共用。 */
+/** 记录类型。两侧共用。 */
 export interface RecordType {
   key: React.Key
   name: string
 }
 
-/** row-selection-custom-debug demo 的数据（46 行）。两侧共用。 */
+/** 数据（46 行）。两侧共用。 */
 export const dataSource: RecordType[] = Array.from({ length: 46 }).map<
   RecordType
 >((_, i) => ({

@@ -1,58 +1,16 @@
 /**
- * 复刻 antd drag-column-sorting demo：
- *   `G:\Projects\ant-design\components\table\demo\drag-column-sorting.tsx`
- *
- * === 决策 9 双栏对照 ===
- *
- * - **左栏（data-grid Table）**：行为与改造前一致——方案 B 自研 pointer 列方向拖拽
- *   （`useColumnDragSort` 命中叶子表头格 `data-leaf-index` + 垂直指示线 + arrayMoveColumns 重排 columns）。
- *   **不依赖 @dnd-kit/***（grid 渲染无"列 DOM"，transform 平移会破坏 grid 布局）。
- * - **右栏（antd Table）**：忠实复刻 antd 官方 `drag-column-sorting.tsx`——
- *   `@dnd-kit/*` + restrictToHorizontalAxis + SortableContext horizontalListSortingStrategy +
- *   closestCenter + PointerSensor（distance:1）+ `components.header.cell = TableHeaderCell` useSortable +
- *   `components.body.cell = TableBodyCell` + DragIndexContext borderInline 虚线指示 +
- *   DragOverlay 预览（拖拽表头灰底）+ onDragEnd arrayMove + onDragOver setDragIndex。
- * - **共享控制条**：`Bordered` 开关同时驱动两侧（原 antd demo 无控制条，此处加最小开关便于对照）。
- *   拖拽是局部交互，两栏各自独立维护 columns（各自列重排便于对照）。
- * - **共享数据**：`RecordType` + `data` 见 `_compare/drag-column-sorting.shared.ts`。
- *
- * === 两侧保留的差异（对照价值）===
- *
- * 1. **拖拽视觉**：左栏拖拽中显示**蓝色垂直指示线**（被拖列原位不动，指示线提示列插入位置），
- *    松手后重排；右栏拖拽中被拖列表头 `<th>` **跟随指针平移**（transform）+ body cell borderInline
- *    虚线指示 + DragOverlay 预览（拖拽表头灰底）。功能等价（列重排），视觉略异。
- * 2. **拖拽手势**：左栏通过外层容器**事件委托**命中任意叶子表头格（`data-leaf-index` 定位）；
- *    右栏 dnd-kit listeners 挂 `<th>`（components.header.cell）。
- * 3. **依赖**：左栏自研 pointer（不装 @dnd-kit）；右栏 @dnd-kit/core+sortable+modifiers+utilities
- *    （决策 9：右栏 antd 忠实复刻官方 dnd-kit 实现，不惜装依赖）。
- *
- * === 拆子文件（task：live 编辑接入，Pane 组件直接变子文件）===
- *
- * 父文件只保留「外壳职责」：bordered/autoScroll/columnReorder state + useVirtualization +
- * DemoToolbar(Switch Bordered + Switch AutoScroll + Switch ColumnReorder) + SplitDemo 外壳 +
- * children 对照说明。两侧表格 JSX + 列拖拽组件 + 列定义拆到子文件：
- *   - `./drag-column-sorting.dg`：`DragColumnSortingDg({bordered, autoScroll, columnReorder, virtual})`（左栏，自研 pointer）
- *   - `./drag-column-sorting.antd`：`DragColumnSortingAntd({bordered, virtual})`（右栏，@dnd-kit）
- *
- * ★ state 提升决策（SOP）：bordered/autoScroll/columnReorder 由父控制条直接操作 → 提升父 + prop 传子；
- *   拖拽 columns 是局部交互态 → 留各侧子组件内自管（原始决策「两栏独立」）。
- * ★ @dnd-kit/* scope：已在 src/live/scope.ts baseScope 注入 4 个 namespace。
- *   drag-column-sorting.antd 子文件 `import { DndContext, ... } from '@dnd-kit/core'` 等，scope 内命中。
- *
- * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `DragColumnSortingDemo`，零编辑开销；
- * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
- * 子组件 props 全部带默认值（bordered=false / autoScroll=true / columnReorder=true / virtual=false），
- * 编辑态超集 props {bordered,virtual,size,autoScroll} 不全也不崩（拖拽 columns state 全在子组件内自管）。
+ * drag-column-sorting 双栏对照 demo：列方向拖拽排序。两侧各自维护 columns。
+ * - 左栏 data-grid：自研 pointer 列拖拽（`useColumnDragSort` 命中叶子表头格 + 垂直指示线 + arrayMoveColumns）。
+ * - 右栏 antd：忠实复刻官方 drag-column-sorting（@dnd-kit + restrictToHorizontalAxis + useSortable +
+ *   DragIndexContext borderInline 虚线 + DragOverlay 预览）。
  */
 
 import { useState } from 'react'
 import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（列拖拽命中表头，在虚拟窗口内，正常接入）
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（列拖拽命中表头，在虚拟窗口内）。
 import { useVirtualization } from './VirtualizationContext'
-// ★ 拆子文件后，左/右栏 Pane + 列拖拽组件 + 列定义由子组件提供（props 驱动）。
-//   RecordType/data 现在由子文件各自 import drag-column-sorting.shared；父文件不再需要。
 import DragColumnSortingDg from './drag-column-sorting.dg'
 import DragColumnSortingAntd from './drag-column-sorting.antd'
 
@@ -61,21 +19,18 @@ import DragColumnSortingAntd from './drag-column-sorting.antd'
 // ===========================================================================
 
 export default function DragColumnSortingDemo() {
-  // ★ 共享状态：同一个状态同时驱动两侧表格。
+  // 共享状态：同一个状态同时驱动两侧表格。
   const [bordered, setBordered] = useState(false)
-  // T9：autoScrollOnDrag 开关（仅驱动左栏 data-grid；右栏 antd 无对应概念）。
+  // autoScrollOnDrag 开关（仅驱动左栏 data-grid；antd 无对应概念）。
   const [autoScroll, setAutoScroll] = useState(true)
-  // ★ T10：columnReorder 全局开关（仅驱动左栏 data-grid）。
-  // 默认 true（保持 S19 总是可拖行为）；关 → 所有列头不可拖（总闸，优先于单列 movable/lockPosition）。
+  // columnReorder 全局开关（仅驱动左栏 data-grid）：关 → 所有列头不可拖（总闸，优先于单列 movable/lockPosition）。
   const [columnReorder, setColumnReorder] = useState(true)
-  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y。
   const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。
-          DemoToolbar 用 useToken（light≈#fff/#f0f0f0、dark/自定义 token 自适应），替代硬编码底/边色。
-          仅容器化，列拖拽逻辑（useColumnDragSort / dnd-kit）不动。 */}
+      {/* 共享控制条：Bordered + AutoScroll + ColumnReorder 开关。DemoToolbar 用 useToken 适配主题。 */}
       <DemoToolbar>
         <Space>
           <Switch
@@ -84,14 +39,14 @@ export default function DragColumnSortingDemo() {
             checkedChildren="Bordered"
             unCheckedChildren="Bordered"
           />
-          {/* T9：autoScrollOnDrag 开关（仅驱动左栏 data-grid）。 */}
+          {/* autoScrollOnDrag 开关（仅驱动左栏 data-grid）。 */}
           <Switch
             checked={autoScroll}
             onChange={setAutoScroll}
             checkedChildren="AutoScroll"
             unCheckedChildren="AutoScroll"
           />
-          {/* T10：columnReorder 全局开关（仅驱动左栏 data-grid）。 */}
+          {/* columnReorder 全局开关（仅驱动左栏 data-grid）。 */}
           <Switch
             checked={columnReorder}
             onChange={setColumnReorder}
@@ -102,7 +57,7 @@ export default function DragColumnSortingDemo() {
       </DemoToolbar>
 
       {/*
-        minPaneWidth=480（5 列无 scroll.x，列窄但总宽不大）→ 横排阈值 ≈ 480×2 + 16 = 976。
+        minPaneWidth=480（5 列无 scroll.x，列窄但总宽不大）→ 横排阈值 ≈ 976。
         常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。
       */}
       <SplitDemo
@@ -118,30 +73,32 @@ export default function DragColumnSortingDemo() {
         right={<DragColumnSortingAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明（决策 9 B18）：</strong>左右并排呈现 data-grid（自研 pointer 列方向拖拽）
-          与 antd 官方 drag-column-sorting（dnd-kit 列拖拽），方便对照修 bug。
+          <strong>对照说明：</strong>左右并排呈现 data-grid（自研 pointer 列方向拖拽）与 antd 官方
+          drag-column-sorting（dnd-kit 列拖拽）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>拖拽视觉差异</strong>：左栏拖拽中显示<strong>蓝色垂直指示线</strong>
-              （被拖列原位不动，指示线提示列插入位置，松手后重排）；右栏拖拽中被拖列表头
-              <strong>跟随指针平移</strong>（transform）+ body cell borderInline 虚线指示 +
-              DragOverlay 预览（拖拽表头灰底），松手后重排。功能等价。
+              <strong>拖拽视觉</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：data-grid 拖拽中显示<strong>蓝色垂直指示线</strong>
+                  （被拖列原位不动，指示线提示列插入位置）；antd 被拖列表头
+                  <strong>跟随指针平移</strong>（transform）+ body cell borderInline 虚线指示 +
+                  DragOverlay 预览（灰底）。</li>
+                <li><strong>触发条件</strong>：按住列头并水平移动指针。</li>
+                <li><strong>差异原因</strong>：data-grid 用 CSS Grid，transform 平移单个单元格会破坏
+                  grid 布局，故用指示线提示插入位置；antd 各列 <code>&lt;th&gt;</code>/<code>&lt;td&gt;</code>
+                  可独立 transform。</li>
+              </ul>
             </li>
             <li>
-              <strong>拖拽手势</strong>：左栏通过外层容器<strong>事件委托</strong>命中叶子表头格
-              （<code>data-leaf-index</code> 定位，restrictToHorizontalAxis 等效——仅水平 hit-test）；
-              右栏 dnd-kit listeners 挂 <code>&lt;th&gt;</code>（components.header.cell）。
-            </li>
-            <li>
-              <strong>实现差异</strong>：左栏<strong>不依赖 @dnd-kit/*</strong>（方案 B 自研 pointer 列方向——
-              grid 渲染无"列 DOM"，transform 平移会破坏 grid 布局）；右栏忠实复刻官方
-              <code>@dnd-kit/{'{core,sortable,modifiers,utilities}'}</code> + DragOverlay。
-            </li>
-            <li>
-              <strong>Bordered 开关</strong>：同时切换两侧表格边框，对照两侧行为是否一致。
-            </li>
-            <li>
-              <strong>两栏独立</strong>：拖拽是局部交互，左右各自维护 columns（各自列重排便于对照）。
+              <strong>列标志（仅 data-grid）</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：data-grid 的 Gender 列 <code>movable:false</code>
+                  （不可发起拖但被动让位）、Email 列 <code>lockPosition:true</code>（位置固定）；antd
+                  忠实复刻官方，无此单列约束。</li>
+                <li><strong>触发条件</strong>：尝试拖动 Gender/Email 列，或拖动其它列让其让位。</li>
+                <li><strong>差异原因</strong>：data-grid 列方向拖拽支持 per-column 标志
+                  （<code>gridColumnOptions</code>），是相对官方的功能扩展。</li>
+              </ul>
             </li>
           </ul>
         </div>

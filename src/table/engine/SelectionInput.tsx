@@ -1,17 +1,15 @@
 /**
- * 行选择 UI 原子组件（M5，决策 6 统一化）：checkbox / radio。
+ * 行选择 UI 原子组件：checkbox / radio。
  *
- * **决策 6 统一化**：改用 antd 原生 `<Checkbox>` / `<Radio>` 组件（外观对齐 antd 6.4.4）。
- * 好处：
- *   - indeterminate（半选）：antd Checkbox 原生支持 prop，告别 ref hack（旧实现要用 ref 设 `el.indeterminate`）。
- *   - radio 模式直接消费 antd 6 重构后的 `.ant-radio` DOM（外圈 + 中心白点）。
- *   - disabled / hover / 颜色 token 全部由 antd 主题接管，零维护成本。
+ * 内部渲染 antd 原生 `<Checkbox>` / `<Radio>`（外观由 antd 主题接管）：
+ *   - indeterminate（半选）：antd Checkbox 原生支持 prop。
+ *   - radio 模式消费 antd `.ant-radio` DOM（外圈 + 中心白点）。
  *
- * 对外 API（SelectionInputProps）保持不变，调用方无需改动：
- *   - checked/indeterminate/disabled/name/aria-label/onChange(checked,event)/style 全部透传。
- *   - 内部把 antd onChange 的 `e.target.checked` 映射为 `onChange(checked, e)`（与旧原生 input 签名一致）。
+ * 对外 API 保持不变：checked/indeterminate/disabled/name/aria-label/onChange(checked,event)/style 全部透传；
+ * 内部把 antd onChange 的 `e.target.checked` 映射为 `onChange(checked, e)`。
  *
- * 组件无内部状态——完全受控（checked + onChange）；状态由 useRowSelection 状态机驱动。
+ * 完全受控（checked + onChange）；状态由 useRowSelection 状态机驱动。
+ * 详见 [docs/design-notes/selection.md](../../../docs/design-notes/selection.md)。
  */
 
 import type { CSSProperties, ChangeEvent } from 'react'
@@ -33,13 +31,13 @@ export interface SelectionInputProps {
 }
 
 /**
- * 选择框原子组件（决策 6 统一化）。
+ * 选择框原子组件。
  * - type='checkbox'：antd `<Checkbox>`（支持 indeterminate 半选 prop）。
- * - type='radio'：antd `<Radio>`（antd 6 重构后中心白点视觉）。
+ * - type='radio'：antd `<Radio>`（中心白点视觉）。
  *
  * antd Checkbox/Radio onChange 签名为 `(e: CheckboxChangeEvent) => void`，
  * 其中 `e.target.checked` 即勾选态、`e.nativeEvent` 指向原生 input ChangeEvent。
- * 这里桥接为旧的 `onChange(checked, event)` 签名（保持调用方 API 不破）。
+ * 这里桥接为 `onChange(checked, event)` 签名（保持调用方 API 不破）。
  */
 export function SelectionInput(props: SelectionInputProps) {
   const {

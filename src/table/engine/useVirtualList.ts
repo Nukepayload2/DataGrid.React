@@ -1,38 +1,11 @@
 /**
- * 虚拟滚动算法（Phase 3 重写：对齐 react-virtuoso）。
+ * 虚拟滚动算法 — 详见 docs/design-notes/virtualization.md（「useVirtualList 算法细节」节）。
  *
- * === 重写要点（Phase 3）===
+ * 算法对齐 react-virtuoso（useScrollTop / stateFlagsSystem / listStateSystem / smooth-scroll），
+ * 纯 React + flushSync 实现，不依赖 lun / @rc-component/virtual-list。
  *
- *   1. 动态行高：`measurements[]` O(N) 数组 → `RowSizeState`（sizeTree + offsetTree
- *      前缀和缓存），查询 offsetOf/sizeOf/totalHeight O(log n)/O(1)。
- *   2. 未测量行回退：sizeTree 空 / 未覆盖到的行 → 退回约定 `getRowHeight(i)` 撑 offset，
- *      保证固定高 demo 在 Phase 4 加 data-* 属性前也能正常滚（「约定值兜底」简化策略）。
- *   3. flushSync 发布：scroll 事件用 `flushSync(setScrollState)` 替代原 RAF 合并块——
- *      同步把 {scrollTop, viewportHeight} 推出，无一帧延迟；首测 `suppressFlushSync`
- *      直接 set（避免挂载期间 flushSync 警告/重入）。
- *      **Phase 5 修正**：smooth 滚动进行中（scrollTopTargetRef!==null）改异步 publish——
- *      flushSync × 虚拟化耦合会干扰原生 smooth 每帧目标导致最终落点漂移（详见 publish 注释）。
- *   4. isScrolling / scrollDirection：react-virtuoso stateFlagsSystem 同款——
- *      isScrolling = duc(scrollTop) skip(1) → true，debounceTime(100) → false；
- *      scrollDirection = 与 prev scrollTop 比 up/down，停止 throttleTime(50) → none。
- *   5. scrollTo：index 路径用 `offsetOf(index, rowSizes, gap)`（fallback measurements），
- *      保留 align start/center/end/nearest + contentOffset。
- *      **Phase 5**：新增 `behavior:'auto'|'smooth'`（默认 auto 瞬时）+ align nearest「已可见不跳」
- *      + smooth JS RAF 缓动（easeOutExpo × 50 帧，末帧 instant 落定——对齐 react-virtuoso smooth-scroll.ts；
- *        弃用原生 `behavior:'smooth'`：与虚拟化重渲染耦合致落点漂移）+ 到达检测 + 暴露 `scrollingInProgress`。
- *      **Phase 5 修正**：smooth 期间 publish 改异步（不 flushSync），消除重渲染对动画的干扰。
- *
- * === 与 Phase 1/2 集成 ===
- *
- *   - 状态：`rowSizes: RowSizeState`（initialRowSizeState）。
- *   - 接 useRowMeasurements：变化段回调里 `setRowSizes(prev => applySizeRanges(prev, ranges, gap))`。
- *   - gap：UseVirtualListOptions 加 `gap?: number`（默认 0）；传给 applySizeRanges/offsetOf。
- *     GridTable 暂不传（用默认 0，Phase 4 再传真实 row-gap）。
- *
- * === 兼容性 ===
- *
- *   返回值继续暴露 start/end/totalSize/paddingTop/paddingBottom/scrollTo/scrollTop/viewportSize，
- *   新增 isScrolling/scrollDirection/sizeOf；measurements 仍保留（fallback 路径 + 旧调用方）。
+ * 动态行高：RowSizeState（sizeTree + offsetTree 前缀和缓存），查询 offsetOf/sizeOf/totalHeight
+ * O(log n)/O(1)。未测量行回退约定 getRowHeight(i) 撑 offset。
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -70,11 +43,10 @@ export interface UseVirtualListOptions {
   /**
    * 行高约定取值器：`(index) => number(px)`。
    *
-   * **决策 2**：此处始终按"收起状态"行高算（不感知展开）。调用方传入的函数应只依赖
+   * 始终按"收起状态"行高算（不感知展开）。调用方传入的函数应只依赖
    * `(record, index)` 的"收起态"行高（即 `TableProps.rowHeight`）。
    *
-   * Phase 3 起还兼任「未测量行回退」——sizeTree 未覆盖到的行（含空树）用此值撑 offset，
-   * 保证固定高 demo 在 Phase 4 加 data-* 属性前也能正常滚（约定值兜底）。
+   * 兼任「未测量行回退」——sizeTree 未覆盖到的行（含空树）用此值撑 offset。
    */
   getRowHeight: (index: number) => number
   /**
@@ -84,7 +56,7 @@ export interface UseVirtualListOptions {
   containerRef: React.RefObject<HTMLElement | null>
   /**
    * 上下两侧额外渲染的行数（overscan）。默认 8。
-   * 与 tanstack/virtual / lun 一致：可视区上下各多渲染 `overscan` 行，避免快速滚动出现空白。
+   * 可视区上下各多渲染 `overscan` 行，避免快速滚动出现空白。
    */
   overscan?: number
   /** 是否启用（false 时禁用虚拟，返回全集范围）。默认 true。 */
@@ -104,7 +76,7 @@ export interface UseVirtualListOptions {
   contentOffset?: number
   /**
    * 行间距（px）。传给 applySizeRanges（offsetTree 增量重建）与 offsetOf（offset 查询）。
-   * 默认 0；Phase 4 GridTable 接入真实 row-gap 时传入。
+   * 默认 0。
    */
   gap?: number
 }
@@ -123,7 +95,7 @@ export interface UseVirtualListResult {
   paddingBottom: number
   /**
    * 行测量信息数组（长度 === itemCount）；O(N) 计算，memoize。
-   * Phase 3 起：仅在 offsetTree 空时（fallback 路径）使用；保留以兼容旧调用方。
+   * 仅在 offsetTree 空时（fallback 路径）使用；保留以兼容旧调用方。
    */
   measurements: Array<VirtualRowMeasurement>
   /** 当前 scrollTop（受控同步用）。 */
@@ -138,7 +110,7 @@ export interface UseVirtualListResult {
    * 查询第 index 行的（实测）高度（px）。
    * - sizeTree 覆盖到该行 → 返回实测值；
    * - 否则（空树 / 未测） → 返回约定 `getRowHeight(index)` 兜底。
-   * Phase 4 GridTable 用此值写 `data-known-size` 闭环。
+   * GridTable 用此值写 `data-known-size` 闭环。
    */
   sizeOf: (index: number) => number
   /**
@@ -148,13 +120,13 @@ export interface UseVirtualListResult {
    *   - `{ index }`：滚到第 index 行顶部对齐。
    *   - `{ key }`：滚到 rowKey === key 的行顶部对齐（调用方需先把 key → index 再传 index）。
    *     本 hook 只处理 index/scrollTop；key→index 解析由 Table 层完成（调用 scrollTo 时传 index）。
-   *   - `{ scrollTop }`：直接滚到指定 scrollTop（兼容任务要求；antd 同名为 `top`）。
+   *   - `{ scrollTop }`：直接滚到指定 scrollTop（antd 同名为 `top`）。
    *   - `{ offset }`：在目标行顶部对齐后额外偏移（正向下、负向上）。
    *   - `{ align }`：'start' | 'center' | 'end' | 'nearest'（默认 'start'）。
-   *     nearest：目标行已完全在可视区时**不滚动**（不跳），仅当上方不可见→按 start、
-   *     下方不可见→按 end（对齐 react-virtuoso scrollIntoViewSystem.defaultCalculateViewLocation）。
+   *     nearest：目标行已完全在可视区时不滚动（不跳），仅当上方不可见→按 start、下方不可见→按 end
+   *     （对齐 react-virtuoso scrollIntoViewSystem.defaultCalculateViewLocation）。
    *   - `{ behavior }`：'auto'（默认，瞬时）| 'smooth'（原生平滑动画）。
-   *     data-grid 专属（antd 无此字段）；Phase 5 新增。
+   *     data-grid 专属（antd 无此字段）。
    */
   scrollTo: (config: {
     index?: number
@@ -165,7 +137,7 @@ export interface UseVirtualListResult {
   }) => void
   /**
    * 是否有平滑滚动正在进行中（behavior:'smooth' 时为 true，到达目标/边界/超时后翻 false）。
-   * Phase 5 新增：供后续 deviation 抑制；等高场景暂不消费，先暴露。
+   * 供 deviation 抑制；等高场景暂不消费，先暴露。
    */
   scrollingInProgress: boolean
 }
@@ -202,7 +174,6 @@ function findNearestIndex(
 
 /**
  * 在 offsetTree 上二分 + 段内除法，定位 scrollTop 对应的起始行 index。
- * 同构移植自 react-virtuoso listStateSystem L293-329 的「offset → index」换算思路。
  *
  *   1. 二分找 offsetTree 中 offset<=target 的最大断点 (point)；
  *   2. 若 point.offset < target：段内推进
@@ -250,24 +221,19 @@ function findStartIndexByOffset(
 }
 
 /**
- * easeOutExpo 缓动（对齐 react-virtuoso utils.ts L15-17 + dom.ts DEFAULT_SMOOTH_SCROLL_BEZIER_FUNCTION）。
- *   `x === 1 → 1` 保证末帧精确到 1（避免浮点尾差），其余 `1 - 2^(-10x)`。
+ * easeOutExpo 缓动。`x === 1 → 1` 保证末帧精确到 1（避免浮点尾差），其余 `1 - 2^(-10x)`。
  */
 function easeOutExpo(x: number): number {
   return x === 1 ? 1 : 1 - 2 ** (-10 * x)
 }
 
 /**
- * smooth 动画总帧数（对齐 react-virtuoso dom.ts DEFAULT_SMOOTH_SCROLL_FRAME_COUNT = 50）。
- *   60fps 下 ≈ 833ms；与原 1000ms fallback timer 协同（fallback 仅在 RAF 异常时兜底）。
+ * smooth 动画总帧数。60fps 下 ≈ 833ms；与 1000ms fallback timer 协同（fallback 仅在 RAF 异常时兜底）。
  */
 const SMOOTH_SCROLL_FRAME_COUNT = 50
 
 /**
- * 虚拟滚动主 hook（Phase 3 重写）。
- *
- * 不依赖 lun / @rc-component/virtual-list 任何代码；纯 React + flushSync 实现，
- * 算法对齐 react-virtuoso（useScrollTop / stateFlagsSystem / listStateSystem）。
+ * 虚拟滚动主 hook — 详见 docs/design-notes/virtualization.md。
  */
 export function useVirtualList(options: UseVirtualListOptions): UseVirtualListResult {
   const {
@@ -280,10 +246,10 @@ export function useVirtualList(options: UseVirtualListOptions): UseVirtualListRe
     gap = 0,
   } = options
 
-  // === 行尺寸状态（Phase 1 产出）===
+  // === 行尺寸状态 ===
   const [rowSizes, setRowSizes] = useState<RowSizeState>(initialRowSizeState)
 
-  // === 行测量（Phase 2 产出）：变化段回填到 rowSizes ===
+  // === 行测量：变化段回填到 rowSizes ===
   const handleRanges = useCallback(
     (ranges: SizeRange[]) => {
       setRowSizes((prev) => applySizeRanges(prev, ranges, gap))
@@ -350,7 +316,7 @@ export function useVirtualList(options: UseVirtualListOptions): UseVirtualListRe
   })
   const [isScrolling, setIsScrolling] = useState<boolean>(false)
   const [scrollDirection, setScrollDirection] = useState<ScrollDirection>('none')
-  // Phase 5：平滑滚动进行中标志（behavior:'smooth' 期间 true；到达目标/触边界/1000ms 超时→false）。
+  // 平滑滚动进行中标志（behavior:'smooth' 期间 true；到达目标/触边界/1000ms 超时→false）。
   const [scrollingInProgress, setScrollingInProgress] = useState<boolean>(false)
 
   // refs 持有最新 scrollTop/viewportHeight 供 scrollTo / 范围计算读取（避免闭包陈旧）。
@@ -363,14 +329,14 @@ export function useVirtualList(options: UseVirtualListOptions): UseVirtualListRe
   const prevScrollTopForScrollingRef = useRef<number | null>(null) // duc 比较
   const scrollDirectionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prevScrollTopForDirectionRef = useRef<number | null>(null)
-  // Phase 5：smooth 到达检测状态（对齐 react-virtuoso useScrollTop L70-79, L99-176）。
+  // smooth 到达检测状态。
   // scrollTopTarget：smooth 目标值（null 表示无 smooth 在途）；到达检测在 onScroll 里比对。
   const scrollTopTargetRef = useRef<number | null>(null)
   // 1000ms fallback：原生 smooth 不保证派发到达事件，超时强制清 target。
   const smoothFallbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  // Phase 5 修正：JS RAF 驱动 smooth 动画句柄（替代原生 behavior:'smooth'，保证落点确定性）。
-  //   对齐 react-virtuoso smooth-scroll.ts：每帧 scrollTo({behavior:'instant'}) 走 easeOutExpo，
-  //   末帧把精确 target 以 instant 落定——原生 smooth 与虚拟化重渲染耦合会漂移，JS 驱动可控制每帧。
+  // JS RAF 驱动 smooth 动画句柄（替代原生 behavior:'smooth'，保证落点确定性）。
+  //   每帧 scrollTo({behavior:'instant'}) 走 easeOutExpo，末帧把精确 target 以 instant 落定
+  //   （原生 smooth 与虚拟化重渲染耦合会漂移，JS 驱动可控制每帧）。
   const smoothRafRef = useRef<ReturnType<typeof requestAnimationFrame> | null>(null)
 
   useEffect(() => {
@@ -450,22 +416,19 @@ export function useVirtualList(options: UseVirtualListOptions): UseVirtualListRe
         setScrollState({ scrollTop: st, viewportHeight: ch })
         deriveScrollFlags(st)
       }
-      // ★ smooth 进行中改异步 publish（不 flushSync）——Phase5 验证发现的 critical bug 修复。
+      // smooth 进行中改异步 publish（不 flushSync）。
       //   原因：smooth 动画期间 scroll 事件高频触发，每事件 flushSync 同步重渲染 → 行 DOM
-      //   mount/unmount → 布局抖动干扰浏览器原生 smooth 每帧目标 → 最终 scrollTop 落点漂移
-      //   （index 999 三次实测偏差 [0,-407,-657]px）。react-virtuoso useScrollTop 在 smooth
-      //   期间同样用异步（RAF）发布以避免打断原生动画。
+      //   mount/unmount → 布局抖动干扰每帧目标 → 最终 scrollTop 落点漂移。
       //   判定：scrollTopTargetRef!==null（smooth 在途）→ 走异步（suppressFlushSync 语义）。
-      //   smooth 结束（到达检测清 target）后，下次 scroll 自动回到 flushSync 路径（保留 Phase3
-      //   消除内容滞后目的）。正常手动滚动 scrollingInProgress=false 且 target=null → flushSync。
+      //   smooth 结束（到达检测清 target）后，下次 scroll 自动回到 flushSync 路径。
+      //   正常手动滚动（target=null）→ flushSync（消除内容滞后）。
       const smoothInFlight = scrollTopTargetRef.current !== null
       if (suppressFlushSync || smoothInFlight) {
         apply()
       } else {
         flushSync(apply)
       }
-      // Phase 5：smooth 到达检测（react-virtuoso useScrollTop L70-79 同款）。
-      // 当 scrollTop≈target（容差 1px）或触边界（0 / maxScroll）→ 清 target + 翻 false。
+      // smooth 到达检测：当 scrollTop≈target（容差 1px）或触边界（0 / maxScroll）→ 清 target + 翻 false。
       const target = scrollTopTargetRef.current
       if (target !== null) {
         const maxSt = Math.max(0, el.scrollHeight - ch)
@@ -575,7 +538,7 @@ export function useVirtualList(options: UseVirtualListOptions): UseVirtualListRe
     [effectiveSizeOf],
   )
 
-  // === scrollTo API（Phase 5：behavior/nearest/smooth+到达检测）===
+  // === scrollTo API（behavior/nearest/smooth + 到达检测）===
   const scrollTo = useCallback(
     (config: {
       index?: number
@@ -614,12 +577,12 @@ export function useVirtualList(options: UseVirtualListOptions): UseVirtualListRe
         // rowTop 优先用 offsetOf（实测），fallback measurements[index].offsetStart（约定）。
         const rowTop = effectiveOffsetOf(clampedIndex)
         const rowSize = effectiveSizeOf(clampedIndex)
-        // ★ targetTop 直接用"数据区坐标系"的 rowTop，不加 contentOffset。
+        // targetTop 直接用"数据区坐标系"的 rowTop，不加 contentOffset。
         //   表头是 position:sticky; top:0，不占数据区滚动空间——它脱离了数据内容流，
         //   数据区用独立的 paddingTop track 撑偏移。故目标行的容器绝对滚动偏移 = rowTop 本身。
         const vs = (viewportSizeRef.current || clientHeight) - contentOffset
-        // ★ nearest「已可见不跳」短路（对齐 react-virtuoso scrollIntoViewSystem L11-25
-        //   defaultCalculateViewLocation：itemTop>=viewportTop && itemBottom<=viewportBottom → null）。
+        // nearest「已可见不跳」短路（对齐 react-virtuoso defaultCalculateViewLocation：
+        //   itemTop>=viewportTop && itemBottom<=viewportBottom → null）。
         //   数据区坐标系：viewportTop = el.scrollTop - contentOffset；viewportBottom = viewportTop + vs。
         if (align === 'nearest') {
           const viewportTop = scrollTopRef.current - contentOffset
@@ -657,8 +620,7 @@ export function useVirtualList(options: UseVirtualListOptions): UseVirtualListRe
       const finalTop = Math.ceil(Math.max(0, Math.min(maxScrollTop, targetTop + offset)))
 
       const currentScrollTop = scrollTopRef.current
-      // ★ 短路：目标 == 当前 scrollTop（react-virtuoso useScrollTop L145 `top === scrollTop`）。
-      //   不滚动、直接同步一次状态；若是 smooth 则立即视为到达。
+      // 短路：目标 == 当前 scrollTop → 不滚动、直接同步一次状态；若是 smooth 则立即视为到达。
       if (finalTop === currentScrollTop) {
         scrollTopTargetRef.current = null
         if (smoothFallbackTimerRef.current !== null) {
@@ -669,7 +631,7 @@ export function useVirtualList(options: UseVirtualListOptions): UseVirtualListRe
         return
       }
 
-      // 应用滚动：auto→瞬时 set scrollTop；smooth→JS RAF 缓动（对齐 react-virtuoso smooth-scroll.ts）。
+      // 应用滚动：auto→瞬时 set scrollTop；smooth→JS RAF 缓动。
       if (behavior === 'smooth') {
         // 设 target + 启 1000ms fallback；onScroll 到达检测里清。
         scrollTopTargetRef.current = finalTop
@@ -692,12 +654,10 @@ export function useVirtualList(options: UseVirtualListOptions): UseVirtualListRe
         }, Math.ceil((SMOOTH_SCROLL_FRAME_COUNT / 60) * 1000) + 200)
         setScrollingInProgress(true)
 
-        // ★ Phase 5 修正：放弃原生 behavior:'smooth'，改 JS RAF 驱动 easeOutExpo 缓动。
-        //   原因（验证者实测）：原生 smooth × 虚拟化重渲染耦合 → 最终落点漂移
-        //   （index 999 偏差 [0,-407,-657]px；async-publish 仅缓解仍漂移 [0,151]px）。
+        // 放弃原生 behavior:'smooth'，改 JS RAF 驱动 easeOutExpo 缓动。
+        //   原因：原生 smooth × 虚拟化重渲染耦合 → 最终落点漂移。
         //   JS 逐帧 scrollTo({behavior:'instant'}) 把缓动完全交给我们控制，末帧以 instant
         //   落定精确 target——与虚拟化重渲染解耦，落点严格确定性。
-        //   实现同构 react-virtuoso smooth-scroll.ts L49-75。
         if (smoothRafRef.current !== null) {
           cancelAnimationFrame(smoothRafRef.current)
           smoothRafRef.current = null

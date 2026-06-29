@@ -1,5 +1,5 @@
 /**
- * 决策 9：virtual-list 左右对比 demo 的共享配置。
+ * virtual-list 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型与数据生成函数，避免 data-grid 与 antd 两侧各自定义造成漂移。
  * 列定义因两侧类型不同（data-grid `ColumnType` vs antd `TableProps['columns']`，
@@ -7,7 +7,7 @@
  * 保留在各自 demo 文件，但均引用本文件的 `RecordType`。
  */
 
-/** antd virtual-list demo 的记录类型。两侧共用。 */
+/** 记录类型。两侧共用。 */
 export interface RecordType {
   id: number
   firstName: string
@@ -19,7 +19,7 @@ export interface RecordType {
 }
 
 /**
- * 生成虚拟列表数据。对齐 antd virtual-list demo 的 getData。
+ * 生成虚拟列表数据。对齐 antd virtual-list demo getData 的字段约定。
  * - `id` 直接用 index
  * - `firstName`/`lastName` 用 `toString(16)` 十六进制串（视觉上有变化）
  * - `age` 在 25-34 循环

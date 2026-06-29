@@ -1,26 +1,18 @@
 /**
- * fixed-columns demo 的 data-grid 段（左栏），从 fixed-columns.tsx 拆出。
+ * fixed-columns demo 的 data-grid 段（左栏）。
  *
- * - props 驱动 `{ bordered, size, virtual }`（由 fixed-columns.tsx 父组件传）。
- * - 自包含：含 `dgColumns`（Full Name/Age fixed start + Age sorter:true + Column 1-20 +
- *   Action fixed end）+ `<Table>` JSX。
- * - 行为与改造前一致：保留原 bordered/size/scroll.x/virtual 配置。
- *
- * === live 编辑 ===
- * 本文件源码通过 `import.meta.glob './demos/*.dg.tsx' '?raw'` 加载并展示在 LiveEditor，
- * 由 sucrase 编译后用 `evalModule` 执行。import specifier 字面对齐 scope.ts 注入表 key
- * （`'../table'` / `'./_compare/fixed-columns.shared'`），源码可原样展示无需路径改写。
+ * props：`{ bordered, size, virtual }`（由父组件传）。Full Name/Age fixed start + Age sorter:true +
+ * Column 1-20 + Action fixed end。
  */
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { dataSource, type DataType } from './_compare/fixed-columns.shared'
 
 // ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 与 antd demo 列结构逐字一致（含 Age sorter:true）
+// 左栏（data-grid）列定义 —— 与 antd demo 列结构逐字一致（含 Age sorter:true）。
+// fixed 用 antd v6 逻辑属性 'start'/'end'（等价 'left'/'right'，RTL 自动适配）。
 // ---------------------------------------------------------------------------
 
-// 注：已对齐 antd 官方 demo——Age 列含 sorter:true（点击排序）。fixed 用 antd v6 逻辑属性
-// 'start'/'end'（等价 'left'/'right'，RTL 自动适配）。
 const dgColumns: ColumnType<DataType>[] = [
   {
     title: 'Full Name',
@@ -81,9 +73,9 @@ export default function FixedColumnsDg({
       dataSource={dataSource}
       bordered={bordered}
       size={size === 'medium' ? 'middle' : 'large'}
-      /* 全局虚拟化开关接入：ON 时在原 scroll.x 基础上叠加 virtual=true + scroll.y:true
-         （CSS 自适应，填满 SplitDemo 给的 400px 限高，虚拟窗口才有滚动区）；
-         OFF 时仅保留原 scroll.x:'max-content'，行为与改造前一致。 */
+      /* 虚拟化开关接入：ON 时在原 scroll.x 基础上叠加 virtual=true + scroll.y:true
+         （CSS 自适应填满 SplitDemo 给的 400px 限高，虚拟窗口才有滚动区）；
+         OFF 时仅保留原 scroll.x:'max-content'。详见 docs/design-notes/virtualization.md */
       virtual={virtual}
       scroll={virtual ? { x: 'max-content', y: true } : { x: 'max-content' }}
     />

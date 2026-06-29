@@ -1,5 +1,5 @@
 /**
- * 决策 9：style-class 左右对比 demo 的共享配置。
+ * style-class 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的数据 + 描述记录类型。列定义因两侧类型不同
  * （data-grid `ColumnType` vs antd `TableProps['columns']`）且 render 实现不同
@@ -8,7 +8,7 @@
  * 对照源：`G:\Projects\ant-design\components\table\demo\style-class.tsx`。
  */
 
-/** style-class demo 记录类型。两侧共用。 */
+/** 记录类型。两侧共用。 */
 export interface RecordType {
   key?: string
   name?: string

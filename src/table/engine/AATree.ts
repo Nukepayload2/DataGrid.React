@@ -1,11 +1,11 @@
 /**
  * AATree — AA 平衡树（Anderson-Andersson tree）。
  *
- * 同构移植自 react-virtuoso 的 `AATree.ts`（`G:\Projects\react-virtuoso\packages\react-virtuoso\src\AATree.ts`）。
  * 用于构建按行索引（key）→ 行高（value）的前缀和结构，支持 O(log n) 插入/删除/范围查询。
+ * 详细机制（skew/split/adjust 不变量、与 sizeTree/offsetTree 的关系）见
+ * docs/design-notes/virtualization.md。
  *
- * 不变量：AA 树通过 skew / split / adjust 维持「右水平链 + 同层右链」规则，
- * 保持树高平衡。本文件零依赖，可独立测试。
+ * 本文件零依赖，可独立测试。
  */
 
 export interface NilNode {
@@ -39,7 +39,7 @@ interface NonNilAANode<T> {
  * 将扁平数组（按 index 排序的项）转换为相邻段 Range 列表。
  * 每个 Range 一直延续到「下一个 index - 1」为止，最后一个 Range 的 end 为 Infinity。
  *
- * parser 从每个 item 取出 { index, value }。同构移植自 react-virtuoso。
+ * parser 从每个 item 取出 { index, value }。
  */
 export function arrayToRanges<T, V>(
   items: T[],
@@ -219,7 +219,6 @@ function walkWithin<T>(node: AANode<T>, start: number, end: number): NodeData<T>
  *  1) 左层比当前低 ≥ 2：单 skew 降层 或 旋转（双层级）
  *  2) 右链单层失衡：单 split 降层
  *  3) 右链双层级失衡：旋转 + split
- * 同构移植自 react-virtuoso adjust()。
  */
 export function adjust<T>(node: NonNilAANode<T>): NonNilAANode<T> {
   const { l, lvl, r } = node

@@ -1,5 +1,5 @@
 /**
- * 决策 9：ellipsis 左右对比 demo 的共享配置。
+ * ellipsis 左右对比 demo 的共享配置。
  *
  * 提取两侧都复用的类型与数据。列定义因两侧类型/render 不同（data-grid `ColumnType` 与
  * antd `TableProps['columns']` 的 ellipsis/render 重载类型不兼容），保留在各自 demo 文件，
@@ -9,7 +9,7 @@
  * 与 antd `components/table/demo/ellipsis.tsx` 逐字一致。
  */
 
-/** antd ellipsis demo 的记录类型。两侧共用。 */
+/** 记录类型。两侧共用。 */
 export interface RecordType {
   key: React.Key
   name: string
@@ -17,7 +17,7 @@ export interface RecordType {
   address: string
 }
 
-/** antd ellipsis demo 的数据（3 行，address 均为超长文本）。两侧共用。 */
+/** 数据（3 行，address 均为超长文本）。两侧共用。 */
 export const data: RecordType[] = [
   {
     key: '1',

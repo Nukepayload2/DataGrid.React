@@ -1,10 +1,8 @@
 /**
  * binaryArraySearch — 有序数组二分查找工具。
  *
- * 同构移植自 react-virtuoso 的 `utils/binaryArraySearch.ts`
- * （`G:\Projects\react-virtuoso\packages\react-virtuoso\src\utils\binaryArraySearch.ts`）。
- *
  * 用于：在 offsetTree（按 index/offset 升序排列的 OffsetPoint 数组）上做 O(log n) 查找。
+ * 详细机制（比较器约定、与 offsetTree 查询的配合）见 docs/design-notes/virtualization.md。
  */
 
 export type Comparator<T> = (item: T, value: number) => -1 | 0 | 1
