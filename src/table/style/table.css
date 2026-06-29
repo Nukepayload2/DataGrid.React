@@ -421,10 +421,21 @@
  *   - M3 合并：合并格仍跨原叶子区间，区间内隐藏列 track 为 0，合并格视觉宽度相应收缩。
  *   - M4 虚拟：列 track 与行 track 正交，不受影响。
  *   - M5 选择列：作为普通叶子列参与，同样可被 hidden。
+ *
+ * 行高暴涨修复（white-space: nowrap）：
+ *   - 隐藏 cell 宽=0（max-width:0 等），其内文本内容（如 "New York Park"）会在 0 宽容器里
+ *     逐字符竖排换行，导致 .dg-cell-inner 的 scrollHeight 暴涨（实测 11 行 242px）。
+ *   - `.dg-grid` 为 display:grid，行高（grid-auto-rows / 实测行高）按该行内最高 cell 撑高 →
+ *     隐藏 cell 撑高会把同行可见 cell 被动拉到 242px，整表高度暴涨（隐藏列后表格行高暴涨 bug 根因）。
+ *   - `white-space: nowrap`：让隐藏内容单行布局，溢出部分被 overflow:hidden 裁掉；
+ *     隐藏 cell 本就 visibility:hidden 不参与视觉，故无副作用。
+ *   - 关联：hidden-columns demo 报告，任务 #88。
  */
 .dg-cell.dg-cell-hidden {
   visibility: hidden;
   overflow: hidden;
+  /* 防隐藏内容竖排换行撑高 scrollHeight（见上方块注释「行高暴涨修复」）。 */
+  white-space: nowrap;
   min-width: 0;
   max-width: 0;
   padding: 0 !important;
