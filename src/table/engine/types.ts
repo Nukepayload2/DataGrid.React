@@ -704,7 +704,8 @@ export interface EngineTableProps<RecordType = any> {
    * ★ §9 / C1 列宽策略 tableLayout（对齐 antd `TableProps.tableLayout` + rc-table mergedTableLayout）。
    *
    * **语义**：
-   *   - `'auto'`：grid 列 track 走 `max-content`（无 width 列）/ `minmax(width, max-content)`（绝对 width 列）；
+   *   - `'auto'`：grid 列 track 走 `min-content`（无 width 列，任务 #84：min=min-content 内容可换行被容器约束，
+   *     不再单行撑开溢出）/ `minmax(width, max-content)`（绝对 width 列，max-content 上限仍可内容增长撑宽溢出）；
    *     `.dg-grid` 加 `width:100%`（对齐 antd `<table>` CSS）+ `.dg-wrapper{overflow-x:auto}`：
    *     内容>容器时 grid 撑宽 → `.dg-wrapper` 出横向滚动条（修 basic Action 截断）；内容<容器时撑满不留白。
    *   - `'fixed'`：约束模式——

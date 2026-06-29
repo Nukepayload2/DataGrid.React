@@ -227,12 +227,13 @@ export function flattenHeaderCells<RecordType>(
       filterKey: leaf && node.raw ? resolveFilterKey(node.raw as any) : undefined,
       // S3/S5/S12：筛选信息透传（仅叶子表头格有值；分组表头格无筛选）。
       //   filterable 与 useFilter.isFilterable 对齐（放宽为 antd `useFilter/index.tsx:38`）：
-      //   filters 非空 || filterDropdown 存在 || onFilter 是函数——任一即 filterable（渲染漏斗）。
+      //   filters 已定义（含空数组）|| filterDropdown 存在 || onFilter 是函数——任一即 filterable
+      //   （渲染漏斗）。空数组 `filters: []` 也画漏斗，点开空面板走 renderEmpty。
       //   S5 列无 filters，靠 filterDropdown 渲染放大镜 trigger；S12 服务端筛选列有 filters 但无 onFilter。
       filterable: leaf
         ? !!(
             (node.filterDropdown !== undefined && node.filterDropdown !== null) ||
-            (node.filters && node.filters.length > 0) ||
+            node.filters ||
             typeof node.onFilter === 'function'
           )
         : false,

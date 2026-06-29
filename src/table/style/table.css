@@ -22,17 +22,21 @@
   color: var(--ant-color-text);
   background: var(--dg-body-bg);
   border-radius: var(--dg-radius) var(--dg-radius) 0 0;
-  /* C1 列宽策略（§11 第 0 步）：`overflow-x:auto`（原 `hidden`）——配合 `.dg-grid{width:100%}`
-   * + auto 模式 `max-content` track，当内容总宽 > 容器（basic demo 的 Action 列场景）时，
-   *   `.dg-wrapper` 自身提供横向滚动条（与 antd `<table width:100%>` 在内容溢出时产生滚动的
-   *   等效行为；antd 因外层均不 overflow 会滚动到页面，data-grid 选择容器内滚动更整洁）。
-   *   内容不溢出时不显示滚动条（与 hidden 视觉等价），圆角裁剪仍生效（overflow-x:auto 仍裁剪）。
-   *   `overflow-y:hidden` 维持原行为（不产生容器内纵向滚动——纵向滚动由 scroll.y 数据区域模式
+  /* C1 列宽策略（§11 第 0 步）：`overflow-x:hidden`——配合 `.dg-grid{width:100%}` + auto 模式 track。
+   * ★ 任务 #86 横向滚动路由统一：原生横滚动条**永不出现**——横向滚动统一交给 GridTable 内部
+   *   的 FloatingScrollBar（非 sticky 模式 horizontal 始终 true，见 GridTable renderScrollContainer
+   *   路由）。因此 `.dg-wrapper` 自身 overflow-x:hidden（不出条），仅保留圆角裁剪语义。
+   *   - 非 sticky 模式：GridTable 内部 `.dg-scroll` overflow-x:auto 作滚动源 + FloatingScrollBar
+   *     悬浮条（不溢出时 thumb 隐藏=无条；溢出时悬浮条）。`.dg-wrapper` 永不出原生条。
+   *   - sticky 模式：`.dg-wrapper.dg-sticky` overflow:visible（见下），走页面滚动，本规则不适用。
+   *   auto 无 width 列 track min 为 `min-content`（任务 #84，内容可换行被容器约束）；
+   *   有 width 列 `minmax(width,max-content)` 可内容增长撑宽——撑宽时由内部悬浮条承接，不外溢到 wrapper。
+   * `overflow-y:hidden` 维持原行为（不产生容器内纵向滚动——纵向滚动由 scroll.y 数据区域模式
    *   的 .dg-scroll 处理，或 sticky 模式页面滚动，.dg-wrapper 自身不纵向滚）。
    * ★ S34 sticky / data-area / bordered 圆角：dg-sticky 修饰类覆盖为 overflow:visible（见下），
    *   dg-data-area 不覆盖 overflow（其内部 .dg-scroll 处理滚动，.dg-wrapper 自身不溢出），
-   *   圆角裁剪对 overflow-x:auto 仍生效。 */
-  overflow-x: auto;
+   *   圆角裁剪对 overflow-x:hidden 仍生效。 */
+  overflow-x: hidden;
   overflow-y: hidden;
   width: 100%;
 }

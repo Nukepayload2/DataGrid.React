@@ -47,8 +47,9 @@ const dgColumnsBase: ColumnType<RecordType>[] = [
 ]
 
 // ★ fixed 默认值用 true（配置型 state，父控制条 Switch 切换；初值 true 对齐 antd demo
-//   「首列默认固定」语义）。编辑模式 SplitDemoPreview 的 propsFor 超集 {bordered,virtual,size,autoScroll}
-//   不含 fixed，此时子组件用此默认值 → 首列 fixed（合理有效初值，对齐 antd demo）。
+//   「首列 Name 默认固定」语义——仅 Name 列 fixed，Age/Address 非 fixed）。编辑模式
+//   SplitDemoPreview 的 propsFor 超集 {bordered,virtual,size,autoScroll} 不含 fixed，
+//   此时子组件用此默认值 → 仅首列 Name fixed（合理有效初值，对齐 antd demo）。
 export default function TreeTableEllipsisDg({
   fixed = true,
   virtual = false,
@@ -56,10 +57,14 @@ export default function TreeTableEllipsisDg({
   fixed: boolean
   virtual: boolean
 }) {
-  const dgColumns: ColumnType<RecordType>[] = dgColumnsBase.map((col) => ({
-    ...col,
-    fixed,
-  }))
+  // ★ 仅首列 Name 固定（对齐 antd 官方 tree-table-ellipsis demo 只 fixed Name 列）。
+  //   Age/Address 不 fixed —— Address 无 width 时走 minmax(0,1fr) 填充剩余空间被容器拘束，
+  //   避免全列 fixed 后 Address 变 max-content 撑爆容器溢出（本 demo 无 scroll.x，溢出会
+  //   退化成原生横滚条，违反「scroll.x 关闭即内容被拘束 + 超长文本省略号」约定）。
+  //   Name width:'30%' + ellipsis:true → 省略号生效（fixed 仅决定列层横向 sticky）。
+  const dgColumns: ColumnType<RecordType>[] = dgColumnsBase.map((col) =>
+    col.dataIndex === 'name' ? { ...col, fixed } : col,
+  )
 
   return (
     <Table<RecordType>

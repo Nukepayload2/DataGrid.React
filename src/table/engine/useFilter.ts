@@ -140,8 +140,9 @@ export function isFilterable<RecordType>(
   if (!column) return false
   // S5：自定义面板优先——有 filterDropdown 即可筛选（即使无 filters/onFilter）。
   if (column.filterDropdown !== undefined && column.filterDropdown !== null) return true
-  // S3/S12：filters 非空即 filterable（onFilter 非必需——服务端筛选时前端不过滤）。
-  if (!!column.filters && column.filters.length > 0) return true
+  // S3/S12：filters 已定义即 filterable（含空数组，对齐 antd truthy 判定：`filters: []`
+  //   也渲染漏斗，点开空面板走 renderEmpty）。onFilter 非必需——服务端筛选时前端不过滤。
+  if (column.filters) return true
   // 仅 onFilter（filters 空、filterDropdown 空）也视为可筛选（兜底）。
   return typeof column.onFilter === 'function'
 }

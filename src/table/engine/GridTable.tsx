@@ -1224,12 +1224,14 @@ function GridTableInner<RecordType = any>(
       //     语义一致。minmax 包装百分比在 grid 里 min/max 同为百分比无意义，故保留原样。
       //   - **无 width 列**：fixed → `minmax(0, 1fr)`（min:0 收缩触发 ellipsis，修 S20 gap；
       //     max=1fr 均分 width 列锁定后的剩余空间——对齐 antd `table-layout:fixed` 下无 width 列分剩余语义）；
-      //     auto → `minmax(max-content, 1fr)`（min=max-content 内容宽保底，max=1fr 拉伸填满剩余空间）。
+      //     auto → `minmax(min-content, 1fr)`（min=min-content 内容可换行收缩保底，max=1fr 拉伸填满剩余空间）。
       //     ★ 任务 F（tree-data 列宽对齐）：原 auto 无 width 列为 `max-content`，但 CSS grid 中
       //     `max-content` track 不会拉伸填满容器——antd `table-layout:auto`+`<table width:100%>` 行为
       //     下无 width 列被拉伸吃掉剩余空间（实测 tree-data Name: antd 381 拉伸填满 vs data-grid 142.7 内容宽不填满）。
-      //     改为 `minmax(max-content, 1fr)`：min 保底内容宽（对齐 antd auto 语义），max=1fr 在容器有剩余时
-      //     拉伸填满（对齐 antd `<table width:100%>` 拉伸无 width 列填满语义）。
+      //     初版改为 `minmax(max-content, 1fr)`：min 保底内容宽，max=1fr 在容器有剩余时拉伸填满（对齐 antd
+      //     `<table width:100%>` 拉伸无 width 列填满语义）。★ 任务 #84：max-content min 是单行内容宽硬下限，
+      //     窄视口下内容永不换行、撑开溢出原生横滚条——把 min 收紧为 min-content（下限=最长不可拆词），
+      //     让内容可换行被容器约束、grid 不溢出（max=1fr 仍负责容器有剩余时拉伸填满）。
       //   - 配合 `.dg-grid{width:100%}`（见 gridStyle）约束表格总宽=容器宽：width 列绝对 track 之和
       //     >容器 时出横滚；<容器 时剩余由无 width 列的 1fr 撑满（修 basic Action 截断 + narrow 均分）。
       const w = toTrack(col.width)
@@ -1250,10 +1252,12 @@ function GridTableInner<RecordType = any>(
         return tableLayout === 'fixed' ? `${w}` : `minmax(${w}, max-content)`
       }
       // 无 width：fixed → minmax(0,1fr) 收缩（ellipsis 视觉，分剩余）；
-      // auto → minmax(max-content,1fr) 拉伸填满容器（对齐 antd auto+width:100% 拉伸，任务 F）。
+      // auto → minmax(min-content,1fr)：min=min-content（内容可换行收缩，下限=最长不可拆词，被容器约束），
+      //   max=1fr（拉伸填满剩余）。对齐 antd table-layout:auto + <table width:100%> 语义——窄视口内容换行、
+      //   grid 不溢出容器，消除 max-content 单行撑开导致的原生横滚条（任务 #84）。
       // ★ 任务 Q：无 width 的 fixed 列（如 fixed-gapped-columns 的 Column1 fixed:start 无 width）仍走此
       //   分支（保持原 minmax 行为）——antd 该列实际也按内容/auto 布局，无声明 width 不可严格。
-      return tableLayout === 'fixed' ? 'minmax(0, 1fr)' : 'minmax(max-content, 1fr)'
+      return tableLayout === 'fixed' ? 'minmax(0, 1fr)' : 'minmax(min-content, 1fr)'
     })
 
     // S22：summary 区 tracks（grid-template-rows 末尾追加，每行一条 'auto' track）。
@@ -1333,11 +1337,12 @@ function GridTableInner<RecordType = any>(
     // ★ C1 列宽策略（§11 第 0 步）：`.dg-grid` 恒定 `width:100%`（对齐 antd `<table>` CSS
     //   `.ant-table table{width:100%}`，见 `ant-design/components/table/style/index.ts:280-286`）。
     //   这是修 basic Action 截断 + 该出的横滚条出现的核心——
-    //   - auto 模式：列取 `minmax(max-content,1fr)`（无 width）/ `minmax(width,max-content)`（有 width），
-    //     width:100% 让 grid 总宽=容器宽（撑满）：无 width 列的 1fr 拉伸填满剩余空间（对齐 antd auto+
-    //     width:100% 拉伸无 width 列填满语义，任务 F）；有 width 列 max-content 增长，内容>容器时
-    //     grid 因 max-content 撑宽溢出 → 外层 .dg-scroll/.dg-wrapper overflow 出滚动条（即 antd `<table>`
-    //     在 auto 下内容溢出容器的等效行为）。
+    //   - auto 模式：无 width 列取 `minmax(min-content,1fr)`（任务 #84：min=min-content 内容可换行被容器约束，
+    //     max=1fr 容器有剩余时拉伸填满，消除窄视口原生横滚条）/ 有 width 列取 `minmax(width,max-content)`
+    //     （max-content 上限仍允许内容增长撑宽溢出）；width:100% 让 grid 总宽=容器宽（撑满）：无 width 列的
+    //     1fr 拉伸填满剩余空间（对齐 antd auto+ width:100% 拉伸无 width 列填满语义，任务 F）；有 width 列
+    //     max-content 增长，内容>容器时 grid 因 max-content 撑宽溢出 → 外层 .dg-scroll/.dg-wrapper overflow
+    //     出滚动条（即 antd `<table>` 在 auto 下内容溢出容器的等效行为）。
     //   - fixed 模式：绝对 width 列锁定为绝对 track（不参与 fr 分配），无 width 列 `minmax(0,1fr)`
     //     分剩余空间；width:100% 让无 width 列的 1fr 撑满 width 列锁定后的剩余，
     //     width 列绝对宽之和>容器 时溢出滚动（修 S27 narrow 均分 + S20 ellipsis）。
@@ -1350,12 +1355,11 @@ function GridTableInner<RecordType = any>(
   }
 
   // === M2 滚动容器 ===
-  // `scroll.x` 存在时，grid 包一层 .dg-scroll（overflow-x:auto），grid 自身 min-width=x。
-  // 未传 scroll 时不包（M0/M1 零回归）。
-  // M4 虚拟：也包一层 .dg-scroll（高度=scroll.y，overflow:auto 双向）。
+  // `scroll.x` 存在时，grid 自身 min-width=x（撑宽内部 .dg-scroll 触发横向滚动）。
+  // 外层滚动包装统一由下方 renderScrollContainer 路由处理（非 sticky 一律 FloatingScrollBar）。
+  // M4 虚拟：FloatingScrollBar 内部 .dg-scroll overflow-y:auto 双向（虚拟路径）。
   const scrollX = scroll?.x
   const scrollMinWidth = scrollX !== undefined ? (typeof scrollX === 'number' ? `${scrollX}px` : scrollX) : undefined
-  const useScrollWrapper = scrollX !== undefined
   const gridFinalStyle: CSSProperties = scrollMinWidth
     ? { ...gridStyle, minWidth: scrollMinWidth }
     : gridStyle
@@ -1380,7 +1384,7 @@ function GridTableInner<RecordType = any>(
     .filter(Boolean)
     .join(' ')
 
-  // 渲染表格 grid 内容（multi 与 flat 两路径）；外层滚动包装在 useScrollWrapper 时启用。
+  // 渲染表格 grid 内容（multi 与 flat 两路径）；外层滚动包装由 renderScrollContainer 路由决定。
   const renderGrid = () => {
     if (mode === 'multi') {
       // 1-based 数据行起始线号。
@@ -1697,84 +1701,71 @@ function GridTableInner<RecordType = any>(
     )
   }
 
-  // === 决策 7 + 决策 8：scroll.y === true 数据区域模式 + scroll.x 横向悬浮滚动条 ===
+  // === 决策 7 + 决策 8：滚动容器路由（横向滚动统一 FloatingScrollBar） ===
   //
-  // **数据区域模式**（scroll.y === true，virtual 或 M8）：
+  // **横向滚动统一悬浮条**（用户规约：绝不出占布局的原生横滚动条）：
+  //   - 非 sticky 模式一律走 FloatingScrollBar（horizontal=true）。
+  //   - 滚动容器 `.dg-scroll` 始终 overflow-x:auto 作为"滚动源"，原生横滚动条由
+  //     `.dg-scroll-floating` 修饰类（FloatingScrollBar 自动添加）隐藏 width/height:0。
+  //   - 横向不溢出时，HorizontalFloatingScrollBar 的 thumb 自动 display:none → 无任何条；
+  //     溢出时显示悬浮条（细线 2px + hit 上下各 8px + hover 变粗 8px + 拖动/同步 translateX）。
+  //   - 因此原生横滚动条**永不出现**：basic / fixed-columns / scroll.x / scroll.y / virtual 全部覆盖。
+  //
+  // **纵向滚动**（scroll.y === true，数据区域模式）：
   //   - 高度 CSS 自动适应：`.dg-scroll-wrap`（FloatingScrollBar 包装）`flex:1; min-height:0`，
   //     `.dg-scroll`（滚动容器）`flex:1; min-height:0; overflow-y:auto`。
   //     外层 `.dg-wrapper.dg-data-area`（Table.tsx 注入）`display:flex; flex-direction:column; height:100%`，
   //     让 wrap 填满父容器剩余空间——**不用 JS 算数字**。
   //   - 表头 sticky top（HeaderCell 的 headerStickyTop 标志驱动）钉顶，表体限高滚动。
-  //   - #35 纵向悬浮滚动条（FloatingScrollBar 组件）。
+  //   - #35 纵向悬浮滚动条（FloatingScrollBar 组件 vertical）。
   //
-  // **横向悬浮滚动条**（scroll.x 启用，决策 8）：
-  //   - 隐藏原生横向滚动条（`.dg-scroll-floating` 修饰类已覆盖 width/height:0）。
-  //   - HorizontalFloatingScrollBar 定位数据区域底部（summary 上方）：细线 2px + hit 上下各 8px
-  //     + hover 变粗 8px + 拖动/同步（translateX）。
+  // **sticky 例外**：stickyEnabled → 页面级滚动（.dg-wrapper.dg-sticky overflow:visible），
+  //   直接 renderGrid()，不走 FloatingScrollBar。当前无 demo 传 sticky prop，此分支零回归。
   //
-  // **统一分支**：scroll.y===true 与 scroll.x 二者任一启用 → 都需要 FloatingScrollBar 包装。
-  //   - 仅 scroll.x（无 scroll.y）：容器只 overflow-x:auto（无纵向悬浮条），仅横向悬浮条。
-  //   - 仅 scroll.y（无 scroll.x）：容器 overflow-y:auto（纵向悬浮条），无横向悬浮条。
-  //   - 两者：容器 overflow:auto 双向，纵向 + 横向悬浮条并存。
-  //
-  // ★ M4 虚拟滚动分支：scrollContainerRef 必须传入（virtualScrollRef）。
+  // ★ M4 虚拟滚动：scrollContainerRef 必须传入（virtualScrollRef）。
 
-  // 横向滚动是否启用（scroll.x 或 hasFixed）。注意：scroll.x 触发横向悬浮条；hasFixed 不一定触发
-  // 横向悬浮条（fixed 列在没有 scroll.x 时容器是 overflow-x:auto 兜底，原生条仍可见——为了简化，
-  // 仅 scroll.x 启用时启用横向悬浮条；纯 hasFixed 无 scroll.x 走老路径，零回归）。
+  // 横向滚动是否启用（scroll.x）。用于决定是否附加 `dg-x-scroll` 修饰类（仅 scroll.x 无 scroll.y 时）。
+  // 注意：无论 scrollXEnabled 是否为 true，非 sticky 模式下横向悬浮条始终启用——不溢出时 thumb 隐藏。
   const scrollXEnabled = scrollX !== undefined
 
-  // 仅当 scroll.y===true 或 scroll.x 启用时进入"悬浮条"分支（其他路径零回归）。
-  if (scrollYEnabled || scrollXEnabled) {
-    // wrapStyle：数据区域模式下 wrap 填满（flex:1; min-height:0）；横向滚动模式下 wrap 默认布局。
-    const wrapBaseStyle: CSSProperties = scrollYEnabled
-      ? { flex: '1', minHeight: '0', display: 'flex', flexDirection: 'column' }
-      : {}
-    // 滚动容器 style：纵向滚动 + 横向滚动开关。
-    const containerStyle: CSSProperties = {
-      // 数据区域模式：滚动容器 flex 填满 wrap；横向滚动模式：自适应内容高。
-      ...(scrollYEnabled ? { flex: '1', minHeight: '0' } : null),
-      overflowY: scrollYEnabled ? 'auto' : 'hidden',
-      overflowX: scrollXEnabled ? 'auto' : 'hidden',
-    }
-    const containerClasses = [
-      'dg-scroll',
-      virtualEnabled ? 'dg-virtual-scroll' : null,
-      scrollYNonVirtual ? 'dg-fixed-header-scroll' : null,
-      scrollXEnabled && !scrollYEnabled ? 'dg-x-scroll' : null,
-    ]
-      .filter(Boolean)
-      .join(' ')
-    return (
-      <FloatingScrollBar
-        wrapClassName={mergeSectionClass('dg-scroll-wrap')}
-        wrapStyle={mergeSectionStyle(wrapBaseStyle)}
-        scrollContainerClassName={containerClasses}
-        scrollContainerStyle={containerStyle}
-        scrollContainerRef={virtualEnabled ? virtualScrollRef : undefined}
-        // 决策 8：横向悬浮滚动条（scroll.x 启用）。
-        horizontal={scrollXEnabled}
-      >
-        {renderGrid()}
-      </FloatingScrollBar>
-    )
-  }
-
-  // 没有固定列且未要求滚动 → 直接渲染（与 M0/M1 完全等价，无多余包装）。
-  if (!useScrollWrapper && !hasFixed) {
+  // sticky 模式：页面级滚动，.dg-wrapper.dg-sticky overflow:visible，不走滚动容器。
+  if (stickyEnabled) {
     return renderGrid()
   }
 
-  // 否则包一层滚动容器（hasFixed 但无 scroll.x：sticky 需要一个可滚动祖先；给 overflow-x:auto 兜底，
-  // 与 antd "未指定 scroll.x 时 fixed 列不生效"行为略有差异（antd 在无 scroll.x 时 fixed 列
-  // 会被渲染为普通列）。这里选择更宽容的行为：有 fixed 列即允许横向滚动。）
+  // 非 sticky 模式：横向滚动统一 FloatingScrollBar（horizontal 始终 true；纵向按 scrollYEnabled）。
+  // wrapStyle：数据区域模式下 wrap 填满（flex:1; min-height:0）；否则默认布局。
+  const wrapBaseStyle: CSSProperties = scrollYEnabled
+    ? { flex: '1', minHeight: '0', display: 'flex', flexDirection: 'column' }
+    : {}
+  // 滚动容器 style：overflowX 始终 auto（作为横向滚动源，原生条由 .dg-scroll-floating 隐藏）；
+  // overflowY 按 scrollYEnabled 开关（数据区域模式纵向滚动）。
+  const containerStyle: CSSProperties = {
+    // 数据区域模式：滚动容器 flex 填满 wrap；横向滚动模式：自适应内容高。
+    ...(scrollYEnabled ? { flex: '1', minHeight: '0' } : null),
+    overflowY: scrollYEnabled ? 'auto' : 'hidden',
+    overflowX: 'auto',
+  }
+  const containerClasses = [
+    'dg-scroll',
+    virtualEnabled ? 'dg-virtual-scroll' : null,
+    scrollYNonVirtual ? 'dg-fixed-header-scroll' : null,
+    scrollXEnabled && !scrollYEnabled ? 'dg-x-scroll' : null,
+  ]
+    .filter(Boolean)
+    .join(' ')
   return (
-    <div
-      className={mergeSectionClass('dg-scroll')}
-      style={mergeSectionStyle(useScrollWrapper ? undefined : { overflowX: 'auto' })}
+    <FloatingScrollBar
+      wrapClassName={mergeSectionClass('dg-scroll-wrap')}
+      wrapStyle={mergeSectionStyle(wrapBaseStyle)}
+      scrollContainerClassName={containerClasses}
+      scrollContainerStyle={containerStyle}
+      scrollContainerRef={virtualEnabled ? virtualScrollRef : undefined}
+      // 决策 8：非 sticky 模式横向悬浮滚动条始终启用；不溢出时 thumb 自动隐藏（无视觉副作用）。
+      horizontal={true}
     >
       {renderGrid()}
-    </div>
+    </FloatingScrollBar>
   )
 }
 
@@ -2583,14 +2574,15 @@ function HeaderCell<RecordType>({
   const isSorted = sortable && sortOrder !== null
   // S3/S5/S12：该表头格是否可筛选（仅叶子表头格；分组格无筛选）。
   // filterable 标志由列树派生（useFilter.isFilterable）；但防御性兜底：即便 cell.filterable 未置位，
-  // 只要 cell.filterDropdown 存在（S5）/ filters 非空（S3/S12）/ onFilter 存在也视为可筛选
-  // （对齐 antd `useFilter/index.tsx:38`：filters || filterDropdown || onFilter 任一即 filterable）。
+  // 只要 cell.filterDropdown 存在（S5）/ filters 已定义（S3/S12，含空数组）/ onFilter 存在也视为可筛选
+  // （对齐 antd `useFilter/index.tsx:38`：filters || filterDropdown || onFilter 任一即 filterable；
+  //   `filters: []` 是 truthy → 画漏斗 + 空面板走 renderEmpty）。
   const filterable =
     cell.isLeaf &&
     !cell.hidden &&
     (cell.filterable === true ||
       (cell.filterDropdown !== undefined && cell.filterDropdown !== null) ||
-      (!!cell.filters && cell.filters.length > 0))
+      !!cell.filters)
   // 表头格内部是否需要"右侧操作区"（sorter caret / filter 漏斗）。
   // sortable 或 filterable 任一为 true → 用 dg-column-sorters flex 容器（title + 右侧图标）。
   const hasActions = sortable || filterable
@@ -2976,12 +2968,13 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
     (column.sorter === true || typeof column.sorter === 'function' || (typeof column.sorter === 'object' && column.sorter !== null))
   const sortOrder = sortable ? (column.sortOrder ?? null) : null
   const isSorted = sortable && sortOrder !== null
-  // S3/S5/S12：该列是否可筛选（filters 非空 || filterDropdown 存在 || onFilter 是函数）。
-  // 对齐 antd `useFilter/index.tsx:38`：onFilter 非必需——服务端筛选列有 filters 但无 onFilter 也渲染漏斗。
+  // S3/S5/S12：该列是否可筛选（filters 已定义（含空数组）|| filterDropdown 存在 || onFilter 是函数）。
+  // 对齐 antd `useFilter/index.tsx:38`：onFilter 非必需——服务端筛选列有 filters 但无 onFilter 也渲染漏斗；
+  // `filters: []` 是 truthy → 画漏斗 + 空面板走 renderEmpty。
   const filterable =
     !column.hidden &&
     ((column.filterDropdown !== undefined && column.filterDropdown !== null) ||
-      (!!column.filters && column.filters.length > 0) ||
+      !!column.filters ||
       typeof column.onFilter === 'function')
   // 表头格内部是否需要"右侧操作区"（sorter / filter）。
   const hasActions = sortable || filterable

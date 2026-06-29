@@ -45,8 +45,9 @@ const antdColumnsBase: TableColumnsType<RecordType> = [
 ]
 
 // ★ fixed 默认值用 true（配置型 state，父控制条 Switch 切换；初值 true 对齐 antd demo
-//   「首列默认固定」语义）。编辑模式 SplitDemoPreview 的 propsFor 超集 {bordered,virtual,size,autoScroll}
-//   不含 fixed，此时子组件用此默认值 → 首列 fixed（合理有效初值，对齐 antd demo）。
+//   「首列 Name 默认固定」语义——仅 Name 列 fixed，Age/Address 非 fixed）。编辑模式
+//   SplitDemoPreview 的 propsFor 超集 {bordered,virtual,size,autoScroll} 不含 fixed，
+//   此时子组件用此默认值 → 仅首列 Name fixed（合理有效初值，对齐 antd demo）。
 export default function TreeTableEllipsisAntd({
   fixed = true,
   virtual = false,
@@ -54,8 +55,10 @@ export default function TreeTableEllipsisAntd({
   fixed: boolean
   virtual: boolean
 }) {
-  const antdColumns: TableColumnsType<RecordType> = antdColumnsBase.map(
-    (col) => ({ ...col, fixed }),
+  // ★ 仅首列 Name 固定（对齐 antd 官方 tree-table-ellipsis demo 只 fixed Name 列）。
+  //   Age/Address 不 fixed（详见左栏 dg 段同款注释）。
+  const antdColumns: TableColumnsType<RecordType> = antdColumnsBase.map((col) =>
+    col.dataIndex === 'name' ? { ...col, fixed } : col,
   )
 
   return (

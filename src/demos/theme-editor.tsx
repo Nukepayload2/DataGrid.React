@@ -427,6 +427,7 @@ export function ThemeEditorPanel() {
                         step={1}
                         value={value}
                         onChange={(v) => setGlobalToken(key, v)}
+                        style={{ width: 160 }}
                       />
                       {edited ? (
                         <Button

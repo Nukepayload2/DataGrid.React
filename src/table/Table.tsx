@@ -772,9 +772,10 @@ function applySortOrderToNode<RecordType>(
  *   `EngineColumnNode` 无 `filterable` 字段（仅 `EngineHeaderCell` 在 columnTree.ts:206 计算），
  *   故此处用内联条件复刻 isFilterable，避免引入跨类型字段或破坏列树结构。
  *
- * - S3（filters + onFilter 列）：true（filters 非空）。
+ * - S3（filters + onFilter 列）：true（filters 已定义）。
  * - S5（filterDropdown 列，无 filters）：true（filterDropdown 存在）。
- * - S12（纯 filters 无 onFilter 列，如 ajax Gender）：true（filters 非空）——本修复核心。
+ * - S12（纯 filters 无 onFilter 列，如 ajax Gender）：true（filters 已定义）——本修复核心。
+ * - 空数组（`filters: []`）：true（对齐 antd truthy 判定——画漏斗 + 空面板走 renderEmpty）。
  * - 仅 onFilter（filters 空、filterDropdown 空）：true（兜底）。
  * - 三者皆无：false。
  */
@@ -782,7 +783,8 @@ function isNodeFilterable<RecordType>(
   node: EngineColumnNode<RecordType>,
 ): boolean {
   if (node.filterDropdown !== undefined && node.filterDropdown !== null) return true
-  if (!!node.filters && node.filters.length > 0) return true
+  // filters 已定义即 true（含空数组，对齐 antd truthy 判定：`filters: []` 也渲染漏斗 + 空面板走 renderEmpty）。
+  if (node.filters) return true
   return typeof node.onFilter === 'function'
 }
 
@@ -2313,20 +2315,18 @@ function TableInner<RecordType = any>(
         </div>
       ) : null}
       {/*
-        ★ 任务 E：内容区滚动模式（contentScrolledEnabled）下把 `<GridTable>` 包一层 `.dg-scroll`
-        （overflow-x:auto），让横向滚动条落在表格内容区内（圆角框内、pagination 之上），
-        而非 `.dg-wrapper` 底沿出框。该 `.dg-scroll` 只含 `<GridTable>`，不含 pagination/footer
-        （它们在 `.dg-scroll` 之外，仍是 `.dg-wrapper` 直接子节点）。
+        ★ 任务 E：内容区滚动模式（contentScrolledEnabled）下把 `<GridTable>` 包一层 `.dg-scroll`。
+        该 `.dg-scroll` 只含 `<GridTable>`，不含 pagination/footer（它们在 `.dg-scroll` 之外，
+        仍是 `.dg-wrapper` 直接子节点）——即此层仅作"内容区边界"。
+
+        横向滚动现已统一交给 GridTable 内部的 FloatingScrollBar（见 GridTable renderScrollContainer
+        路由：非 sticky 模式 horizontal 始终 true，原生横滚动条永不出现）。因此外层 `.dg-scroll`
+        overflow-x:hidden——不再自身出条，仅承载圆角裁剪与内容区边界语义。
 
         不启用时（basic/head 等无 pagination/footer 的 demo）直接渲染 `<GridTable>`，零 DOM 变化。
-
-        包裹层复用 GridTable 内部同款 `.dg-scroll` 类（overflow-x:auto; width:100%），
-        不新造并行滚动路径——若 GridTable 内部因 scroll.x/hasFixed 自包 `.dg-scroll`，
-        外层 `.dg-scroll` 嵌套但不出条（内层 width:100% 不撑宽外层），固定列 sticky 相对
-        内层最近的 `.dg-scroll` 工作，行为正确。
       */}
       {contentScrolledEnabled ? (
-        <div className="dg-scroll" style={{ overflowX: 'auto' }}>
+        <div className="dg-scroll" style={{ overflowX: 'hidden' }}>
           <GridTable<RecordType>
             ref={engineRef as unknown as React.Ref<TableEngineHandle>}
             columnTree={columnTreeWithSortAndFilter}
