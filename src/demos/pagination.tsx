@@ -23,7 +23,8 @@
  * - **右栏（antd Table）**：antd 原生 `<Table>` + 同款 pagination + 同款 placement 单元素数组。
  * - **共享控制条**：顶部一个 `Radio.Group`（6 位置 + none 互斥），**同一组 state
  *   同时驱动两侧**（切换 placement，左右两侧分页器位置同步 diff）。
- * - **共享数据**：`RecordType` + `data` 见 `_compare/pagination.shared.ts`，两侧复用。
+ * - **共享数据/选项**：`RecordType` + `data` + `TablePaginationPlacement` 类型 + `placementOptions`
+ *   见 `_compare/pagination.shared.ts`，两侧复用。
  *
  * === antd demo 要素（沿用）===
  *
@@ -55,6 +56,21 @@
  *   §9 已知差异（本 demo 显式传 pagination 启用）。
  * - pageSize 默认 10 → 3 行 1 页，分页器仍渲染以演示 placement 位置切换。
  *
+ * === 拆子文件（task：live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：placement state + useVirtualization + DemoToolbar(Radio.Group
+ * 6 位置 + none 互斥) + SplitDemo 外壳 + children 对照说明。两侧表格 JSX 与各自列定义拆到子文件：
+ *   - `./pagination.dg`：`PaginationDg({placement, virtual})`（左栏）
+ *   - `./pagination.antd`：`PaginationAntd({placement, virtual})`（右栏）
+ *
+ * ★ 状态提升说明：placement 必须留父——父渲染顶部 Radio.Group 控制条需直接读写它；且同一 state
+ *   驱动两侧同步。子组件接 placement 后各自包成 `placement: [placement]` 单元素数组传给 Table
+ *   （列类型两侧不同：data-grid ColumnType vs antd TableProps['columns']）。分页位置是受控配置型
+ *   state（非瞬时筛选/排序态），必须提升父；子组件用合理默认值 'bottomEnd' 兜底编辑模式。
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `PaginationDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
+ *
  * === 验证点（task #28 / S11 / 决策 9）===
  *
  * 1. 默认 placement=bottomEnd → 两侧底部右对齐各一个分页器（单翻页器，无顶部翻页器）。
@@ -66,151 +82,27 @@
  */
 
 import { useState } from 'react'
-import { Flex, Radio, Space, Table as AntdTable, Tag } from 'antd'
-import type { TableProps } from 'antd'
-import { Table } from '../table'
-import type {
-  ColumnType,
-  TablePaginationPlacement,
-} from '../table'
+import { Radio } from 'antd'
+import type { CheckboxOptionType } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, type RecordType } from './_compare/pagination.shared'
+import {
+  placementOptions,
+  type TablePaginationPlacement,
+} from './_compare/pagination.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高）
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// placement 单选选项（6 位置互斥 + none 关闭）
-// ---------------------------------------------------------------------------
-
-/**
- * 单翻页器 placement 互斥选项（task #28）。
- *
- * 6 个位置（top/bottom × Start/Center/End）+ none（关闭分页器）。
- * 选中后以 `placement: [selected]` 单元素数组传给两侧表格。
- */
-const placementOptions: Array<{ label: string; value: TablePaginationPlacement }> = [
-  { label: 'topStart', value: 'topStart' },
-  { label: 'topCenter', value: 'topCenter' },
-  { label: 'topEnd', value: 'topEnd' },
-  { label: 'bottomStart', value: 'bottomStart' },
-  { label: 'bottomCenter', value: 'bottomCenter' },
-  { label: 'bottomEnd', value: 'bottomEnd' },
-  { label: 'none', value: 'none' },
-]
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 行为与改造前一致
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<RecordType>[] = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    key: 'name',
-    render: (text) => <a>{text}</a>,
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    key: 'age',
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    key: 'address',
-  },
-  {
-    title: 'Tags',
-    key: 'tags',
-    dataIndex: 'tags',
-    render: (tags: string[]) => (
-      <Flex gap="small" align="center" wrap>
-        {tags.map((tag) => {
-          let color = tag.length > 5 ? 'geekblue' : 'green'
-          if (tag === 'kawaii') {
-            color = 'volcano'
-          }
-          return (
-            <Tag color={color} key={tag}>
-              {tag.toUpperCase()}
-            </Tag>
-          )
-        })}
-      </Flex>
-    ),
-  },
-  {
-    title: 'Action',
-    key: 'action',
-    render: (_, record) => (
-      <Space size="middle">
-        <a>Invite {record.name}</a>
-        <a>Delete</a>
-      </Space>
-    ),
-  },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd pagination demo 列定义
-// ---------------------------------------------------------------------------
-
-const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    key: 'name',
-    render: (text) => <a>{text}</a>,
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    key: 'age',
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    key: 'address',
-  },
-  {
-    title: 'Tags',
-    key: 'tags',
-    dataIndex: 'tags',
-    render: (tags: string[]) => (
-      <Flex gap="small" align="center" wrap>
-        {tags.map((tag) => {
-          let color = tag.length > 5 ? 'geekblue' : 'green'
-          if (tag === 'kawaii') {
-            color = 'volcano'
-          }
-          return (
-            <Tag color={color} key={tag}>
-              {tag.toUpperCase()}
-            </Tag>
-          )
-        })}
-      </Flex>
-    ),
-  },
-  {
-    title: 'Action',
-    key: 'action',
-    render: (_, record) => (
-      <Space size="medium">
-        <a>Invite {record.name}</a>
-        <a>Delete</a>
-      </Space>
-    ),
-  },
-]
+// ★ 拆子文件后，左/右栏 JSX + 各自列定义由子组件提供（props 驱动）。RecordType/data
+//   现在由子文件各自 import pagination.shared；父文件不再需要。
+import PaginationDg from './pagination.dg'
+import PaginationAntd from './pagination.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
 // ---------------------------------------------------------------------------
 
 export default function PaginationDemo() {
-  // ★ 共享状态：单个 placement 互斥选一（6 位置 + none），同时驱动两侧 pagination。
+  // ★ 共享状态（提升到父）：单个 placement 互斥选一（6 位置 + none），同时驱动两侧 pagination。
   // 默认 bottomEnd（antd Table 真实默认：单翻页器右下角）。
   const [placement, setPlacement] = useState<TablePaginationPlacement>('bottomEnd')
   // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y（分页条在滚动区下方，wrapper
@@ -226,7 +118,7 @@ export default function PaginationDemo() {
       */}
       <DemoToolbar>
         <Radio.Group
-          options={placementOptions}
+          options={placementOptions as CheckboxOptionType[]}
           value={placement}
           onChange={(e) => setPlacement(e.target.value)}
         />
@@ -238,28 +130,8 @@ export default function PaginationDemo() {
       */}
       <SplitDemo
         minPaneWidth={480}
-        left={
-          <Table<RecordType>
-            columns={dgColumns}
-            pagination={{ placement: [placement] }}
-            dataSource={data}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-               限高，分页条在滚动区下方，wrapper 含分页高）；OFF 时回 undefined，行为与改造前一致。 */
-            virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
-          />
-        }
-        right={
-          <AntdTable<RecordType>
-            columns={antdColumns}
-            pagination={{ placement: [placement] }}
-            dataSource={data}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 分页条画在 scroll.y 之外，
-               需扣除表头~55 与分页条~64 → 约 280 才能塞进 ~400px pane；OFF 时回 undefined）。 */
-            virtual={virtual}
-            scroll={virtual ? { y: 280 } : undefined}
-          />
-        }
+        left={<PaginationDg placement={placement} virtual={virtual} />}
+        right={<PaginationAntd placement={placement} virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 task #28 / S11 分页 placement）：</strong>

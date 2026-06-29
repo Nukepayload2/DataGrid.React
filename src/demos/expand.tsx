@@ -32,50 +32,32 @@
  * 3. 顶部「Expand All」按钮一键展开两侧所有可展开行（3 行，"Not Expandable" 不展开）。
  * 4. 「Collapse All」一键收起两侧所有行。
  * 5. 同一行展开/收起两侧同步（共享 expandedRowKeys 受控）。
+ *
+ * === 拆子文件（task #56：live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：expandedRowKeys state（受控真理源，驱动两侧 + 顶部按钮组）+
+ * useVirtualization + DemoToolbar(Expand All / Collapse All 按钮组) + SplitDemo 外壳 +
+ * children 对照说明 + T7 验证面 CSS（.dg-demo-expanded-row）。
+ * 两侧表格 JSX 与 columns 拆到子文件：
+ *   - `./expand.dg`：`ExpandDg({expandedRowKeys, onExpandedRowsChange, virtual})`（左栏）
+ *   - `./expand.antd`：`ExpandAntd({expandedRowKeys, onExpandedRowsChange, virtual})`（右栏）
+ *
+ * ★ 状态提升说明：expandedRowKeys 必须留父——父渲染顶部 Expand All / Collapse All 按钮
+ *   组需直接读写它；且同一 state 驱动两侧同步。子组件接 expandedRowKeys + onExpandedRowsChange
+ *   回调（配置型 state 提升，默认值 []，纯瞬时态合理）。
  */
 
 import { useState } from 'react'
-import { Button, Space, Table as AntdTable, theme } from 'antd'
-import type { TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType, Expandable } from '../table'
+import { Button, Space, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, type RecordType } from './_compare/expand.shared'
+import { data } from './_compare/expand.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（决策2——展开内容直接渲染但不参与虚拟窗口大小）
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 行为与改造前一致
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<RecordType>[] = [
-  { title: 'Name', dataIndex: 'name', key: 'name' },
-  { title: 'Age', dataIndex: 'age', key: 'age' },
-  { title: 'Address', dataIndex: 'address', key: 'address' },
-  {
-    title: 'Action',
-    dataIndex: '',
-    key: 'x',
-    render: () => <a>Delete</a>,
-  },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd expand demo
-// ---------------------------------------------------------------------------
-
-const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
-  { title: 'Name', dataIndex: 'name', key: 'name' },
-  { title: 'Age', dataIndex: 'age', key: 'age' },
-  { title: 'Address', dataIndex: 'address', key: 'address' },
-  {
-    title: 'Action',
-    dataIndex: '',
-    key: 'x',
-    render: () => <a>Delete</a>,
-  },
-]
+// ★ 拆子文件后，左/右栏 JSX + columns + expandable 派生由子组件提供（props 驱动）。RecordType/data
+//   现在由子文件各自 import expand.shared；父文件只保留 data（用于 Expand All 派生可展开行 key）。
+import ExpandDg from './expand.dg'
+import ExpandAntd from './expand.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -98,23 +80,12 @@ export default function ExpandDemo() {
   // 一键收起所有行。
   const collapseAll = () => setExpandedRowKeys([])
 
-  // expandable 两侧同款（expandedRowRender + rowExpandable）。
-  // ★ T7：左栏（data-grid）额外开启 expandRowByClick + expandedRowClassName，便于 verifier
-  //   验证「点击行体（非图标）切换展开」+「展开行加 class」。右栏 antd 不加（对照）。
-  const dgExpandable: Expandable<RecordType> = {
-    expandedRowRender: (record) => <p style={{ margin: 0 }}>{record.description}</p>,
-    rowExpandable: (record) => record.name !== 'Not Expandable',
-    expandedRowKeys,
-    onExpandedRowsChange: (keys) => setExpandedRowKeys([...keys]),
-    expandRowByClick: true,
-    expandedRowClassName: () => 'dg-demo-expanded-row',
-  }
-
-  const antdExpandable: NonNullable<TableProps<RecordType>['expandable']> = {
-    expandedRowRender: (record) => <p style={{ margin: 0 }}>{record.description}</p>,
-    rowExpandable: (record) => record.name !== 'Not Expandable',
-    expandedRowKeys,
-    onExpandedRowsChange: (keys) => setExpandedRowKeys([...keys]),
+  // onExpandedRowsChange 回调（两侧同款）：
+  // - 左栏 data-grid `onExpandedRowsChange(keys: Key[])`。
+  // - 右栏 antd `onExpandedRowsChange(expandedKeys: Key[])`。
+  // 两者均为 Key 数组，规整成 React.Key[] 后回写共享 state（驱动两侧同步）。
+  const onExpandedRowsChange = (keys: Array<React.Key>) => {
+    setExpandedRowKeys([...keys])
   }
 
   return (
@@ -142,27 +113,17 @@ export default function ExpandDemo() {
       <SplitDemo
         minPaneWidth={480}
         left={
-          <Table<RecordType>
-            columns={dgColumns}
-            expandable={dgExpandable}
-            dataSource={data}
-            pagination={{}}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-               给的限高，虚拟窗口才有滚动区；决策2——展开内容直接渲染但不参与虚拟窗口大小）；
-               OFF 时回 undefined，行为与改造前一致。 */
+          <ExpandDg
+            expandedRowKeys={expandedRowKeys}
+            onExpandedRowsChange={onExpandedRowsChange}
             virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
           />
         }
         right={
-          <AntdTable<RecordType>
-            columns={antdColumns}
-            expandable={antdExpandable}
-            dataSource={data}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:300（antd 不认 true，需数字像素高度；
-               OFF 时回 undefined，行为与改造前一致）。 */
+          <ExpandAntd
+            expandedRowKeys={expandedRowKeys}
+            onExpandedRowsChange={onExpandedRowsChange}
             virtual={virtual}
-            scroll={virtual ? { y: 300 } : undefined}
           />
         }
       >

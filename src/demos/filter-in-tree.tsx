@@ -45,167 +45,31 @@
  *    - 输入搜索词后命中节点**高亮**（antd filterTreeNode "highlight" 语义），**不隐藏**不匹配节点。
  *    - 这是 antd 本身行为（filter-in-tree demo 同款），data-grid 与 antd 一致——<strong>验证者勿误判</strong>。
  *
- * === 验证点（S7）===
+ * === 拆子文件（task：live 编辑接入，同 head 模式）===
  *
- * 【Name 列 · tree 模式】
- * 1. 点 Name 漏斗 → 弹出 antd `<Tree checkable>` 树形下拉（Joe 顶层 / Category 1→[Yellow,Pink] /
- *    Category 2→[Green,Black]）—— 两侧一致。
- * 2. 勾 Category 1 → 自动勾 Yellow + Pink（父子联动）；勾全部子 → 自动勾父（半选 indeterminate→全选）。
- * 3. 选中值作 filteredValue，onFilter 对每个 value 判定 OR（record.name.includes(value)）。
- * 4. 输入 'cat' → Category 1/2 高亮（不隐藏 Joe）—— **两侧一致**（antd filterTreeNode highlight 语义）。
+ * 父文件只保留「外壳职责」：bordered state + useVirtualization + DemoToolbar(Switch Bordered)
+ * + SplitDemo 外壳 + children 对照说明。两侧表格 JSX 与 columns + onChange 拆到子文件：
+ *   - `./filter-in-tree.dg`：`FilterInTreeDg({bordered, virtual})`（左栏）
+ *   - `./filter-in-tree.antd`：`FilterInTreeAntd({bordered, virtual})`（右栏）
  *
- * 【Age 列】
- * 5. Age sorter 数值排序（无筛选）。
+ * ★ 状态提升说明：bordered 必须留父（控制条 Switch 直接读写），以 prop 下发子组件。筛选/排序
+ *   瞬时态（filteredValue/sortOrder）由 Table 内部自管（非受控），不提升；父文件无 Reset 按钮，
+ *   子组件也不需要 remountKey（与 head 不同——head 有 Reset 按钮才需要 remountKey）。
  *
- * 【Address 列 · menu 模式共存】
- * 6. 无 filterMode → 默认 menu（Checkbox.Group 扁平 London/New York）+ filterSearch。
- *    验证 tree + menu 共存（Name 走 tree，Address 走 menu，互不影响）。
- *
- * 【共享控制条】
- * 7. Bordered 开关：同时切换两侧边框。
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `FilterInTreeDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
  */
 
 import { useState } from 'react'
-import { Space, Switch, Table as AntdTable } from 'antd'
-import type { TableProps } from 'antd'
-import type { TableColumnsType } from 'antd'
-import { Table } from '../table'
-import type { ColumnType, TableProps as DgTableProps } from '../table'
+import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, type RecordType } from './_compare/filter-in-tree.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高）
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 行为与改造前一致
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<RecordType>[] = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    filters: [
-      { text: 'Joe', value: 'Joe' },
-      {
-        text: 'Category 1',
-        value: 'Category 1',
-        children: [
-          { text: 'Yellow', value: 'Yellow' },
-          { text: 'Pink', value: 'Pink' },
-        ],
-      },
-      {
-        text: 'Category 2',
-        value: 'Category 2',
-        children: [
-          { text: 'Green', value: 'Green' },
-          { text: 'Black', value: 'Black' },
-        ],
-      },
-    ],
-    filterMode: 'tree',
-    filterSearch: true,
-    onFilter: (value, record) => record.name.includes(value as string),
-    width: '30%',
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    sorter: (a, b) => a.age - b.age,
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    filters: [
-      { text: 'London', value: 'London' },
-      { text: 'New York', value: 'New York' },
-    ],
-    onFilter: (value, record) => record.address.startsWith(value as string),
-    filterSearch: true,
-    width: '40%',
-  },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd filter-in-tree demo（逐字一致）
-// ---------------------------------------------------------------------------
-
-const antdColumns: TableColumnsType<RecordType> = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    filters: [
-      {
-        text: 'Joe',
-        value: 'Joe',
-      },
-      {
-        text: 'Category 1',
-        value: 'Category 1',
-        children: [
-          {
-            text: 'Yellow',
-            value: 'Yellow',
-          },
-          {
-            text: 'Pink',
-            value: 'Pink',
-          },
-        ],
-      },
-      {
-        text: 'Category 2',
-        value: 'Category 2',
-        children: [
-          {
-            text: 'Green',
-            value: 'Green',
-          },
-          {
-            text: 'Black',
-            value: 'Black',
-          },
-        ],
-      },
-    ],
-    filterMode: 'tree',
-    filterSearch: true,
-    onFilter: (value, record) => record.name.includes(value as string),
-    width: '30%',
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    sorter: (a, b) => a.age - b.age,
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    filters: [
-      {
-        text: 'London',
-        value: 'London',
-      },
-      {
-        text: 'New York',
-        value: 'New York',
-      },
-    ],
-    onFilter: (value, record) => record.address.startsWith(value as string),
-    filterSearch: true,
-    width: '40%',
-  },
-]
-
-// ---------------------------------------------------------------------------
-// onChange（两侧共用同一个 console.log 形态）
-// ---------------------------------------------------------------------------
-
-const onChange: DgTableProps<RecordType>['onChange'] = (pagination, filters, sorter, extra) => {
-  // eslint-disable-next-line no-console
-  console.log('filter-in-tree demo onChange params:', { pagination, filters, sorter, extra })
-}
+// ★ 拆子文件后，左/右栏 JSX + columns + onChange 由子组件提供（props 驱动）。RecordType/data
+//   现在由子文件各自 import filter-in-tree.shared；父文件不再需要。
+import FilterInTreeDg from './filter-in-tree.dg'
+import FilterInTreeAntd from './filter-in-tree.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -238,31 +102,8 @@ export default function FilterInTreeDemo() {
       */}
       <SplitDemo
         minPaneWidth={480}
-        left={
-          <Table<RecordType>
-            columns={dgColumns}
-            dataSource={data}
-            onChange={onChange}
-            bordered={bordered}
-            pagination={{}}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-               限高，虚拟窗口才有滚动区）；OFF 时回 undefined，行为与改造前一致。 */
-            virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
-          />
-        }
-        right={
-          <AntdTable<RecordType>
-            columns={antdColumns}
-            dataSource={data}
-            onChange={onChange as TableProps<RecordType>['onChange']}
-            bordered={bordered}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 默认分页条画在 scroll.y
-               之外，需扣除表头~55 与分页条~64 → 约 280 才能塞进 ~400px pane；OFF 时回 undefined）。 */
-            virtual={virtual}
-            scroll={virtual ? { y: 280 } : undefined}
-          />
-        }
+        left={<FilterInTreeDg bordered={bordered} virtual={virtual} />}
+        right={<FilterInTreeAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 B7）：</strong>

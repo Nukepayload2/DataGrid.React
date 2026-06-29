@@ -27,41 +27,45 @@
  *
  * minPaneWidth=320：narrow demo 单侧容器 300px + 边框/padding，两栏并排需 ~656+；320 阈值使
  * 容器 ≥ 656 横排（超宽屏），常规视口竖排（每栏全宽，300 容器 + 表格更清晰）。
+ *
+ * === 拆子文件（task：live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：paginated/defaultCurrent state（受控真理源，驱动两侧 + 顶部
+ * Switch/Segmented）+ useVirtualization + DemoToolbar + SplitDemo 外壳 + children 对照说明。
+ * 两侧表格 JSX + 列定义 + 300px 窄容器包裹拆到子文件：
+ *   - `./narrow.dg`：`NarrowDg({paginated, defaultCurrent, virtual})`（左栏）
+ *   - `./narrow.antd`：`NarrowAntd({paginated, defaultCurrent, virtual})`（右栏）
+ *
+ * ★ 状态提升说明：paginated/defaultCurrent 必须留父——父渲染顶部 Switch + Segmented 控制条
+ *   需直接读写它们；且同一 state 驱动两侧同步。
+ *
+ * 这样：
+ *   - 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `NarrowDemo`，零编辑开销。
+ *   - live 编辑模式：SplitDemoPreview 静态 import 真实子组件，并按 editedDg/editedAntd 替换。
  */
 
 import { useState } from 'react'
-import { Segmented, Space, Switch, Table as AntdTable } from 'antd'
-import type { TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType, TablePaginationConfig } from '../table'
+import { Segmented, Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { dataSource, rawColumns, type RecordType } from './_compare/narrow.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（SplitDemo pane 自动限高，虚拟窗口才有滚动区）
 import { useVirtualization } from './VirtualizationContext'
-
-// 左栏 data-grid 列定义。
-const dgColumns: ColumnType<RecordType>[] = rawColumns.map((c) => ({ ...c }))
-// 右栏 antd 列定义。
-const antdColumns: NonNullable<TableProps<RecordType>['columns']> = rawColumns.map((c) => ({ ...c }))
+// ★ 拆子文件后，左/右栏 JSX + columns + 300px 窄容器包裹由子组件提供（props 驱动）。RecordType/dataSource
+//   现在由子文件各自 import narrow.shared，父文件不再需要。
+import NarrowDg from './narrow.dg'
+import NarrowAntd from './narrow.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
 // ---------------------------------------------------------------------------
 
 export default function NarrowDemo() {
-  // ★ 共享状态：同一个状态同时驱动两侧表格。
+  // ★ 共享状态：同一个状态同时驱动两侧表格 + 顶部控制条（故提升父）。
   const [paginated, setPaginated] = useState(true)
   const [defaultCurrent, setDefaultCurrent] = useState<number>(13)
   // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y（原 narrow demo 无 scroll，
   // ON 用 dg {y:true}/antd {y:280}——200 行虚拟化对窄容器很有意义；OFF 回 undefined，行为与改造前一致）。
   const { virtual } = useVirtualization()
-
-  // pagination 配置：开 = { defaultCurrent }，关 = false（全显）。
-  const dgPagination: TablePaginationConfig | false = paginated ? { defaultCurrent } : false
-  const antdPagination: TableProps<RecordType>['pagination'] = paginated
-    ? { defaultCurrent }
-    : false
 
   return (
     <div style={{ padding: 24 }}>
@@ -95,44 +99,18 @@ export default function NarrowDemo() {
       <SplitDemo
         minPaneWidth={320}
         left={
-          /* ★ virtual ON 时内层 div 加 flex 链（flex:1 + minHeight:0 + 自身 flex column），
-             让 .dg-compare__body（virtual ON 时 height:400, flex column）的有界高经本 div
-             透传给 .dg-wrapper.dg-data-area（height:100%）→ .dg-scroll-wrap flex:1 → 虚拟窗口有界裁剪。
-             原因：data-grid scroll.y:true 用 CSS 自适应高度（依赖父链有界），而 narrow 内层 div
-             原本只有 width:300 无 height → .dg-wrapper height:100% 退化为 auto → 200 行全渲染（11238px）。
-             OFF 时回原状（仅 width:300，无 flex 干预，行为与改造前一致）。 */
-          <div
-            style={
-              virtual
-                ? { width: 300, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }
-                : { width: 300 }
-            }
-          >
-            <Table<RecordType>
-              columns={dgColumns}
-              dataSource={dataSource}
-              size="small"
-              pagination={dgPagination}
-              /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-                 pane 限高，虚拟窗口才有滚动区）；OFF 时回 undefined（原 narrow demo 无 scroll），零回归。 */
-              virtual={virtual}
-              scroll={virtual ? { y: true } : undefined}
-            />
-          </div>
+          <NarrowDg
+            paginated={paginated}
+            defaultCurrent={defaultCurrent}
+            virtual={virtual}
+          />
         }
         right={
-          <div style={{ width: 300 }}>
-            <AntdTable<RecordType>
-              columns={antdColumns}
-              dataSource={dataSource}
-              size="small"
-              pagination={antdPagination}
-              /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且表头/分页画在
-                 scroll.y 之外，扣除后约 280 塞进 pane 限高）；OFF 时回 undefined（原 narrow demo 无 scroll），零回归。 */
-              virtual={virtual}
-              scroll={virtual ? { y: 280 } : undefined}
-            />
-          </div>
+          <NarrowAntd
+            paginated={paginated}
+            defaultCurrent={defaultCurrent}
+            virtual={virtual}
+          />
         }
       >
         <div>

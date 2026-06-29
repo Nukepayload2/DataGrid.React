@@ -18,18 +18,20 @@
  *
  *    编辑模式 bordered 固定 false（简化，Phase 1 接受——Switch Bordered 仅在默认模式可见）。
  *
- * === 子组件静态 import ===
+ * === 子组件 glob 自动发现 ===
  *
- * 真实子组件（`BasicDg` / `BasicAntd` / `FixedColumnsDg` / `FixedColumnsAntd`）静态 import 并
- * 登记到 `REAL_DG` / `REAL_ANTD` map，按 `name` 查找。试点接 `basic` + `fixed-columns`。
+ * 真实子组件（如 `BasicDg` / `BasicAntd` / `FixedColumnsDg` / `FixedColumnsAntd`）通过
+ * `import.meta.glob('../*.dg.tsx' | '../*.antd.tsx', { eager, import:'default' })` 自动发现
+ * （glob 相对路径 `../*.dg.tsx` 因为本文件在 src/demos/_compare/）。glob key 形如
+ * `'../basic.dg.tsx'`，用正则 `/([^/]+)\.(dg|antd)\.tsx$/` 提取 demo name 作为 map key。
+ * **新增 demo 只需把 *.dg.tsx/*.antd.tsx 文件放进 src/demos/ 即自动接入，无需改本文件。**
  *
- * === 编辑模式 props（按 name 区分）===
+ * === 编辑模式 props（统一超集）===
  *
- * 不同 demo 的子组件签名不同：basic 只需 `{bordered,virtual}`，fixed-columns 还需 `size`。
- * `propsFor(name, virtual)` 辅助按 name 给出编辑模式固定的 props 集（bordered 固定 false——
- * Phase 1 简化，Switch Bordered 仅在默认模式可见）：
- *   - `basic`         → `{ bordered:false, virtual }`
- *   - `fixed-columns` → `{ bordered:false, size:'medium', virtual }`
+ * `propsFor(_name, virtual)` 返回所有子组件签名的超集（bordered/size/virtual/autoScroll）。
+ * 不同 demo 子组件按各自签名收所需 props；约定「子组件解构参数全部带默认值」，
+ * 因此即便超集 props 不全，子组件仍有兜底默认值，不崩。bordered 固定 false（Phase 1 简化，
+ * Switch Bordered 仅在默认模式可见）。
  *
  * === 与 App 的契约 ===
  *
@@ -43,38 +45,46 @@ import { Alert } from 'antd'
 import { SplitDemo } from './SplitDemo'
 import { LiveErrorBoundary } from '../../live/LiveErrorBoundary'
 import { useVirtualization } from '../VirtualizationContext'
-// 真实子组件静态 import（live 编辑 fallback 用）。
-import BasicDg from '../basic.dg'
-import BasicAntd from '../basic.antd'
-import FixedColumnsDg from '../fixed-columns.dg'
-import FixedColumnsAntd from '../fixed-columns.antd'
 
-// 真实子组件签名宽松：basic 需 {bordered,virtual}，fixed-columns 需 {bordered,size,virtual}。
-// 用宽松 ComponentType 登记到 map，渲染时由 propsFor 提供 name 对应的 props。
+// 子组件 glob 自动发现（模块顶层字面量调用；相对路径 '../*.dg.tsx' 因为本文件在 src/demos/_compare/）。
+// eager + import:'default' → 模块对象 { '../basic.dg.tsx': BasicDg, ... }。
+const dgModules = import.meta.glob('../*.dg.tsx', { eager: true, import: 'default' })
+const antdModules = import.meta.glob('../*.antd.tsx', { eager: true, import: 'default' })
+
+// 子组件签名宽松：用宽松 ComponentType 登记到 map，渲染时由 propsFor 统一超集提供 props。
 type RealComp = ComponentType<Record<string, unknown>>
 
-// name → 真实子组件 map。试点接 basic + fixed-columns。
-const REAL_DG: Record<string, RealComp> = {
-  basic: BasicDg as unknown as RealComp,
-  'fixed-columns': FixedColumnsDg as unknown as RealComp,
-}
-const REAL_ANTD: Record<string, RealComp> = {
-  basic: BasicAntd as unknown as RealComp,
-  'fixed-columns': FixedColumnsAntd as unknown as RealComp,
+/**
+ * 从 glob key（如 '../basic.dg.tsx'）提取 demo name（'basic'）。
+ * 正则取 `/` 之后、`.dg.tsx` / `.antd.tsx` 之前的部分。
+ */
+function extractName(path: string): string | null {
+  const m = path.match(/([^/]+)\.(?:dg|antd)\.tsx$/)
+  return m ? m[1] : null
 }
 
+/** glob modules → name → 真实子组件 map。 */
+function buildRealMap(mods: Record<string, unknown>): Record<string, RealComp> {
+  const m: Record<string, RealComp> = {}
+  for (const [path, mod] of Object.entries(mods)) {
+    const name = extractName(path)
+    if (name) m[name] = mod as RealComp
+  }
+  return m
+}
+
+const REAL_DG = buildRealMap(dgModules)
+const REAL_ANTD = buildRealMap(antdModules)
+
 /**
- * 编辑模式按 name 给出子组件 props 集（bordered 固定 false，Phase 1 简化）。
- * - basic → {bordered:false, virtual}
- * - fixed-columns → {bordered:false, size:'medium', virtual}
+ * 编辑模式统一超集 props（bordered 固定 false，Phase 1 简化）。
+ * - {bordered:false, virtual, size:'medium', autoScroll:true}
  *
- * 编译产物组件类型是 ComponentType<Record<string,unknown>>，传多余 props 无妨；真实子组件
- * 按其签名收 props。
+ * 不同 demo 子组件按各自签名收所需 props；子组件解构参数全部带默认值，超集 props 不全也不崩。
+ * _name 保留参数名兼容调用方，但不再用于分支。
  */
-function propsFor(name: string, virtual: boolean): Record<string, unknown> {
-  const base: Record<string, unknown> = { bordered: false, virtual }
-  if (name === 'fixed-columns') base.size = 'medium'
-  return base
+function propsFor(_name: string, virtual: boolean): Record<string, unknown> {
+  return { bordered: false, virtual, size: 'medium', autoScroll: true }
 }
 
 export interface SplitDemoPreviewProps {

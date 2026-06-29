@@ -58,8 +58,8 @@ const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
 ]
 
 export default function BasicAntd({
-  bordered,
-  virtual,
+  bordered = false,
+  virtual = false,
 }: {
   bordered: boolean
   virtual: boolean

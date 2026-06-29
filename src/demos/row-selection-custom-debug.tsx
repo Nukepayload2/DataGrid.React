@@ -17,102 +17,24 @@
  * **目标**：验证 data-grid M5 rowSelection `renderCell` 字段——自定义勾选格内容 +
  * 返回 `props.rowSpan` 接入 M3 cellMerge（合并行）。
  *
- * === antd demo 要素 ===
+ * === 拆子文件（task：live 编辑接入，同 basic 模式）===
  *
- * - 46 行数据（`key: i, name: i%2===0 ? 'Edward King i' : 'Another Row'`）。
- * - 单列 Name。
- * - `rowSelection.renderCell(checked, _record, index, node)` 返回：
- *     `{ props: { rowSpan: index % 2 === 0 ? 2 : 0 }, children: <>{String(checked)}: {node}</> }`
- *   - 偶数行：勾选格向下合并 2 行（rowSpan=2），渲染 `checked:node`（如 `false:<SelectionInput>`）。
- *   - 奇数行：被覆盖（rowSpan=0），勾选格不渲染。
+ * 父文件只保留「外壳职责」：useVirtualization + SplitDemo 外壳 + children 对照说明。
+ * 两侧表格 JSX + columns + rowSelection（renderCell + rowSpan 配置）拆到子文件：
+ *   - `./row-selection-custom-debug.dg`：`RowSelectionCustomDebugDg({virtual})`（左栏）
+ *   - `./row-selection-custom-debug.antd`：`RowSelectionCustomDebugAntd({virtual})`（右栏）
  *
- * === data-grid 实现要点 ===
- *
- * - **renderCell 接入**（D1 引擎改动）：`rowSelection.renderCell` 返回 `{ props, children }`：
- *     * `props.rowSpan`：在 `buildSelectionColumnNode` 的 `onCell` 中提取，返回给 M3 cellMerge
- *       （cellMerge 调 onCell 取 rowSpan/colSpan，被覆盖格 hidden 不渲染）。
- *     * `children`：在 `render` 中提取，替代默认 `<SelectionInput>`（`node` 参数即默认勾选 UI）。
- * - **renderCell 调用 2 次**（render + onCell 各一次，与 antd rc-table 一致）——demo 的 renderCell
- *   必须是纯函数（无副作用），否则会被调用两次产生副作用。本 demo 仅读 index/checked/node，纯函数。
- * - **node 参数**：默认 `<SelectionInput>`（勾选交互可用——点 node 内的 checkbox 触发 toggleRow）。
- *
- * === 两侧保留的差异 ===
- *
- * - **基本逐字复刻**（数据/列/renderCell 逻辑一致）。
- * - **类型差异**：左栏 `TableRowSelection` 来自 data-grid 引擎；右栏 antd
- *   `TableProps['rowSelection']` 来自 antd 本体。两侧 renderCell 签名等价。
- *
- * === 验证点（D1 + 决策 9）===
- *
- * 1. 两侧 46 行渲染，单列 Name + 选择列（renderCell 自定义内容）。
- * 2. 偶数行（0/2/4/...）选择列显示 `false:<SelectionInput>`（或勾选后 `true:<SelectionInput>`），
- *    且向下合并 2 行（与下一奇数行共享一个勾选格）。
- * 3. 奇数行（1/3/5/...）选择列被覆盖（rowSpan=0），无勾选格 DOM。
- * 4. 点击 node 内 checkbox：对应偶数行的 checked 文本变 true/false（toggleRow）。
+ * ★ 状态提升说明：本 demo 无控制条（renderCell 逻辑固定），无配置型 state 需提升父。
+ *   子组件接 virtual props（瞬时态，父 useVirtualization 顶栏 Switch 驱动；默认 false 合理有效）。
  */
 
-import { Table as AntdTable } from 'antd'
-import type { TableColumnsType, TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType, TableRowSelection } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
-import { dataSource, type RecordType } from './_compare/row-selection-custom-debug.shared'
 // 虚拟化开关（决策 7）：顶栏 Switch 全局驱动两侧 Table 的 virtual + scroll.y。
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 + rowSelection —— 行为与改造前一致
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<RecordType>[] = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-  },
-]
-
-/**
- * renderCell（对齐 antd demo 逐字）：
- *   - `props.rowSpan: index % 2 === 0 ? 2 : 0`：偶数行合并 2 行、奇数行被覆盖。
- *   - `children: <>{String(checked)}: {node}</>`：渲染勾选状态文本 + 默认勾选 UI（node）。
- *
- * 注：renderCell 在引擎内会被 render 和 onCell 各调用一次（取 children / 取 props），
- *     必须为纯函数（本函数仅读 index/checked/node，无副作用）。
- */
-const dgRowSelection: TableRowSelection<RecordType> = {
-  renderCell: (checked, _record, index, node) => ({
-    props: { rowSpan: index % 2 === 0 ? 2 : 0 },
-    children: (
-      <>
-        {String(checked)}: {node}
-      </>
-    ),
-  }),
-}
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 + rowSelection —— 忠实复刻 antd row-selection-custom-debug demo
-// ---------------------------------------------------------------------------
-
-const antdColumns: TableColumnsType<RecordType> = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-  },
-]
-
-type AntdTableRowSelection<T extends object = object> = TableProps<T>['rowSelection']
-
-const antdRowSelection: AntdTableRowSelection<RecordType> = {
-  renderCell: (checked, _record, index, node) => ({
-    props: { rowSpan: index % 2 === 0 ? 2 : 0 },
-    children: (
-      <>
-        {String(checked)}: {node}
-      </>
-    ),
-  }),
-}
+// ★ 拆子文件后，左/右栏 JSX + columns + rowSelection（renderCell + rowSpan）由子组件提供（props 驱动）。
+//   RecordType/dataSource 现在由子文件各自 import row-selection-custom-debug.shared；父文件不再需要。
+import RowSelectionCustomDebugDg from './row-selection-custom-debug.dg'
+import RowSelectionCustomDebugAntd from './row-selection-custom-debug.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -132,25 +54,8 @@ export default function RowSelectionCustomDebugDemo() {
       */}
       <SplitDemo
         minPaneWidth={480}
-        left={
-          <Table<RecordType>
-            rowSelection={dgRowSelection}
-            columns={dgColumns}
-            dataSource={dataSource}
-            virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
-          />
-        }
-        right={
-          <AntdTable<RecordType>
-            rowSelection={antdRowSelection}
-            columns={antdColumns}
-            dataSource={dataSource}
-            pagination={false}
-            virtual={virtual}
-            scroll={virtual ? { y: 340 } : undefined}
-          />
-        }
+        left={<RowSelectionCustomDebugDg virtual={virtual} />}
+        right={<RowSelectionCustomDebugAntd virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 B20 / D1 rowSelection.renderCell 自定义勾选格）：</strong>

@@ -22,7 +22,7 @@
  * === 渲染期错误 ===
  * 本组件不渲染组件预览（预览由外层负责 + 包 LiveErrorBoundary）；只负责编译/执行错误的展示。
  */
-import { useState, type CSSProperties, type ComponentType } from 'react'
+import { useEffect, useState, type CSSProperties, type ComponentType } from 'react'
 import { Alert, Button } from 'antd'
 import { Highlight, themes } from 'prism-react-renderer'
 import { useTheme } from '../theme/ThemeContext'
@@ -66,6 +66,12 @@ export default function LiveEditor({
   const prismTheme = isDark ? themes.vsDark : themes.oneLight
 
   const [code, setCode] = useState(initialCode)
+  // 切 demo 时 useSplitDemoSource 返回新的 initialCode（App.tsx key 也变了但 rc-collapse
+  // 子树稳定化未触发 remount，useState 不重置）→ 显式同步 code state 避免显示旧 demo 源码。
+  // 重置按钮 setCode(initialCode) 不触发此 effect（initialCode 未变）；应用按钮不改 initialCode。
+  useEffect(() => {
+    setCode(initialCode)
+  }, [initialCode])
   const [error, setError] = useState<string | null>(null)
   const [applying, setApplying] = useState(false)
 

@@ -41,415 +41,43 @@
  * 3. 各 pane 内 `Add a row` 按钮 → 追加新行（各自 count 递增）。
  * 4. Delete 链接 → Popconfirm 确认后删除该行（两侧各自，>=1 行显示 Delete）。
  * 5. hover name 单元格 → `.editable-cell-value-wrap` 显示边框（两侧同款 CSS）。
+ *
+ * === 拆子文件（task：live 编辑接入，Pane 组件直接变子文件）===
+ *
+ * 父文件只保留「外壳职责」：useVirtualization + SplitDemo 外壳 + children 对照说明。
+ * 原始 demo 已有左右独立 Pane（DgEditCellPane/AntdEditCellPane）+ injectEditCellCss CSS 注入 +
+ * 增删行 state——Pane 组件直接变子文件（重命名为 EditCellDg/EditCellAntd），CSS 注入逻辑保留
+ * （幂等，两子组件共用同一 CSS，各自 useEffect 调 injectEditCellCss），增删行 state 各侧独立自管：
+ *   - `./edit-cell.dg`：`EditCellDg({virtual})`（左栏）
+ *   - `./edit-cell.antd`：`EditCellAntd({virtual})`（右栏）
+ *
+ * ★ state 提升决策（SOP）：本 demo 无外部控制条，编辑/增删行 state 全留各侧子组件内自管（原始
+ * 决策「编辑各自独立」——共用 dataSource 会互相干扰）。CSS 注入从父 useEffect 移到各子组件
+ * useEffect（子文件自包含），幂等检查保证两子组件共用同一 `<style>` 不重复注入。
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `EditCellDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
+ * 子组件 props 全部带默认值（virtual=false），编辑态超集 props {bordered,virtual,size,autoScroll}
+ * 不全也不崩（编辑/增删行 state 全在子组件内自管）。
  */
 
-import React, { useContext, useEffect, useRef, useState } from 'react'
-import type { GetRef, InputRef, TableProps as AntdTableProps } from 'antd'
-import { Button, Form, Input, Popconfirm, Table as AntdTable } from 'antd'
-import { Table } from '../table'
-import type { TableProps } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
-import { defaultCount, defaultData, makeNewRow, type RecordType } from './_compare/edit-cell.shared'
-// 虚拟化开关接入（决策 7）：顶栏 Switch ON 时两侧 Table 叠加 virtual + scroll.y。
-// 编辑态单元格在虚拟窗口内正常工作（Form context 透传不依赖 DOM 层级）。
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（编辑态单元格在虚拟窗口内正常工作，
+// Form context 透传不依赖 DOM 层级）。
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// antd demo 配套 CSS（注入 document.head，仅注入一次）
-// 对齐 antd edit-cell demo 的 .editable-cell-value-wrap / .editable-row hover 边框样式。
-// 两侧共享：data-grid 单元格 hover 同样触发边框（editable-row class 透传到该行所有单元格）。
-// ---------------------------------------------------------------------------
-
-type FormInstance<T> = GetRef<typeof Form<T>>
-
-let cssInjected = false
-function injectEditCellCss() {
-  if (cssInjected) return
-  // 幂等检查：Vite HMR 跨模块实例重置 cssInjected 时，避免重复注入 <style>（DOM 已存在则跳过）。
-  if (document.head.querySelector('[data-edit-cell-css]')) {
-    cssInjected = true
-    return
-  }
-  cssInjected = true
-  const style = document.createElement('style')
-  style.setAttribute('data-edit-cell-css', '')
-  style.textContent = `
-.editable-cell {
-  position: relative;
-}
-.editable-cell-value-wrap {
-  padding: 5px 12px;
-  cursor: pointer;
-}
-.editable-row:hover .editable-cell-value-wrap {
-  padding: 4px 11px;
-  border: 1px solid var(--ant-color-border);
-  border-radius: 2px;
-}
-`
-  document.head.appendChild(style)
-}
-
-// ===========================================================================
-// 左栏（data-grid）—— 行为与改造前一致（components.body.cell/row + onCell 编辑）
-// ===========================================================================
-
-const DgEditableContext = React.createContext<FormInstance<any> | null>(null)
-
-/** data-grid 适配：Form component={false} + Provider 不产生 DOM，单元格穿透为 grid 直接子元素。 */
-const DgEditableRow: React.FC<Record<string, any>> = ({ ...props }) => {
-  const [form] = Form.useForm()
-  return (
-    <Form form={form} component={false}>
-      <DgEditableContext.Provider value={form}>
-        {/* children = 该行所有 BodyCell（grid 直接子元素，由引擎定位）。 */}
-        {props.children}
-      </DgEditableContext.Provider>
-    </Form>
-  )
-}
-
-interface DgEditableCellProps {
-  title: React.ReactNode
-  editable?: boolean
-  dataIndex: keyof RecordType
-  record: RecordType
-  handleSave: (record: RecordType) => void
-}
-
-/**
- * data-grid 适配：返回**内容 ReactNode（不包 td）**。引擎把本组件渲染在 `.dg-cell-inner` 处。
- * editing 态 Form.Item+Input；展示态 div.editable-cell-value-wrap（onClick 进入编辑）。
- */
-const DgEditableCell: React.FC<React.PropsWithChildren<DgEditableCellProps>> = ({
-  title,
-  editable,
-  children,
-  dataIndex,
-  record,
-  handleSave,
-}) => {
-  const [editing, setEditing] = useState(false)
-  const inputRef = useRef<InputRef>(null)
-  const form = useContext(DgEditableContext)!
-
-  useEffect(() => {
-    if (editing) {
-      inputRef.current?.focus()
-    }
-  }, [editing])
-
-  const toggleEdit = () => {
-    setEditing(!editing)
-    form.setFieldsValue({ [dataIndex]: record[dataIndex] })
-  }
-
-  const save = async () => {
-    try {
-      const values = await form.validateFields()
-      toggleEdit()
-      handleSave({ ...record, ...values })
-    } catch (errInfo) {
-      console.log('Save failed:', errInfo)
-    }
-  }
-
-  let childNode = children
-
-  if (editable) {
-    childNode = editing ? (
-      <Form.Item
-        style={{ margin: 0 }}
-        name={dataIndex}
-        rules={[{ required: true, message: `${title} is required.` }]}
-      >
-        <Input ref={inputRef} onPressEnter={save} onBlur={save} />
-      </Form.Item>
-    ) : (
-      <div
-        className="editable-cell-value-wrap"
-        style={{ paddingInlineEnd: 24 }}
-        onClick={toggleEdit}
-      >
-        {children}
-      </div>
-    )
-  }
-
-  // ★ data-grid 适配：返回内容 ReactNode（不包 td）。
-  return <>{childNode}</>
-}
-
-type DgColumnTypes = Exclude<TableProps<RecordType>['columns'], undefined>
-
-function DgEditCellPane() {
-  // ★ 编辑各自独立 state（两栏对照时互不干扰）。
-  const [dataSource, setDataSource] = useState<RecordType[]>(defaultData)
-  const [count, setCount] = useState(defaultCount)
-  // 虚拟化开关接入（决策 7）：顶栏 Switch ON 时叠加 virtual + scroll.y。
-  const { virtual } = useVirtualization()
-
-  const handleDelete = (key: React.Key) => {
-    setDataSource((ds) => ds.filter((item) => item.key !== key))
-  }
-
-  const handleAdd = () => {
-    setDataSource((ds) => [...ds, makeNewRow(count)])
-    setCount((c) => c + 1)
-  }
-
-  const handleSave = (row: RecordType) => {
-    setDataSource((ds) => {
-      const newData = [...ds]
-      const index = newData.findIndex((item) => row.key === item.key)
-      const item = newData[index]
-      newData.splice(index, 1, { ...item, ...row })
-      return newData
-    })
-  }
-
-  const defaultColumns: (DgColumnTypes[number] & {
-    editable?: boolean
-    dataIndex: string
-  })[] = [
-    { title: 'name', dataIndex: 'name', width: '30%', editable: true },
-    { title: 'age', dataIndex: 'age' },
-    { title: 'address', dataIndex: 'address' },
-    {
-      title: 'operation',
-      dataIndex: 'operation',
-      render: (_, record) =>
-        dataSource.length >= 1 ? (
-          <Popconfirm title="Sure to delete?" onConfirm={() => handleDelete(record.key)}>
-            <a>Delete</a>
-          </Popconfirm>
-        ) : null,
-    },
-  ]
-
-  const components = {
-    body: {
-      row: DgEditableRow,
-      cell: DgEditableCell,
-    },
-  }
-
-  const columns = defaultColumns.map((col) => {
-    if (!col.editable) {
-      return col
-    }
-    return {
-      ...col,
-      onCell: (record: RecordType) => ({
-        record,
-        editable: col.editable,
-        dataIndex: col.dataIndex,
-        title: (col as { title?: React.ReactNode }).title,
-        handleSave,
-      }),
-    }
-  })
-
-  return (
-    <div>
-      {/* Add a row 按钮在 Table 上方（按 antd demo 原结构，pane 内各自维护 state）。 */}
-      <Button onClick={handleAdd} type="primary" style={{ marginBottom: 16 }}>
-        Add a row
-      </Button>
-      <Table<RecordType>
-        components={components}
-        rowClassName={() => 'editable-row'}
-        bordered
-        dataSource={dataSource}
-        columns={columns as DgColumnTypes}
-        // 对齐右栏 antd 默认分页（antd 对任意数据都渲染 .ant-pagination，data-grid 不传=无分页条）。
-        pagination={{}}
-        // 虚拟化（决策 7）：ON→virtual+scroll.y=true（CSS 自适应高度，SplitDemo 限高 pane body 提供可滚动区域）；OFF→不传，非虚拟全量 DOM（零回归）。
-        virtual={virtual}
-        scroll={virtual ? { y: true } : undefined}
-      />
-    </div>
-  )
-}
-
-// ===========================================================================
-// 右栏（antd）—— 忠实复刻 antd edit-cell demo（components.body.cell/row + onCell）
-// ===========================================================================
-
-const AntdEditableContext = React.createContext<FormInstance<any> | null>(null)
-
-/** antd 原生：Form component={false} + Provider + <tr {...props} />。 */
-const AntdEditableRow: React.FC<Record<string, any>> = ({ ...props }) => {
-  const [form] = Form.useForm()
-  return (
-    <Form form={form} component={false}>
-      <AntdEditableContext.Provider value={form}>
-        <tr {...props} />
-      </AntdEditableContext.Provider>
-    </Form>
-  )
-}
-
-interface AntdEditableCellProps {
-  title: React.ReactNode
-  editable?: boolean
-  dataIndex: keyof RecordType
-  record: RecordType
-  handleSave: (record: RecordType) => void
-}
-
-/** antd 原生：返回 <td {...restProps}>{childNode}</td>。 */
-const AntdEditableCell: React.FC<
-  React.PropsWithChildren<AntdEditableCellProps> & React.HTMLAttributes<HTMLElement>
-> = ({ title, editable, children, dataIndex, record, handleSave, ...restProps }) => {
-  const [editing, setEditing] = useState(false)
-  const inputRef = useRef<InputRef>(null)
-  const form = useContext(AntdEditableContext)!
-
-  useEffect(() => {
-    if (editing) {
-      inputRef.current?.focus()
-    }
-  }, [editing])
-
-  const toggleEdit = () => {
-    setEditing(!editing)
-    form.setFieldsValue({ [dataIndex]: record[dataIndex] })
-  }
-
-  const save = async () => {
-    try {
-      const values = await form.validateFields()
-      toggleEdit()
-      handleSave({ ...record, ...values })
-    } catch (errInfo) {
-      console.log('Save failed:', errInfo)
-    }
-  }
-
-  let childNode = children
-
-  if (editable) {
-    childNode = editing ? (
-      <Form.Item
-        style={{ margin: 0 }}
-        name={dataIndex}
-        rules={[{ required: true, message: `${title} is required.` }]}
-      >
-        <Input ref={inputRef} onPressEnter={save} onBlur={save} />
-      </Form.Item>
-    ) : (
-      <div
-        className="editable-cell-value-wrap"
-        style={{ paddingInlineEnd: 24 }}
-        onClick={toggleEdit}
-      >
-        {children}
-      </div>
-    )
-  }
-
-  return <td {...restProps}>{childNode}</td>
-}
-
-type AntdColumnTypes = Exclude<AntdTableProps<RecordType>['columns'], undefined>
-
-function AntdEditCellPane() {
-  // ★ 编辑各自独立 state（两栏对照时互不干扰）。
-  const [dataSource, setDataSource] = useState<RecordType[]>(defaultData)
-  const [count, setCount] = useState(defaultCount)
-  // 虚拟化开关接入（决策 7）：顶栏 Switch ON 时叠加 virtual + scroll.y。
-  const { virtual } = useVirtualization()
-
-  const handleDelete = (key: React.Key) => {
-    setDataSource((ds) => ds.filter((item) => item.key !== key))
-  }
-
-  const handleAdd = () => {
-    setDataSource((ds) => [...ds, makeNewRow(count)])
-    setCount((c) => c + 1)
-  }
-
-  const handleSave = (row: RecordType) => {
-    setDataSource((ds) => {
-      const newData = [...ds]
-      const index = newData.findIndex((item) => row.key === item.key)
-      const item = newData[index]
-      newData.splice(index, 1, { ...item, ...row })
-      return newData
-    })
-  }
-
-  const defaultColumns: (AntdColumnTypes[number] & {
-    editable?: boolean
-    dataIndex: string
-  })[] = [
-    { title: 'name', dataIndex: 'name', width: '30%', editable: true },
-    { title: 'age', dataIndex: 'age' },
-    { title: 'address', dataIndex: 'address' },
-    {
-      title: 'operation',
-      dataIndex: 'operation',
-      render: (_, record) =>
-        dataSource.length >= 1 ? (
-          <Popconfirm title="Sure to delete?" onConfirm={() => handleDelete(record.key)}>
-            <a>Delete</a>
-          </Popconfirm>
-        ) : null,
-    },
-  ]
-
-  const components = {
-    body: {
-      row: AntdEditableRow,
-      cell: AntdEditableCell,
-    },
-  }
-
-  const columns = defaultColumns.map((col) => {
-    if (!col.editable) {
-      return col
-    }
-    return {
-      ...col,
-      onCell: (record: RecordType) => ({
-        record,
-        editable: col.editable,
-        dataIndex: col.dataIndex,
-        title: (col as { title?: React.ReactNode }).title,
-        handleSave,
-      }),
-    }
-  })
-
-  return (
-    <div>
-      <Button onClick={handleAdd} type="primary" style={{ marginBottom: 16 }}>
-        Add a row
-      </Button>
-      <AntdTable<RecordType>
-        components={components}
-        rowClassName={() => 'editable-row'}
-        bordered
-        dataSource={dataSource}
-        columns={columns as AntdColumnTypes}
-        // 虚拟化（决策 7）：ON→virtual+scroll.y=300（有分页，antd scroll.y 须数字）；OFF→不传，非虚拟（零回归）。
-        virtual={virtual}
-        scroll={virtual ? { y: 300 } : undefined}
-      />
-    </div>
-  )
-}
+// ★ 拆子文件后，左/右栏 Pane + EditableRow/EditableCell + CSS 注入 + 增删行 state 由子组件提供。
+//   RecordType/defaultData/makeNewRow 现在由子文件各自 import edit-cell.shared；父文件不再需要。
+import EditCellDg from './edit-cell.dg'
+import EditCellAntd from './edit-cell.antd'
 
 // ===========================================================================
 // Demo 根组件
 // ===========================================================================
 
 export default function EditCellDemo() {
-  // 注入 antd demo 配套 CSS（仅注入一次）。
-  useEffect(() => {
-    injectEditCellCss()
-  }, [])
+  // 虚拟化开关接入（决策 7）：顶栏 Switch ON 时两侧 Table 叠加 virtual + scroll.y。
+  // 编辑态单元格在虚拟窗口内正常工作（Form context 透传不依赖 DOM 层级）。
+  const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
@@ -459,8 +87,8 @@ export default function EditCellDemo() {
       */}
       <SplitDemo
         minPaneWidth={480}
-        left={<DgEditCellPane />}
-        right={<AntdEditCellPane />}
+        left={<EditCellDg virtual={virtual} />}
+        right={<EditCellAntd virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 B17 / S15）：</strong>
@@ -493,7 +121,7 @@ export default function EditCellDemo() {
             <li>
               <strong>rowClassName + CSS</strong>：两侧均传 <code>rowClassName</code> 返回
               <code>{'editable-row'}</code> + 同款 <code>.editable-cell-value-wrap</code> hover 边框 CSS
-              （注入 document.head）。
+              （注入 document.head，两子组件共用同一 CSS，幂等检查防重复注入）。
             </li>
           </ul>
         </div>

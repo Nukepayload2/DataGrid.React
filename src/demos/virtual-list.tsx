@@ -7,9 +7,9 @@
  * 本 demo 是决策 9「demo 左右对比框架」的首个试点：
  *   - **左栏（data-grid Table）** + **右栏（antd Table）** 并排（50/50，见 SplitDemo）。
  *   - **顶部共享控制条**：同一个状态同时驱动两侧表格（Bordered / Fixed / Expandable /
- *     Count / Empty 等任一控件变化，左右两栏同时变化），才能对照 diff。
+ *     Empty / Merged / Count 等任一控件变化，左右两栏同时变化），才能对照 diff。
  *   - 提取共享 `RecordType` + `getData`（见 `_compare/virtual-list.shared.ts`）供两侧复用；
- *     列定义因两侧类型/render 不同各自保留，但引用同一 `RecordType`。
+ *     列定义因两侧类型/render 不同各自保留在子文件，但均引用同一 `RecordType`。
  *
  * **本次试点选取 virtual-list 的目的**（用户指定）：评估 50/50 左右并排在「宽 + 高 + 双向滚动」
  * 的 demanding demo（scroll.x:2000 + scroll.y:400 + 万行虚拟）上是否好用。布局质量是核心评估目标。
@@ -48,219 +48,54 @@
  *      替代浏览器原生纵/横滚动条；滚动行为等价。
  *    - 右栏 antd：浏览器原生滚动条。视觉更轻是有意设计，不是 bug。
  *
+ * === 强制虚拟 demo（不消费全局虚拟开关）===
+ *
+ * 本 demo 是**强制虚拟 demo**——自身永久 virtual=true、自管高度，不消费顶栏「Virtual」Switch。
+ * 故父组件 SplitDemo 传 `virtualizable={false}`（不参与全局开关限高 / 不加 .dg-compare--virtual）。
+ * 两侧子组件内部各自硬编码 virtual=true + scroll（左 data-grid `scroll={{x:2000,y:true}}` + 父容器
+ * height:440 对齐右栏表体 y:400；右 antd `scroll={{x:2000,y:400}}` + pagination={false}）。
+ * 父组件**不再**接 useVirtualization（无意义——子组件不消费）。
+ *
  * === data-grid 侧行为与改造前一致（回归不破）===
  *
  * - virtual + scroll={{ x: 2000, y: true }}（决策 7：CSS 自适应高度，父容器 height:440 对齐右栏表体 y:400）。
  * - rowKey="id"、gridOptions={{ rowHeight:40, headerHeight:40 }}、mergedColumns/plainColumns 切换。
  * - Expandable 开关（验证决策 2 虚拟 × 展开），展开时强制 plainColumns（合并与展开互斥）。
  * - rowSelection：展开关闭时 radio 单选列（对齐右栏），展开时关闭。
+ *
+ * === 拆子文件（live 编辑接入，自包含 pane 模式，类 edit-cell）===
+ *
+ * 父文件只保留「外壳职责」：fixed/bordered/expanded/empty/count/merged state + 双 ref +
+ * DemoToolbar(Switch×5 + Segmented count + 滚动按钮×3) + SplitDemo 外壳（virtualizable={false}）+
+ * children 对照说明。两侧表格 JSX + columns + expandable + virtual/scroll 拆到子文件：
+ *   - `./virtual-list.dg`：`VirtualListDg({bordered, fixed, expanded, empty, merged, data, tableRef})`（左栏）
+ *   - `./virtual-list.antd`：`VirtualListAntd({bordered, fixed, expanded, empty, data, tableRef})`（右栏）
+ *
+ * 父文件保留 `useMemo(getData(count))`（count 由控制条驱动，生成的 data 以 prop 下发两侧子组件），
+ * 以及双 ref（dgRef/antdRef，以 tableRef prop 下发，驱动双侧 scrollTo 对照）。
+ *
+ * 这样：
+ *   - 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `VirtualListDemo`，零编辑开销。
+ *   - live 编辑模式：SplitDemoPreview 静态 import 真实子组件，并按 editedDg/editedAntd 替换。
+ *     子组件 props 全部带默认值（含 data 默认 getData(10000) 非空），编辑态超集 props
+ *     {bordered,virtual,size,autoScroll} 不全也不崩。
  */
 
 import { useMemo, useRef, useState } from 'react'
-import { Button, Segmented, Space, Switch, Table as AntdTable, Typography } from 'antd'
-import type { GetRef, TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType, TableRef } from '../table'
+import { Button, Segmented, Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
 import { getData, type RecordType } from './_compare/virtual-list.shared'
+import type { TableRef } from '../table'
+import type { GetRef } from 'antd'
+import { Table as AntdTable } from 'antd'
+// ★ 拆子文件后，左/右栏 JSX + columns + expandable + virtual/scroll 由子组件提供（props 驱动）。
+//   RecordType/getData 父文件保留（生成 data 下发两侧）；双 ref 父文件保留（驱动双侧 scrollTo）。
+import VirtualListDg from './virtual-list.dg'
+import VirtualListAntd from './virtual-list.antd'
 
 /** antd Table 的 ref 实例类型（含 scrollTo）。antd 顶层未导出 TableRef，用 GetRef 取得。 */
 type AntdTableRef = GetRef<typeof AntdTable>
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义
-// ---------------------------------------------------------------------------
-
-// 含固定列 + 合并的列定义（对齐 antd virtual-list demo 的 fixedColumns）。
-// 合并语义：
-//   - Group 列：id % 4 === 0 的行 rowSpan=4（向下合并 4 行），其余 rowSpan=0（被覆盖）。
-//   - Age 列：id % 4 === 0 的行 colSpan=2（向右合并 2 列，吃掉 Address 1）。
-//   - Address 1 列：id % 4 === 0 的行 colSpan=0（被 Age 的 colSpan=2 覆盖）。
-const dgMergedColumns: ColumnType<RecordType>[] = [
-  {
-    title: 'ID',
-    dataIndex: 'id',
-    width: 100,
-    fixed: 'start',
-  },
-  {
-    title: 'FirstName',
-    dataIndex: 'firstName',
-    width: 120,
-    fixed: 'start',
-  },
-  {
-    title: 'LastName',
-    dataIndex: 'lastName',
-    width: 120,
-    fixed: 'start',
-  },
-  {
-    title: 'Group',
-    width: 120,
-    render: (_, record) => `Group ${Math.floor(record.id / 4)}`,
-    onCell: (record) => ({
-      rowSpan: record.id % 4 === 0 ? 4 : 0,
-    }),
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    width: 100,
-    onCell: (record) => ({
-      colSpan: record.id % 4 === 0 ? 2 : 1,
-    }),
-  },
-  {
-    title: 'Address 1',
-    dataIndex: 'address1',
-    onCell: (record) => ({
-      colSpan: record.id % 4 === 0 ? 0 : 1,
-    }),
-  },
-  {
-    title: 'Address 2',
-    dataIndex: 'address2',
-  },
-  {
-    title: 'Address 3',
-    dataIndex: 'address3',
-  },
-  {
-    title: 'Action',
-    width: 150,
-    fixed: 'end',
-    render: () => (
-      <span style={{ display: 'inline-flex', gap: 8 }}>
-        <a>Action1</a>
-        <a>Action2</a>
-      </span>
-    ),
-  },
-]
-
-// 关闭合并后的列定义（对齐 antd demo "expanded 时清掉 onCell" 的等价路径）。
-const dgPlainColumns: ColumnType<RecordType>[] = [
-  { title: 'ID', dataIndex: 'id', width: 100, fixed: 'start' },
-  { title: 'FirstName', dataIndex: 'firstName', width: 120, fixed: 'start' },
-  { title: 'LastName', dataIndex: 'lastName', width: 120, fixed: 'start' },
-  { title: 'Group', width: 120, render: (_, r) => `Group ${Math.floor(r.id / 4)}` },
-  { title: 'Age', dataIndex: 'age', width: 100 },
-  { title: 'Address 1', dataIndex: 'address1' },
-  { title: 'Address 2', dataIndex: 'address2' },
-  { title: 'Address 3', dataIndex: 'address3' },
-  {
-    title: 'Action',
-    width: 150,
-    fixed: 'end',
-    render: () => (
-      <span style={{ display: 'inline-flex', gap: 8 }}>
-        <a>Action1</a>
-        <a>Action2</a>
-      </span>
-    ),
-  },
-]
-
-// 非固定列（3 列，对齐 antd demo 的 columns 变体）。
-const dgShortColumns: ColumnType<RecordType>[] = [
-  { title: 'ID', dataIndex: 'id', width: 100 },
-  { title: 'FirstName', dataIndex: 'firstName', width: 120 },
-  { title: 'LastName', dataIndex: 'lastName', width: 120 },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd 官方 virtual-list demo
-// ---------------------------------------------------------------------------
-
-const antdFixedColumns: NonNullable<TableProps<RecordType>['columns']> = [
-  {
-    title: 'ID',
-    dataIndex: 'id',
-    width: 100,
-    fixed: 'start',
-  },
-  {
-    // 官方 antd virtual-list demo 此处为 'FistName'（笔误）。两侧统一为正确拼写「FirstName」
-    // 以消除标题层面的可见差异（列定义对齐任务要求）。
-    title: 'FirstName',
-    dataIndex: 'firstName',
-    width: 120,
-    fixed: 'start',
-  },
-  {
-    title: 'LastName',
-    dataIndex: 'lastName',
-    width: 120,
-    fixed: 'start',
-  },
-  {
-    title: 'Group',
-    width: 120,
-    render: (_, record) => `Group ${Math.floor(record.id / 4)}`,
-    onCell: (record) => ({
-      rowSpan: record.id % 4 === 0 ? 4 : 0,
-    }),
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    width: 100,
-    onCell: (record) => ({
-      colSpan: record.id % 4 === 0 ? 2 : 1,
-    }),
-  },
-  {
-    title: 'Address 1',
-    dataIndex: 'address1',
-    onCell: (record) => ({
-      colSpan: record.id % 4 === 0 ? 0 : 1,
-    }),
-  },
-  {
-    title: 'Address 2',
-    dataIndex: 'address2',
-  },
-  {
-    title: 'Address 3',
-    dataIndex: 'address3',
-  },
-  {
-    title: 'Action',
-    width: 150,
-    fixed: 'end',
-    render: () => (
-      <Space>
-        <Typography.Link>Action1</Typography.Link>
-        <Typography.Link>Action2</Typography.Link>
-      </Space>
-    ),
-  },
-]
-
-const antdShortColumns: NonNullable<TableProps<RecordType>['columns']> = [
-  {
-    title: 'ID',
-    dataIndex: 'id',
-    width: 100,
-  },
-  {
-    // 同 antdFixedColumns：官方 demo 此处亦为 'FistName' 笔误，统一改为 'FirstName'。
-    title: 'FirstName',
-    dataIndex: 'firstName',
-    width: 120,
-  },
-  {
-    title: 'LastName',
-    dataIndex: 'lastName',
-    width: 120,
-  },
-]
-
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
 
 export default function VirtualListDemo() {
   // ★ 共享状态：同一个状态同时驱动两侧表格。
@@ -272,49 +107,11 @@ export default function VirtualListDemo() {
   // data-grid 专属：保留独立的 Merged 开关（对照点）。
   const [merged, setMerged] = useState(true)
 
+  // 双 ref：父文件持有，以 tableRef prop 下发两侧子组件，驱动双侧 scrollTo 对照。
   const dgRef = useRef<TableRef>(null)
   const antdRef = useRef<AntdTableRef | null>(null)
 
   const data = useMemo<RecordType[]>(() => getData(count), [count])
-
-  // ----- 左栏（data-grid）列选择逻辑（与改造前一致）-----
-  const dgColumns = useMemo<ColumnType<RecordType>[]>(() => {
-    if (!fixed) return dgShortColumns // 与 antd 一致：非 fixed 时只显示前 3 列。
-    // 展开启用时强制 plainColumns（与 antd demo "Expandable 开关切到展开时清 onCell" 一致）。
-    return merged && !expanded ? dgMergedColumns : dgPlainColumns
-  }, [fixed, merged, expanded])
-
-  // ----- 右栏（antd）列选择逻辑（对齐 antd demo mergedColumns useMemo）-----
-  const antdColumns = useMemo<NonNullable<TableProps<RecordType>['columns']>>(() => {
-    if (!fixed) return antdShortColumns
-    if (!expanded) return antdFixedColumns
-    return antdFixedColumns.map((col) => ({ ...col, onCell: undefined }))
-  }, [expanded, fixed])
-
-  // ----- 左栏（data-grid）expandable（决策 2：展开内容不计入虚拟窗口）-----
-  const dgExpandable = useMemo(() => {
-    if (!expanded) return undefined
-    return {
-      expandedRowRender: (record: RecordType) => (
-        <div style={{ padding: 8 }}>
-          Expanded content for id={record.id}: {record.address1} / {record.address2}
-        </div>
-      ),
-      rowExpandable: (record: RecordType) => record.id % 2 === 0,
-    }
-  }, [expanded])
-
-  // ----- 右栏（antd）expandable（忠实 antd demo expandableProps）-----
-  const antdExpandable = useMemo<TableProps<RecordType>['expandable']>(() => {
-    if (!expanded) return undefined
-    return {
-      columnWidth: 48,
-      expandedRowRender: (record: RecordType) => (
-        <p style={{ margin: 0 }}>🎉 Expanded {record.address1}</p>
-      ),
-      rowExpandable: (record: RecordType) => record.id % 2 === 0,
-    }
-  }, [expanded])
 
   // ----- 双侧 scrollTo（同时滚动两侧）-----
   const scrollToBoth = (opts: { index?: number; key?: import('react').Key }) => {
@@ -394,51 +191,32 @@ export default function VirtualListDemo() {
         原因：本 demo 是 scroll.x:2000 的宽表，半宽（~960px at 1920 视口）下每栏仅 ~354px
         太挤、横滚严重；取大阈值使常规笔记本视口（1440–1920）下 **竖排**（每栏全宽，对 2000px
         表更友好），仅在超宽屏（≥2560）才横排。这正是用户要的「放不下就竖排，每个 demo 阈值不同」。
+
+        ★ virtualizable={false}：强制虚拟 demo（自身永久 virtual=true + 自管高度），不消费顶栏
+          「Virtual」Switch，不加 .dg-compare--virtual 限高类（子组件内部已硬编码 scroll + 父容器 height）。
       */}
       <SplitDemo
         minPaneWidth={1000}
+        virtualizable={false}
         left={
-          /* ★ 决策 7：父容器需有明确 height。
-             对齐右栏 antd `scroll.y:400`：右栏 400 是**表体高**，整表=表头(~40)+表体(400)≈440。
-             左栏 `height` 是**整表高**（含表头），故取 440 与右栏表体区像素级对齐。
-             虚拟滚动窗口高度由容器 clientHeight 实时测量（ResizeObserver），CSS 自动适应。
-             （验证者实测后如发现表头实际高≠40，微调此处。） */
-          <div style={{ height: 440 }}>
-            <Table<RecordType>
-              ref={dgRef}
-              bordered={bordered}
-              virtual
-              columns={dgColumns}
-              scroll={{ x: 2000, y: true }}
-              rowKey="id"
-              dataSource={empty ? [] : data}
-              expandable={dgExpandable}
-              // 对齐右栏 antd：展开关闭时显示 radio 单选列（columnWidth:48），
-              // 展开时关闭（避免展开图标列与选择列并存的视觉拥挤，忠实 antd demo）。
-              rowSelection={
-                expanded ? undefined : { type: 'radio', columnWidth: 48 }
-              }
-              // 行高约定：每行 40px 作未测兜底/初值；虚拟窗口 offset/padding 由 RO 实测真实高驱动
-              // （measured-first + 约定 40px 兜底，详见 task-plan §1.2 决策 2）。
-              gridOptions={{ rowHeight: 40, headerHeight: 40 }}
-            />
-          </div>
+          <VirtualListDg
+            bordered={bordered}
+            fixed={fixed}
+            expanded={expanded}
+            empty={empty}
+            merged={merged}
+            data={data}
+            tableRef={dgRef}
+          />
         }
         right={
-          /* antd 官方 virtual-list demo 忠实复刻：
-             virtual + scroll={{ x:2000, y:400 }} + pagination={false} +
-             rowSelection（展开关闭时 radio）+ expandable + fixedColumns。 */
-          <AntdTable<RecordType>
-            ref={antdRef}
+          <VirtualListAntd
             bordered={bordered}
-            virtual
-            columns={antdColumns}
-            scroll={{ x: 2000, y: 400 }}
-            rowKey="id"
-            dataSource={empty ? [] : data}
-            pagination={false}
-            rowSelection={expanded ? undefined : { type: 'radio', columnWidth: 48 }}
-            expandable={antdExpandable}
+            fixed={fixed}
+            expanded={expanded}
+            empty={empty}
+            data={data}
+            tableRef={antdRef}
           />
         }
       >

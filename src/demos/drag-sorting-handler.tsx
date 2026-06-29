@@ -11,9 +11,9 @@
  *   **不依赖 @dnd-kit/***。
  * - **右栏（antd Table）**：忠实复刻 antd 官方 `drag-sorting-handler.tsx`——
  *   `@dnd-kit/*` + RowContext.Provider 透传 setActivatorNodeRef/listeners 到 DragHandle，
- *   仅手柄触发拖拽（Name/Age/Address 不触发）。★ 图标同样用内联 SVG（见下 AntdDragHandle 注释，
- *   项目未直接声明 @ant-design/icons 依赖，右栏也走 InlineHolderOutlined——视觉与官方
- *   HolderOutlined 逐字节一致，仅图标实现方式不同）。
+ *   仅手柄触发拖拽（Name/Age/Address 不触发）。★ 图标同样用内联 SVG（项目未直接声明
+ *   @ant-design/icons 依赖，右栏也走 InlineHolderOutlined——视觉与官方 HolderOutlined 逐字节一致，
+ *   仅图标实现方式不同）。
  * - **共享控制条**：`Bordered` 开关同时驱动两侧（原 antd demo 无控制条，此处加最小开关便于对照）。
  *   拖拽是局部交互，两栏各自独立维护 dataSource（各自排序便于对照）。
  * - **共享数据**：`RecordType` + `initialData` 见 `_compare/drag-sorting-handler.shared.ts`。
@@ -30,271 +30,41 @@
  *    官方 @ant-design/icons 组件），**视觉完全相同**——因 pnpm 严格隔离项目未直接声明
  *    @ant-design/icons 依赖（仅 antd 间接依赖不可访问），故右栏也走内联 SVG（与
  *    custom-filter-panel/nested-table 约定一致）。
+ *
+ * === 拆子文件（task：live 编辑接入，Pane 组件直接变子文件）===
+ *
+ * 父文件只保留「外壳职责」：bordered/autoScroll state + useVirtualization + DemoToolbar(Switch
+ * Bordered + Switch AutoScroll) + SplitDemo 外壳 + children 对照说明。两侧表格 JSX + 手柄/Row
+ * 拖拽组件 + 列定义 + InlineHolderOutlined 拆到子文件：
+ *   - `./drag-sorting-handler.dg`：`DragSortingHandlerDg({bordered, autoScroll, virtual})`（左栏，自研 pointer）
+ *   - `./drag-sorting-handler.antd`：`DragSortingHandlerAntd({bordered, virtual})`（右栏，@dnd-kit）
+ *
+ * ★ state 提升决策（SOP）：bordered/autoScroll 由父控制条直接操作 → 提升父 + prop 传子；
+ *   拖拽 dataSource 是局部交互态 → 留各侧子组件内自管（原始决策「两栏独立」）。
+ * ★ @dnd-kit/* scope：已在 src/live/scope.ts baseScope 注入 4 个 namespace（react-highlight-words
+ *   + @dnd-kit/core、@dnd-kit/sortable、@dnd-kit/modifiers、@dnd-kit/utilities）。
+ *   drag-sorting-handler.antd 子文件 `import { DndContext, ... } from '@dnd-kit/core'` 等，scope 内命中。
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `DragSortingHandlerDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
+ * 子组件 props 全部带默认值（bordered=false / autoScroll=true / virtual=false），编辑态超集 props
+ * {bordered,virtual,size,autoScroll} 不全也不崩（拖拽 dataSource state 全在子组件内自管）。
  */
 
-import { createContext, useContext, useMemo, useRef, useState } from 'react'
-import type { DragEndEvent } from '@dnd-kit/core'
-import { DndContext } from '@dnd-kit/core'
-import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities'
-import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
-import {
-  arrayMove,
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { Button, Space, Switch, Table as AntdTable, theme } from 'antd'
-import type { TableColumnsType } from 'antd'
-import type { CSSProperties, HTMLAttributes } from 'react'
-import type { FC, ReactNode } from 'react'
-import { Table } from '../table'
-import { useRowDragSort } from '../table'
-import type { ColumnType } from '../table'
+import { useState } from 'react'
+import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { initialData, type RecordType } from './_compare/drag-sorting-handler.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（手柄拖拽命中区在虚拟窗口内，正常接入）
 import { useVirtualization } from './VirtualizationContext'
+// ★ 拆子文件后，左/右栏 Pane + 手柄/Row 拖拽组件 + 列定义 + InlineHolderOutlined 由子组件提供（props 驱动）。
+//   RecordType/initialData 现在由子文件各自 import drag-sorting-handler.shared；父文件不再需要。
+import DragSortingHandlerDg from './drag-sorting-handler.dg'
+import DragSortingHandlerAntd from './drag-sorting-handler.antd'
 
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）内联 HolderOutlined SVG —— 避免 import @ant-design/icons
-// ---------------------------------------------------------------------------
-
-/**
- * 内联 HolderOutlined（拖拽手柄"七点"图标）——避免直接依赖 @ant-design/icons（仅 antd 间接依赖）。
- * 与 antd HolderOutlined **逐字节一致**（viewBox + path 取自
- * `@ant-design/icons-svg/es/asn/HolderOutlined.js`：viewBox "64 64 896 896"，
- * 7 个圆点 path）；size 跟随父节点 font-size（1em）。
- */
-function InlineHolderOutlined({ style }: { style?: CSSProperties }): ReactNode {
-  return (
-    <svg
-      viewBox="64 64 896 896"
-      width="1em"
-      height="1em"
-      fill="currentColor"
-      aria-hidden="true"
-      style={{ display: 'inline-block', verticalAlign: '-0.125em', ...style }}
-    >
-      <path d="M300 276.5a56 56 0 1056-97 56 56 0 00-56 97zm0 284a56 56 0 1056-97 56 56 0 00-56 97zM640 228a56 56 0 10112 0 56 56 0 00-112 0zm0 284a56 56 0 10112 0 56 56 0 00-112 0zM300 844.5a56 56 0 1056-97 56 56 0 00-56 97zM640 796a56 56 0 10112 0 56 56 0 00-112 0z" />
-    </svg>
-  )
-}
-
-/** 左栏 DragHandle：cursor:move + .dg-drag-handle class（供 handleSelector 命中）。 */
-function DgDragHandle() {
-  return (
-    <Button
-      type="text"
-      size="small"
-      className="dg-drag-handle"
-      icon={<InlineHolderOutlined />}
-      style={{ cursor: 'move' }}
-    />
-  )
-}
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）Row + RowContext + DragHandle —— 忠实复刻 antd 官方 drag-sorting-handler.tsx
-// ---------------------------------------------------------------------------
-
-interface RowContextProps {
-  setActivatorNodeRef?: (element: HTMLElement | null) => void
-  listeners?: SyntheticListenerMap
-}
-
-const RowContext = createContext<RowContextProps>({})
-
-/** 右栏 DragHandle：通过 RowContext 拿 setActivatorNodeRef + listeners（仅手柄触发拖拽）。
- *  ★ 图标用内联 SVG（与左栏共用 InlineHolderOutlined）——任务约束：项目未直接声明
- *  @ant-design/icons 依赖（仅 antd 间接依赖，pnpm 严格隔离不可访问），右栏图标也走内联 SVG
- *  （与 custom-filter-panel/nested-table 约定一致）。dnd-kit 的 RowContext/setActivatorNodeRef/
- *  listeners 透传机制完全保留（仅图标实现方式不同，功能等价 antd 官方 HolderOutlined）。 */
-const AntdDragHandle: FC = () => {
-  const { setActivatorNodeRef, listeners } = useContext(RowContext)
-  return (
-    <Button
-      type="text"
-      size="small"
-      icon={<InlineHolderOutlined />}
-      style={{ cursor: 'move' }}
-      ref={setActivatorNodeRef}
-      {...listeners}
-    />
-  )
-}
-
-interface RowProps extends HTMLAttributes<HTMLTableRowElement> {
-  'data-row-key': string
-}
-
-const Row: FC<RowProps> = (props) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    setActivatorNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: props['data-row-key'] })
-
-  const style: CSSProperties = {
-    ...props.style,
-    transform: CSS.Translate.toString(transform),
-    transition,
-    ...(isDragging ? { position: 'relative', zIndex: 9999 } : {}),
-  }
-
-  const contextValue = useMemo<RowContextProps>(
-    () => ({ setActivatorNodeRef, listeners }),
-    [setActivatorNodeRef, listeners],
-  )
-
-  return (
-    <RowContext.Provider value={contextValue}>
-      <tr {...props} ref={setNodeRef} style={style} {...attributes} />
-    </RowContext.Provider>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 首列手柄 + Name/Age/Address（对齐 antd demo）
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<RecordType>[] = [
-  { key: 'sort', align: 'center', width: 80, render: () => <DgDragHandle /> },
-  { title: 'Name', dataIndex: 'name', key: 'name' },
-  { title: 'Age', dataIndex: 'age', key: 'age' },
-  { title: 'Address', dataIndex: 'address', key: 'address' },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd demo
-// ---------------------------------------------------------------------------
-
-const antdColumns: TableColumnsType<RecordType> = [
-  { key: 'sort', align: 'center', width: 80, render: () => <AntdDragHandle /> },
-  { title: 'Name', dataIndex: 'name' },
-  { title: 'Age', dataIndex: 'age' },
-  { title: 'Address', dataIndex: 'address' },
-]
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）—— 复用 S17 useRowDragSort + handleSelector 限定手柄列
-// ---------------------------------------------------------------------------
-
-function DataGridPane({
-  bordered,
-  autoScroll,
-  virtual,
-}: {
-  bordered: boolean
-  autoScroll: boolean
-  virtual: boolean
-}) {
-  const [dataSource, setDataSource] = useState<RecordType[]>(initialData)
-  // 主题 token：拖拽状态 hint 文字色 token 化（colorTextTertiary≈rgba(0,0,0,0.45)），暗主题自适应。
-  const { token } = theme.useToken()
-
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  const { dragState, indicator, containerProps } = useRowDragSort<RecordType>({
-    dataSource,
-    rowKey: 'key',
-    onSort: setDataSource,
-    containerRef,
-    // 手柄列限定：仅 .dg-drag-handle 命中才启动拖拽（Name/Age/Address 不触发）。
-    handleSelector: '.dg-drag-handle',
-    // T9：拖到容器边缘自动滚动（此 demo 数据少无 scroll 容器，auto-scroll 为 no-op；开关用于对照）。
-    autoScroll,
-  })
-
-  return (
-    <div ref={containerRef} style={{ position: 'relative' }} {...containerProps}>
-      <Table<RecordType>
-        rowKey="key"
-        columns={dgColumns}
-        dataSource={dataSource}
-        bordered={bordered}
-        // 对齐右栏 antd 默认分页（antd 对任意数据都渲染 .ant-pagination，data-grid 不传=无分页条）。
-        pagination={{}}
-        /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-           给的限高，虚拟窗口才有滚动区；手柄拖拽命中区在虚拟窗口内，正常接入）；
-           OFF 时回 undefined，行为与改造前一致。 */
-        virtual={virtual}
-        scroll={virtual ? { y: true } : undefined}
-      />
-      {indicator.visible ? (
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            top: indicator.top,
-            left: indicator.left,
-            right: indicator.right,
-            height: 2,
-            background: token.colorPrimary,
-            zIndex: 9999,
-            pointerEvents: 'none',
-            borderRadius: 1,
-          }}
-        />
-      ) : null}
-      <div style={{ marginTop: 8, fontSize: 12, color: token.colorTextTertiary }}>
-        当前拖拽：
-        {dragState ? `from #${dragState.fromIndex + 1} → 目标 #${dragState.overIndex + 1}` : '无'}
-      </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）—— 忠实复刻官方 drag-sorting-handler.tsx
-// ---------------------------------------------------------------------------
-
-function AntdPane({
-  bordered,
-  virtual,
-}: {
-  bordered: boolean
-  virtual: boolean
-}) {
-  const [dataSource, setDataSource] = useState<RecordType[]>(initialData)
-
-  const onDragEnd = ({ active, over }: DragEndEvent) => {
-    if (active.id !== over?.id) {
-      setDataSource((prevState) => {
-        const activeIndex = prevState.findIndex((record) => record.key === active?.id)
-        const overIndex = prevState.findIndex((record) => record.key === over?.id)
-        return arrayMove(prevState, activeIndex, overIndex)
-      })
-    }
-  }
-
-  return (
-    <DndContext modifiers={[restrictToVerticalAxis]} onDragEnd={onDragEnd}>
-      <SortableContext items={dataSource.map((i) => i.key)} strategy={verticalListSortingStrategy}>
-        <AntdTable<RecordType>
-          rowKey="key"
-          components={{ body: { row: Row } }}
-          columns={antdColumns}
-          dataSource={dataSource}
-          bordered={bordered}
-          /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:300（antd 不认 true，数字像素高度）；
-             OFF 时回 undefined，行为与改造前一致。 */
-          virtual={virtual}
-          scroll={virtual ? { y: 300 } : undefined}
-        />
-      </SortableContext>
-    </DndContext>
-  )
-}
-
-// ---------------------------------------------------------------------------
+// ===========================================================================
 // Demo 根组件
-// ---------------------------------------------------------------------------
+// ===========================================================================
 
 export default function DragSortingHandlerDemo() {
   // ★ 共享状态：同一个状态同时驱动两侧表格。
@@ -303,7 +73,6 @@ export default function DragSortingHandlerDemo() {
   const [autoScroll, setAutoScroll] = useState(true)
   // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y
   const { virtual } = useVirtualization()
-  // 注：根组件不再消费 theme token（控制条已迁移 DemoToolbar，子组件 DataGridPane 自调 useToken）。
 
   return (
     <div style={{ padding: 24 }}>
@@ -334,8 +103,8 @@ export default function DragSortingHandlerDemo() {
       */}
       <SplitDemo
         minPaneWidth={480}
-        left={<DataGridPane bordered={bordered} autoScroll={autoScroll} virtual={virtual} />}
-        right={<AntdPane bordered={bordered} virtual={virtual} />}
+        left={<DragSortingHandlerDg bordered={bordered} autoScroll={autoScroll} virtual={virtual} />}
+        right={<DragSortingHandlerAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 B18）：</strong>左右并排呈现 data-grid（自研 pointer 手柄列拖拽）

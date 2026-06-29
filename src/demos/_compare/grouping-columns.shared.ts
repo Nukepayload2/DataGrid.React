@@ -45,3 +45,13 @@ export function getData(count = 100): DataType[] {
     gender: 'M',
   }))
 }
+
+/**
+ * 编辑模式兜底初始数据（20 行）。
+ *
+ * LiveEditor 编辑态下，SplitDemoPreview 的 propsFor 返回超集 {bordered,virtual,size,autoScroll}
+ * 不含 data → `<EditedDg {...editProps}/>` 与未编辑侧 fallback 真实子组件都拿不到 data。
+ * 此处导出 20 行（避免 100 行撑爆 split pane 的合理非零值），子组件 data 默认值改为 initialData，
+ * data 缺失时回退到这 20 行而非 `[]` 空表。propsFor 不动（保持所有 demo 统一超集）。
+ */
+export const initialData = getData(20)

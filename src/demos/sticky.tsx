@@ -39,6 +39,23 @@
  *    antd 用 `scroll.y: 400`（rc-table max-height）；两侧均靠 scroll.y 形成内部滚动容器，表头钉在
  *    表格容器顶部，data-grid 与 antd rc-table 的内部实现路径不同但视觉对齐。
  *
+ * === 拆子文件（task S34→M8：live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：共享 summaryFixed state（父控制条 Switch + 两侧 summary 内 Switch
+ * 同步操作同一 state）+ 主题 token（顶部/底部说明区文字色 token 化）+ DemoToolbar + SplitDemo
+ * 外壳（virtualizable={false}）+ children 对照说明。两侧表格 JSX + 各自 columns 拆到子文件：
+ *   - `./sticky.dg`：`StickyDg({ summaryFixed, onSummaryFixedChange })`（左栏）
+ *   - `./sticky.antd`：`StickyAntd({ summaryFixed, onSummaryFixedChange })`（右栏）
+ *
+ * ★ state 提升决策（SOP）：summaryFixed 必须留父——父控制条 Switch + 两侧 summary 内 Switch 都
+ *   操作它（受控模式 + onChange 回调上报，三处同步）。columns 无外部控制条直接操作，按 SOP
+ *   搬入子组件（两侧各自声明列定义，类型独立不跨子文件 import）。
+ *
+ * === ★ M8 容器内固定表头 + 父容器高度（原样搬入子组件，不改逻辑）===
+ * data-grid scroll.y 仅支持 `true`（非数字），需父容器明确高度——原 demo 已有
+ * `<div style={{ height: 500 }}>` 包裹提供父容器高度。拆分时原样搬到左栏 dg 子组件，保持
+ * M8 容器内固定 + 父容器高度处理，不改逻辑。
+ *
  * === 外壳说明 ===
  *
  * app-shell 下 Content 内部滚动（无页面滚动）。两侧表格均用 scroll.y 形成内部滚动容器（data-grid
@@ -47,57 +64,13 @@
  */
 
 import { useState } from 'react'
-import { Space, Switch, Table as AntdTable, theme } from 'antd'
-import type { TableColumnsType } from 'antd'
-import { Table } from '../table'
-import type { ColumnType } from '../table'
+import { Space, Switch, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { dataSource, type DataType } from './_compare/sticky.shared'
-
-// ---------------------------------------------------------------------------
-// 列定义 —— 两侧字段（title/dataIndex/key/width/fixed/render）逐字一致
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<DataType>[] = [
-  { title: 'Full Name', width: 100, dataIndex: 'name', key: 'name', fixed: 'start' },
-  { title: 'Age', width: 100, dataIndex: 'age', key: 'age', fixed: 'start' },
-  { title: 'Column 1', dataIndex: 'address', key: '1', width: 150 },
-  { title: 'Column 2', dataIndex: 'address', key: '2', width: 150 },
-  { title: 'Column 3', dataIndex: 'address', key: '3', width: 150 },
-  { title: 'Column 4', dataIndex: 'address', key: '4', width: 150 },
-  { title: 'Column 5', dataIndex: 'address', key: '5', width: 150 },
-  { title: 'Column 6', dataIndex: 'address', key: '6', width: 150 },
-  { title: 'Column 7', dataIndex: 'address', key: '7', width: 150 },
-  { title: 'Column 8', dataIndex: 'address', key: '8' },
-  {
-    title: 'Action',
-    key: 'operation',
-    fixed: 'end',
-    width: 100,
-    render: () => <a>action</a>,
-  },
-]
-
-const antdColumns: TableColumnsType<DataType> = [
-  { title: 'Full Name', width: 100, dataIndex: 'name', key: 'name', fixed: 'start' },
-  { title: 'Age', width: 100, dataIndex: 'age', key: 'age', fixed: 'start' },
-  { title: 'Column 1', dataIndex: 'address', key: '1', width: 150 },
-  { title: 'Column 2', dataIndex: 'address', key: '2', width: 150 },
-  { title: 'Column 3', dataIndex: 'address', key: '3', width: 150 },
-  { title: 'Column 4', dataIndex: 'address', key: '4', width: 150 },
-  { title: 'Column 5', dataIndex: 'address', key: '5', width: 150 },
-  { title: 'Column 6', dataIndex: 'address', key: '6', width: 150 },
-  { title: 'Column 7', dataIndex: 'address', key: '7', width: 150 },
-  { title: 'Column 8', dataIndex: 'address', key: '8' },
-  {
-    title: 'Action',
-    key: 'operation',
-    fixed: 'end',
-    width: 100,
-    render: () => <a>action</a>,
-  },
-]
+// ★ 拆子文件后，左/右栏 JSX + 各自 columns 由子组件提供（props 驱动）。DataType/dataSource
+//   现在由子文件各自 import sticky.shared；父文件不再需要。
+import StickyDg from './sticky.dg'
+import StickyAntd from './sticky.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -152,82 +125,15 @@ export default function StickyDemo() {
         // （避免虚拟化引入额外变量干扰 sticky 表头对照）。
         virtualizable={false}
         left={
-          // 左栏 data-grid：M8 容器内固定表头 + scroll.x:1500/y:true + fixed 列 + summary fixed。
-          //
-          // ★ 决策 7：data-grid 的 scroll.y 刻意**仅支持 `true`**（纯 CSS flex 自适应高度，不用 JS 算
-          //   数字 max-height），GridTable.tsx 用 `scrollY === true` 判定；数字 400 被判 false → M8 容器
-          //   内固定不启用 → 表头不固定、表体不滚。故 data-grid 用 `y: true`（不是 y:400）。
-          //   `y: true` 要求**父容器有明确 height**（决策 7），否则 .dg-wrapper.dg-data-area 的
-          //   height:100% 无依托——故此处外包 `<div style={{ height: 500 }}>` 提供明确高度（演示用固定
-          //   值，可按需改 calc()/vh/其它）。
-          //   进入数据区域模式后：表体在该高度内 flex 限高内滚 + 表头 sticky 钉在容器顶；
-          //   scroll.x:1500 横向滚动走 `.dg-scroll`（数据区域模式双向滚动）。无 sticky prop。
-          <div style={{ height: 500 }}>
-            <Table<DataType>
-              columns={dgColumns}
-              dataSource={dataSource}
-              scroll={{ x: 1500, y: true }}
-            // ★ 对齐右栏 antd 默认分页（校准事实 1：antd 对任意行数都渲染 .ant-pagination
-            //   disabled 态分页条；data-grid omit=不渲染）。补 pagination={{}} 启用默认分页器，
-            //   两侧分页条存在性一致。
-            pagination={{}}
-            summary={() => (
-              <Table.Summary fixed={summaryFixed}>
-                <Table.Summary.Row>
-                  <Table.Summary.Cell index={0} colSpan={2}>
-                    <Switch
-                      checkedChildren="Summary Fixed"
-                      unCheckedChildren="Summary Fixed"
-                      checked={summaryFixed}
-                      onChange={() => {
-                        setSummaryFixed(!summaryFixed)
-                      }}
-                    />
-                  </Table.Summary.Cell>
-                  <Table.Summary.Cell index={2} colSpan={8}>
-                    Scroll Context
-                  </Table.Summary.Cell>
-                  <Table.Summary.Cell index={10}>Fix Right</Table.Summary.Cell>
-                </Table.Summary.Row>
-              </Table.Summary>
-            )}
-            />
-          </div>
+          <StickyDg
+            summaryFixed={summaryFixed}
+            onSummaryFixedChange={setSummaryFixed}
+          />
         }
         right={
-          // antd 官方 sticky demo 列结构忠实复刻：
-          // Full Name/Age fixed start + Column 1..8 + Action fixed end +
-          // scroll x 1500 / y 400 + summary fixed top/bottom Switch + 100 行。
-          // （原版 sticky prop 省略——改用 scroll.y 容器内固定表头，适配 app-shell。）
-          //
-          // ★ 与左栏差异：antd 接受**数字 `y: 400`**（max-height 语义，rc-table 直接给表体容器设
-          //   max-height:400px 限高 + 表头固定），无需父容器明确高度；左栏 data-grid 用 `y: true`
-          //   （决策 7，纯 CSS flex，需父容器高度，故外包 height:500 div）。两侧实现路径不同但视觉
-          //   对齐（均为 M8 容器内固定表头：表头钉容器顶 + 表体内部滚动）。
-          <AntdTable<DataType>
-            columns={antdColumns}
-            dataSource={dataSource}
-            scroll={{ x: 1500, y: 400 }}
-            summary={() => (
-              <AntdTable.Summary fixed={summaryFixed ? 'top' : 'bottom'}>
-                <AntdTable.Summary.Row>
-                  <AntdTable.Summary.Cell index={0} colSpan={2}>
-                    <Switch
-                      checkedChildren="Fixed Top"
-                      unCheckedChildren="Fixed Top"
-                      checked={summaryFixed}
-                      onChange={() => {
-                        setSummaryFixed(!summaryFixed)
-                      }}
-                    />
-                  </AntdTable.Summary.Cell>
-                  <AntdTable.Summary.Cell index={2} colSpan={8}>
-                    Scroll Context
-                  </AntdTable.Summary.Cell>
-                  <AntdTable.Summary.Cell index={10}>Fix Right</AntdTable.Summary.Cell>
-                </AntdTable.Summary.Row>
-              </AntdTable.Summary>
-            )}
+          <StickyAntd
+            summaryFixed={summaryFixed}
+            onSummaryFixedChange={setSummaryFixed}
           />
         }
       >

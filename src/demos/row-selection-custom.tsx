@@ -54,137 +54,46 @@
  *    点 Select Even Row → 两侧选中 index 1,3,5,...。**两侧同步**。
  * 5. onChange 触发 console.log（内置项触发；自定义项 demo 内自行 setState 不走 onChange）。
  * 6. 回归：row-selection / row-selection-and-operation demo 表头无下拉箭头（无 selections）。
+ *
+ * === 拆子文件（task：live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：selectedRowKeys state（受控真理源，同时驱动两侧 + 下方可视化区）
+ * + useVirtualization + SplitDemo 外壳 + children 对照说明 + 选中态可视化区。两侧表格 JSX
+ * 与 columns + 各自 selections 数组拆到子文件：
+ *   - `./row-selection-custom.dg`：`RowSelectionCustomDg({selectedRowKeys, onSelectedRowKeysChange, virtual})`（左栏）
+ *   - `./row-selection-custom.antd`：`RowSelectionCustomAntd({selectedRowKeys, onSelectedRowKeysChange, virtual})`（右栏）
+ *
+ * ★ 状态提升说明：selectedRowKeys 必须留父——父渲染页面下方「selectedRowKeys 可视化区」
+ *   需直接读它；且同一 state 驱动两侧同步。子组件通过 onSelectedRowKeysChange 回调上抛
+ *   （内置项 onChange + 自定义 odd/even 的 onSelect 都经此回调）。
+ *
+ * 这样：
+ *   - 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `RowSelectionCustomDemo`，零编辑开销。
+ *   - live 编辑模式：SplitDemoPreview 静态 import 真实子组件，并按 editedDg/editedAntd 替换。
  */
 
 import { useState } from 'react'
-import { Table as AntdTable, theme } from 'antd'
-import type { TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType, SelectionItem, TableRowSelection } from '../table'
+import { theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
-import { dataSource, type RecordType } from './_compare/row-selection-custom.shared'
-// 虚拟化开关（决策 7）：顶栏 Switch 全局驱动两侧 Table 的 virtual + scroll.y。
+// 全局虚拟化开关（决策 7）：顶栏 Switch 全局驱动两侧 Table 的 virtual + scroll.y。
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 行为与改造前一致
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<RecordType>[] = [
-  { title: 'Name', dataIndex: 'name' },
-  { title: 'Age', dataIndex: 'age' },
-  { title: 'Address', dataIndex: 'address' },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd row-selection-custom demo
-// ---------------------------------------------------------------------------
-
-const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
-  { title: 'Name', dataIndex: 'name' },
-  { title: 'Age', dataIndex: 'age' },
-  { title: 'Address', dataIndex: 'address' },
-]
+// ★ 拆子文件后，左/右栏 JSX + columns + 各自 selections 数组由子组件提供（props 驱动）。
+//   RecordType/dataSource 现在由子文件各自 import row-selection-custom.shared；父文件不再需要。
+import RowSelectionCustomDg from './row-selection-custom.dg'
+import RowSelectionCustomAntd from './row-selection-custom.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
 // ---------------------------------------------------------------------------
 
 export default function RowSelectionCustomDemo() {
-  // ★ 共享状态：同一个 state 同时驱动两侧表格。
+  // ★ 共享状态：同一个 state 同时驱动两侧表格 + 页面下方可视化区（故提升父，子组件只读+回调）。
   const [selectedRowKeys, setSelectedRowKeys] = useState<Array<React.Key>>([])
   // 虚拟化开关（决策 7）：顶栏 Switch ON 时两侧 Table 接入 virtual + scroll.y。
   const { virtual } = useVirtualization()
   // 主题 token：选中态可视化区文字色 token 化（colorTextSecondary≈rgba(0,0,0,0.65)、
   // colorTextTertiary≈rgba(0,0,0,0.45)），暗主题自适应。
   const { token } = theme.useToken()
-
-  const onSelectChange = (newSelectedRowKeys: Array<React.Key>) => {
-    // eslint-disable-next-line no-console
-    console.log('selectedRowKeys changed: ', newSelectedRowKeys)
-    setSelectedRowKeys(newSelectedRowKeys)
-  }
-
-  // 左栏（data-grid）selections：3 内置 + odd/even 自定义，与 antd demo 逐字一致。
-  // 显式标注 SelectionItem[] 以让 onSelect(changeableRowKeys) 获得上下文类型。
-  const dgSelections: Array<SelectionItem> = [
-    Table.SELECTION_ALL,
-    Table.SELECTION_INVERT,
-    Table.SELECTION_NONE,
-    {
-      key: 'odd',
-      text: 'Select Odd Row',
-      onSelect: (changeableRowKeys) => {
-        // antd demo 原样：filter index % 2 !== 0 → false（保留偶数 index 项）。
-        const newSelectedRowKeys = changeableRowKeys.filter((_, index) => {
-          if (index % 2 !== 0) {
-            return false
-          }
-          return true
-        })
-        setSelectedRowKeys(newSelectedRowKeys)
-      },
-    },
-    {
-      key: 'even',
-      text: 'Select Even Row',
-      onSelect: (changeableRowKeys) => {
-        // antd demo 原样：filter index % 2 !== 0 → true（保留奇数 index 项）。
-        const newSelectedRowKeys = changeableRowKeys.filter((_, index) => {
-          if (index % 2 !== 0) {
-            return true
-          }
-          return false
-        })
-        setSelectedRowKeys(newSelectedRowKeys)
-      },
-    },
-  ]
-  const dgRowSelection: TableRowSelection<RecordType> = {
-    selectedRowKeys,
-    onChange: onSelectChange,
-    selections: dgSelections,
-  }
-
-  // 右栏（antd）selections：与 antd demo 逐字一致（3 内置 + odd/even），叠加受控 selectedRowKeys。
-  const antdSelections: NonNullable<
-    NonNullable<TableProps<RecordType>['rowSelection']>['selections']
-  > = [
-    AntdTable.SELECTION_ALL,
-    AntdTable.SELECTION_INVERT,
-    AntdTable.SELECTION_NONE,
-    {
-      key: 'odd',
-      text: 'Select Odd Row',
-      onSelect: (changeableRowKeys) => {
-        const newSelectedRowKeys = changeableRowKeys.filter((_, index) => {
-          if (index % 2 !== 0) {
-            return false
-          }
-          return true
-        })
-        setSelectedRowKeys(newSelectedRowKeys)
-      },
-    },
-    {
-      key: 'even',
-      text: 'Select Even Row',
-      onSelect: (changeableRowKeys) => {
-        const newSelectedRowKeys = changeableRowKeys.filter((_, index) => {
-          if (index % 2 !== 0) {
-            return true
-          }
-          return false
-        })
-        setSelectedRowKeys(newSelectedRowKeys)
-      },
-    },
-  ]
-  const antdRowSelection: TableProps<RecordType>['rowSelection'] = {
-    selectedRowKeys,
-    onChange: onSelectChange,
-    selections: antdSelections,
-  }
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -196,22 +105,17 @@ export default function RowSelectionCustomDemo() {
       <SplitDemo
         minPaneWidth={480}
         left={
-          <Table<RecordType>
-            rowSelection={dgRowSelection}
-            columns={dgColumns}
-            dataSource={dataSource}
+          <RowSelectionCustomDg
+            selectedRowKeys={selectedRowKeys}
+            onSelectedRowKeysChange={setSelectedRowKeys}
             virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
           />
         }
         right={
-          <AntdTable<RecordType>
-            rowSelection={antdRowSelection}
-            columns={antdColumns}
-            dataSource={dataSource}
-            pagination={false}
+          <RowSelectionCustomAntd
+            selectedRowKeys={selectedRowKeys}
+            onSelectedRowKeysChange={setSelectedRowKeys}
             virtual={virtual}
-            scroll={virtual ? { y: 340 } : undefined}
           />
         }
       >

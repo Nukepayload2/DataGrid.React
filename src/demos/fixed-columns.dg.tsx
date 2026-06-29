@@ -67,9 +67,9 @@ const dgColumns: ColumnType<DataType>[] = [
 ]
 
 export default function FixedColumnsDg({
-  bordered,
-  size,
-  virtual,
+  bordered = false,
+  size = 'medium',
+  virtual = false,
 }: {
   bordered: boolean
   size: 'medium' | 'large'

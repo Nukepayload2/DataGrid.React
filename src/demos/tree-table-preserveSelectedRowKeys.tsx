@@ -11,9 +11,10 @@
  * - **共享控制条**：`CheckStrictly` + `preserveSelectedRowKeys` 两开关同时驱动两侧
  *   （默认 checkStrictly=false 父子联动 + preserve=true 翻页/折叠保留，对齐 antd demo），
  *   全宽置 SplitDemo 上方。
- * - **共享状态**：`checkStrictly` + `preserveSelectedRowKeys` state，两侧共用同一组。
- *   rowSelection 的 onChange/... console.log 各自独立（非跨栏同步选中态——本 demo 演示
- *   preserve/checkStrictly 联动行为对照，勾选独立便于 diff 两侧行为差异）。
+ * - **共享状态**：`checkStrictly` + `preserveSelectedRowKeys` state，两侧共用同一组
+ *   （父控制条直接操作 → 提升父 + prop 传子）。rowSelection 的 onChange/... console.log
+ *   各自独立（非跨栏同步选中态——本 demo 演示 preserve/checkStrictly 联动行为对照，勾选独立
+ *   便于 diff 两侧行为差异）。
  * - **共享数据**：`RecordType` + `dataSource` 见 `_compare/tree-table-preserveSelectedRowKeys.shared.ts`。
  *
  * === antd demo 要素 ===
@@ -59,73 +60,36 @@
  * === 决策 2 ===
  *
  * 树形展开行视为普通表格行：非虚拟走约定 `rowHeight`（track），虚拟路径同样被 RO 实测（measured-first + 约定兜底）。
+ *
+ * === 拆子文件（task：live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：checkStrictly + preserveSelectedRowKeys state（父控制条 Switch 直接
+ * 操作这两个 state → 必须提升父）+ useVirtualization + DemoToolbar + SplitDemo 外壳 + children 对照说明。
+ * 两侧表格 JSX + columns + 本侧 rowSelection(onChange/onSelect 控制台日志) 拆到子文件：
+ *   - `./tree-table-preserveSelectedRowKeys.dg`：`TreeTablePreserveSelectedRowKeysDg({checkStrictly, preserveSelectedRowKeys, virtual})`（左栏）
+ *   - `./tree-table-preserveSelectedRowKeys.antd`：`TreeTablePreserveSelectedRowKeysAntd({...})`（右栏）
+ *
+ * ★ state 提升决策（SOP）：checkStrictly/preserveSelectedRowKeys 必须提升父——共享 DemoToolbar
+ * Switch 直接 setCheckStrictly/setPreserveSelectedRowKeys 操作这两个 state，且两侧共用同一组
+ * （切一次、两侧同步 diff 联动行为 + 保留行为）。rowSelection 的选中态/onChange 各侧独立（瞬时
+ * 日志态），留子组件内自管。
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件根组件，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
+ * 子组件 props 全部带默认值（checkStrictly=false/preserve=true/virtual=false），编辑态超集
+ * props {bordered,virtual,size,autoScroll} 不全也不崩（tree-table 特有 prop 靠默认值兜底）。
  */
 
 import { useState } from 'react'
-import { Space, Switch, Table as AntdTable, theme } from 'antd'
-import type { TableColumnsType, TableProps as AntdTableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType, TableProps } from '../table'
+import { Space, Switch, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { dataSource, type RecordType } from './_compare/tree-table-preserveSelectedRowKeys.shared'
-// 虚拟化开关接入（决策 7）：顶栏 Switch ON 时两侧 Table 叠加 virtual + scroll.y。
-// 树形展开行视为普通行（决策 2），虚拟路径同样被 RO 实测（measured-first + 约定兜底）。
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
-
-type TableRowSelection<T extends object = object> = TableProps<T>['rowSelection']
-
-// ---------------------------------------------------------------------------
-// 列定义 —— 两侧同款（Name/Age/Address 纯文本，无 render）。类型各自归位。
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<RecordType>[] = [
-  { title: 'Name', dataIndex: 'name', key: 'name' },
-  { title: 'Age', dataIndex: 'age', key: 'age', width: '12%' },
-  { title: 'Address', dataIndex: 'address', key: 'address', width: '30%' },
-]
-
-const antdColumns: TableColumnsType<RecordType> = [
-  { title: 'Name', dataIndex: 'name', key: 'name' },
-  { title: 'Age', dataIndex: 'age', key: 'age', width: '12%' },
-  { title: 'Address', dataIndex: 'address', key: 'address', width: '30%' },
-]
-
-// ---------------------------------------------------------------------------
-// rowSelection —— 各侧独立（非跨栏同步）；checkStrictly + preserve 共享。
-// 注：antd demo 含 onSelect（单行勾选回调）console.log；data-grid TableRowSelection
-// 尚未声明 onSelect（决策 3 第二步补齐），这里仅保留 onChange（功能等价）。
-// ---------------------------------------------------------------------------
-
-const dgRowSelectionBase: TableRowSelection<RecordType> = {
-  onChange: (selectedRowKeys, selectedRows, info) => {
-    // eslint-disable-next-line no-console
-    console.log(
-      `[data-grid] selectedRowKeys: ${selectedRowKeys}`,
-      'selectedRows: ',
-      selectedRows,
-      'info',
-      info,
-    )
-  },
-}
-
-const antdRowSelectionBase: AntdTableProps<RecordType>['rowSelection'] = {
-  onChange: (selectedRowKeys, selectedRows, info) => {
-    // eslint-disable-next-line no-console
-    console.log(
-      `[antd] selectedRowKeys: ${selectedRowKeys}`,
-      'selectedRows: ',
-      selectedRows,
-      'info',
-      info,
-    )
-  },
-  onSelect: (record, selected, selectedRows) => {
-    // eslint-disable-next-line no-console
-    console.log('[antd] onSelect:', record, selected, selectedRows)
-  },
-}
+// ★ 拆子文件后，左/右栏 JSX + columns + 本侧 rowSelection 由子组件提供（props 驱动）。
+//   RecordType/dataSource 现在由子文件各自 import shared；父文件不再需要。
+import TreeTablePreserveSelectedRowKeysDg from './tree-table-preserveSelectedRowKeys.dg'
+import TreeTablePreserveSelectedRowKeysAntd from './tree-table-preserveSelectedRowKeys.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -135,6 +99,7 @@ export default function TreeTablePreserveSelectedRowKeysDemo() {
   // ★ 共享状态：同一组 state（checkStrictly + preserveSelectedRowKeys）同时驱动两侧。
   // 默认 checkStrictly=false（父子联动）+ preserve=true（翻页/折叠保留），对齐 antd demo
   // （§9 S13：data-grid 引擎 checkStrictly 默认 true，此处显式传 false 覆盖对齐 antd demo）。
+  // ★ 提升父：共享 DemoToolbar Switch 直接操作这两个 state，两侧共用同一组。
   const [checkStrictly, setCheckStrictly] = useState(false)
   const [preserveSelectedRowKeys, setPreserveSelectedRowKeys] = useState(true)
   // 虚拟化开关接入（决策 7）：顶栏 Switch ON 时两侧 Table 叠加 virtual + scroll.y。
@@ -172,33 +137,17 @@ export default function TreeTablePreserveSelectedRowKeysDemo() {
       <SplitDemo
         minPaneWidth={480}
         left={
-          <Table<RecordType>
-            columns={dgColumns}
-            rowSelection={{
-              ...dgRowSelectionBase,
-              checkStrictly,
-              preserveSelectedRowKeys,
-            }}
-            dataSource={dataSource}
-            pagination={{ defaultPageSize: 5 }}
-            // 虚拟化（决策 7）：ON→virtual+scroll.y=true（CSS 自适应高度，SplitDemo 限高 pane body 提供可滚动区域）；OFF→不传，非虚拟全量 DOM（零回归）。
+          <TreeTablePreserveSelectedRowKeysDg
+            checkStrictly={checkStrictly}
+            preserveSelectedRowKeys={preserveSelectedRowKeys}
             virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
           />
         }
         right={
-          <AntdTable<RecordType>
-            columns={antdColumns}
-            rowSelection={{
-              ...antdRowSelectionBase,
-              checkStrictly,
-              preserveSelectedRowKeys,
-            }}
-            dataSource={dataSource}
-            pagination={{ defaultPageSize: 5 }}
-            // 虚拟化（决策 7）：ON→virtual+scroll.y=300（有分页，antd scroll.y 须数字）；OFF→不传，非虚拟（零回归）。
+          <TreeTablePreserveSelectedRowKeysAntd
+            checkStrictly={checkStrictly}
+            preserveSelectedRowKeys={preserveSelectedRowKeys}
             virtual={virtual}
-            scroll={virtual ? { y: 300 } : undefined}
           />
         }
       >

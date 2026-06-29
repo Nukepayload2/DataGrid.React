@@ -28,34 +28,29 @@
  * 2. **pagination**：两侧均 `pagination={{ pageSize: 50 }}`（每页 50 条）——已对齐（左栏补齐同款）。
  * 3. **createStyles 细滚动条**：antd 官方 demo 用 antd-style 自定义细滚动条；data-grid 项目未装
  *    antd-style（决策 6），左侧走 #35 悬浮滚动条（macOS 风格），右侧用浏览器默认。
+ *
+ * === 拆子文件（task #56：live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：bordered state + useVirtualization + DemoToolbar(Switch Bordered)
+ * + SplitDemo 外壳 + children 对照说明。两侧表格 JSX 与 columns 拆到子文件：
+ *   - `./fixed-header.dg`：`FixedHeaderDg({bordered, virtual})`（左栏）
+ *   - `./fixed-header.antd`：`FixedHeaderAntd({bordered, virtual})`（右栏）
+ *
+ * 这样：
+ *   - 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `FixedHeaderDemo`，零编辑开销。
+ *   - live 编辑模式：SplitDemoPreview 静态 import 真实子组件，并按 editedDg/editedAntd 替换。
  */
 
 import { useState } from 'react'
-import { Space, Switch, Table as AntdTable } from 'antd'
-import type { TableColumnsType } from 'antd'
-import { Table } from '../table'
-import type { ColumnType } from '../table'
+import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { dataSource, type DataType } from './_compare/fixed-header.shared'
 // 全局虚拟化开关接入：本 demo 已自带限高 div(394) + scroll.y，开关 ON 时仅叠加 virtual
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 列定义 —— 两侧字段（title/dataIndex/width）逐字一致
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<DataType>[] = [
-  { title: 'Name', dataIndex: 'name', width: 150 },
-  { title: 'Age', dataIndex: 'age', width: 150 },
-  { title: 'Address', dataIndex: 'address' },
-]
-
-const antdColumns: TableColumnsType<DataType> = [
-  { title: 'Name', dataIndex: 'name', width: 150 },
-  { title: 'Age', dataIndex: 'age', width: 150 },
-  { title: 'Address', dataIndex: 'address' },
-]
+// ★ 拆子文件后，左/右栏 JSX + columns 由子组件提供（props 驱动）。DataType/dataSource
+//   现在由子文件各自 import fixed-header.shared，父文件不再需要。
+import FixedHeaderDg from './fixed-header.dg'
+import FixedHeaderAntd from './fixed-header.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -91,39 +86,15 @@ export default function FixedHeaderDemo() {
       <SplitDemo
         minPaneWidth={600}
         left={
-          // 左栏 data-grid：决策 7 父容器需有明确 height（394，实测换算见文件头）。scroll.y:true 数据
-          // 区域模式，表体 flex:1 填满 wrapper 扣除表头与分页条后的剩余空间。
-          // pagination={{ pageSize: 50 }}：对齐 antd 官方 demo 同款分页。
-          // ★ 分页条(.dg-pagination)是 .dg-wrapper.dg-data-area flex column 末尾 flex item（在 .dg-scroll
-          // 之外、wrapper 之内），占用 wrapper 垂直空间 → wrapper 必须把分页条区(64)算进去，否则表体
-          // flex:1 被挤、可见行少于右栏（380 → 左 5 行/右 6 行；394 后对齐 6=6）。
-          <div style={{ height: 394 }}>
-            <Table<DataType>
-              columns={dgColumns}
-              dataSource={dataSource}
-              bordered={bordered}
-              scroll={{ y: true }}
-              pagination={{ pageSize: 50 }}
-              /* 全局虚拟化开关接入：本 demo 已自带限高 div(394) + scroll.y:true（M8 数据区域模式），
-                 开关 ON 时叠加 virtual=true，从 M8 切到 M4 虚拟；OFF 时不传 virtual，行为与改造前
-                 完全一致（scroll.y 原值保留，与开关无关）。 */
-              virtual={virtual}
-            />
-          </div>
+          /* 左栏 data-grid：决策 7 父容器需有明确 height（394，实测换算见子组件文件头）。
+             scroll.y:true 数据区域模式，表体 flex:1 填满 wrapper 扣除表头与分页条后的剩余空间。
+             pagination={{ pageSize: 50 }}：对齐 antd 官方 demo 同款分页。 */
+          <FixedHeaderDg bordered={bordered} virtual={virtual} />
         }
         right={
-          // antd 官方 fixed-header demo 忠实复刻：
-          // 3 列 + scroll y 55*5 + pagination pageSize 50 + 100 行。
-          <AntdTable<DataType>
-            columns={antdColumns}
-            dataSource={dataSource}
-            bordered={bordered}
-            pagination={{ pageSize: 50 }}
-            scroll={{ y: 55 * 5 }}
-            /* 全局虚拟化开关接入：本 demo 已自带 scroll.y:55*5（M8 模式），开关 ON 时叠加 virtual=true
-               切到 M4 虚拟；OFF 时不传 virtual，scroll.y 原值保留，行为与改造前一致。 */
-            virtual={virtual}
-          />
+          /* antd 官方 fixed-header demo 忠实复刻：
+             3 列 + scroll y 55*5 + pagination pageSize 50 + 100 行。 */
+          <FixedHeaderAntd bordered={bordered} virtual={virtual} />
         }
       >
         <div>

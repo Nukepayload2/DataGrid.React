@@ -37,129 +37,30 @@
  *    antd 由 rc-table 监听 scrollLeft 动态切换 shadow-show（滚到最左隐藏 start 阴影 / 最右隐藏 end）。
  *    本 demo 两侧分散固定列（Column1 起 start 阴影 / Action1 起 end 阴影）恒显，视觉差异极小
  *    （阴影本身 8px 模糊 + 0.06 alpha 极淡），登记不修（纯 CSS 范围内无法动态切换）。
+ *
+ * === 拆子文件（task #56：live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：bordered/size state + useVirtualization + DemoToolbar(Switch Bordered
+ * + Segmented size) + SplitDemo 外壳 + children 对照说明。两侧表格 JSX 与 columns 拆到子文件：
+ *   - `./fixed-gapped-columns.dg`：`FixedGappedColumnsDg({bordered, size, virtual})`（左栏）
+ *   - `./fixed-gapped-columns.antd`：`FixedGappedColumnsAntd({bordered, size, virtual})`（右栏）
+ *
+ * dataSource 为 shared 静态导出，子文件各自 import；父文件不再需要 shared import。
+ *
+ * 这样：
+ *   - 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `FixedGappedColumnsDemo`，零编辑开销。
+ *   - live 编辑模式：SplitDemoPreview 静态 import 真实子组件，并按 editedDg/editedAntd 替换。
  */
 
 import { useState } from 'react'
-import { Segmented, Space, Switch, Table as AntdTable } from 'antd'
-import type { TableColumnsType } from 'antd'
-import { Table } from '../table'
-import type { ColumnType } from '../table'
+import { Segmented, Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
 import { useVirtualization } from './VirtualizationContext'
-import { dataSource, type DataType } from './_compare/fixed-gapped-columns.shared'
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 与 antd demo 列结构逐字一致
-// ---------------------------------------------------------------------------
-
-// 分散固定列堆叠：start 侧 FullName + Column1（不相邻），end 侧 Action1 + Action3（不相邻）。
-// useStickyColumns 按列顺序累加偏移：start 从左扫遇 fixed=start 累加；end 从右扫遇 fixed=end 累加。
-const dgColumns: ColumnType<DataType>[] = [
-  {
-    title: 'Full Name',
-    width: 100,
-    dataIndex: 'name',
-    fixed: 'start',
-  },
-  {
-    title: 'Age',
-    width: 100,
-    dataIndex: 'age',
-  },
-  { title: 'Column 1', dataIndex: 'address', key: '1', fixed: 'start' },
-  { title: 'Column 2', dataIndex: 'address', key: '2' },
-  { title: 'Column 3', dataIndex: 'address', key: '3' },
-  { title: 'Column 4', dataIndex: 'address', key: '4' },
-  { title: 'Column 5', dataIndex: 'address', key: '5' },
-  { title: 'Column 6', dataIndex: 'address', key: '6' },
-  { title: 'Column 7', dataIndex: 'address', key: '7' },
-  { title: 'Column 8', dataIndex: 'address', key: '8' },
-  { title: 'Column 9', dataIndex: 'address', key: '9' },
-  { title: 'Column 10', dataIndex: 'address', key: '10' },
-  { title: 'Column 11', dataIndex: 'address', key: '11' },
-  { title: 'Column 12', dataIndex: 'address', key: '12' },
-  { title: 'Column 13', dataIndex: 'address', key: '13' },
-  { title: 'Column 14', dataIndex: 'address', key: '14' },
-  { title: 'Column 15', dataIndex: 'address', key: '15' },
-  { title: 'Column 16', dataIndex: 'address', key: '16' },
-  { title: 'Column 17', dataIndex: 'address', key: '17' },
-  { title: 'Column 18', dataIndex: 'address', key: '18' },
-  { title: 'Column 19', dataIndex: 'address', key: '19' },
-  { title: 'Column 20', dataIndex: 'address', key: '20' },
-  {
-    title: 'Action 1',
-    fixed: 'end',
-    width: 90,
-    render: () => <a>action</a>,
-  },
-  {
-    title: 'Action 2',
-    width: 90,
-    render: () => <a>action</a>,
-  },
-  {
-    title: 'Action 3',
-    fixed: 'end',
-    width: 90,
-    render: () => <a>action</a>,
-  },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd 官方 fixed-gapped-columns demo
-// ---------------------------------------------------------------------------
-
-const antdColumns: TableColumnsType<DataType> = [
-  {
-    title: 'Full Name',
-    width: 100,
-    dataIndex: 'name',
-    fixed: 'start',
-  },
-  {
-    title: 'Age',
-    width: 100,
-    dataIndex: 'age',
-  },
-  { title: 'Column 1', dataIndex: 'address', key: '1', fixed: 'start' },
-  { title: 'Column 2', dataIndex: 'address', key: '2' },
-  { title: 'Column 3', dataIndex: 'address', key: '3' },
-  { title: 'Column 4', dataIndex: 'address', key: '4' },
-  { title: 'Column 5', dataIndex: 'address', key: '5' },
-  { title: 'Column 6', dataIndex: 'address', key: '6' },
-  { title: 'Column 7', dataIndex: 'address', key: '7' },
-  { title: 'Column 8', dataIndex: 'address', key: '8' },
-  { title: 'Column 9', dataIndex: 'address', key: '9' },
-  { title: 'Column 10', dataIndex: 'address', key: '10' },
-  { title: 'Column 11', dataIndex: 'address', key: '11' },
-  { title: 'Column 12', dataIndex: 'address', key: '12' },
-  { title: 'Column 13', dataIndex: 'address', key: '13' },
-  { title: 'Column 14', dataIndex: 'address', key: '14' },
-  { title: 'Column 15', dataIndex: 'address', key: '15' },
-  { title: 'Column 16', dataIndex: 'address', key: '16' },
-  { title: 'Column 17', dataIndex: 'address', key: '17' },
-  { title: 'Column 18', dataIndex: 'address', key: '18' },
-  { title: 'Column 19', dataIndex: 'address', key: '19' },
-  { title: 'Column 20', dataIndex: 'address', key: '20' },
-  {
-    title: 'Action 1',
-    fixed: 'end',
-    width: 90,
-    render: () => <a>action</a>,
-  },
-  {
-    title: 'Action 2',
-    width: 90,
-    render: () => <a>action</a>,
-  },
-  {
-    title: 'Action 3',
-    fixed: 'end',
-    width: 90,
-    render: () => <a>action</a>,
-  },
-]
+// ★ 拆子文件后，左/右栏 JSX + columns 由子组件提供（props 驱动）。DataType/dataSource
+//   现在由子文件各自 import fixed-gapped-columns.shared，父文件不再需要。
+import FixedGappedColumnsDg from './fixed-gapped-columns.dg'
+import FixedGappedColumnsAntd from './fixed-gapped-columns.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -206,37 +107,15 @@ export default function FixedGappedColumnsDemo() {
       <SplitDemo
         minPaneWidth={900}
         left={
-          /* 左栏 data-grid：行为与改造前一致（仅接共享 bordered/size）。
+          /* 左栏 data-grid：分散固定列堆叠，行为与改造前一致（仅接共享 bordered/size）。
              无 scroll.y（表体不纵向滚动，整体随页面），保留改造前形态. */
-          <>
-            <Table<DataType>
-              bordered={bordered}
-              columns={dgColumns}
-              dataSource={dataSource}
-              size={size === 'medium' ? 'middle' : 'large'}
-              // ★ 虚拟化透传 + scroll.y:true（ON 表体纵向滚动）；OFF 回退原 max-content（零回归）。
-              virtual={virtual}
-              scroll={virtual ? { x: 'max-content', y: true } : { x: 'max-content' }}
-            />
-          </>
+          <FixedGappedColumnsDg bordered={bordered} size={size} virtual={virtual} />
         }
         right={
           /* antd 官方 fixed-gapped-columns demo 忠实复刻：
              分散固定列堆叠（start: FullName+Column1 不相邻 / end: Action1+Action3 不相邻）
              + bordered + scroll x max-content + pagination false. */
-          <>
-            <AntdTable<DataType>
-              bordered={bordered}
-              columns={antdColumns}
-              dataSource={dataSource}
-              size={size}
-              // ★ 虚拟化透传；ON 时 scroll.x 'max-content' 转数字 2000 + y:300（antd virtual 需数字 y）；
-              // OFF 回退原 max-content（零回归）。
-              virtual={virtual}
-              scroll={virtual ? { x: 2000, y: 300 } : { x: 'max-content' }}
-              pagination={false}
-            />
-          </>
+          <FixedGappedColumnsAntd bordered={bordered} size={size} virtual={virtual} />
         }
       >
         <div>

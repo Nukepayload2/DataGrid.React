@@ -27,135 +27,36 @@
  *   在 grid 上**无行容器**，故无法构成有效 ARIA table 结构（role=table/row/rowgroup/
  *   columnheader/gridcell/rowheader 需父子层级才有效）。本 demo 不强行加这些 role（避免
  *   无效 ARIA），仅在 doc 记录天花板。补行容器是未来架构工作。
+ *
+ * === 拆子文件（live 编辑接入，同 basic / style-class 模式）===
+ *
+ * 父文件只保留「外壳职责」：SplitDemo 外壳（virtualizable={false}：本 demo 展示完整 DOM 结构 /
+ * a11y 矩阵，虚拟化会隐藏非可视行破坏检视目的，故排除——全局「Virtual」开关对它不生效）+
+ * children 对照说明（13 槽位染色对照表 + a11y 兼容矩阵 + aria-sort 专项）。两侧表格 JSX +
+ * columns + 13 槽位 classNames/styles 染色配置拆到子文件：
+ *   - `./semantic-dom.dg`：`SemanticDomDg({bordered, virtual})`（左栏）
+ *   - `./semantic-dom.antd`：`SemanticDomAntd({bordered, virtual})`（右栏）
+ *
+ * ★ classNames/styles 配置（dgClassNames/dgStyles + antd 同款）全部搬入子组件，父文件不再持有
+ *   （live 编辑子组件源码可独立展示/编译）。
+ *
+ * ★ state 提升决策（SOP）：本 demo 无共享控制条（virtualizable={false} 不接全局开关，也无
+ *   Bordered/Size 等 Switch）。sortOrder 瞬时态仅用于「在各自表格下方显示当前值」——按 SOP
+ *   「交互 state 优先留子组件内自管；仅当父控制条需直接操作时才提升」，sortOrder 留在子组件
+ *   内部自管（onChange 回写本地 state + 渲染在表格下方），父文件不再持有 sortOrder state。
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `SemanticDomDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
+ * 子组件 props 全部带默认值（bordered=false/virtual=false），编辑态超集 props
+ * {bordered,virtual,size,autoScroll} 不全也不崩（两块 Table 完整可演示）。
  */
 
-import { useState } from 'react'
 import type { CSSProperties } from 'react'
-import type { TableProps as AntdTableProps, TableColumnsType } from 'antd'
-import { Table as AntdTable } from 'antd'
-import { Table } from '../table'
-import type { ColumnType, TableClassNames, TableStyles } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
-import { semanticData, type SemanticRecord } from './_compare/semantic-dom.shared'
-
-// ---------------------------------------------------------------------------
-// 13 槽位染色：每槽一种霓虹色 outline + className（两侧共用同一套字面量）。
-// ---------------------------------------------------------------------------
-
-// data-grid 侧 classNames（13 槽）。header.wrapper / body.wrapper 在 dg 渲染层无对应 DOM，
-// 引擎忽略（不报错，但视觉无变化）——这正是要演示的「架构限制」差异。
-const dgClassNames: TableClassNames<SemanticRecord> = {
-  root: 'dg-semi-slot-root',
-  section: 'dg-semi-slot-section',
-  content: 'dg-semi-slot-content',
-  title: 'dg-semi-slot-title',
-  footer: 'dg-semi-slot-footer',
-  header: {
-    wrapper: 'dg-semi-slot-header-wrapper', // dg 无 thead 容器 → 不渲染
-    row: 'dg-semi-slot-header-row', // B-impl 已补：透传到表头行所有 cell
-    cell: 'dg-semi-slot-header-cell',
-  },
-  body: {
-    wrapper: 'dg-semi-slot-body-wrapper', // dg 无 tbody 容器 → 不渲染
-    row: 'dg-semi-slot-body-row', // 透传到表体行所有 cell
-    cell: 'dg-semi-slot-body-cell',
-  },
-  pagination: {
-    root: 'dg-semi-slot-pagination-root',
-    item: 'dg-semi-slot-pagination-item',
-  },
-}
-
-// antd 侧 classNames（13 槽，逐字相同）。antd 有 thead/tbody/tr 真实容器，故 header.wrapper/
-// body.wrapper/header.row/body.row 全部染色成功（与 dg 形成对照）。
-const antdClassNames: NonNullable<AntdTableProps<SemanticRecord>['classNames']> = {
-  root: 'dg-semi-slot-root',
-  section: 'dg-semi-slot-section',
-  content: 'dg-semi-slot-content',
-  title: 'dg-semi-slot-title',
-  footer: 'dg-semi-slot-footer',
-  header: {
-    wrapper: 'dg-semi-slot-header-wrapper',
-    row: 'dg-semi-slot-header-row',
-    cell: 'dg-semi-slot-header-cell',
-  },
-  body: {
-    wrapper: 'dg-semi-slot-body-wrapper',
-    row: 'dg-semi-slot-body-row',
-    cell: 'dg-semi-slot-body-cell',
-  },
-  pagination: {
-    root: 'dg-semi-slot-pagination-root',
-    item: 'dg-semi-slot-pagination-item',
-  },
-}
-
-// styles：每槽补一个 inline outline + data-slot 标注（视觉冗余，便于 devtools 定位）。
-// 用 inline style 而非依赖外部 CSS，确保 demo 自包含（无 CSS 文件依赖）。
-const slotOutline = (color: string): CSSProperties => ({
-  outline: `2px dashed ${color}`,
-  outlineOffset: -2,
-})
-const dgStyles: TableStyles<SemanticRecord> = {
-  root: slotOutline('#ff00ff'),
-  section: slotOutline('#00ffff'),
-  content: slotOutline('#ffff00'),
-  title: slotOutline('#ff5500'),
-  footer: slotOutline('#00ff55'),
-  header: {
-    wrapper: slotOutline('#5500ff'),
-    row: slotOutline('#ff0055'),
-    cell: slotOutline('#ff5555'),
-  },
-  body: {
-    wrapper: slotOutline('#55ff00'),
-    row: slotOutline('#0055ff'),
-    cell: slotOutline('#5555ff'),
-  },
-  pagination: {
-    root: slotOutline('#ffaa00'),
-    item: slotOutline('#aa00ff'),
-  },
-}
-const antdStyles: NonNullable<AntdTableProps<SemanticRecord>['styles']> = dgStyles
-
-// ---------------------------------------------------------------------------
-// 列定义：Age 可排序（aria-sort 专项）+ Name rowScope（行表头语义演示）。
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<SemanticRecord>[] = [
-  {
-    title: 'Personal Info',
-    children: [
-      { title: 'Name', dataIndex: 'name', key: 'name', rowScope: 'row' },
-      {
-        title: 'Age',
-        dataIndex: 'age',
-        key: 'age',
-        sorter: true,
-        showSorterTooltip: false,
-      },
-    ],
-  },
-  { title: 'Address', dataIndex: 'address', key: 'address' },
-]
-
-const antdColumns: TableColumnsType<SemanticRecord> = [
-  {
-    title: 'Personal Info',
-    children: [
-      { title: 'Name', dataIndex: 'name', key: 'name', rowScope: 'row' },
-      {
-        title: 'Age',
-        dataIndex: 'age',
-        key: 'age',
-        sorter: true,
-        showSorterTooltip: false,
-      },
-    ],
-  },
-  { title: 'Address', dataIndex: 'address', key: 'address' },
-]
+// ★ 拆子文件后，左/右栏 JSX + columns + 13 槽位 classNames/styles 染色配置由子组件提供。
+//   SemanticRecord/semanticData 现在由子文件各自 import semantic-dom.shared；父文件不再需要。
+import SemanticDomDg from './semantic-dom.dg'
+import SemanticDomAntd from './semantic-dom.antd'
 
 // ---------------------------------------------------------------------------
 // a11y 兼容矩阵（demo 下方说明区表格）。源数据同步 docs/semantic-dom-compat.md。
@@ -304,20 +205,18 @@ const slotMatrix: SlotRow[] = [
   },
 ]
 
+// 共享 cell border 样式（说明区表格用）。
+const cellBorder: CSSProperties = {
+  border: '1px solid #f0f0f0',
+  padding: '6px 8px',
+  verticalAlign: 'top',
+}
+
 // ---------------------------------------------------------------------------
 // Demo 根组件
 // ---------------------------------------------------------------------------
 
 export default function SemanticDomDemo() {
-  // 共享 sortKey（演示 aria-sort 同步；两侧各持有自身 sortOrder 态，但点击 Age 表头时
-  // 视觉/aria-sort 应一致——本 demo 不强同步两表 state，各自独立排序，但同一列的 aria-sort
-  // 语义相同，便于 devtools 对照）。
-  const [dgSortOrder, setDgSortOrder] = useState<'ascend' | 'descend' | null>(null)
-  const [antdSortOrder, setAntdSortOrder] = useState<'ascend' | 'descend' | null>(null)
-
-  const dgPagination = { pageSize: 3 }
-  const antdPagination = { pageSize: 3 }
-
   return (
     <div style={{ padding: 24 }}>
       <div
@@ -342,52 +241,8 @@ export default function SemanticDomDemo() {
         // ★ virtualizable={false}：本 demo 展示完整 DOM 结构 / a11y 矩阵，虚拟化会隐藏非可视行
         // 破坏检视目的，故排除——全局「Virtual」开关对它不生效（ON 时也不加 `.dg-compare--virtual` 限高）。
         virtualizable={false}
-        left={
-          <div>
-            <Table<SemanticRecord>
-              columns={dgColumns}
-              dataSource={semanticData}
-              classNames={dgClassNames}
-              styles={dgStyles}
-              title={() => 'data-grid Title'}
-              footer={() => 'data-grid Footer'}
-              size="small"
-              pagination={dgPagination}
-              onChange={(_pag, _filters, sorter) => {
-                const order = Array.isArray(sorter)
-                  ? (sorter[0]?.order ?? null)
-                  : (sorter?.order ?? null)
-                setDgSortOrder(order as 'ascend' | 'descend' | null)
-              }}
-            />
-            <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>
-              当前 Age 列 sortOrder = <code>{String(dgSortOrder)}</code>
-            </div>
-          </div>
-        }
-        right={
-          <div>
-            <AntdTable<SemanticRecord>
-              columns={antdColumns}
-              dataSource={semanticData}
-              classNames={antdClassNames}
-              styles={antdStyles}
-              title={() => 'antd Title'}
-              footer={() => 'antd Footer'}
-              size="small"
-              pagination={antdPagination}
-              onChange={(_pag, _filters, sorter) => {
-                const order = Array.isArray(sorter)
-                  ? (sorter[0]?.order ?? null)
-                  : (sorter?.order ?? null)
-                setAntdSortOrder(order as 'ascend' | 'descend' | null)
-              }}
-            />
-            <div style={{ marginTop: 8, fontSize: 12, color: 'rgba(0,0,0,0.55)' }}>
-              当前 Age 列 sortOrder = <code>{String(antdSortOrder)}</code>
-            </div>
-          </div>
-        }
+        left={<SemanticDomDg />}
+        right={<SemanticDomAntd />}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
           {/* 13 槽位染色对照表 */}
@@ -496,11 +351,4 @@ export default function SemanticDomDemo() {
       </SplitDemo>
     </div>
   )
-}
-
-// 共享 cell border 样式（说明区表格用）。
-const cellBorder: CSSProperties = {
-  border: '1px solid #f0f0f0',
-  padding: '6px 8px',
-  verticalAlign: 'top',
 }

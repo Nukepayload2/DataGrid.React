@@ -27,110 +27,25 @@
  * 2. ellipsis 列 hover 单元格 → native title 显示完整文本（dataIndex 原值）。
  * 3. ellipsis 列表头长 title 也省略 + hover title。
  * 4. 非 ellipsis 列（Name render `<a>`、Age 数值）正常显示，无省略号、无多余 title。
+ *
+ * === 拆子文件（live 编辑接入）===
+ *
+ * 父文件只保留「外壳职责」：bordered state + useVirtualization + DemoToolbar(Switch Bordered)
+ * + SplitDemo 外壳 + children 对照说明。两侧表格 JSX 与 columns 拆到子文件：
+ *   - `./ellipsis.dg`：`EllipsisDg({bordered, virtual})`（左栏）
+ *   - `./ellipsis.antd`：`EllipsisAntd({bordered, virtual})`（右栏）
  */
 
 import { useState } from 'react'
-import { Space, Switch, Table as AntdTable } from 'antd'
-import type { TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType } from '../table'
+import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, type RecordType } from './_compare/ellipsis.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 行为与改造前一致
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<RecordType>[] = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    key: 'name',
-    render: (text) => <a>{text}</a>,
-    width: 150,
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    key: 'age',
-    width: 80,
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    key: 'address 1',
-    ellipsis: true,
-  },
-  {
-    title: 'Long Column Long Column Long Column',
-    dataIndex: 'address',
-    key: 'address 2',
-    ellipsis: true,
-  },
-  {
-    title: 'Long Column Long Column',
-    dataIndex: 'address',
-    key: 'address 3',
-    ellipsis: true,
-  },
-  {
-    title: 'Long Column',
-    dataIndex: 'address',
-    key: 'address 4',
-    ellipsis: true,
-  },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd ellipsis demo
-// ---------------------------------------------------------------------------
-
-const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    key: 'name',
-    render: (text) => <a>{text}</a>,
-    width: 150,
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    key: 'age',
-    width: 80,
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    key: 'address 1',
-    ellipsis: true,
-  },
-  {
-    title: 'Long Column Long Column Long Column',
-    dataIndex: 'address',
-    key: 'address 2',
-    ellipsis: true,
-  },
-  {
-    title: 'Long Column Long Column',
-    dataIndex: 'address',
-    key: 'address 3',
-    ellipsis: true,
-  },
-  {
-    title: 'Long Column',
-    dataIndex: 'address',
-    key: 'address 4',
-    ellipsis: true,
-  },
-]
-
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
+// ★ 拆子文件后，左/右栏 JSX + columns 由子组件提供（props 驱动）。RecordType/data 现在由
+//   子文件各自 import ellipsis.shared，父文件不再需要。
+import EllipsisDg from './ellipsis.dg'
+import EllipsisAntd from './ellipsis.antd'
 
 export default function EllipsisDemo() {
   // ★ 共享状态：同一个状态同时驱动两侧表格。
@@ -159,32 +74,8 @@ export default function EllipsisDemo() {
       */}
       <SplitDemo
         minPaneWidth={600}
-        left={
-          // pagination={{}} 对齐右栏 antd 默认分页（antd 对任意数据都渲染 .ant-pagination）。
-          <Table<RecordType>
-            columns={dgColumns}
-            dataSource={data}
-            bordered={bordered}
-            /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll:{y:true}（data-grid 数据区域模式，
-               CSS 自适应填满 SplitDemo 给的 400px 限高，虚拟窗口才有滚动区）；
-               OFF 时 scroll=undefined，行为与改造前一致。 */
-            virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
-            pagination={{}}
-          />
-        }
-        right={
-          <AntdTable<RecordType>
-            columns={antdColumns}
-            dataSource={data}
-            bordered={bordered}
-            /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll:{y:300}（antd 默认渲染分页条，
-               扣除表头~55 + 分页条~50 → 约 300 塞进 split pane 限高）；
-               OFF 时 scroll=undefined，行为与改造前一致。 */
-            virtual={virtual}
-            scroll={virtual ? { y: 300 } : undefined}
-          />
-        }
+        left={<EllipsisDg bordered={bordered} virtual={virtual} />}
+        right={<EllipsisAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 T1）：</strong>左右并排呈现 data-grid 与 antd ellipsis demo。

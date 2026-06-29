@@ -30,30 +30,39 @@
  * 3. 同时取消多列 → 多列同时收起/展开。
  * 4. 表头线号稳定：取消/恢复勾选不会导致其它列的标题/数据错位。
  * 5. 两侧同步：同一 checkedList 驱动两侧，列显隐应一致。
+ *
+ * === 拆子文件（task：live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：checkedList state（受控真理源，驱动两侧 + 顶部 Checkbox.Group）
+ * + useVirtualization + DemoToolbar(Checkbox.Group) + SplitDemo 外壳 + children 对照说明。
+ * 两侧表格 JSX 与各自列定义/hidden 派生拆到子文件：
+ *   - `./hidden-columns.dg`：`HiddenColumnsDg({checkedList, virtual})`（左栏）
+ *   - `./hidden-columns.antd`：`HiddenColumnsAntd({checkedList, virtual})`（右栏）
+ *
+ * ★ 状态提升说明：checkedList 必须留父——父渲染顶部 Checkbox.Group 控制条需直接读写它；
+ *   且同一 state 驱动两侧同步。子组件接 checkedList 后各自派生 hidden 列（列类型两侧不同：
+ *   data-grid ColumnType vs antd TableProps['columns']）。
+ *
+ * 这样：
+ *   - 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `HiddenColumnsDemo`，零编辑开销。
+ *   - live 编辑模式：SplitDemoPreview 静态 import 真实子组件，并按 editedDg/editedAntd 替换。
  */
 
 import { useState } from 'react'
-import { Checkbox, Divider, Table as AntdTable } from 'antd'
-import type { CheckboxOptionType, TableProps } from 'antd'
-import type { ColumnType } from '../table'
-import { Table } from '../table'
+import { Checkbox, Divider } from 'antd'
+import type { CheckboxOptionType } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
 import {
-  data,
   defaultCheckedList,
   rawColumns,
-  type RecordType,
 } from './_compare/hidden-columns.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
-
-// 左栏 data-grid 列定义。
-const dgColumns: ColumnType<RecordType>[] = rawColumns.map((c) => ({ ...c }))
-// 右栏 antd 列定义。
-const antdColumns: NonNullable<TableProps<RecordType>['columns']> = rawColumns.map((c) => ({
-  ...c,
-}))
+// ★ 拆子文件后，左/右栏 JSX + 各自列定义 + hidden 派生由子组件提供（props 驱动）。RecordType/data
+//   现在由子文件各自 import hidden-columns.shared；父文件不再需要。
+import HiddenColumnsDg from './hidden-columns.dg'
+import HiddenColumnsAntd from './hidden-columns.antd'
 
 // Checkbox.Group 选项（列 title + key）。
 const options = rawColumns.map(({ key, title }) => ({
@@ -66,20 +75,10 @@ const options = rawColumns.map(({ key, title }) => ({
 // ---------------------------------------------------------------------------
 
 export default function HiddenColumnsDemo() {
-  // ★ 共享状态：同一个 checkedList 同时驱动两侧表格。
+  // ★ 共享状态：同一个 checkedList 同时驱动两侧表格 + 顶部 Checkbox.Group（故提升父）。
   const [checkedList, setCheckedList] = useState<Array<string>>([...defaultCheckedList])
   // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y（原两侧均无 scroll）
   const { virtual } = useVirtualization()
-
-  // 不在 checkedList 的列标记为 hidden（对齐 antd demo 写法）。
-  const dgNewColumns = dgColumns.map((item) => ({
-    ...item,
-    hidden: !checkedList.includes(item.key as string),
-  }))
-  const antdNewColumns = antdColumns.map((item) => ({
-    ...item,
-    hidden: !checkedList.includes(item.key as string),
-  }))
 
   return (
     <div style={{ padding: 24 }}>
@@ -102,29 +101,8 @@ export default function HiddenColumnsDemo() {
       */}
       <SplitDemo
         minPaneWidth={480}
-        left={
-          <Table<RecordType>
-            columns={dgNewColumns}
-            dataSource={data}
-            /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll:{y:true}（data-grid 数据区域模式，
-               CSS 自适应填满 SplitDemo 给的 400px 限高，虚拟窗口才有滚动区）；
-               OFF 时 scroll=undefined，行为与改造前一致。 */
-            virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
-            pagination={{}}
-          />
-        }
-        right={
-          <AntdTable<RecordType>
-            columns={antdNewColumns}
-            dataSource={data}
-            /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll:{y:300}（antd 默认渲染分页条，
-               扣除表头~55 + 分页条~50 → 约 300 塞进 split pane 限高）；
-               OFF 时 scroll=undefined，行为与改造前一致。 */
-            virtual={virtual}
-            scroll={virtual ? { y: 300 } : undefined}
-          />
-        }
+        left={<HiddenColumnsDg checkedList={checkedList} virtual={virtual} />}
+        right={<HiddenColumnsAntd checkedList={checkedList} virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 T1）：</strong>左右并排呈现 data-grid 与 antd hidden-columns demo，

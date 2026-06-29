@@ -67,6 +67,15 @@ import { stripComments } from './live/stripComments'
 const { Header, Sider, Content } = Layout
 const { Title, Link } = Typography
 
+// ★ split demo 名集合（模块顶层 glob 自动发现）：有 *.dg.tsx 段的 demo 即视为 split demo。
+//   glob 相对路径 './demos/*.dg.tsx'（App.tsx 在 src/）。key 形如 './demos/basic.dg.tsx'，
+//   用正则取 '/' 后、'.dg.tsx' 前的部分。
+const splitDemoNames = new Set(
+  Object.keys(import.meta.glob('./demos/*.dg.tsx')).map(
+    (p) => p.match(/([^/]+)\.dg\.tsx$/)![1],
+  ),
+)
+
 const lazyDemos = demos.map((d) => ({
   meta: d,
   Comp: lazy(() => d.element().then((m) => ({ default: m.default }))),
@@ -137,8 +146,10 @@ function App() {
     setEditedAntd(null)
   }, [view])
 
-  // ★ live 编辑白名单（试点）：basic + fixed-columns 接入 split + 编辑。其余 demo 降级为只读 CodeView。
-  const isSplitDemo = (n: string) => n === 'basic' || n === 'fixed-columns'
+  // ★ live 编辑白名单：用 glob 自动发现所有 *.dg.tsx 的 demo 名（即「split demo 集合」）。
+  //   有 .dg.tsx 段的 demo 自动接入 split + 编辑；无 .dg.tsx 段的降级为只读 CodeView。
+  //   新增 demo 只需把 <name>.dg.tsx 文件放进 src/demos/ 即自动接入，无需改本文件。
+  const isSplitDemo = (n: string) => splitDemoNames.has(n)
 
   // 源码懒加载：
   //   - 非 split demo：useDemoSource（只读 CodeView）。
@@ -322,13 +333,19 @@ function App() {
                             gap: 16,
                           }}
                         >
+                          {/* ★ key={view.name}：切 demo 时 remount → LiveEditor 内部 code state
+                              重新取新 initialCode（否则 useState(initialCode) 仅 mount 取一次，
+                              切 demo 不刷新页面时 code 停留在旧 demo 源码）。App 已有 useEffect
+                              清 editedDg/editedAntd，此处 remount 与之一致。 */}
                           <LiveEditor
+                            key={`${view.name}-dg`}
                             initialCode={stripComments(splitSrc.dgSource ?? '')}
                             title="data-grid"
                             scope={scopeForDemo(view.name)}
                             onApply={(c, e) => setEditedDg(() => (e ? null : c))}
                           />
                           <LiveEditor
+                            key={`${view.name}-antd`}
                             initialCode={stripComments(splitSrc.antdSource ?? '')}
                             title="antd"
                             scope={scopeForDemo(view.name)}

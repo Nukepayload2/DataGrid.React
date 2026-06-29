@@ -22,23 +22,33 @@
  *
  * - data-grid `medium` = antd `middle`（antd v6 规范值为 'middle'，data-grid 用 'medium' 别名
  *   等价 'middle'，视觉一致）。
+ *
+ * === 拆子文件（task S27 live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：size state（受控真理源，驱动两侧 + 顶部 Segmented 控制条）
+ * + useVirtualization + DemoToolbar(Segmented size) + SplitDemo 外壳 + children 对照说明。
+ * 两侧表格 JSX 与各自列定义拆到子文件：
+ *   - `./size.dg`：`SizeDg({size, virtual})`（左栏）
+ *   - `./size.antd`：`SizeAntd({size, virtual})`（右栏）
+ *
+ * ★ 状态提升说明：size 必须留父——父渲染顶部 Segmented size 控制条需直接读写它；
+ *   且同一 state 驱动两侧同步。virtual 是顶栏全局开关（useVirtualization）。
+ *
+ * 这样：
+ *   - 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `SizeDemo`，零编辑开销。
+ *   - live 编辑模式：SplitDemoPreview 静态 import 真实子组件，并按 editedDg/editedAntd 替换。
  */
 
 import { useState } from 'react'
-import { Segmented, Space, Table as AntdTable } from 'antd'
-import type { TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType } from '../table'
+import { Segmented, Space } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, rawColumns, type RecordType } from './_compare/size.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
-
-// 左栏 data-grid 列定义。
-const dgColumns: ColumnType<RecordType>[] = rawColumns.map((c) => ({ ...c }))
-// 右栏 antd 列定义。
-const antdColumns: NonNullable<TableProps<RecordType>['columns']> = rawColumns.map((c) => ({ ...c }))
+// ★ 拆子文件后，左/右栏 JSX + 各自列定义由子组件提供（props 驱动）。RecordType/data
+//   现在由子文件各自 import size.shared；父文件不再需要。
+import SizeDg from './size.dg'
+import SizeAntd from './size.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -51,7 +61,7 @@ const antdColumns: NonNullable<TableProps<RecordType>['columns']> = rawColumns.m
 type SharedSize = 'large' | 'medium' | 'small'
 
 export default function SizeDemo() {
-  // ★ 共享状态：同一个状态同时驱动两侧表格。
+  // ★ 共享状态：同一个状态同时驱动两侧表格。初值 'medium'（中等行高，合理初值）。
   const [size, setSize] = useState<SharedSize>('medium')
   // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y
   const { virtual } = useVirtualization()
@@ -80,33 +90,8 @@ export default function SizeDemo() {
       */}
       <SplitDemo
         minPaneWidth={480}
-        left={
-          <Table<RecordType>
-            columns={dgColumns}
-            dataSource={data}
-            size={size}
-            // ★ 对齐右栏 antd 默认分页（校准事实 1：antd 对任意行数都渲染 .ant-pagination
-            //   disabled 态分页条；data-grid omit=不渲染）。补 pagination={{}} 启用默认分页器，
-            //   两侧分页条存在性一致。
-            pagination={{}}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-               给的 400px 限高，虚拟窗口才有滚动区）；OFF 时回 undefined，行为与改造前一致。 */
-            virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
-          />
-        }
-        right={
-          <AntdTable<RecordType>
-            columns={antdColumns}
-            dataSource={data}
-            size={size}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且两侧均有
-               分页条，需扣除表头~55 与分页条~64 → 约 280 才能塞进 ~400px pane；OFF 时回 undefined，
-               行为与改造前一致）。 */
-            virtual={virtual}
-            scroll={virtual ? { y: 280 } : undefined}
-          />
-        }
+        left={<SizeDg size={size} virtual={virtual} />}
+        right={<SizeAntd size={size} virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 T1）：</strong>左右并排呈现 data-grid 与 antd size demo，

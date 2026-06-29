@@ -27,159 +27,25 @@
  *    悬浮单元格显示 antd Tooltip（placement topLeft）。
  * 3. **回归不破**：`ellipsis: true`（S20 默认 showTitle=true）列仍加 native title；
  *    非 ellipsis 列（Name render `<a>`、Age 数值）正常显示。
+ *
+ * === 拆子文件（live 编辑接入）===
+ *
+ * 父文件只保留「外壳职责」：bordered state + useVirtualization + DemoToolbar(Switch Bordered)
+ * + SplitDemo 外壳 + children 对照说明。两侧表格 JSX 与 columns（含 `<Tooltip>` render）拆到子文件：
+ *   - `./ellipsis-custom-tooltip.dg`：`EllipsisCustomTooltipDg({bordered, virtual})`（左栏）
+ *   - `./ellipsis-custom-tooltip.antd`：`EllipsisCustomTooltipAntd({bordered, virtual})`（右栏）
  */
 
 import { useState } from 'react'
-import { Space, Switch, Table as AntdTable, Tooltip } from 'antd'
-import type { TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType } from '../table'
+import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, type RecordType } from './_compare/ellipsis-custom-tooltip.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 行为与改造前一致
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<RecordType>[] = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    key: 'name',
-    render: (text) => <a>{text}</a>,
-    width: 150,
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    key: 'age',
-    width: 80,
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    key: 'address 1',
-    // S21：对象形式 ellipsis —— showTitle:false 关闭默认 native title，由 render 的 antd Tooltip 接管。
-    ellipsis: { showTitle: false },
-    render: (address) => (
-      <Tooltip placement="topLeft" title={address}>
-        {address}
-      </Tooltip>
-    ),
-  },
-  {
-    title: 'Long Column Long Column Long Column',
-    dataIndex: 'address',
-    key: 'address 2',
-    ellipsis: { showTitle: false },
-    render: (address) => (
-      <Tooltip placement="topLeft" title={address}>
-        {address}
-      </Tooltip>
-    ),
-  },
-  {
-    title: 'Long Column Long Column',
-    dataIndex: 'address',
-    key: 'address 3',
-    ellipsis: { showTitle: false },
-    render: (address) => (
-      <Tooltip placement="topLeft" title={address}>
-        {address}
-      </Tooltip>
-    ),
-  },
-  {
-    title: 'Long Column',
-    dataIndex: 'address',
-    key: 'address 4',
-    ellipsis: { showTitle: false },
-    render: (address) => (
-      <Tooltip placement="topLeft" title={address}>
-        {address}
-      </Tooltip>
-    ),
-  },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd ellipsis-custom-tooltip demo
-// ---------------------------------------------------------------------------
-
-const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    key: 'name',
-    render: (text) => <a>{text}</a>,
-    width: 150,
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    key: 'age',
-    width: 80,
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    key: 'address 1',
-    ellipsis: {
-      showTitle: false,
-    },
-    render: (address) => (
-      <Tooltip placement="topLeft" title={address}>
-        {address}
-      </Tooltip>
-    ),
-  },
-  {
-    title: 'Long Column Long Column Long Column',
-    dataIndex: 'address',
-    key: 'address 2',
-    ellipsis: {
-      showTitle: false,
-    },
-    render: (address) => (
-      <Tooltip placement="topLeft" title={address}>
-        {address}
-      </Tooltip>
-    ),
-  },
-  {
-    title: 'Long Column Long Column',
-    dataIndex: 'address',
-    key: 'address 3',
-    ellipsis: {
-      showTitle: false,
-    },
-    render: (address) => (
-      <Tooltip placement="topLeft" title={address}>
-        {address}
-      </Tooltip>
-    ),
-  },
-  {
-    title: 'Long Column',
-    dataIndex: 'address',
-    key: 'address 4',
-    ellipsis: {
-      showTitle: false,
-    },
-    render: (address) => (
-      <Tooltip placement="topLeft" title={address}>
-        {address}
-      </Tooltip>
-    ),
-  },
-]
-
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
+// ★ 拆子文件后，左/右栏 JSX + columns（含 Tooltip render）由子组件提供（props 驱动）。
+//   RecordType/data 现在由子文件各自 import ellipsis-custom-tooltip.shared，父文件不再需要。
+import EllipsisCustomTooltipDg from './ellipsis-custom-tooltip.dg'
+import EllipsisCustomTooltipAntd from './ellipsis-custom-tooltip.antd'
 
 export default function EllipsisCustomTooltipDemo() {
   // ★ 共享状态：同一个状态同时驱动两侧表格。
@@ -209,29 +75,10 @@ export default function EllipsisCustomTooltipDemo() {
       <SplitDemo
         minPaneWidth={600}
         left={
-          // pagination={{}} 对齐右栏 antd 默认分页（antd 对任意数据都渲染 .ant-pagination）。
-          <Table<RecordType>
-            columns={dgColumns}
-            dataSource={data}
-            bordered={bordered}
-            pagination={{}}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-               给的 400px 限高，虚拟窗口才有滚动区）；OFF 时回 undefined，行为与改造前一致。 */
-            virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
-          />
+          <EllipsisCustomTooltipDg bordered={bordered} virtual={virtual} />
         }
         right={
-          <AntdTable<RecordType>
-            columns={antdColumns}
-            dataSource={data}
-            bordered={bordered}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且两侧均有
-               分页条，需扣除表头~55 与分页条~64 → 约 280 才能塞进 ~400px pane；OFF 时回 undefined，
-               行为与改造前一致）。 */
-            virtual={virtual}
-            scroll={virtual ? { y: 280 } : undefined}
-          />
+          <EllipsisCustomTooltipAntd bordered={bordered} virtual={virtual} />
         }
       >
         <div>

@@ -37,6 +37,20 @@
  * 两侧 Name 列均 `filterMode: 'tree'`、Address 列均默认 menu（无 filterMode），filters/onFilter/filterSearch
  * 逐字一致——两侧 tree/menu 共存行为完全对齐（data-grid FilterDropdown 用 antd `<Tree>`，视觉/交互对齐）。
  *
+ * === 拆子文件（task：live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：bordered state + useVirtualization + DemoToolbar(Switch Bordered)
+ * + SplitDemo 外壳 + children 对照说明。两侧表格 JSX + columns + onChange 拆到子文件：
+ *   - `./filter-search.dg`：`FilterSearchDg({bordered, virtual})`（左栏）
+ *   - `./filter-search.antd`：`FilterSearchAntd({bordered, virtual})`（右栏）
+ *
+ * ★ 状态提升说明：bordered 必须留父（控制条 Switch 直接读写）。筛选非受控（不传受控
+ *   filteredValue），由 Table 内部管理；filterSearch 渲染的顶部搜索框也由引擎/antd FilterDropdown
+ *   内部管理（输入实时过滤/高亮筛选项，关闭下拉清空搜索值）——子组件**不需要**筛选 state props。
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `FilterSearchDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
+ *
  * === 验证点（S6 + S7 共存对照）===
  *
  * 【Name 列 · tree 模式 filterSearch（两侧一致）】
@@ -56,115 +70,15 @@
  */
 
 import { useState } from 'react'
-import { Space, Switch, Table as AntdTable } from 'antd'
-import type { TableProps } from 'antd'
-import type { TableColumnsType } from 'antd'
-import { Table } from '../table'
-import type { ColumnType, TableProps as DgTableProps } from '../table'
+import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, type RecordType } from './_compare/filter-search.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（SplitDemo pane 自动限高，虚拟窗口才有滚动区）
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 行为对齐 antd（Name 带 filterMode:'tree'）
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<RecordType>[] = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    filters: [
-      { text: 'Joe', value: 'Joe' },
-      { text: 'Category 1', value: 'Category 1' },
-      { text: 'Category 2', value: 'Category 2' },
-    ],
-    // S6/S7：filterMode:'tree'（与官方 antd filter-search.tsx:30 逐字一致）+ filterSearch:true。
-    //    tree 模式输入搜索词高亮命中节点（antd filterTreeNode "highlight" 语义，不隐藏）。
-    filterMode: 'tree',
-    filterSearch: true,
-    onFilter: (value, record) => record.name.startsWith(value as string),
-    width: '30%',
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    sorter: (a, b) => a.age - b.age,
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    filters: [
-      { text: 'London', value: 'London' },
-      { text: 'New York', value: 'New York' },
-    ],
-    onFilter: (value, record) => record.address.startsWith(value as string),
-    filterSearch: true,
-    width: '40%',
-  },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd filter-search demo（Name 带 filterMode:'tree'）
-// ---------------------------------------------------------------------------
-
-const antdColumns: TableColumnsType<RecordType> = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    filters: [
-      {
-        text: 'Joe',
-        value: 'Joe',
-      },
-      {
-        text: 'Category 1',
-        value: 'Category 1',
-      },
-      {
-        text: 'Category 2',
-        value: 'Category 2',
-      },
-    ],
-    // ★ antd 原版带 filterMode:'tree'——右栏忠实保留（与左栏逐字一致，两侧均 tree）。
-    filterMode: 'tree',
-    filterSearch: true,
-    onFilter: (value, record) => record.name.startsWith(value as string),
-    width: '30%',
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    sorter: (a, b) => a.age - b.age,
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    filters: [
-      {
-        text: 'London',
-        value: 'London',
-      },
-      {
-        text: 'New York',
-        value: 'New York',
-      },
-    ],
-    onFilter: (value, record) => record.address.startsWith(value as string),
-    filterSearch: true,
-    width: '40%',
-  },
-]
-
-// ---------------------------------------------------------------------------
-// onChange（两侧共用同一个 console.log 形态）
-// ---------------------------------------------------------------------------
-
-const onChange: DgTableProps<RecordType>['onChange'] = (pagination, filters, sorter, extra) => {
-  // eslint-disable-next-line no-console
-  console.log('filter-search demo onChange params:', { pagination, filters, sorter, extra })
-}
+// ★ 拆子文件后，左/右栏 JSX + columns + onChange 由子组件提供（props 驱动）。RecordType/data
+//   现在由子文件各自 import filter-search.shared；父文件不再需要。
+import FilterSearchDg from './filter-search.dg'
+import FilterSearchAntd from './filter-search.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -198,33 +112,8 @@ export default function FilterSearchDemo() {
       */}
       <SplitDemo
         minPaneWidth={480}
-        left={
-          <Table<RecordType>
-            columns={dgColumns}
-            dataSource={data}
-            onChange={onChange}
-            bordered={bordered}
-            pagination={{}}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-               pane 限高，虚拟窗口才有滚动区；filterSearch 下拉是表头 popover，不受虚拟化影响）；
-               OFF 时回 undefined，行为与改造前一致。 */
-            virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
-          />
-        }
-        right={
-          <AntdTable<RecordType>
-            columns={antdColumns}
-            dataSource={data}
-            onChange={onChange as TableProps<RecordType>['onChange']}
-            bordered={bordered}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且表头/默认
-               分页画在 scroll.y 之外，需扣除表头~55 与分页条~64 → 约 280 才能塞进 pane 限高；
-               OFF 时回 undefined，行为与改造前一致）。 */
-            virtual={virtual}
-            scroll={virtual ? { y: 280 } : undefined}
-          />
-        }
+        left={<FilterSearchDg bordered={bordered} virtual={virtual} />}
+        right={<FilterSearchAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 B7）：</strong>

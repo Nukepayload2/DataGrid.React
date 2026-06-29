@@ -18,6 +18,14 @@
  *   **批量清空同步**：点 Reload → loading 1s → `setSelectedRowKeys([])` → 两侧勾选 UI 同步清空。
  * - **共享数据**：`RecordType` + `dataSource` 见 `_compare/row-selection-and-operation.shared.ts`。
  *
+ * === ★ 行选择 state 处理（SOP 提升）===
+ *
+ * 顶部 Reload 按钮「清空选择」直接操作 selectedRowKeys → 选择 state **提升到父**（而非子组件自管）：
+ *   - `selectedRowKeys` + `loading` 在父组件 useState；
+ *   - 两侧子组件均受控（selectedRowKeys = 父 props，onChange → onSelectedKeysChange 写回父）；
+ *   - Reload `start()` → loading 1s → setSelectedRowKeys([]) 一次性清空两侧。
+ * 故 `selectedKeys` prop 默认 [] 合理（初始无选择是有效态）。
+ *
  * === antd demo 要素（S8 受控）===
  *
  * - `rowSelection.selectedRowKeys` **受控**（外部 useState 驱动）。
@@ -27,7 +35,8 @@
  *     * 点击 `start()` → `setLoading(true)` → `setTimeout 1000ms` → `setSelectedRowKeys([])` +
  *       `setLoading(false)`（模拟 ajax 完成后清空选中）。
  *     * `hasSelected ? 'Selected N items' : null` 文案。
- * - 数据：46 行（Edward King 0..45，age 32，address `London, Park Lane no. i`）。
+ * - 数据：46 行（Edward King 0..45，age 32，address `London, Park Lane no. i`）——静态导出，
+ *   无 T1 空表问题。
  * - columns：Name/Age/Address（纯文本，无 render）。
  *
  * === 两侧保留的差异 ===
@@ -38,53 +47,36 @@
  * - 两侧 `<Table>` 同款 columns（纯文本 Name/Age/Address）+ 同款 rowSelection 受控（selectedRowKeys
  *   + onChange），行为完全等价，无视觉差异。
  *
- * === 验证点（S8 + 决策 9）===
+ * === 拆子文件（task #54：live 编辑接入，同 basic 模式）===
  *
- * 【受控 selectedRowKeys】
- * 1. 勾选若干行 → 顶部 Reload 按钮启用，显示 "Selected N items"。
- * 2. 表头全选框反映半选/全选态。
- * 3. 两侧 onChange 各自 console.log（selectedRowKeys changed）。
- * 【批量操作清空（核心）】
- * 4. 点 Reload → loading 1s → 两侧所有行 checkbox + 表头全选框**同步清空**为未选态，
- *    "Selected N items" 消失，Reload 再次 disabled。
- * 5. ★ 此路径验证 M5 受控 selectedRowKeys 的"外部 setState → UI 同步"链路：两侧共用同一 state，
- *    清空一次两侧同时生效（决策 9 对照价值）。
+ * 父文件只保留「外壳职责」：selectedRowKeys/loading state + start() Reload 逻辑 + useVirtualization
+ * + DemoToolbar(顶部操作区 Reload + Selected N items) + SplitDemo 外壳 + children 对照说明。
+ * 两侧表格 JSX 与 columns 拆到子文件（受控 props 驱动）：
+ *   - `./row-selection-and-operation.dg`：`RowSelectionAndOperationDg({selectedKeys, onSelectedKeysChange, virtual})`
+ *   - `./row-selection-and-operation.antd`：`RowSelectionAndOperationAntd({selectedKeys, onSelectedKeysChange, virtual})`
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `RowSelectionAndOperationDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
  */
 
 import { useState } from 'react'
-import { Button, Flex, Table as AntdTable } from 'antd'
-import type { TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType, TableRowSelection } from '../table'
+import { Button, Flex } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { dataSource, type RecordType } from './_compare/row-selection-and-operation.shared'
-// 虚拟化开关（决策 7）：顶栏 Switch 全局驱动两侧 Table 的 virtual + scroll.y。
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 列定义 —— 两侧同款（纯文本 Name/Age/Address，无 render）。类型各自归位。
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<RecordType>[] = [
-  { title: 'Name', dataIndex: 'name' },
-  { title: 'Age', dataIndex: 'age' },
-  { title: 'Address', dataIndex: 'address' },
-]
-
-const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
-  { title: 'Name', dataIndex: 'name' },
-  { title: 'Age', dataIndex: 'age' },
-  { title: 'Address', dataIndex: 'address' },
-]
+// ★ 拆子文件后，左/右栏 JSX + columns 由子组件提供（受控 props 驱动）。RecordType/dataSource 现在
+//   由子文件各自 import row-selection-and-operation.shared；父文件不再需要（state 提升后只需 React.Key 类型）。
+import RowSelectionAndOperationDg from './row-selection-and-operation.dg'
+import RowSelectionAndOperationAntd from './row-selection-and-operation.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
 // ---------------------------------------------------------------------------
 
 export default function RowSelectionAndOperationDemo() {
-  // ★ 共享状态：同一组 state 同时驱动两侧表格 + 顶部操作区。
-  // selectedRowKeys 受控真理源；两侧 onChange 都写回它 → diff 选中差异。
+  // ★ 共享状态（提升到父）：同一组 state 同时驱动两侧表格 + 顶部操作区。
+  // 选择 state 提升原因：顶部 Reload 按钮需直接操作「批量清空选择」（SOP 外部控制选择场景）。
   const [selectedRowKeys, setSelectedRowKeys] = useState<Array<React.Key>>([])
   // 虚拟化开关（决策 7）：顶栏 Switch ON 时两侧 Table 接入 virtual + scroll.y。
   const { virtual } = useVirtualization()
@@ -99,25 +91,6 @@ export default function RowSelectionAndOperationDemo() {
       setSelectedRowKeys([])
       setLoading(false)
     }, 1000)
-  }
-
-  // onChange：与 antd demo 一致 console.log，同时更新受控 state（两侧共用）。
-  const onSelectChange = (newSelectedRowKeys: Array<React.Key>) => {
-    // eslint-disable-next-line no-console
-    console.log('selectedRowKeys changed: ', newSelectedRowKeys)
-    setSelectedRowKeys(newSelectedRowKeys)
-  }
-
-  // 左栏（data-grid）rowSelection：selectedRowKeys 受控（共享 state）。
-  const dgRowSelection: TableRowSelection<RecordType> = {
-    selectedRowKeys,
-    onChange: onSelectChange,
-  }
-
-  // 右栏（antd）rowSelection：与 antd demo 逐字一致 + 受控 selectedRowKeys（共享 state）。
-  const antdRowSelection: TableProps<RecordType>['rowSelection'] = {
-    selectedRowKeys,
-    onChange: onSelectChange,
   }
 
   const hasSelected = selectedRowKeys.length > 0
@@ -147,22 +120,17 @@ export default function RowSelectionAndOperationDemo() {
       <SplitDemo
         minPaneWidth={480}
         left={
-          <Table<RecordType>
-            rowSelection={dgRowSelection}
-            columns={dgColumns}
-            dataSource={dataSource}
+          <RowSelectionAndOperationDg
+            selectedKeys={selectedRowKeys}
+            onSelectedKeysChange={setSelectedRowKeys}
             virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
           />
         }
         right={
-          <AntdTable<RecordType>
-            rowSelection={antdRowSelection}
-            columns={antdColumns}
-            dataSource={dataSource}
-            pagination={false}
+          <RowSelectionAndOperationAntd
+            selectedKeys={selectedRowKeys}
+            onSelectedKeysChange={setSelectedRowKeys}
             virtual={virtual}
-            scroll={virtual ? { y: 340 } : undefined}
           />
         }
       >

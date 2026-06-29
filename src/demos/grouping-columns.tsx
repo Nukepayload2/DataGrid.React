@@ -33,198 +33,32 @@
  *    `minmax(0,1fr)`，派生 fixed tableLayout）后该列填满 scroll.x 剩余空间，Gender 严格贴右
  *    （实测 diff 0.000003px 亚像素，与 antd 等价）。右栏 antd 一直无此问题，现两侧一致。
  * 5. **数据量**：antd demo 固定 100 行；data-grid 侧通过 Count 控件可切换 100/6（默认 100 对齐 antd）。
+ *
+ * === 拆子文件（task #56：live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：bordered/size/count state + useVirtualization + DemoToolbar(Switch Bordered
+ * + Segmented size + Segmented count) + SplitDemo 外壳 + children 对照说明。两侧表格 JSX 与 columns 拆到子文件：
+ *   - `./grouping-columns.dg`：`GroupingColumnsDg({bordered, size, virtual, data})`（左栏）
+ *   - `./grouping-columns.antd`：`GroupingColumnsAntd({bordered, size, virtual, data})`（右栏）
+ *
+ * 父文件保留 `getData(count)` 调用（count 由控制条驱动，生成的 data 以 prop 下发两侧子组件）。
+ *
+ * 这样：
+ *   - 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `GroupingColumnsDemo`，零编辑开销。
+ *   - live 编辑模式：SplitDemoPreview 静态 import 真实子组件，并按 editedDg/editedAntd 替换。
  */
 
 import { useState } from 'react'
-import { Segmented, Space, Switch, Table as AntdTable } from 'antd'
-import type { TableColumnsType } from 'antd'
-import { Table } from '../table'
-import type { ColumnType } from '../table'
+import { Segmented, Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { getData, type DataType } from './_compare/grouping-columns.shared'
+import { getData } from './_compare/grouping-columns.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义
-// ---------------------------------------------------------------------------
-
-// 多级表头列定义（任意深度嵌套 children）+ 固定列 + filters/sorter。
-// 与 antd 官方 demo 的列结构逐字一致（title/dataIndex/key/width/children 嵌套，
-// 含 Name filters/onFilter、Age sorter），已对齐右栏 antd。
-// fixed 用 data-grid 逻辑属性 'start'/'end'（等价 antd 'left'/'right'，RTL 自动适配）。
-const dgColumns: ColumnType<DataType>[] = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    key: 'name',
-    width: 100,
-    fixed: 'start',
-    filters: [
-      {
-        text: 'Joe',
-        value: 'Joe',
-      },
-      {
-        text: 'John',
-        value: 'John',
-      },
-    ],
-    onFilter: (value, record) => record.name.indexOf(value as string) === 0,
-  },
-  {
-    title: 'Other',
-    children: [
-      {
-        title: 'Age',
-        dataIndex: 'age',
-        key: 'age',
-        width: 150,
-        sorter: (a, b) => a.age - b.age,
-      },
-      {
-        title: 'Address',
-        children: [
-          {
-            title: 'Street',
-            dataIndex: 'street',
-            key: 'street',
-            width: 150,
-          },
-          {
-            title: 'Block',
-            children: [
-              {
-                title: 'Building',
-                dataIndex: 'building',
-                key: 'building',
-                width: 100,
-              },
-              {
-                title: 'Door No.',
-                dataIndex: 'number',
-                key: 'number',
-                width: 100,
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    title: 'Company',
-    children: [
-      {
-        title: 'Company Address',
-        dataIndex: 'companyAddress',
-        key: 'companyAddress',
-        width: 200,
-      },
-      {
-        title: 'Company Name',
-        dataIndex: 'companyName',
-        key: 'companyName',
-      },
-    ],
-  },
-  {
-    title: 'Gender',
-    dataIndex: 'gender',
-    key: 'gender',
-    width: 80,
-    fixed: 'end',
-  },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd 官方 grouping-columns demo
-// ---------------------------------------------------------------------------
-
-const antdColumns: TableColumnsType<DataType> = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    key: 'name',
-    width: 100,
-    fixed: 'left',
-    filters: [
-      {
-        text: 'Joe',
-        value: 'Joe',
-      },
-      {
-        text: 'John',
-        value: 'John',
-      },
-    ],
-    onFilter: (value, record) => record.name.indexOf(value as string) === 0,
-  },
-  {
-    title: 'Other',
-    children: [
-      {
-        title: 'Age',
-        dataIndex: 'age',
-        key: 'age',
-        width: 150,
-        sorter: (a, b) => a.age - b.age,
-      },
-      {
-        title: 'Address',
-        children: [
-          {
-            title: 'Street',
-            dataIndex: 'street',
-            key: 'street',
-            width: 150,
-          },
-          {
-            title: 'Block',
-            children: [
-              {
-                title: 'Building',
-                dataIndex: 'building',
-                key: 'building',
-                width: 100,
-              },
-              {
-                title: 'Door No.',
-                dataIndex: 'number',
-                key: 'number',
-                width: 100,
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-  {
-    title: 'Company',
-    children: [
-      {
-        title: 'Company Address',
-        dataIndex: 'companyAddress',
-        key: 'companyAddress',
-        width: 200,
-      },
-      {
-        title: 'Company Name',
-        dataIndex: 'companyName',
-        key: 'companyName',
-      },
-    ],
-  },
-  {
-    title: 'Gender',
-    dataIndex: 'gender',
-    key: 'gender',
-    width: 80,
-    fixed: 'right',
-  },
-]
+// ★ 拆子文件后，左/右栏 JSX + columns 由子组件提供（props 驱动）。DataType 现在由子文件各自
+//   import grouping-columns.shared；父文件只保留 getData 调用（生成 data 下发两侧）。
+import GroupingColumnsDg from './grouping-columns.dg'
+import GroupingColumnsAntd from './grouping-columns.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -282,65 +116,24 @@ export default function GroupingColumnsDemo() {
       <SplitDemo
         minPaneWidth={900}
         left={
-          /* ★★★ 任务 S（数据区域高度返工，第三次 — 补 pagination 后再加 50）：
-             **问题历史**：
-               - 原始：`height: 240` → wrapper 仅 240px，扣多级表头 4 行(~188px)后表体仅 ~52px(1 行)。
-               - 第一次返工：改 `height: '100%'` 期望填满 SplitDemo body。但 `.dg-compare__body`
-                 (`compare.css:64-71`) 是 `flex:1; min-height:0; overflow:auto; display:flex;
-                 flex-direction:column`——它的高度依赖父链 `.dg-compare__pane → .dg-compare` 的
-                 显式高度，而 demo 在文档流里无视口约束（.dg-compare 无固定高）→ height:100% 解析成
-                 内容自然高(100 行全展开 4869px)，外溢无滚动条。用户："数据区非常高，全 100 行"。
-               - 第二次返工：固定像素 `423px`（= 表头 188 + 表体 235），表体精确对齐 antd y:235(5 行)。
-               - 第三次返工（本轮）：补 `pagination={{}}` 对齐 antd 默认分页条后，分页条(.dg-pagination)
-                 作为 `.dg-wrapper.dg-data-area` flex column 末尾 flex item（在 .dg-scroll 之外、wrapper
-                 之内）占用 wrapper 垂直空间(~50px)，挤占表体 flex:1 → 可见行从 5 掉到 4（左 4 / 右 5）。
-                 故 wrapper 再 +50 → 473。
-             **目标**：表体 ~235px（对齐 antd `scroll.y:47*5=235`，5 行可见），且分页条可见不挤表体。
-             **修复**：固定像素高 `473px` = 表头 4 行 medium(~47×4 ≈ 188) + 表体 235 + 分页条 ~50。
-               `.dg-wrapper.dg-data-area` (`table.css:86-89` height:100% + flex column) 解析成 473，
-               内部 flex 链：wrapper 473 → .dg-pagination(bottom,~50) + `.dg-scroll-wrap` flex:1 →
-               `.dg-scroll` flex:1 + overflow-y:auto，表头 sticky 钉顶(188)后表体可见区 =
-               473 − 188 − 50 = 235px ≈ 5 行，精确对齐 antd。
-             **为何不用 height:100%**：SplitDemo body 无视口约束 → 100% 无限高(4869)。
-             **为何不用 height:240/423**：240 表头占 188 后表体仅 52(1 行)；423 在有分页条时表体被挤
-               到 ~185(4 行)。
-             **fragility 说明**：表头高随 size 变（large 更高），medium 下 4 行 ≈ 188 是经验值。
-               若切 large 需重测（large 表头更高，wrapper 应相应加大）。当前 demo 默认 medium，
-               473 精确对齐 antd medium 下 y:235 表体 + 分页条。 */
-          <div style={{ height: '473px' }}>
-            <Table<DataType>
-              columns={dgColumns}
-              dataSource={data}
-              bordered={bordered}
-              size={size === 'medium' ? 'middle' : 'large'}
-              /* 全局虚拟化开关接入：ON 时叠加 virtual=true；scroll 保持原 {x:'calc(700px+50%)', y:true}
-                 （data-grid 接受字符串 x + y:true 数据区域模式，已有 473px 父高限高，虚拟滚动区生效）；
-                 OFF 时回原值（原本就是 y:true，行为与改造前一致）。 */
-              virtual={virtual}
-              scroll={{ x: 'calc(700px + 50%)', y: true }}
-              /* pagination={{}}：对齐 antd 默认分页条（antd 6.4.4 对任意行数都渲染 .ant-pagination）。
-                 两侧分页器存在性对齐，便于对照。 */
-              pagination={{}}
-            />
-          </div>
+          /* 左栏 data-grid：多级表头 + 固定列 + filters/sorter，行为与改造前一致。
+             473px 父高 wrapper 在子组件内（表头 4 行 ~188 + 表体 ~235 + 分页条 ~50，对齐 antd）。 */
+          <GroupingColumnsDg
+            bordered={bordered}
+            size={size}
+            virtual={virtual}
+            data={data}
+          />
         }
         right={
           /* antd 官方 grouping-columns demo 忠实复刻：
              filters（Joe/John）+ Age sorter + fixed:left/right + size="medium" +
-             scroll={{x:'calc(700px + 50%)', y:47*5}}（固定表头 5 行高纵滚）+ 100 行。 */
-          <AntdTable<DataType>
-            columns={antdColumns}
-            dataSource={data}
+             scroll={{x:'calc(700px + 50%)', y:47*5}}（固定表头 5 行高纵滚）。 */
+          <GroupingColumnsAntd
             bordered={bordered}
             size={size}
-            /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll.y:300（antd 默认渲染分页条，
-               扣除表头~55 + 分页条~50 → 约 300 塞进 split pane 限高）。
-               ★ antd virtual 要求 scroll.x 必须为数字（calc 字符串会抛 "scroll.x must be number"
-               error），故 ON 时 x 改传数字 2000（按列宽估算：Name100+Age150+Street150+Building100+
-               Door100+CompAddr200+Gender80 ≈ 880，加 calc(700px+50%) 扩展，取保险值 2000 足够触发横滚）；
-               OFF 时回原 {x:'calc(700px+50%)', y:47*5}，行为与改造前一致。 */
             virtual={virtual}
-            scroll={virtual ? { x: 2000, y: 300 } : { x: 'calc(700px + 50%)', y: 47 * 5 }}
+            data={data}
           />
         }
       >

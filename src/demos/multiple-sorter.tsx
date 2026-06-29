@@ -49,104 +49,40 @@
  *   (B) **onChange sorter 数组顺序**：antd `generateSorterInfo`（`useSorter.tsx:296-324`）按**列定义
  *       插入顺序**输出激活列；data-grid `generateSorterInfo`（`useSorter.ts:292-314`）按 **multiple
  *       升序**输出（历史决策，见引擎文件 docstring）。两侧数组元素集合相同，顺序不同。
+ *
+ * === 拆子文件（task：live 编辑接入，同 head 模式）===
+ *
+ * 父文件只保留「外壳职责」：bordered/remountKey state + useVirtualization + DemoToolbar(Switch Bordered
+ * + Reset Button) + SplitDemo 外壳 + children 对照说明。两侧表格 JSX 与 columns + onChange 拆到子文件：
+ *   - `./multiple-sorter.dg`：`MultipleSorterDg({bordered, virtual, remountKey})`（左栏）
+ *   - `./multiple-sorter.antd`：`MultipleSorterAntd({bordered, virtual, remountKey})`（右栏）
+ *
+ * ★ 状态提升说明：bordered 必须留父（控制条 Switch 直接读写）；remountKey 必须留父（控制条 Reset
+ *   按钮递增它），并以 prop 下发子组件，子组件把它应用到内部 `<Table key={...}>` 强制 remount 清空
+ *   排序激活态（multiple-sorter demo 多列排序非受控，不能通过受控 setState 重置）。排序瞬时态由 Table
+ *   内部自管（非受控），不提升。
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `MultipleSorterDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
  */
 
 import { useState } from 'react'
-import { Button, Space, Switch, Table as AntdTable } from 'antd'
-import type { TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType, TableProps as DgTableProps } from '../table'
+import { Button, Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, type RecordType } from './_compare/multiple-sorter.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（SplitDemo pane 自动限高，虚拟窗口才有滚动区）
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 行为与改造前一致
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<RecordType>[] = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-  },
-  {
-    title: 'Chinese Score',
-    dataIndex: 'chinese',
-    sorter: {
-      compare: (a, b) => a.chinese - b.chinese,
-      multiple: 3,
-    },
-  },
-  {
-    title: 'Math Score',
-    dataIndex: 'math',
-    sorter: {
-      compare: (a, b) => a.math - b.math,
-      multiple: 2,
-    },
-  },
-  {
-    title: 'English Score',
-    dataIndex: 'english',
-    sorter: {
-      compare: (a, b) => a.english - b.english,
-      multiple: 1,
-    },
-  },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd multiple-sorter demo（逐字一致）
-// ---------------------------------------------------------------------------
-
-const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-  },
-  {
-    title: 'Chinese Score',
-    dataIndex: 'chinese',
-    sorter: {
-      compare: (a, b) => a.chinese - b.chinese,
-      multiple: 3,
-    },
-  },
-  {
-    title: 'Math Score',
-    dataIndex: 'math',
-    sorter: {
-      compare: (a, b) => a.math - b.math,
-      multiple: 2,
-    },
-  },
-  {
-    title: 'English Score',
-    dataIndex: 'english',
-    sorter: {
-      compare: (a, b) => a.english - b.english,
-      multiple: 1,
-    },
-  },
-]
-
-// ---------------------------------------------------------------------------
-// onChange（两侧共用同一个 console.log 形态）
-// ---------------------------------------------------------------------------
-
-const onChange: DgTableProps<RecordType>['onChange'] = (pagination, filters, sorter, extra) => {
-  // eslint-disable-next-line no-console
-  console.log('multiple-sorter demo onChange params:', { pagination, filters, sorter, extra })
-}
+// ★ 拆子文件后，左/右栏 JSX + columns + onChange 由子组件提供（props 驱动）。RecordType/data
+//   现在由子文件各自 import multiple-sorter.shared；父文件不再需要。
+import MultipleSorterDg from './multiple-sorter.dg'
+import MultipleSorterAntd from './multiple-sorter.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
 // ---------------------------------------------------------------------------
 
 export default function MultipleSorterDemo() {
-  // ★ 共享状态：同一个状态同时驱动两侧表格。
+  // ★ 共享状态（提升到父）：同一个状态同时驱动两侧表格 + 顶部控制条。
   const [bordered, setBordered] = useState(false)
   // Reset trick：递增 remountKey 强制两侧 Table 重新挂载，清空所有排序激活态
   // （不引入受控 sortOrder，保持 multiple-sorter demo 非受控本质）。
@@ -180,31 +116,17 @@ export default function MultipleSorterDemo() {
       <SplitDemo
         minPaneWidth={480}
         left={
-          <Table<RecordType>
-            key={`dg-${remountKey}`}
-            columns={dgColumns}
-            dataSource={data}
-            onChange={onChange}
+          <MultipleSorterDg
             bordered={bordered}
-            pagination={{}}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-               pane 限高，虚拟窗口才有滚动区）；OFF 时回 undefined，行为与改造前一致。 */
             virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
+            remountKey={remountKey}
           />
         }
         right={
-          <AntdTable<RecordType>
-            key={`antd-${remountKey}`}
-            columns={antdColumns}
-            dataSource={data}
-            onChange={onChange as TableProps<RecordType>['onChange']}
+          <MultipleSorterAntd
             bordered={bordered}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且表头/默认
-               分页画在 scroll.y 之外，需扣除表头~55 与分页条~64 → 约 280 才能塞进 pane 限高；
-               OFF 时回 undefined，行为与改造前一致）。 */
             virtual={virtual}
-            scroll={virtual ? { y: 280 } : undefined}
+            remountKey={remountKey}
           />
         }
       >

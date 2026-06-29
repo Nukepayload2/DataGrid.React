@@ -16,25 +16,29 @@
  * - **共享 ConfigProvider**：两侧 Table 都包在同一个 ConfigProvider（theme.components.Table 27 token）
  *   内，token 对 data-grid（CSS variables 注入）与 antd（cssinjs）都生效。
  *
- * === antd demo 要素（1:1 复刻）===
+ * === 拆子文件（task S30：live 编辑接入，同 basic 模式）===
  *
- * 1. 动态控制面板（antd `<Form layout="inline">`）：见下方 JSX（10 Switch + 5 Radio.Group）。
- * 2. ConfigProvider theme.components.Table 覆盖：headerBg/headerColor/headerSortActiveBg/
- *    headerSortHoverBg/bodySortBg/rowHoverBg/rowSelectedBg/rowSelectedHoverBg/rowExpandedBg/
- *    cellPaddingBlock/Inline + MD + SM/borderColor/headerBorderRadius/footerBg/footerColor/
- *    cellFontSize + MD + SM/headerSplitColor/headerFilterHoverBg/filterDropdownMenuBg/
- *    filterDropdownBg/expandIconBg/colorBgContainer（data-grid 用 --ant-color-bg-container）。
- *    ★ token 字段名以 antd 6.4.4 `ComponentToken` 实测为准（components/table/style/index.ts）。
+ * 父文件只保留「外壳职责」：全量动态面板 state（bordered/loading/size/expandableEnabled/
+ * showTitle/showHeader/showFooter/rowSelectionEnabled/hasData/tableLayout/top/bottom/ellipsis/
+ * yScroll/xScroll）+ useVirtualization + Form 控制条 + 共享 ConfigProvider（27 token）+ SplitDemo
+ * 外壳 + children 对照说明。两侧表格 JSX + 各自 columns + 各自 defaultExpandable + 内联 DownOutlined
+ * 拆到子文件：
+ *   - `./component-token.dg`：`ComponentTokenDg({...15 state + virtual})`（左栏）
+ *   - `./component-token.antd`：`ComponentTokenAntd({...15 state + virtual})`（右栏）
  *
- * === 两侧已知差异（如实保留作为对照价值）===
+ * ★ state 提升决策（SOP）：全量动态面板 state 必须留父——父渲染 Form 控制条需直接读写它们；
+ *   且同一组 state 驱动两侧同步 diff。ConfigProvider theme.components.Table（27 token）也留父
+ *   （两侧共用同一 ConfigProvider 包裹，token 对两侧都生效）。columns/expandable/DownOutlined
+ *   无外部控制条直接操作，按 SOP 搬入子组件（两侧各自声明类型 + 内联 DownOutlined，不跨子文件 import）。
  *
- * - DownOutlined：两侧共用内联 SVG（不依赖 @ant-design/icons；antd demo 原本 import 它，
- *   本 demo 改内联）。视觉一致。
- * - pagination placement：data-grid 用 v6 数组语义（S11 实测：placement[0]=顶部、[1]=底部）；
- *   antd 原生同。
- * - data-grid pagination 默认不分页；本 demo 显式传 { placement:[top,bottom] } 启用分页（与 antd
- *   默认开启分页不同，但 demo 行为等价）。
- * - scroll.y：决策 7——data-grid 用 `true`（CSS 自适应，父容器 240px）；antd 用 240（数字）。
+ * ★ token 值（27 个）均由父级 ConfigProvider 静态字面量提供（非动态面板控制），不存在「提升父」
+ *   的问题——保留在父级 ConfigProvider 即可。若后续要做 token 动态面板，再考虑提升。
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `ComponentTokenDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
+ * 子组件 props 全部带默认值（对齐改造前父级初值），编辑态超集 props {bordered,virtual,size,
+ * autoScroll} 不全也不崩（默认值兜底，单侧渲染完整演示 10 行带 expandable + rowSelection +
+ * filters/sorter + pagination[top,bottom] 的表格）。
  *
  * === ★ §9 S30 cellFontSize 消费（已对齐 antd）===
  *
@@ -45,161 +49,54 @@
  *   `cellFontSize` 在 antd `prepareComponentToken` 默认输出
  *   （`ant-design/components/table/style/index.ts:467`）→ `prefixToken` 重命名为
  *   `TableCellFontSize` → `transformToken` + `token2CSSVar` 产出
- *   `--ant-table-cell-font-size`（注意：是 `--ant-table-cell-font-size`，非旧注释误记的
- *   `--ant-cell-font-size`——cellFontSize 在 prepareComponentToken 默认输出故经 prefixToken 加
- *   `Table` 前缀，与 cellPaddingBlock → `--ant-table-cell-padding-block` 同款）。MD/SM 同理产出
- *   `--ant-table-cell-font-size-md` / `-sm`。
+ *   `--ant-table-cell-font-size`。MD/SM 同理产出 `-md` / `-sm`。
  *
  * 消费链（tokens.css + table.css）：
- *   `.dg-wrapper { font-size: var(--dg-font-size) }`（table.css:16）→
- *   `--dg-font-size: var(--ant-table-cell-font-size)`（tokens.css:160，base/large）；
- *   `.dg-wrapper.dg-size-middle` 覆盖 `--dg-font-size: var(--ant-table-cell-font-size-md)`
- *   （tokens.css:206）；`.dg-size-small` 覆盖为 `-sm`（tokens.css:212）。
- *   `.dg-cell` / `.dg-cell-header` 无 font-size 声明 → 继承 `.dg-wrapper` 的字号。
+ *   `.dg-wrapper { font-size: var(--dg-font-size) }` → `--dg-font-size` 按 size 桥接
+ *   `--ant-table-cell-font-size[-md|-sm]` → 表头/表体格继承。
  *
  * 结论：本 demo `cellFontSize:16` / `cellFontSizeMD:16` / `cellFontSizeSM:14` →
  *   左栏 data-grid 表头/表体 computed fontSize=16（large/medium），small=14（与右栏 antd 一致）。
- *   antd `genSizeStyle`（style/size.ts:13-28）同样以 `tableFontSize`/`tableFontSizeMiddle`/
- *   `tableFontSizeSmall` 设 `.ant-table[-medium|-small] { font-size }`，单元格继承——机制等价。
  */
 
 import { useState } from 'react'
-import type { RadioChangeEvent, TableProps as AntdTableProps } from 'antd'
-import { ConfigProvider, Form, Radio, Space, Switch, Table as AntdTable } from 'antd'
-import { Table } from '../table'
-import type {
-  ColumnType,
-  Expandable,
-  TablePaginationPlacement,
-  TableRowSelection,
-} from '../table'
+import type { RadioChangeEvent } from 'antd'
+import { ConfigProvider, Form, Radio, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
-import {
-  dataSource as sharedData,
-  defaultFooter,
-  defaultTitle,
-  type RecordType,
-} from './_compare/component-token.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（SplitDemo pane 自动限高，虚拟窗口才有滚动区）
 import { useVirtualization } from './VirtualizationContext'
+// ★ 拆子文件后，左/右栏 JSX + 各自 columns + 各自 defaultExpandable + 内联 DownOutlined 由子组件
+//   提供（props 驱动）。RecordType/dataSource/defaultTitle/defaultFooter 现在由子文件各自 import
+//   component-token.shared；父文件不再需要。
+import ComponentTokenDg from './component-token.dg'
+import ComponentTokenAntd from './component-token.antd'
 
 // ---------------------------------------------------------------------------
-// 两侧共享 columns 形状 + 共用 DownOutlined 内联 SVG（不依赖 @ant-design/icons）
+// 共享类型
 // ---------------------------------------------------------------------------
 
-/**
- * 内联 DownOutlined（More 链接右侧的小箭头）——避免直接依赖 @ant-design/icons
- * （仅 antd 间接依赖，与 nested-table / custom-filter-panel / drag-sorting-handler 约定一致）。
- * SVG 路径取自 ant-design-icons DownOutlined。**两侧共用**（左 data-grid + 右 antd）。
- */
-function DownOutlined() {
-  return (
-    <svg
-      width="1em"
-      height="1em"
-      viewBox="0 0 1024 1024"
-      fill="currentColor"
-      aria-hidden="true"
-      style={{ verticalAlign: '-0.125em' }}
-    >
-      <path d="M884 256h-75c-5.1 0-9.9 2.5-12.9 6.6L512 654.2 227.9 262.6c-3-4.1-7.8-6.6-12.9-6.6h-75c-6.5 0-10.3 7.4-6.5 12.6l352.6 486.1c12.8 17.6 39 17.6 51.7 0l352.6-486.1c3.9-5.2.1-12.6-6.4-12.6z" />
-    </svg>
-  )
-}
+// 共享 size 类型：'large'/'medium'/'small' 在两侧都被接受
+// （data-grid 用 'medium'（= 'middle'）；antd v6 也接受 'medium' 别名（= 'middle'），
+// 不含 data-grid 独有的 'compact'，避免与 antd SizeType 不兼容）。
+type SharedSize = 'large' | 'medium' | 'small'
 
-// data-grid 列定义（render 用内联 DownOutlined SVG）。
-const dgColumns: ColumnType<RecordType>[] = [
-  { title: 'Name', dataIndex: 'name' },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    sorter: (a, b) => a.age - b.age,
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    filters: [
-      { text: 'London', value: 'London' },
-      { text: 'New York', value: 'New York' },
-    ],
-    onFilter: (value, record) => record.address.indexOf(value as string) === 0,
-  },
-  {
-    title: 'Action',
-    key: 'action',
-    sorter: true,
-    render: () => (
-      <Space size="medium">
-        <a>Delete</a>
-        <a>
-          <Space>
-            More actions
-            <DownOutlined />
-          </Space>
-        </a>
-      </Space>
-    ),
-  },
-]
+// 共享 pagination placement 字面量类型（与子组件独立声明的 TablePaginationPlacement 字面重叠，
+// 运行时兼容；父级 Form Radio.Group 用此类型受控）。子组件各自声明同款类型不跨子文件 import。
+type TablePaginationPlacement =
+  | 'topStart'
+  | 'topCenter'
+  | 'topEnd'
+  | 'bottomStart'
+  | 'bottomCenter'
+  | 'bottomEnd'
+  | 'none'
 
-// data-grid defaultExpandable（expandedRowRender 显示 description）。
-const dgDefaultExpandable: Expandable<RecordType> = {
-  expandedRowRender: (record: RecordType) => <p>{record.description}</p>,
-}
-
-// antd defaultExpandable（结构同 data-grid，类型独立；两者字段重叠，运行时兼容）。
-const antdDefaultExpandable: NonNullable<
-  AntdTableProps<RecordType>['expandable']
-> = {
-  expandedRowRender: (record: RecordType) => <p>{record.description}</p>,
-}
-
-// antd 列定义（render 同样用内联 DownOutlined SVG；antd demo 原本 import
-// @ant-design/icons，本 demo 改用内联 SVG 保持零额外依赖，视觉一致）。
-const antdColumns: NonNullable<AntdTableProps<RecordType>['columns']> = [
-  { title: 'Name', dataIndex: 'name' },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    sorter: (a, b) => a.age - b.age,
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    filters: [
-      { text: 'London', value: 'London' },
-      { text: 'New York', value: 'New York' },
-    ],
-    onFilter: (value, record) => record.address.indexOf(value as string) === 0,
-  },
-  {
-    title: 'Action',
-    key: 'action',
-    sorter: true,
-    render: () => (
-      <Space size="medium">
-        <a>Delete</a>
-        <a>
-          <Space>
-            More actions
-            <DownOutlined />
-          </Space>
-        </a>
-      </Space>
-    ),
-  },
-]
-
-// ---------------------------------------------------------------------------
+// ===========================================================================
 // Demo 根组件
-// ---------------------------------------------------------------------------
+// ===========================================================================
 
 export default function ComponentTokenDemo() {
   // ★ 共享 state：同一组 state 同时驱动两侧表格。
-  // 共享 size 类型：'large'/'medium'/'small' 在两侧都被接受
-  // （data-grid 用 'medium'（= 'middle'）；antd v6 也接受 'medium' 别名（= 'middle'），
-  // 不含 data-grid 独有的 'compact'，避免与 antd SizeType 不兼容）。
-  type SharedSize = 'large' | 'medium' | 'small'
   const [bordered, setBordered] = useState(false)
   const [loading, setLoading] = useState(false)
   const [size, setSize] = useState<SharedSize>('large')
@@ -218,50 +115,6 @@ export default function ComponentTokenDemo() {
   // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + 在原动态 scroll 基础上合并 y
   // （yScroll 控制条仍可独立开关；virtual ON 时 data-grid y 强制 true、antd y 强制 300）。
   const { virtual } = useVirtualization()
-
-  // 派生：data-grid expandable / antd expandable 各自类型化（共用同一开关）。
-  const dgExpandable = expandableEnabled ? dgDefaultExpandable : undefined
-  const antdExpandable = expandableEnabled ? antdDefaultExpandable : undefined
-  // 派生：data-grid rowSelection / antd rowSelection（共用同一开关 + 类型独立）。
-  // antd TableProps['rowSelection'] 允许 undefined（故类型标注用 Optional）。
-  const dgRowSelection: TableRowSelection<RecordType> | undefined = rowSelectionEnabled
-    ? {}
-    : undefined
-  const antdRowSelection: AntdTableProps<RecordType>['rowSelection'] = rowSelectionEnabled
-    ? {}
-    : undefined
-
-  // 决策 7：scroll.y 仅 true/undefined（不支持数字）。yScroll 开关 → y:true（CSS 自适应高度）。
-  // ★ 全局虚拟化开关接入：virtual ON 时 data-grid y 强制 true（无论 yScroll）、antd y 强制 300
-  //   （yScroll 开启时 antd 沿用 240 贴合外层 div height:240 的 demo 语义；virtual 单独 ON 时 300）。
-  const dgScroll: { x?: number | string; y?: true } = {}
-  const antdScroll: { x?: number | string; y?: number } = {}
-  if (yScroll || virtual) {
-    dgScroll.y = true
-  }
-  if (yScroll) {
-    antdScroll.y = 240
-  } else if (virtual) {
-    antdScroll.y = 300
-  }
-  if (xScroll !== 'unset') {
-    dgScroll.x = '100vw'
-    antdScroll.x = '100vw'
-  }
-
-  const dgTableColumns = (dgColumns as ColumnType<RecordType>[]).map((item) => ({
-    ...item,
-    ellipsis,
-  }))
-  const antdTableColumns = antdColumns.map((item) => ({ ...item, ellipsis }))
-  if (xScroll === 'fixed') {
-    dgTableColumns[0].fixed = true
-    dgTableColumns[dgTableColumns.length - 1].fixed = 'right'
-    antdTableColumns[0].fixed = true
-    antdTableColumns[antdTableColumns.length - 1].fixed = 'right'
-  }
-
-  const resolvedTableLayout = tableLayout === 'fixed' ? ('fixed' as const) : undefined
 
   return (
     <div style={{ padding: 24 }}>
@@ -392,56 +245,44 @@ export default function ComponentTokenDemo() {
         <SplitDemo
           minPaneWidth={600}
           left={
-            /* 决策 7：scroll.y:true 数据区域模式需父容器有明确 height。
-               ★ virtual ON → 400 有界（virtual 模式需有界区才能虚拟裁剪 + 可滚动，参考 fixed-header 394 /
-                  virtual-list 440 量级取 400；dgScroll.y 已在派生处由 virtual 强制 true）；
-               yScroll ON（virtual OFF）→ 240 fixed-header（原语义不变）；
-               都 OFF → undefined（零回归，行为与改造前一致）。 */
-            <div style={virtual ? { height: 400 } : yScroll ? { height: 240 } : undefined}>
-              <Table<RecordType>
-                bordered={bordered}
-                loading={loading}
-                size={size}
-                expandable={dgExpandable}
-                title={showTitle ? defaultTitle : undefined}
-                showHeader={showHeader}
-                footer={showFooter ? defaultFooter : undefined}
-                rowSelection={dgRowSelection}
-                scroll={dgScroll}
-                tableLayout={resolvedTableLayout}
-                pagination={{ placement: [top, bottom] }}
-                columns={dgTableColumns}
-                dataSource={hasData ? sharedData : []}
-                /* 全局虚拟化开关接入：ON 时 virtual=true（dgScroll.y 已在派生处由 virtual 强制 true）；
-                   OFF 时 virtual 不传，dgScroll 仅由 yScroll 控制，行为与改造前一致。 */
-                virtual={virtual}
-              />
-            </div>
+            <ComponentTokenDg
+              bordered={bordered}
+              loading={loading}
+              size={size}
+              expandableEnabled={expandableEnabled}
+              showTitle={showTitle}
+              showHeader={showHeader}
+              showFooter={showFooter}
+              rowSelectionEnabled={rowSelectionEnabled}
+              hasData={hasData}
+              tableLayout={tableLayout}
+              top={top}
+              bottom={bottom}
+              ellipsis={ellipsis}
+              yScroll={yScroll}
+              xScroll={xScroll}
+              virtual={virtual}
+            />
           }
           right={
-            /* 忠实复刻 antd component-token demo：antd 原生 Table + scroll.y:240（数字）。
-               ★ virtual ON → 外层 div 400 有界（与左栏一致，virtual 模式有界区；antdScroll.y 已在派生处
-                  由 virtual 给 300 填 400 区扣表头/分页）；yScroll ON（virtual OFF）→ 240；都 OFF → undefined。 */
-            <div style={virtual ? { height: 400 } : yScroll ? { height: 240 } : undefined}>
-              <AntdTable<RecordType>
-                bordered={bordered}
-                loading={loading}
-                size={size}
-                expandable={antdExpandable}
-                title={showTitle ? defaultTitle : undefined}
-                showHeader={showHeader}
-                footer={showFooter ? defaultFooter : undefined}
-                rowSelection={antdRowSelection}
-                scroll={antdScroll}
-                tableLayout={resolvedTableLayout}
-                pagination={{ placement: [top, bottom] }}
-                columns={antdTableColumns}
-                dataSource={hasData ? sharedData : []}
-                /* 全局虚拟化开关接入：ON 时 virtual=true（antdScroll.y 已在派生处由 virtual/yScroll 给值）；
-                   OFF 时 virtual 不传，antdScroll 仅由 yScroll 控制，行为与改造前一致。 */
-                virtual={virtual}
-              />
-            </div>
+            <ComponentTokenAntd
+              bordered={bordered}
+              loading={loading}
+              size={size}
+              expandableEnabled={expandableEnabled}
+              showTitle={showTitle}
+              showHeader={showHeader}
+              showFooter={showFooter}
+              rowSelectionEnabled={rowSelectionEnabled}
+              hasData={hasData}
+              tableLayout={tableLayout}
+              top={top}
+              bottom={bottom}
+              ellipsis={ellipsis}
+              yScroll={yScroll}
+              xScroll={xScroll}
+              virtual={virtual}
+            />
           }
         >
           <div>
@@ -462,7 +303,7 @@ export default function ComponentTokenDemo() {
                 paginationBottom。任一切换，左右同步 diff。
               </li>
               <li>
-                <strong>DownOutlined</strong>：两侧共用内联 SVG（不依赖
+                <strong>DownOutlined</strong>：两侧子组件各自内联 SVG（不依赖
                 <code> @ant-design/icons</code>；antd demo 原本 import 它，本 demo 改内联）。
                 视觉一致。
               </li>
@@ -479,8 +320,7 @@ export default function ComponentTokenDemo() {
                 变量 → <code>.dg-wrapper&#123;font-size:var(--dg-font-size)&#125;</code>（<code>--dg-font-size</code>
                 按 size 桥接 <code>--ant-table-cell-font-size[-md|-sm]</code>）→ 表头/表体格继承 →
                 <strong> 左右两栏 computed fontSize 均为 16（large/medium）/ 14（small），逐值一致</strong>。
-                antd <code>genSizeStyle</code>（style/size.ts）同款机制（<code>.ant-table&#123;font-size:tableFontSize&#125;</code>
-                + <code>.ant-table-medium/-small</code> 覆盖，单元格继承）。旧 §9「未消费」gap
+                antd <code>genSizeStyle</code>（style/size.ts）同款机制。旧 §9「未消费」gap
                 在主题注入重构（task #26/#27）后已闭合，本 demo 字号现已对齐。
               </li>
               <li>

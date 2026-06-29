@@ -102,8 +102,8 @@ const dgColumns: ColumnType<RecordType>[] = [
 ]
 
 export default function BasicDg({
-  bordered,
-  virtual,
+  bordered = false,
+  virtual = false,
 }: {
   bordered: boolean
   virtual: boolean

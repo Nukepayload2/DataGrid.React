@@ -28,79 +28,43 @@
  * === §11 外观/行为对齐 核对结论 ===
  *
  * 1. **Table 级 column 默认生效**：`column={{ align:'center', ellipsis:true }}` →
- *    applyColumnDefaults（Table.tsx:632-664）浅合并（列自身优先 + 哨兵豁免 + children 递归），
- *    对齐 antd `useFilledColumns`（hooks/useFilledColumns.ts:9-47，`mergeProps(default, col)` 同语义）。
+ *    applyColumnDefaults（Table.tsx）浅合并（列自身优先 + 哨兵豁免 + children 递归），
+ *    对齐 antd `useFilledColumns`（`mergeProps(default, col)` 同语义）。
  *    Name/Description 继承 center+ellipsis；Address 自身 `align:'start'` 覆盖默认 center。
  * 2. **单列覆盖**：Address `align:'start'` → data-grid `merge` 函数列自身字段后于 base 展开，
- *    覆盖 base.align='center'（Table.tsx:645-658）；与 antd `mergeProps(default, col)` 同。
+ *    覆盖 base.align='center'；与 antd `mergeProps(default, col)` 同。
  * 3. **ellipsis 默认**：所有列默认 ellipsis（`column.ellipsis:true`）→ `derivedTableLayout` 派生
- *    `'fixed'`（Table.tsx:1818-1839，对齐 antd rc-table `Table.tsx:613-627`）→ fixed 模式下 width
- *    列 `minmax(width,1fr)`（GridTable colTracks）→ track 受限 → `.dg-cell-inner` 溢出 → `...` 生效
- *    （§9 S20 ellipsis 视觉 gap 已由 #34 tableLayout:fixed 修复闭合）。
- * 4. **ellipsis `...` + keep-all**：`.dg-cell-ellipsis .dg-cell-inner`（table.css:667-676）含
+ *    `'fixed'` → fixed 模式下 width 列 `minmax(width,1fr)`（GridTable colTracks）→ track 受限 →
+ *    `.dg-cell-inner` 溢出 → `...` 生效（§9 S20 ellipsis 视觉 gap 已由 #34 tableLayout:fixed 修复闭合）。
+ * 4. **ellipsis `...` + keep-all**：`.dg-cell-ellipsis .dg-cell-inner`（table.css）含
  *    `text-overflow:ellipsis; white-space:nowrap; overflow:hidden; word-break:keep-all`，
- *    对齐 antd `style/ellipsis.ts:11-13`（textEllipsis + wordBreak:'keep-all'）。表头/表体同款。
+ *    对齐 antd `style/ellipsis.ts`（textEllipsis + wordBreak:'keep-all'）。表头/表体同款。
  * 5. **行 hover / 表头 hover / 分隔线 / 边框 / padding / 列宽**：共享 CSS 消费 `--ant-*` token
  *    （theme-injection-antd 已落地），column-defaults 无特殊覆盖需求 → 自动对齐。
+ *
+ * === 拆子文件（task：live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：ellipsis state + useVirtualization + DemoToolbar(Switch Ellipsis)
+ * + SplitDemo 外壳 + children 对照说明。两侧表格 JSX（含 column-defaults 配置 + 各自列定义）
+ * 拆到子文件：
+ *   - `./column-defaults.dg`：`ColumnDefaultsDg({ellipsis, virtual})`（左栏）
+ *   - `./column-defaults.antd`：`ColumnDefaultsAntd({ellipsis, virtual})`（右栏）
+ *
+ * 这样：
+ *   - 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `ColumnDefaultsDemo`，零编辑开销。
+ *   - live 编辑模式：SplitDemoPreview 静态 import 真实子组件，并按 editedDg/editedAntd 替换。
  */
 
 import { useState } from 'react'
-import { Space, Switch, Table as AntdTable } from 'antd'
-import type { TableProps } from 'antd'
-import type { ColumnType } from '../table'
-import { Table } from '../table'
+import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, type RecordType } from './_compare/column-defaults.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— Address 用 'start'（data-grid Align 类型）
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<RecordType>[] = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    width: 140,
-  },
-  {
-    title: 'Description',
-    dataIndex: 'description',
-    width: 180,
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    // data-grid Align 类型用 'start'/'center'/'end'（'start' 等价 antd 'left'）。
-    align: 'start',
-    width: 220,
-  },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实 antd demo，Address 用 'left'
-// ---------------------------------------------------------------------------
-
-const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    width: 140,
-  },
-  {
-    title: 'Description',
-    dataIndex: 'description',
-    width: 180,
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    align: 'left',
-    width: 220,
-  },
-]
+// ★ 拆子文件后，左/右栏 JSX（含 column-defaults 配置 + 各自列定义）由子组件提供（props 驱动）。
+//   RecordType/data 现在由子文件各自 import column-defaults.shared；父文件不再需要。
+import ColumnDefaultsDg from './column-defaults.dg'
+import ColumnDefaultsAntd from './column-defaults.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -133,31 +97,8 @@ export default function ColumnDefaultsDemo() {
       */}
       <SplitDemo
         minPaneWidth={480}
-        left={
-          <Table<RecordType>
-            columns={dgColumns}
-            dataSource={data}
-            column={{ align: 'center', ellipsis }}
-            pagination={false}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-               给的 400px 限高，虚拟窗口才有滚动区）；OFF 时回 undefined，行为与改造前一致。 */
-            virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
-          />
-        }
-        right={
-          <AntdTable<RecordType>
-            columns={antdColumns}
-            dataSource={data}
-            column={{ align: 'center', ellipsis }}
-            pagination={false}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:340（antd 不认 true；本 demo 两侧均
-               pagination=false 无分页条，仅需扣除表头~55 → 约 340 才能塞进 ~400px pane；OFF 时回
-               undefined，行为与改造前一致）。 */
-            virtual={virtual}
-            scroll={virtual ? { y: 340 } : undefined}
-          />
-        }
+        left={<ColumnDefaultsDg ellipsis={ellipsis} virtual={virtual} />}
+        right={<ColumnDefaultsAntd ellipsis={ellipsis} virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 T1）：</strong>左右并排呈现 data-grid 与 antd column-defaults demo。

@@ -39,66 +39,30 @@
  *    `.dg-grid{width:100%}` + 无 width 列 `minmax(0,1fr)`（min:0 收缩），ellipsis 列 track<content
  *    → `...` 生效（scrollWidth>clientWidth），与 antd `<table>{width:100%}` + tableLayout:fixed
  *    视觉一致。Name 列超长树名稳定省略号。
+ *
+ * === 拆子文件（task：live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：fixed state（父控制条 Switch 直接驱动）+ useVirtualization +
+ * DemoToolbar(Switch Fixed first column) + SplitDemo 外壳 + children 对照说明。
+ * 两侧表格 JSX + columns 派生拆到子文件：
+ *   - `./tree-table-ellipsis.dg`：`TreeTableEllipsisDg({fixed, virtual})`（左栏）
+ *   - `./tree-table-ellipsis.antd`：`TreeTableEllipsisAntd({fixed, virtual})`（右栏）
+ *
+ * ★ 状态提升说明：fixed 必须留父——父渲染顶部 Fixed first column 开关需直接读写它；且同一 state
+ *   驱动两侧同步。子组件接 fixed + virtual props（配置型 state 提升，默认值 true 合理有效）。
  */
 
 import { useState } from 'react'
-import { Space, Switch, Table as AntdTable } from 'antd'
-import type { TableColumnsType } from 'antd'
-import { Table } from '../table'
-import type { ColumnType } from '../table'
+import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, type RecordType } from './_compare/tree-table-ellipsis.shared'
 // 虚拟化开关接入（决策 7）：顶栏 Switch ON 时两侧 Table 叠加 virtual + scroll.y。
 // 树形展开行视为普通行（决策 2），虚拟路径同样被 RO 实测（measured-first + 约定兜底）。
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 列定义 —— 两侧字段（title/dataIndex/key/width/ellipsis）逐字一致；
-// `fixed` 由顶部 Switch 共享驱动（columns 在渲染时动态拼装 fixed）。
-// ---------------------------------------------------------------------------
-
-const dgColumnsBase: ColumnType<RecordType>[] = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    key: 'name',
-    width: '30%',
-    ellipsis: true,
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    key: 'age',
-    width: '12%',
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    key: 'address',
-  },
-]
-
-const antdColumnsBase: TableColumnsType<RecordType> = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    key: 'name',
-    width: '30%',
-    ellipsis: true,
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    key: 'age',
-    width: '12%',
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    key: 'address',
-  },
-]
+// ★ 拆子文件后，左/右栏 JSX + columns 由子组件提供（props 驱动）。RecordType/data 现在由
+//   子文件各自 import tree-table-ellipsis.shared；父文件不再需要。
+import TreeTableEllipsisDg from './tree-table-ellipsis.dg'
+import TreeTableEllipsisAntd from './tree-table-ellipsis.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -110,14 +74,6 @@ export default function TreeTableEllipsisDemo() {
   const [fixed, setFixed] = useState(true)
   // 虚拟化开关接入（决策 7）：顶栏 Switch ON 时两侧 Table 叠加 virtual + scroll.y。
   const { virtual } = useVirtualization()
-
-  const dgColumns: ColumnType<RecordType>[] = dgColumnsBase.map((col) => ({
-    ...col,
-    fixed,
-  }))
-  const antdColumns: TableColumnsType<RecordType> = antdColumnsBase.map(
-    (col) => ({ ...col, fixed }),
-  )
 
   return (
     <div style={{ padding: 24 }}>
@@ -136,30 +92,8 @@ export default function TreeTableEllipsisDemo() {
       */}
       <SplitDemo
         minPaneWidth={900}
-        left={
-          <Table<RecordType>
-            columns={dgColumns}
-            rowSelection={{ columnWidth: 100 }}
-            expandable={{ defaultExpandAllRows: true }}
-            dataSource={data}
-            // pagination={{}} 对齐右栏 antd 默认分页（antd 对任意数据都渲染 .ant-pagination）。
-            pagination={{}}
-            // 虚拟化（决策 7）：ON→virtual+scroll.y=true（CSS 自适应高度，SplitDemo 限高 pane body 提供可滚动区域）；OFF→不传，非虚拟全量 DOM（零回归）。原 demo 无 scroll.x（fixed 走列层 sticky，非 table scroll.x），故 ON 时不强制 scroll.x。
-            virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
-          />
-        }
-        right={
-          <AntdTable<RecordType>
-            columns={antdColumns}
-            rowSelection={{ columnWidth: 100 }}
-            expandable={{ defaultExpandAllRows: true }}
-            dataSource={data}
-            // 虚拟化（决策 7）：ON→virtual+scroll.y=300（有分页，antd scroll.y 须数字）；OFF→不传，非虚拟（零回归）。原 antd demo 无 scroll.x（fixed 走列层 sticky），ON 时不强制 scroll.x。
-            virtual={virtual}
-            scroll={virtual ? { y: 300 } : undefined}
-          />
-        }
+        left={<TreeTableEllipsisDg fixed={fixed} virtual={virtual} />}
+        right={<TreeTableEllipsisAntd fixed={fixed} virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 B16 / S25 树形首列 ellipsis + fixed 组合，issue #36583）：</strong>

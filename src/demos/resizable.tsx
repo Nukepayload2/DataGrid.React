@@ -33,145 +33,31 @@
  * 3. 拖到 min/max 约束后无法继续缩/放。
  * 4. 关闭 resizable → 左栏表头无手柄。
  * 5. 右栏说明区文字清晰、静态基线 Table 渲染正确（同数据，无拖拽）。
+ *
+ * === 拆子文件（task #56：live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：resizable/minWidth/maxWidth state（控制条只驱动左栏，因右栏
+ * 无 resizable 能力）+ useVirtualization + DemoToolbar(Switch resizable + InputNumber min/max
+ * + hint) + SplitDemo 外壳 + children 对照说明。
+ * 左栏表格 JSX 与 columns 拆到子文件：
+ *   - `./resizable.dg`：`ResizableDg({resizable, minWidth, maxWidth, virtual})`（左栏）
+ * 右栏（特例）说明区 + 静态基线 antd Table 拆到子文件：
+ *   - `./resizable.antd`：`ResizableAntd({virtual})`（右栏：说明区 + 静态基线，无拖拽）
+ *
+ * ★ 状态提升说明：resizable/minWidth/maxWidth 留父——父渲染控制条需直接读写它们。
+ *   控制条只作用于左栏（右栏 antd 无 resizable 能力，不传这三个 prop）。
  */
+
 import { useState } from 'react'
-import { Space, Switch, Table as AntdTable, Tag, InputNumber, Flex, theme } from 'antd'
-import type { TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType } from '../table'
+import { InputNumber, Space, Switch, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, type RecordType } from './_compare/resizable.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
-
-/**
- * 左栏内联最小 Tag（data-grid 不依赖 antd Tag；视觉等价 antd 预设色 blue）。
- * 改造前行为保留。
- */
-function InlineTag({
-  color,
-  children,
-}: {
-  color: string
-  children: import('react').ReactNode
-}) {
-  const bg = color
-  return (
-    <span
-      style={{
-        display: 'inline-block',
-        padding: '0 7px',
-        fontSize: 12,
-        lineHeight: '20px',
-        borderRadius: 4,
-        color: bg,
-        background: `${bg}1a`, // ~10% alpha
-        border: `1px solid ${bg}33`,
-        marginRight: 4,
-      }}
-    >
-      {children}
-    </span>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 行为与改造前一致
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<RecordType>[] = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    key: 'name',
-    width: 150,
-    render: (text) => <a>{text}</a>,
-  },
-  // 无 width 列：拖拽时首次 move 从 max-content 转为受控 px。
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    key: 'age',
-    width: 80,
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    key: 'address',
-    // 不给 width → max-content；拖拽后转 px。
-  },
-  {
-    title: 'Tags',
-    key: 'tags',
-    dataIndex: 'tags',
-    render: (_, { tags }) => (
-      <span
-        style={{
-          display: 'inline-flex',
-          flexWrap: 'wrap',
-          gap: 4,
-          alignItems: 'center',
-        }}
-      >
-        {tags.map((tag) => (
-          <InlineTag color="#1677ff" key={tag}>
-            {tag.toUpperCase()}
-          </InlineTag>
-        ))}
-      </span>
-    ),
-  },
-  {
-    title: 'Description',
-    dataIndex: 'description',
-    key: 'description',
-  },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd 静态基线）列定义 —— 无 resizable，仅视觉对照基准
-// ---------------------------------------------------------------------------
-
-const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    key: 'name',
-    width: 150,
-    render: (text) => <a>{text}</a>,
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    key: 'age',
-    width: 80,
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    key: 'address',
-  },
-  {
-    title: 'Tags',
-    key: 'tags',
-    dataIndex: 'tags',
-    render: (_, { tags }) => (
-      <Flex gap="small" align="center" wrap>
-        {tags.map((tag) => (
-          <Tag color="blue" key={tag}>
-            {tag.toUpperCase()}
-          </Tag>
-        ))}
-      </Flex>
-    ),
-  },
-  {
-    title: 'Description',
-    dataIndex: 'description',
-    key: 'description',
-  },
-]
+// ★ 拆子文件后，左/右栏 JSX + columns 由子组件提供（props 驱动）。RecordType/data 现在由
+//   子文件各自 import resizable.shared；父文件不再需要。
+import ResizableDg from './resizable.dg'
+import ResizableAntd from './resizable.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -241,52 +127,14 @@ export default function ResizableDemo() {
       <SplitDemo
         minPaneWidth={480}
         left={
-          <Table<RecordType>
-            columns={dgColumns}
-            dataSource={data}
-            /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll:{y:true}（data-grid 数据区域模式，
-               CSS 自适应填满 SplitDemo 给的 400px 限高，虚拟窗口才有滚动区）；
-               OFF 时 scroll=undefined，行为与改造前一致。 */
+          <ResizableDg
+            resizable={resizable}
+            minWidth={minWidth}
+            maxWidth={maxWidth}
             virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
-            gridOptions={{
-              resizable,
-              resizableMinWidth: minWidth,
-              resizableMaxWidth: maxWidth,
-            }}
           />
         }
-        right={
-          <>
-            <div
-              style={{
-                padding: 12,
-                background: token.colorWarningBg,
-                border: `1px solid ${token.colorWarningBorder}`,
-                borderRadius: 6,
-                marginBottom: 12,
-                fontSize: 12,
-                color: token.colorText,
-                lineHeight: 1.7,
-              }}
-            >
-              <strong>antd 6.4.4 Table 无原生列宽拖拽（resizable）能力。</strong>
-              右栏仅 data-grid 演示；此处放一张静态 antd Table 作基线参照（同数据/同列，
-              无拖拽手柄）。如需在 antd 下做列宽拖拽，社区常用 <code>react-resizable</code>
-              等第三方 wrapper（非 antd 原生，本 demo 不复刻）。
-            </div>
-            <AntdTable<RecordType>
-              columns={antdColumns}
-              dataSource={data}
-              /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll:{y:340}（本右栏 antd 显式
-                 pagination={false} 无分页条，扣除表头~55 → 约 340 塞进 split pane 限高）；
-                 OFF 时 scroll=undefined，行为与改造前一致。 */
-              virtual={virtual}
-              scroll={virtual ? { y: 340 } : undefined}
-              pagination={false}
-            />
-          </>
-        }
+        right={<ResizableAntd virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 B20 / M7 列宽拖拽）：</strong>

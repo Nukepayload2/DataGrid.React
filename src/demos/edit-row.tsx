@@ -43,339 +43,43 @@
  * 4. `Cancel`（Popconfirm 确认）：退出编辑不保存。
  * 5. 翻页（pagination.onChange）→ 自动 cancel 退出编辑。
  * 6. age 列编辑用 InputNumber（number 类型），name/address 用 Input（text 类型）。
- */
-
-import React, { useEffect, useState } from 'react'
-import type { TableProps as AntdTableProps } from 'antd'
-import { Form, Input, InputNumber, Popconfirm, Table as AntdTable, Typography } from 'antd'
-import { Table } from '../table'
-import type { TableProps } from '../table'
-import { SplitDemo } from './_compare/SplitDemo'
-import { originData, type RecordType } from './_compare/edit-row.shared'
-// 虚拟化开关接入（决策 7）：顶栏 Switch ON 时两侧 Table 叠加 virtual + scroll.y。
-// 100 行分页虚拟化有意义；编辑态单元格在虚拟窗口内正常工作（Form context 透传不依赖 DOM 层级）。
-import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// antd demo 配套 CSS（注入 document.head，仅注入一次）
-// 对齐 antd edit-row demo 的 .editable-row .ant-form-item-explain 定位（校验错误信息悬浮）。
-// 两侧共享。
-// ---------------------------------------------------------------------------
-
-let cssInjected = false
-function injectEditRowCss() {
-  if (cssInjected) return
-  cssInjected = true
-  const style = document.createElement('style')
-  style.setAttribute('data-edit-row-css', '')
-  style.textContent = `
-.editable-row .ant-form-item-explain {
-  position: absolute;
-  top: 100%;
-  font-size: 12px;
-}
-`
-  document.head.appendChild(style)
-}
-
-// ===========================================================================
-// 左栏（data-grid）—— 行级编辑（components.body.cell + onCell + Form 外层）
-// ===========================================================================
-
-interface DgEditableCellProps {
-  editing: boolean
-  dataIndex: keyof RecordType
-  title: React.ReactNode
-  inputType: 'number' | 'text'
-  record: RecordType
-  index: number
-}
-
-/**
- * data-grid 适配：返回**内容 ReactNode（不包 td）**。引擎把本组件渲染在 `.dg-cell-inner` 处。
- * editing 态 Form.Item + inputNode（InputNumber for number / Input for text）；
- * 展示态直接渲染 children。
  *
- * ★ Form.Item 此处无需 useContext 取 Form——外层 `<Form form>` 通过 React FormContext 自动透传
- * （Form context 不依赖 DOM 层级）。
+ * === 拆子文件（task：live 编辑接入，Pane 组件直接变子文件）===
+ *
+ * 父文件只保留「外壳职责」：useVirtualization + SplitDemo 外壳 + children 对照说明。
+ * 原始 demo 已有左右独立 Pane（DgEditRowPane/AntdEditRowPane）+ injectEditRowCss CSS 注入 +
+ * 行级编辑 state——Pane 组件直接变子文件（重命名为 EditRowDg/EditRowAntd），CSS 注入逻辑保留
+ * （幂等，两子组件共用同一 CSS，各自 useEffect 调 injectEditRowCss），行级编辑 state 各侧独立自管：
+ *   - `./edit-row.dg`：`EditRowDg({virtual})`（左栏）
+ *   - `./edit-row.antd`：`EditRowAntd({virtual})`（右栏）
+ *
+ * ★ state 提升决策（SOP）：本 demo 无外部控制条，行级编辑 state（form/data/editingKey）全留各侧
+ * 子组件内自管（原始决策「编辑各自独立」——共用 form/data/editingKey 会冲突）。CSS 注入从父
+ * useEffect 移到各子组件 useEffect（子文件自包含），幂等检查保证两子组件共用同一 `<style>` 不重复注入。
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `EditRowDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
+ * 子组件 props 全部带默认值（virtual=false），编辑态超集 props {bordered,virtual,size,autoScroll}
+ * 不全也不崩（行级编辑 state 全在子组件内自管）。
  */
-const DgEditableCell: React.FC<React.PropsWithChildren<DgEditableCellProps>> = ({
-  editing,
-  dataIndex,
-  title,
-  inputType,
-  children,
-}) => {
-  const inputNode = inputType === 'number' ? <InputNumber /> : <Input />
 
-  // ★ data-grid 适配：返回内容 ReactNode（不包 td）。
-  return (
-    <>
-      {editing ? (
-        <Form.Item
-          name={dataIndex as string}
-          style={{ margin: 0 }}
-          rules={[{ required: true, message: `Please Input ${title}!` }]}
-        >
-          {inputNode}
-        </Form.Item>
-      ) : (
-        children
-      )}
-    </>
-  )
-}
-
-type DgColumnTypes = Exclude<TableProps<RecordType>['columns'], undefined>
-
-function DgEditRowPane() {
-  // ★ 编辑各自独立 state（两栏对照时互不干扰——共用 form/data/editingKey 会冲突）。
-  const [form] = Form.useForm()
-  const [data, setData] = useState<RecordType[]>(originData)
-  const [editingKey, setEditingKey] = useState('')
-  // 虚拟化开关接入（决策 7）：顶栏 Switch ON 时叠加 virtual + scroll.y。
-  const { virtual } = useVirtualization()
-
-  const isEditing = (record: RecordType) => record.key === editingKey
-
-  const edit = (record: Partial<RecordType> & { key: React.Key }) => {
-    form.setFieldsValue({ name: '', age: '', address: '', ...record })
-    setEditingKey(record.key as string)
-  }
-
-  const cancel = () => {
-    setEditingKey('')
-  }
-
-  const save = async (key: React.Key) => {
-    try {
-      const row = (await form.validateFields()) as RecordType
-      setData((d) => {
-        const newData = [...d]
-        const index = newData.findIndex((item) => key === item.key)
-        if (index > -1) {
-          const item = newData[index]
-          newData.splice(index, 1, { ...item, ...row })
-        } else {
-          newData.push(row)
-        }
-        return newData
-      })
-      setEditingKey('')
-    } catch (errInfo) {
-      console.log('Validate Failed:', errInfo)
-    }
-  }
-
-  const columns = [
-    { title: 'name', dataIndex: 'name', width: '25%', editable: true },
-    { title: 'age', dataIndex: 'age', width: '15%', editable: true },
-    { title: 'address', dataIndex: 'address', width: '40%', editable: true },
-    {
-      title: 'operation',
-      dataIndex: 'operation',
-      render: (_: unknown, record: RecordType) => {
-        const editable = isEditing(record)
-        return editable ? (
-          <span>
-            <Typography.Link onClick={() => save(record.key)} style={{ marginInlineEnd: 8 }}>
-              Save
-            </Typography.Link>
-            <Popconfirm title="Sure to cancel?" onConfirm={cancel}>
-              <a>Cancel</a>
-            </Popconfirm>
-          </span>
-        ) : (
-          <Typography.Link disabled={editingKey !== ''} onClick={() => edit(record)}>
-            Edit
-          </Typography.Link>
-        )
-      },
-    },
-  ]
-
-  const mergedColumns: DgColumnTypes = columns.map((col) => {
-    if (!col.editable) {
-      return col as DgColumnTypes[number]
-    }
-    return {
-      ...col,
-      onCell: (record: RecordType) => ({
-        record,
-        inputType: col.dataIndex === 'age' ? 'number' : 'text',
-        dataIndex: col.dataIndex,
-        title: col.title,
-        editing: isEditing(record),
-      }),
-    }
-  }) as DgColumnTypes
-
-  return (
-    // ★ Form 在 Table 外层（component={false} 不产生 DOM）。Form.Item 在 EditableCell 内，
-    //   通过 React FormContext（不依赖 DOM 层级）访问此 Form 实例——data-grid 的 div 渲染层级
-    //   不影响 context 透传。无 components.body.row（区别 S15 的 EditableRow）。
-    <Form form={form} component={false}>
-      <Table<RecordType>
-        components={{ body: { cell: DgEditableCell } }}
-        rowClassName="editable-row"
-        bordered
-        dataSource={data}
-        columns={mergedColumns}
-        pagination={{ onChange: cancel }}
-        // 虚拟化（决策 7）：ON→virtual+scroll.y=true（CSS 自适应高度，SplitDemo 限高 pane body 提供可滚动区域）；OFF→不传，非虚拟全量 DOM（零回归）。
-        virtual={virtual}
-        scroll={virtual ? { y: true } : undefined}
-      />
-    </Form>
-  )
-}
-
-// ===========================================================================
-// 右栏（antd）—— 忠实复刻 antd edit-row demo（components.body.cell + onCell + Form 外层）
-// ===========================================================================
-
-interface AntdEditableCellProps {
-  editing: boolean
-  dataIndex: string
-  title: React.ReactNode
-  inputType: 'number' | 'text'
-  record: RecordType
-  index: number
-}
-
-/** antd 原生：返回 <td {...restProps}>...</td>。 */
-const AntdEditableCell: React.FC<
-  React.PropsWithChildren<AntdEditableCellProps> & React.HTMLAttributes<HTMLElement>
-> = ({ editing, dataIndex, title, inputType, children, ...restProps }) => {
-  const inputNode = inputType === 'number' ? <InputNumber /> : <Input />
-
-  return (
-    <td {...restProps}>
-      {editing ? (
-        <Form.Item
-          name={dataIndex}
-          style={{ margin: 0 }}
-          rules={[{ required: true, message: `Please Input ${title}!` }]}
-        >
-          {inputNode}
-        </Form.Item>
-      ) : (
-        children
-      )}
-    </td>
-  )
-}
-
-type AntdColumnTypes = Exclude<AntdTableProps<RecordType>['columns'], undefined>
-
-function AntdEditRowPane() {
-  // ★ 编辑各自独立 state（两栏对照时互不干扰）。
-  const [form] = Form.useForm()
-  const [data, setData] = useState<RecordType[]>(originData)
-  const [editingKey, setEditingKey] = useState('')
-  // 虚拟化开关接入（决策 7）：顶栏 Switch ON 时叠加 virtual + scroll.y。
-  const { virtual } = useVirtualization()
-
-  const isEditing = (record: RecordType) => record.key === editingKey
-
-  const edit = (record: Partial<RecordType> & { key: React.Key }) => {
-    form.setFieldsValue({ name: '', age: '', address: '', ...record })
-    setEditingKey(record.key)
-  }
-
-  const cancel = () => {
-    setEditingKey('')
-  }
-
-  const save = async (key: React.Key) => {
-    try {
-      const row = (await form.validateFields()) as RecordType
-      setData((d) => {
-        const newData = [...d]
-        const index = newData.findIndex((item) => key === item.key)
-        if (index > -1) {
-          const item = newData[index]
-          newData.splice(index, 1, { ...item, ...row })
-        } else {
-          newData.push(row)
-        }
-        return newData
-      })
-      setEditingKey('')
-    } catch (errInfo) {
-      console.log('Validate Failed:', errInfo)
-    }
-  }
-
-  const columns = [
-    { title: 'name', dataIndex: 'name', width: '25%', editable: true },
-    { title: 'age', dataIndex: 'age', width: '15%', editable: true },
-    { title: 'address', dataIndex: 'address', width: '40%', editable: true },
-    {
-      title: 'operation',
-      dataIndex: 'operation',
-      render: (_: unknown, record: RecordType) => {
-        const editable = isEditing(record)
-        return editable ? (
-          <span>
-            <Typography.Link onClick={() => save(record.key)} style={{ marginInlineEnd: 8 }}>
-              Save
-            </Typography.Link>
-            <Popconfirm title="Sure to cancel?" onConfirm={cancel}>
-              <a>Cancel</a>
-            </Popconfirm>
-          </span>
-        ) : (
-          <Typography.Link disabled={editingKey !== ''} onClick={() => edit(record)}>
-            Edit
-          </Typography.Link>
-        )
-      },
-    },
-  ]
-
-  const mergedColumns: AntdColumnTypes = columns.map((col) => {
-    if (!col.editable) {
-      return col as AntdColumnTypes[number]
-    }
-    return {
-      ...col,
-      onCell: (record: RecordType) => ({
-        record,
-        inputType: col.dataIndex === 'age' ? 'number' : 'text',
-        dataIndex: col.dataIndex,
-        title: col.title,
-        editing: isEditing(record),
-      }),
-    }
-  }) as AntdColumnTypes
-
-  return (
-    <Form form={form} component={false}>
-      <AntdTable<RecordType>
-        components={{ body: { cell: AntdEditableCell } }}
-        bordered
-        dataSource={data}
-        columns={mergedColumns}
-        rowClassName="editable-row"
-        pagination={{ onChange: cancel }}
-        // 虚拟化（决策 7）：ON→virtual+scroll.y=300（有分页，antd scroll.y 须数字）；OFF→不传，非虚拟（零回归）。
-        virtual={virtual}
-        scroll={virtual ? { y: 300 } : undefined}
-      />
-    </Form>
-  )
-}
+import { SplitDemo } from './_compare/SplitDemo'
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（编辑态单元格在虚拟窗口内正常工作，
+// Form context 透传不依赖 DOM 层级）。
+import { useVirtualization } from './VirtualizationContext'
+// ★ 拆子文件后，左/右栏 Pane + EditableCell + CSS 注入 + 行级编辑 state 由子组件提供。
+//   RecordType/originData 现在由子文件各自 import edit-row.shared；父文件不再需要。
+import EditRowDg from './edit-row.dg'
+import EditRowAntd from './edit-row.antd'
 
 // ===========================================================================
 // Demo 根组件
 // ===========================================================================
 
 export default function EditRowDemo() {
-  // 注入 antd demo 配套 CSS（仅注入一次）。
-  useEffect(() => {
-    injectEditRowCss()
-  }, [])
+  // 虚拟化开关接入（决策 7）：顶栏 Switch ON 时两侧 Table 叠加 virtual + scroll.y。
+  // 100 行分页虚拟化有意义；编辑态单元格在虚拟窗口内正常工作（Form context 透传不依赖 DOM 层级）。
+  const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
@@ -383,7 +87,11 @@ export default function EditRowDemo() {
         minPaneWidth=480（窄表，4 列无 scroll.x + 分页）→ 横排阈值 ≈ 480×2 + 16 = 976。
         常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。
       */}
-      <SplitDemo minPaneWidth={480} left={<DgEditRowPane />} right={<AntdEditRowPane />}>
+      <SplitDemo
+        minPaneWidth={480}
+        left={<EditRowDg virtual={virtual} />}
+        right={<EditRowAntd virtual={virtual} />}
+      >
         <div>
           <strong>对照说明（决策 9 B17 / S16）：</strong>
           左右并排呈现 data-grid 与 antd edit-row（行级 editingKey + Edit/Save/Cancel +

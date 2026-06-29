@@ -90,212 +90,46 @@
  * 触发分支的列集中在 columns 末尾追加（Status/Tag/Empty），不影响原 Name/Age/Address 的
  * reset 演示逻辑（reset 按钮仍只清空 name/address 等已有筛选；新列也走同一份 filteredInfo
  * 受控，Clear filters 会一并清空，行为一致）。
+ *
+ * === 拆子文件（task：live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：filteredInfo/sortedInfo state（受控真理源）+ bordered state +
+ * useVirtualization + DemoToolbar(Switch Bordered + 三按钮) + SplitDemo 外壳 + children 对照说明
+ * + handleChange（写回共享 state）+ 三按钮 handler（setSortedInfo/setFilteredInfo）。
+ * 两侧表格 JSX 与受控列派生拆到子文件：
+ *   - `./reset-filter.dg`：`ResetFilterDg({filteredInfo, sortedInfo, bordered, virtual, onChange})`（左栏）
+ *   - `./reset-filter.antd`：`ResetFilterAntd({filteredInfo, sortedInfo, bordered, virtual, onChange})`（右栏）
+ *
+ * ★ 状态提升说明：filteredInfo/sortedInfo 必须留父——控制条三按钮直接 setFilteredInfo/setSortedInfo，
+ *   且同一份 state 驱动两侧受控同步（左栏点排序，onChange 写回父 state → 右栏同步）。子组件接
+ *   filteredInfo/sortedInfo 后各自派生受控列（列类型两侧不同：data-grid ColumnType vs antd TableProps['columns']）。
+ *   onChange 也由父持有并作为 prop 下发（写回父 state，两侧共用）。
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `ResetFilterDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
  */
 
 import { useState } from 'react'
-import { Button, Space, Switch, Table as AntdTable } from 'antd'
-import type { TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType, TableProps as DgTableProps } from '../table'
+import { Button, Space, Switch } from 'antd'
+import type { TableProps as AntdTableProps } from 'antd'
+import type { TableProps as DgTableProps } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, type RecordType } from './_compare/reset-filter.shared'
+import type { RecordType } from './_compare/reset-filter.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（SplitDemo pane 自动限高，虚拟窗口才有滚动区）
 import { useVirtualization } from './VirtualizationContext'
+// ★ 拆子文件后，左/右栏 JSX + 受控列派生由子组件提供（props 驱动）。data 现在由子文件各自
+//   import reset-filter.shared；父文件仅保留类型 import（RecordType），不再需要 data。
+import ResetFilterDg from './reset-filter.dg'
+import ResetFilterAntd from './reset-filter.antd'
 
-// 受控 state 类型（对齐 antd demo 的 Filters / Sorts 推导）。两侧共用同一组类型。
+// 受控 state 类型（父持有 filteredInfo/sortedInfo + handleChange 写回 state）。
+// 类型在父独立声明（与子文件各自独立声明结构等价；不跨子文件 import 类型，保 live scope 纯净）。
 type OnChange = NonNullable<DgTableProps<RecordType>['onChange']>
+type AntdOnChange = NonNullable<AntdTableProps<RecordType>['onChange']>
 type Filters = Parameters<OnChange>[1]
 type GetSingle<T> = T extends (infer U)[] ? U : never
 type Sorts = GetSingle<Parameters<OnChange>[2]>
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 行为与改造前一致
-// ---------------------------------------------------------------------------
-
-/** 构造 data-grid 受控列（依赖外部 filteredInfo/sortedInfo）。 */
-function buildDgColumns(
-  filteredInfo: Filters,
-  sortedInfo: Sorts,
-): ColumnType<RecordType>[] {
-  return [
-    {
-      title: 'Name',
-      dataIndex: 'name',
-      key: 'name',
-      filters: [
-        { text: 'Joe', value: 'Joe' },
-        { text: 'Jim', value: 'Jim' },
-      ],
-      // 受控 filteredValue：外部 filteredInfo.name 驱动；无则 null（不清筛选）。
-      filteredValue: filteredInfo.name || null,
-      onFilter: (value, record) => record.name.includes(value as string),
-      sorter: (a, b) => a.name.length - b.name.length,
-      // 受控 sortOrder：仅当 sortedInfo.columnKey === 'name' 时取 order，否则 null。
-      sortOrder: sortedInfo.columnKey === 'name' ? sortedInfo.order : null,
-      // S20：ellipsis 视觉（超长文本省略号 + title 提示）；本 demo 三列均启用。
-      ellipsis: true,
-    },
-    {
-      title: 'Age',
-      dataIndex: 'age',
-      key: 'age',
-      sorter: (a, b) => a.age - b.age,
-      sortOrder: sortedInfo.columnKey === 'age' ? sortedInfo.order : null,
-      ellipsis: true,
-    },
-    {
-      title: 'Address',
-      dataIndex: 'address',
-      key: 'address',
-      filters: [
-        { text: 'London', value: 'London' },
-        { text: 'New York', value: 'New York' },
-      ],
-      filteredValue: filteredInfo.address || null,
-      onFilter: (value, record) => record.address.includes(value as string),
-      sorter: (a, b) => a.address.length - b.address.length,
-      sortOrder: sortedInfo.columnKey === 'address' ? sortedInfo.order : null,
-      ellipsis: true,
-    },
-    // ★ locale 验证闭环追加列（决策见 demo 顶部「locale 5 key 运行时验证闭环」）。
-    // Status：filterSearch=true → 下拉渲染搜索框，placeholder 应为「搜索」（filterSearchPlaceholder）。
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      filters: [
-        { text: 'active', value: 'active' },
-        { text: 'inactive', value: 'inactive' },
-        { text: 'pending', value: 'pending' },
-      ],
-      filteredValue: filteredInfo.status || null,
-      onFilter: (value, record) => record.status === value,
-      filterSearch: true,
-      ellipsis: true,
-    },
-    // Tag：filterMode='tree'（filterMultiple 默认 true）→ 下拉渲染 tree 全选 Checkbox，
-    // 文案应为「全选」（filterCheckAll）。
-    {
-      title: 'Tag',
-      dataIndex: 'tag',
-      key: 'tag',
-      filters: [
-        { text: 'vip', value: 'vip' },
-        { text: 'normal', value: 'normal' },
-      ],
-      filteredValue: filteredInfo.tag || null,
-      onFilter: (value, record) => record.tag === value,
-      filterMode: 'tree',
-      ellipsis: true,
-    },
-    // Empty：filters=[] 空数组 → 下拉无筛选项，渲染空占位「无筛选」（filterEmptyText）。
-    {
-      title: 'Empty',
-      dataIndex: 'empty',
-      key: 'empty',
-      filters: [],
-      filteredValue: filteredInfo.empty || null,
-      onFilter: () => false,
-      ellipsis: true,
-    },
-  ]
-}
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd reset-filter demo（逐字一致）
-// ---------------------------------------------------------------------------
-
-/** 构造 antd 受控列（依赖同一份 filteredInfo/sortedInfo）。 */
-function buildAntdColumns(
-  filteredInfo: Filters,
-  sortedInfo: Sorts,
-): NonNullable<TableProps<RecordType>['columns']> {
-  return [
-    {
-      title: 'Name',
-      dataIndex: 'name',
-      key: 'name',
-      filters: [
-        { text: 'Joe', value: 'Joe' },
-        { text: 'Jim', value: 'Jim' },
-      ],
-      filteredValue: filteredInfo.name || null,
-      onFilter: (value, record) => record.name.includes(value as string),
-      sorter: (a, b) => a.name.length - b.name.length,
-      sortOrder: sortedInfo.columnKey === 'name' ? sortedInfo.order : null,
-      ellipsis: true,
-    },
-    {
-      title: 'Age',
-      dataIndex: 'age',
-      key: 'age',
-      sorter: (a, b) => a.age - b.age,
-      sortOrder: sortedInfo.columnKey === 'age' ? sortedInfo.order : null,
-      ellipsis: true,
-    },
-    {
-      title: 'Address',
-      dataIndex: 'address',
-      key: 'address',
-      filters: [
-        { text: 'London', value: 'London' },
-        { text: 'New York', value: 'New York' },
-      ],
-      filteredValue: filteredInfo.address || null,
-      onFilter: (value, record) => record.address.includes(value as string),
-      sorter: (a, b) => a.address.length - b.address.length,
-      sortOrder: sortedInfo.columnKey === 'address' ? sortedInfo.order : null,
-      ellipsis: true,
-    },
-    // ★ locale 对照列（右栏不传 locale → 英文，与左栏中文对照）。
-    // Status：filterSearch=true → antd 下拉渲染搜索框，placeholder='Search'（对照左栏「搜索」）。
-    {
-      title: 'Status',
-      dataIndex: 'status',
-      key: 'status',
-      filters: [
-        { text: 'active', value: 'active' },
-        { text: 'inactive', value: 'inactive' },
-        { text: 'pending', value: 'pending' },
-      ],
-      filteredValue: filteredInfo.status || null,
-      onFilter: (value, record) => record.status === value,
-      filterSearch: true,
-      ellipsis: true,
-    },
-    // Tag：filterMode='tree' → antd 下拉渲染 tree 全选 Checkbox，文案='Select all'（对照「全选」）。
-    {
-      title: 'Tag',
-      dataIndex: 'tag',
-      key: 'tag',
-      filters: [
-        { text: 'vip', value: 'vip' },
-        { text: 'normal', value: 'normal' },
-      ],
-      filteredValue: filteredInfo.tag || null,
-      onFilter: (value, record) => record.tag === value,
-      filterMode: 'tree',
-      ellipsis: true,
-    },
-    // Empty：filters=[] 空数组 → antd 下拉空占位='No filters'（对照「无筛选」）。
-    {
-      title: 'Empty',
-      dataIndex: 'empty',
-      key: 'empty',
-      filters: [],
-      filteredValue: filteredInfo.empty || null,
-      onFilter: () => false,
-      ellipsis: true,
-    },
-  ]
-}
-
-// ---------------------------------------------------------------------------
-// onChange（两侧共用同一个 state 写回）
-// ---------------------------------------------------------------------------
-
-// demo 根组件内构造实例（见 ResetFilterDemo），此处仅提供类型签名占位。
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -340,9 +174,6 @@ export default function ResetFilterDemo() {
     })
   }
 
-  const dgColumns = buildDgColumns(filteredInfo, sortedInfo)
-  const antdColumns = buildAntdColumns(filteredInfo, sortedInfo)
-
   return (
     <div style={{ padding: 24 }}>
       {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一组 state 同时驱动两侧表格 + 同一按钮组控制两侧重置。
@@ -368,39 +199,21 @@ export default function ResetFilterDemo() {
       <SplitDemo
         minPaneWidth={480}
         left={
-          <Table<RecordType>
-            columns={dgColumns}
-            dataSource={data}
-            onChange={handleChange}
+          <ResetFilterDg
+            filteredInfo={filteredInfo}
+            sortedInfo={sortedInfo}
             bordered={bordered}
-            pagination={{}}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-               pane 限高，虚拟窗口才有滚动区）；OFF 时回 undefined，行为与改造前一致。 */
             virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
-            // ★ T6 i18n 验证面：左栏 data-grid 传中文 locale，verifier 打开任一列漏斗下拉即可确认
-            //   按钮变「确定/重置」、tree 全选变「全选」、搜索框 placeholder 变「搜索」、
-            //   空筛选项占位变「无筛选」。右栏 antd 不传（保持英文，对照）。
-            locale={{
-              filterConfirm: '确定',
-              filterReset: '重置',
-              filterEmptyText: '无筛选',
-              filterSearchPlaceholder: '搜索',
-              filterCheckAll: '全选',
-            }}
+            onChange={handleChange}
           />
         }
         right={
-          <AntdTable<RecordType>
-            columns={antdColumns}
-            dataSource={data}
-            onChange={handleChange as TableProps<RecordType>['onChange']}
+          <ResetFilterAntd
+            filteredInfo={filteredInfo}
+            sortedInfo={sortedInfo}
             bordered={bordered}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且表头/默认
-               分页画在 scroll.y 之外，需扣除表头~55 与分页条~64 → 约 280 才能塞进 pane 限高；
-               OFF 时回 undefined，行为与改造前一致）。 */
             virtual={virtual}
-            scroll={virtual ? { y: 280 } : undefined}
+            onChange={handleChange as AntdOnChange}
           />
         }
       >

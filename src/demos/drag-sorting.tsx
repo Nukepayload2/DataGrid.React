@@ -31,219 +31,41 @@
  *    非虚拟默认 rowHeight='auto' → 行随换行内容自动增高（第 1 行超长 address 变高）。右栏 antd
  *    忠实复刻官方（auto 布局，同款数据会横滚）——两侧此处**刻意不同**：左栏展示 data-grid 的
  *    「填剩余 + 换行 + 自动行高」目标态，右栏保留 antd 官方原貌作对照基准。
+ *
+ * === 拆子文件（task：live 编辑接入，Pane 组件直接变子文件）===
+ *
+ * 父文件只保留「外壳职责」：bordered/autoScroll state + useVirtualization + DemoToolbar(Switch
+ * Bordered + Switch AutoScroll) + SplitDemo 外壳 + children 对照说明。两侧表格 JSX + 拖拽组件 +
+ * 列定义拆到子文件：
+ *   - `./drag-sorting.dg`：`DragSortingDg({bordered, autoScroll, virtual})`（左栏，自研 pointer）
+ *   - `./drag-sorting.antd`：`DragSortingAntd({bordered, virtual})`（右栏，@dnd-kit）
+ *
+ * ★ state 提升决策（SOP）：bordered/autoScroll 由父控制条直接操作 → 提升父 + prop 传子；
+ *   拖拽 dataSource 是局部交互态 → 留各侧子组件内自管（原始决策「两栏独立」）。
+ * ★ @dnd-kit/* scope 扩展：drag-sorting.antd 子文件 `import { DndContext, ... } from '@dnd-kit/core'`
+ *   等，scope 外依赖，已在 src/live/scope.ts baseScope 注入 4 个 namespace（仅 value，type import
+ *   如 DragEndEvent 被 sucrase 剥离不需注入）。
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `DragSortingDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
+ * 子组件 props 全部带默认值（bordered=false / autoScroll=true / virtual=false），编辑态超集 props
+ * {bordered,virtual,size,autoScroll} 不全也不崩（拖拽 dataSource state 全在子组件内自管）。
  */
 
-import { useRef, useState } from 'react'
-import type { DragEndEvent } from '@dnd-kit/core'
-import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core'
-import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
-import {
-  arrayMove,
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { Space, Switch, Table as AntdTable, theme } from 'antd'
-import type { TableColumnsType } from 'antd'
-import type { CSSProperties, HTMLAttributes } from 'react'
-import type { FC } from 'react'
-import { Table } from '../table'
-import { useRowDragSort } from '../table'
-import type { ColumnType } from '../table'
+import { useState } from 'react'
+import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
-import { initialData, type RecordType } from './_compare/drag-sorting.shared'
 import { DemoToolbar } from './_compare/DemoToolbar'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（拖拽命中区在虚拟窗口内，正常接入）
 import { useVirtualization } from './VirtualizationContext'
+// ★ 拆子文件后，左/右栏 Pane + 拖拽组件 + 列定义由子组件提供（props 驱动）。RecordType/initialData
+//   现在由子文件各自 import drag-sorting.shared；父文件不再需要。
+import DragSortingDg from './drag-sorting.dg'
+import DragSortingAntd from './drag-sorting.antd'
 
-// ---------------------------------------------------------------------------
-// 右栏（antd）行拖拽组件 —— 忠实复刻 antd 官方 drag-sorting.tsx
-// ---------------------------------------------------------------------------
-
-interface RowProps extends HTMLAttributes<HTMLTableRowElement> {
-  'data-row-key': string
-}
-
-/** antd 官方 Row：useSortable(id=data-row-key) + setNodeRef 挂 <tr> + transform 跟随指针 + listeners。 */
-const Row: FC<Readonly<RowProps>> = (props) => {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: props['data-row-key'],
-  })
-
-  const style: CSSProperties = {
-    ...props.style,
-    transform: CSS.Translate.toString(transform),
-    transition,
-    cursor: 'move',
-    ...(isDragging ? { position: 'relative', zIndex: 9999 } : {}),
-  }
-
-  return <tr {...props} ref={setNodeRef} style={style} {...attributes} {...listeners} />
-}
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— Name / Age / Address（对齐 antd demo）
-// ---------------------------------------------------------------------------
-
-// ★ 列宽策略（任务 #A/B）：Name/Age 给窄 width（绝对 track，fixed 模式下锁定不参与 fr 分配），
-//   Address 不设 width（fixed 模式 → minmax(0,1fr) 填剩余空间，超长文本换行而非撑出横滚条）。
-//   与 antd 右栏差异：antd 官方同款数据会横滚（auto 布局 + max-content），此处刻意 fixed 布局让
-//   Address 占剩余空间并换行——是本 demo 的目标态（消除横滚 + 自动行高），不是回归。
-const dgColumns: ColumnType<RecordType>[] = [
-  { title: 'Name', dataIndex: 'name', key: 'name', width: 120 },
-  { title: 'Age', dataIndex: 'age', key: 'age', width: 80 },
-  { title: 'Address', dataIndex: 'address', key: 'address' },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd demo
-// ---------------------------------------------------------------------------
-
-const antdColumns: TableColumnsType<RecordType> = [
-  { title: 'Name', dataIndex: 'name' },
-  { title: 'Age', dataIndex: 'age' },
-  { title: 'Address', dataIndex: 'address' },
-]
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）—— 方案 B 自研 pointer 行拖拽
-// ---------------------------------------------------------------------------
-
-function DataGridPane({
-  bordered,
-  autoScroll,
-  virtual,
-}: {
-  bordered: boolean
-  autoScroll: boolean
-  virtual: boolean
-}) {
-  const { token } = theme.useToken()
-  const [dataSource, setDataSource] = useState<RecordType[]>(initialData)
-
-  // 外层容器 ref（指示线相对此容器绝对定位；hit-test 遍历容器内 [data-row-index] 单元格）。
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  const { dragState, indicator, containerProps } = useRowDragSort<RecordType>({
-    dataSource,
-    rowKey: 'key',
-    onSort: setDataSource,
-    containerRef,
-    // T9：拖到容器边缘自动滚动（此 demo 数据少无 scroll 容器，auto-scroll 为 no-op；开关用于对照）。
-    autoScroll,
-  })
-
-  return (
-    <div ref={containerRef} style={{ position: 'relative' }} {...containerProps}>
-      <Table<RecordType>
-        rowKey="key"
-        columns={dgColumns}
-        dataSource={dataSource}
-        bordered={bordered}
-        // 对齐右栏 antd 默认分页（antd 对任意数据都渲染 .ant-pagination，data-grid 不传=无分页条）。
-        pagination={{}}
-        /* ★ 任务 #B：切到 fixed 布局——无 width 列（Address）变 minmax(0,1fr) 填剩余空间，
-           超长文本换行而非撑出横滚条；非虚拟默认 rowHeight='auto'，行随换行内容自动增高。
-           fixed 布局与虚拟化正交，virtual ON 时仍生效。 */
-        tableLayout="fixed"
-        /* ★ 任务 #A：整行 cursor:move——对齐 antd 官方 drag-sorting 在 <tr> 设 cursor:move
-           （右栏 antd Row 已复刻）。data-grid 无 tr，用 S29 语义 styles.body.cell 把 cursor:move
-           注入到每个 body 单元格（整行悬停显 move 光标，与 antd 整行 cursor:move 一致）。 */
-        styles={{ body: { cell: { cursor: 'move' } } }}
-        /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-           给的限高，虚拟窗口才有滚动区；拖拽命中区在虚拟窗口内，正常接入——autoScrollOnDrag 已有）；
-           OFF 时回 undefined，行为与改造前一致。 */
-        virtual={virtual}
-        scroll={virtual ? { y: true } : undefined}
-      />
-      {/* 拖拽指示线：绝对定位蓝色横线，跨整行（left:0/right:0 相对 container）。
-          非 grid item（是 container 子元素），不影响 grid-template-rows 计算。 */}
-      {indicator.visible ? (
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            top: indicator.top,
-            left: indicator.left,
-            right: indicator.right,
-            height: 2,
-            background: token.colorPrimary,
-            zIndex: 9999,
-            pointerEvents: 'none',
-            borderRadius: 1,
-          }}
-        />
-      ) : null}
-      <div style={{ marginTop: 8, fontSize: 12, color: token.colorTextTertiary }}>
-        当前拖拽：
-        {dragState ? `from #${dragState.fromIndex + 1} → 目标 #${dragState.overIndex + 1}` : '无'}
-      </div>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）—— 忠实复刻官方 drag-sorting.tsx
-// ---------------------------------------------------------------------------
-
-function AntdPane({
-  bordered,
-  virtual,
-}: {
-  bordered: boolean
-  virtual: boolean
-}) {
-  const [dataSource, setDataSource] = useState<RecordType[]>(initialData)
-
-  // PointerSensor distance:1（对齐官方——稍微移动才触发，避免误触点击）。
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        // https://docs.dndkit.com/api-documentation/sensors/pointer#activation-constraints
-        distance: 1,
-      },
-    }),
-  )
-
-  const onDragEnd = ({ active, over }: DragEndEvent) => {
-    if (active.id !== over?.id) {
-      setDataSource((prev) => {
-        const activeIndex = prev.findIndex((i) => i.key === active.id)
-        const overIndex = prev.findIndex((i) => i.key === over?.id)
-        return arrayMove(prev, activeIndex, overIndex)
-      })
-    }
-  }
-
-  return (
-    <DndContext sensors={sensors} modifiers={[restrictToVerticalAxis]} onDragEnd={onDragEnd}>
-      <SortableContext
-        // rowKey array
-        items={dataSource.map((i) => i.key)}
-        strategy={verticalListSortingStrategy}
-      >
-        <AntdTable<RecordType>
-          components={{
-            body: { row: Row },
-          }}
-          rowKey="key"
-          columns={antdColumns}
-          dataSource={dataSource}
-          bordered={bordered}
-          /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:300（antd 不认 true，数字像素高度）；
-             OFF 时回 undefined，行为与改造前一致。 */
-          virtual={virtual}
-          scroll={virtual ? { y: 300 } : undefined}
-        />
-      </SortableContext>
-    </DndContext>
-  )
-}
-
-// ---------------------------------------------------------------------------
+// ===========================================================================
 // Demo 根组件
-// ---------------------------------------------------------------------------
+// ===========================================================================
 
 export default function DragSortingDemo() {
   // ★ 共享状态：同一个状态同时驱动两侧表格。
@@ -282,13 +104,13 @@ export default function DragSortingDemo() {
       */}
       <SplitDemo
         minPaneWidth={480}
-        left={<DataGridPane bordered={bordered} autoScroll={autoScroll} virtual={virtual} />}
-        right={<AntdPane bordered={bordered} virtual={virtual} />}
+        left={<DragSortingDg bordered={bordered} autoScroll={autoScroll} virtual={virtual} />}
+        right={<DragSortingAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 B18）：</strong>左右并排呈现 data-grid（自研 pointer 行拖拽）
           与 antd 官方 drag-sorting（dnd-kit 行拖拽），方便对照修 bug。
-          <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+          <ul style={{ margin: '8px 0', paddingLeft: 20 }}>
             <li>
               <strong>拖拽视觉差异</strong>：左栏 data-grid 拖拽中显示<strong>蓝色指示线</strong>
               （被拖行原位不动，指示线提示插入位置，松手后重排）；右栏 antd 拖拽中被拖行

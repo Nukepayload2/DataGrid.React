@@ -8,7 +8,7 @@
  *   同 summary 函数）。antd 官方 demo 用 `antd-style` createStyles 自定义细滚动条，
  *   data-grid 项目未装 antd-style（决策 6），右栏删除 className（两侧均用浏览器默认滚动条）。
  * - **共享数据**：`DataType` / `FixedDataType` / `dataSource` / `fixedDataSource` 见
- *   `_compare/summary.shared.ts`，两侧复用。
+ *   `_compare/summary.shared.ts`，两侧复用（子文件各自 import）。
  * - **无共享控制条**：summary demo 的两示例各自独立（示例1 静态 + 示例2 固定开关嵌在 Table.Summary
  *   fixed 属性中），不像 tree-table-ellipsis 有顶部 Switch；为忠实复刻 antd demo 结构，
  *   本 demo 不加控制条（两示例直接并排）。每示例左右各一对（共 4 张表）。
@@ -47,53 +47,34 @@
  *    antd-style（决策 6），两侧均用浏览器默认（data-grid 侧走 #35 悬浮滚动条）。
  * 3. **DOM 结构**：antd summary 是 `<tfoot><tr><td colspan>`；data-grid 是 div + CSS Grid（无 tfoot）。
  *    视觉等价：summary 在表体底部，Cell 按 index+colSpan 定位，fixed sticky bottom。
+ *
+ * === 拆子文件（task：live 编辑接入）===
+ *
+ * 父文件只保留「外壳职责」：useVirtualization + 两个 SplitDemo（示例1 / 示例2 各一对左右栏）
+ * + children 对照说明 + 底部说明区。两侧表格 JSX + columns + Summary 子组件拆到子文件：
+ *   - `./summary.dg`：导出 `SummaryTotalDg` / `SummaryFixedDg`（命名，父按示例选用）+ `SummaryDg`（默认，live 编辑用）。
+ *   - `./summary.antd`：导出 `SummaryTotalAntd` / `SummaryFixedAntd`（命名）+ `SummaryAntd`（默认，live 编辑用）。
+ *
+ * ★ 状态提升说明：本 demo 无共享控制条（两示例各自独立），virtual 是唯一父传 prop（顶栏全局开关）。
+ *   示例2 `Table.Summary fixed` 是 summary 节点属性（非控制条开关），不提升父，留在子组件固定为 true
+ *   （对齐改造前行为）。示例数据用 shared 初始数据（非空），子组件默认值合理有效。
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `SummaryDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件默认导出并按 editedDg/editedAntd 替换
+ * （编辑态展示单侧两示例堆叠，不对照——Phase 1 简化）。
  */
 
-import { Flex, Table as AntdTable, Typography, theme } from 'antd'
-import type { TableColumnsType } from 'antd'
-import { Table } from '../table'
-import type { ColumnType } from '../table'
+import { Flex, Typography, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
-import {
-  dataSource,
-  fixedDataSource,
-  type DataType,
-  type FixedDataType,
-} from './_compare/summary.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高）
 import { useVirtualization } from './VirtualizationContext'
+// ★ 拆子文件后，左/右栏 JSX + columns + Summary 子组件由子组件提供（props 驱动）。DataType/
+//   FixedDataType/dataSource/fixedDataSource 现在由子文件各自 import summary.shared；父文件不再需要。
+//   父按示例分别取命名导出（示例1 / 示例2 各一对左右栏）。
+import { SummaryTotalDg, SummaryFixedDg } from './summary.dg'
+import { SummaryTotalAntd, SummaryFixedAntd } from './summary.antd'
 
 const { Text } = Typography
-
-// ---------------------------------------------------------------------------
-// 示例 1（计算总计）列定义 —— 两侧字段逐字一致（Name/Borrow/Repayment）。
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<DataType>[] = [
-  { title: 'Name', dataIndex: 'name' },
-  { title: 'Borrow', dataIndex: 'borrow' },
-  { title: 'Repayment', dataIndex: 'repayment' },
-]
-
-const antdColumns: TableColumnsType<DataType> = [
-  { title: 'Name', dataIndex: 'name' },
-  { title: 'Borrow', dataIndex: 'borrow' },
-  { title: 'Repayment', dataIndex: 'repayment' },
-]
-
-// ---------------------------------------------------------------------------
-// 示例 2（fixed sticky bottom）列定义 —— Name fixed width:100 + Description。
-// ---------------------------------------------------------------------------
-
-const dgFixedColumns: ColumnType<FixedDataType>[] = [
-  { title: 'Name', dataIndex: 'name', fixed: true, width: 100 },
-  { title: 'Description', dataIndex: 'description' },
-]
-
-const antdFixedColumns: TableColumnsType<FixedDataType> = [
-  { title: 'Name', dataIndex: 'name', fixed: true, width: 100 },
-  { title: 'Description', dataIndex: 'description' },
-]
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -126,84 +107,8 @@ export default function SummaryDemo() {
           </div>
           <SplitDemo
             minPaneWidth={600}
-            left={
-              <Table<DataType>
-                bordered
-                columns={dgColumns}
-                dataSource={dataSource}
-                pagination={false}
-                /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-                   限高）；OFF 时回 undefined，行为与改造前一致。 */
-                virtual={virtual}
-                scroll={virtual ? { y: true } : undefined}
-                summary={(pageData) => {
-                  let totalBorrow = 0
-                  let totalRepayment = 0
-                  pageData.forEach(({ borrow, repayment }) => {
-                    totalBorrow += borrow
-                    totalRepayment += repayment
-                  })
-                  return (
-                    <>
-                      <Table.Summary.Row>
-                        <Table.Summary.Cell index={0}>Total</Table.Summary.Cell>
-                        <Table.Summary.Cell index={1}>
-                          <Text type="danger">{totalBorrow}</Text>
-                        </Table.Summary.Cell>
-                        <Table.Summary.Cell index={2}>
-                          <Text>{totalRepayment}</Text>
-                        </Table.Summary.Cell>
-                      </Table.Summary.Row>
-                      <Table.Summary.Row>
-                        <Table.Summary.Cell index={0}>Balance</Table.Summary.Cell>
-                        <Table.Summary.Cell index={1} colSpan={2}>
-                          <Text type="danger">{totalBorrow - totalRepayment}</Text>
-                        </Table.Summary.Cell>
-                      </Table.Summary.Row>
-                    </>
-                  )
-                }}
-              />
-            }
-            right={
-              <AntdTable<DataType>
-                bordered
-                columns={antdColumns}
-                dataSource={dataSource}
-                pagination={false}
-                /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:340（pagination={false} 无分页条，
-                   仅扣除表头~55 → 约 340 塞进 split pane 限高；OFF 时回 undefined）。 */
-                virtual={virtual}
-                scroll={virtual ? { y: 340 } : undefined}
-                summary={(pageData) => {
-                  let totalBorrow = 0
-                  let totalRepayment = 0
-                  pageData.forEach(({ borrow, repayment }) => {
-                    totalBorrow += borrow
-                    totalRepayment += repayment
-                  })
-                  return (
-                    <>
-                      <AntdTable.Summary.Row>
-                        <AntdTable.Summary.Cell index={0}>Total</AntdTable.Summary.Cell>
-                        <AntdTable.Summary.Cell index={1}>
-                          <Text type="danger">{totalBorrow}</Text>
-                        </AntdTable.Summary.Cell>
-                        <AntdTable.Summary.Cell index={2}>
-                          <Text>{totalRepayment}</Text>
-                        </AntdTable.Summary.Cell>
-                      </AntdTable.Summary.Row>
-                      <AntdTable.Summary.Row>
-                        <AntdTable.Summary.Cell index={0}>Balance</AntdTable.Summary.Cell>
-                        <AntdTable.Summary.Cell index={1} colSpan={2}>
-                          <Text type="danger">{totalBorrow - totalRepayment}</Text>
-                        </AntdTable.Summary.Cell>
-                      </AntdTable.Summary.Row>
-                    </>
-                  )
-                }}
-              />
-            }
+            left={<SummaryTotalDg virtual={virtual} />}
+            right={<SummaryTotalAntd virtual={virtual} />}
           />
         </div>
 
@@ -226,54 +131,8 @@ export default function SummaryDemo() {
           </div>
           <SplitDemo
             minPaneWidth={600}
-            left={
-              /* 决策 7：父容器需有明确 height。scroll.y:true 数据区域模式，
-                 表体 flex:1 填满容器剩余空间。
-                 ★ 高度对齐右栏：右栏 antd scroll.y:500（表体 500px）+ 表头 ~50px ≈ 550px 总高。
-                   此前左栏 height:300 与右栏 550 视觉不等（表体可滚动区域高度不同），
-                   现统一为 550，两侧表体可视行数/滚动条位置一致。 */
-              <div style={{ height: 550 }}>
-                <Table<FixedDataType>
-                  columns={dgFixedColumns}
-                  dataSource={fixedDataSource}
-                  pagination={false}
-                  scroll={{ x: 2000, y: true }}
-                  bordered
-                  /* 全局虚拟化开关接入：本示例已自带限高 div(550) + scroll.y:true（M8 数据区域模式），
-                     开关 ON 时叠加 virtual=true，从 M8 切到 M4 虚拟；OFF 时不传 virtual，scroll.y 原值
-                     保留（fixed sticky bottom 仍生效），行为与改造前一致。 */
-                  virtual={virtual}
-                  summary={() => (
-                    <Table.Summary fixed>
-                      <Table.Summary.Row>
-                        <Table.Summary.Cell index={0}>Summary</Table.Summary.Cell>
-                        <Table.Summary.Cell index={1}>This is a summary content</Table.Summary.Cell>
-                      </Table.Summary.Row>
-                    </Table.Summary>
-                  )}
-                />
-              </div>
-            }
-            right={
-              <AntdTable<FixedDataType>
-                columns={antdFixedColumns}
-                dataSource={fixedDataSource}
-                pagination={false}
-                scroll={{ x: 2000, y: 500 }}
-                bordered
-                /* 全局虚拟化开关接入：本示例已自带 scroll.y:500（M8 模式），开关 ON 时叠加 virtual=true
-                   切到 M4 虚拟；OFF 时不传 virtual，scroll.y 原值保留，行为与改造前一致。 */
-                virtual={virtual}
-                summary={() => (
-                  <AntdTable.Summary fixed>
-                    <AntdTable.Summary.Row>
-                      <AntdTable.Summary.Cell index={0}>Summary</AntdTable.Summary.Cell>
-                      <AntdTable.Summary.Cell index={1}>This is a summary content</AntdTable.Summary.Cell>
-                    </AntdTable.Summary.Row>
-                  </AntdTable.Summary>
-                )}
-              />
-            }
+            left={<SummaryFixedDg virtual={virtual} />}
+            right={<SummaryFixedAntd virtual={virtual} />}
           />
         </div>
       </Flex>

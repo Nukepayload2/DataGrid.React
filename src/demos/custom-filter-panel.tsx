@@ -20,6 +20,8 @@
  * 独立操作下行为是否一致）。故两侧各自独立维护 searchText/searchedColumn/searchInput，
  * `getColumnSearchProps` 工厂两侧各自实现（data-grid ColumnType / antd TableColumnType 类型不同）。
  * 这与 head/multiple-sorter 共享控制条只放 Bordered（不变状态）的策略一致。
+ * 拆子文件后此状态仍**留在各自子组件内自管**（`useDgColumnSearch`/`useAntdColumnSearch` hook），
+ * 不提升父——父控制条只有 Bordered（不变状态）。
  *
  * === antd demo 要素（S5 自定义筛选面板）===
  *
@@ -63,7 +65,8 @@
  *    - 右栏 antd：`InputRef`（antd Input ref，与官方 demo 一致）。
  * 3. **FilterDropdownProps 类型来源**：
  *    - 左栏：从 `../table` 导出（data-grid 导出，与 antd `antd/es/table/interface` 同签名）。
- *    - 右栏：从 `antd/es/table/interface` 导入（antd 官方原 demo 同款）。
+ *    - 右栏：从 `antd` 主入口导入（与 antd `antd/es/table/interface` 签名等价，antd 主入口 re-export；
+ *      子路径 'antd/es/table/interface' 不在 scope.ts baseScope，故改主入口 import 保 live scope 纯净）。
  *
  * === S5 经验（验证者勿误判）===
  *
@@ -73,6 +76,21 @@
  * 2. **sortDirections 第三次回 null**（本 demo Address 列 `sortDirections: ['descend','ascend']`）：
  *    第三次点击回 null 是 antd 本身循环（antd `nextSortDirection` 与 data-grid `useSorter.ts:163-171`
  *    逐字相同），勿误判。
+ *
+ * === 拆子文件（task：live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：bordered state + useVirtualization + DemoToolbar(Switch Bordered)
+ * + SplitDemo 外壳 + children 对照说明。两侧表格 JSX + columns + getColumnSearchProps 工厂 +
+ * 内联 SearchOutlined + 搜索 state（searchText/searchedColumn/searchInput，局部交互自管）拆到子文件：
+ *   - `./custom-filter-panel.dg`：`CustomFilterPanelDg({bordered, virtual})`（左栏）
+ *   - `./custom-filter-panel.antd`：`CustomFilterPanelAntd({bordered, virtual})`（右栏）
+ *
+ * ★ 状态提升说明：bordered 必须留父（控制条 Switch 直接读写）。filterDropdown 内搜索词
+ *   （searchText/searchedColumn/searchInput）属局部交互态，子组件各自自管（不提升），原因见
+ *   「两侧状态独立」段——强行共享会割裂两侧「忠实各自复刻」语义。
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `CustomFilterPanelDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
  *
  * === 验证点（S5）===
  *
@@ -87,274 +105,17 @@
  * 8. 回归：head / reset-filter / multiple-sorter demo 不受影响。
  */
 
-import { useRef, useState } from 'react'
-import type { CSSProperties, ReactNode } from 'react'
-import { Button, Input, Space, Switch, Table as AntdTable, theme } from 'antd'
-import type { InputRef, TableProps } from 'antd'
-import type { FilterDropdownProps as AntdFilterDropdownProps } from 'antd/es/table/interface'
-import type { TableColumnType as AntdTableColumnType } from 'antd'
-import Highlighter from 'react-highlight-words'
-import { Table } from '../table'
-import type {
-  ColumnType,
-  FilterDropdownProps,
-  TableColumnType,
-} from '../table'
+import { useState } from 'react'
+import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, type DataIndex, type RecordType } from './_compare/custom-filter-panel.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（SplitDemo pane 自动限高，虚拟窗口才有滚动区）
 import { useVirtualization } from './VirtualizationContext'
-
-/**
- * 内联 SearchOutlined（放大镜）图标——避免直接依赖 @ant-design/icons（仅 antd 间接依赖）。
- * 与 antd SearchOutlined 视觉一致（同一 SVG path）；size 跟随父节点 font-size（1em）。
- * 两侧共用：左栏 data-grid + 右栏 antd 均使用此组件（右栏替代 `@ant-design/icons` 直接 import，
- * 视觉零差异，仅 import 来源不同）。
- */
-function SearchOutlined({ style }: { style?: CSSProperties }): ReactNode {
-  return (
-    <svg
-      viewBox="64 64 896 896"
-      width="1em"
-      height="1em"
-      fill="currentColor"
-      aria-hidden="true"
-      style={{ display: 'inline-block', verticalAlign: '-0.125em', ...style }}
-    >
-      <path d="M909.6 854.5L649.9 594.8C690.2 542.7 712 479 712 412c0-80.2-31.3-155.4-87.9-212.1-56.6-56.7-132-87.9-212.1-87.9s-155.5 31.3-212.1 87.9C143.2 256.5 112 331.8 112 412c0 80.1 31.3 155.5 87.9 212.1C256.5 680.8 331.8 712 412 712c67 0 130.6-21.8 182.7-62l259.7 259.6a8.2 8.2 0 0011.6 0l43.6-43.5a8.2 8.2 0 000-11.6zM570.4 570.4C528 612.7 471.8 636 412 636s-116-23.3-158.4-65.6C211.3 528 188 471.8 188 412s23.3-116.1 65.6-158.4C296 211.3 352.2 188 412 188s116.1 23.2 158.4 65.6S636 352.2 636 412s-23.3 116.1-65.6 158.4z" />
-    </svg>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）—— getColumnSearchProps 工厂（行为与改造前一致）
-// ---------------------------------------------------------------------------
-
-function useDgColumnSearch() {
-  const [searchText, setSearchText] = useState('')
-  const [searchedColumn, setSearchedColumn] = useState('')
-  // antd Input ref（透传到内部 input）；用 HTMLInputElement 兼容。
-  const searchInput = useRef<HTMLInputElement>(null)
-  // 主题 token：filterIcon 激活态色 + react-highlight-words 高亮命中色 token 化（暗主题自适应）。
-  const { token } = theme.useToken()
-
-  const handleSearch = (
-    selectedKeys: Array<React.Key>,
-    confirm: FilterDropdownProps['confirm'],
-    dataIndex: DataIndex,
-  ) => {
-    confirm()
-    setSearchText(String(selectedKeys[0] ?? ''))
-    setSearchedColumn(dataIndex)
-  }
-
-  const handleReset = (clearFilters: FilterDropdownProps['clearFilters']) => {
-    clearFilters()
-    setSearchText('')
-  }
-
-  const getColumnSearchProps = (dataIndex: DataIndex): TableColumnType<RecordType> => ({
-    filterDropdown: ({
-      setSelectedKeys,
-      selectedKeys,
-      confirm,
-      clearFilters,
-      close,
-    }: FilterDropdownProps) => (
-      <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
-        <Input
-          ref={searchInput as unknown as React.Ref<InputRef>}
-          placeholder={`Search ${dataIndex}`}
-          value={String(selectedKeys[0] ?? '')}
-          onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
-          onPressEnter={() =>
-            handleSearch(selectedKeys as string[], confirm, dataIndex)
-          }
-          style={{ marginBottom: 8, display: 'block' }}
-        />
-        <Space>
-          <Button
-            type="primary"
-            onClick={() =>
-              handleSearch(selectedKeys as string[], confirm, dataIndex)
-            }
-            icon={<SearchOutlined />}
-            size="small"
-            style={{ width: 90 }}
-          >
-            Search
-          </Button>
-          <Button
-            onClick={() => clearFilters && handleReset(clearFilters)}
-            size="small"
-            style={{ width: 90 }}
-          >
-            Reset
-          </Button>
-          <Button
-            type="link"
-            size="small"
-            onClick={() => {
-              confirm({ closeDropdown: false })
-              setSearchText(String((selectedKeys as string[])[0] ?? ''))
-              setSearchedColumn(dataIndex)
-            }}
-          >
-            Filter
-          </Button>
-          <Button
-            type="link"
-            size="small"
-            onClick={() => {
-              close()
-            }}
-          >
-            close
-          </Button>
-        </Space>
-      </div>
-    ),
-    filterIcon: (filtered: boolean) => (
-      <SearchOutlined style={{ color: filtered ? token.colorPrimary : undefined }} />
-    ),
-    onFilter: (value, record) =>
-      record[dataIndex]
-        .toString()
-        .toLowerCase()
-        .includes(String(value).toLowerCase()),
-    filterDropdownProps: {
-      onOpenChange(open) {
-        if (open) {
-          setTimeout(() => searchInput.current?.select(), 100)
-        }
-      },
-    },
-    render: (text: unknown) =>
-      searchedColumn === dataIndex ? (
-        <Highlighter
-          highlightStyle={{ backgroundColor: token.colorWarningBorderHover, padding: 0 }}
-          searchWords={[searchText]}
-          autoEscape
-          textToHighlight={text ? String(text) : ''}
-        />
-      ) : (
-        (text as ReactNode)
-      ),
-  })
-
-  return getColumnSearchProps
-}
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）—— getColumnSearchProps 工厂（忠实复刻 antd 官方 demo）
-// ---------------------------------------------------------------------------
-
-function useAntdColumnSearch() {
-  const [searchText, setSearchText] = useState('')
-  const [searchedColumn, setSearchedColumn] = useState('')
-  const searchInput = useRef<InputRef>(null)
-  // 主题 token：与左栏同款（filterIcon 激活态色 + react-highlight-words 高亮命中色 token 化，暗主题自适应）。
-  const { token } = theme.useToken()
-
-  const handleSearch = (
-    selectedKeys: string[],
-    confirm: AntdFilterDropdownProps['confirm'],
-    dataIndex: DataIndex,
-  ) => {
-    confirm()
-    setSearchText(selectedKeys[0])
-    setSearchedColumn(dataIndex)
-  }
-
-  const handleReset = (clearFilters: () => void) => {
-    clearFilters()
-    setSearchText('')
-  }
-
-  const getColumnSearchProps = (
-    dataIndex: DataIndex,
-  ): AntdTableColumnType<RecordType> => ({
-    filterDropdown: ({ setSelectedKeys, selectedKeys, confirm, clearFilters, close }) => (
-      <div style={{ padding: 8 }} onKeyDown={(e) => e.stopPropagation()}>
-        <Input
-          ref={searchInput}
-          placeholder={`Search ${dataIndex}`}
-          value={selectedKeys[0]}
-          onChange={(e) => setSelectedKeys(e.target.value ? [e.target.value] : [])}
-          onPressEnter={() => handleSearch(selectedKeys as string[], confirm, dataIndex)}
-          style={{ marginBottom: 8, display: 'block' }}
-        />
-        <Space>
-          <Button
-            type="primary"
-            onClick={() => handleSearch(selectedKeys as string[], confirm, dataIndex)}
-            icon={<SearchOutlined />}
-            size="small"
-            style={{ width: 90 }}
-          >
-            Search
-          </Button>
-          <Button
-            onClick={() => clearFilters && handleReset(clearFilters)}
-            size="small"
-            style={{ width: 90 }}
-          >
-            Reset
-          </Button>
-          <Button
-            type="link"
-            size="small"
-            onClick={() => {
-              confirm({ closeDropdown: false })
-              setSearchText((selectedKeys as string[])[0])
-              setSearchedColumn(dataIndex)
-            }}
-          >
-            Filter
-          </Button>
-          <Button
-            type="link"
-            size="small"
-            onClick={() => {
-              close()
-            }}
-          >
-            close
-          </Button>
-        </Space>
-      </div>
-    ),
-    filterIcon: (filtered: boolean) => (
-      <SearchOutlined style={{ color: filtered ? token.colorPrimary : undefined }} />
-    ),
-    onFilter: (value, record) =>
-      record[dataIndex]
-        .toString()
-        .toLowerCase()
-        .includes(String(value).toLowerCase()),
-    filterDropdownProps: {
-      onOpenChange(open) {
-        if (open) {
-          setTimeout(() => searchInput.current?.select(), 100)
-        }
-      },
-    },
-    render: (text) =>
-      searchedColumn === dataIndex ? (
-        <Highlighter
-          highlightStyle={{ backgroundColor: token.colorWarningBorderHover, padding: 0 }}
-          searchWords={[searchText]}
-          autoEscape
-          textToHighlight={text ? text.toString() : ''}
-        />
-      ) : (
-        text
-      ),
-  })
-
-  return getColumnSearchProps
-}
+// ★ 拆子文件后，左/右栏 JSX + columns + getColumnSearchProps 工厂 + 内联 SearchOutlined +
+//   搜索 state（局部交互自管）由子组件提供（props 驱动）。RecordType/data/DataIndex
+//   现在由子文件各自 import custom-filter-panel.shared；父文件不再需要。
+import CustomFilterPanelDg from './custom-filter-panel.dg'
+import CustomFilterPanelAntd from './custom-filter-panel.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -366,62 +127,6 @@ export default function CustomFilterPanelDemo() {
   // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y（原 custom-filter-panel demo 无
   // scroll，ON 用 dg {y:true}/antd {y:280}；OFF 回 undefined，行为与改造前一致）。
   const { virtual } = useVirtualization()
-
-  // 两侧各自独立的搜索 state（忠实各自复刻，见文件头说明）。
-  const dgGetColumnSearchProps = useDgColumnSearch()
-  const antdGetColumnSearchProps = useAntdColumnSearch()
-
-  // 左栏（data-grid）列定义 —— 行为与改造前一致
-  const dgColumns: ColumnType<RecordType>[] = [
-    {
-      title: 'Name',
-      dataIndex: 'name',
-      key: 'name',
-      width: '30%',
-      ...dgGetColumnSearchProps('name'),
-    },
-    {
-      title: 'Age',
-      dataIndex: 'age',
-      key: 'age',
-      width: '20%',
-      ...dgGetColumnSearchProps('age'),
-    },
-    {
-      title: 'Address',
-      dataIndex: 'address',
-      key: 'address',
-      ...dgGetColumnSearchProps('address'),
-      sorter: (a, b) => a.address.length - b.address.length,
-      sortDirections: ['descend', 'ascend'],
-    },
-  ]
-
-  // 右栏（antd）列定义 —— 忠实复刻 antd custom-filter-panel demo
-  const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
-    {
-      title: 'Name',
-      dataIndex: 'name',
-      key: 'name',
-      width: '30%',
-      ...antdGetColumnSearchProps('name'),
-    },
-    {
-      title: 'Age',
-      dataIndex: 'age',
-      key: 'age',
-      width: '20%',
-      ...antdGetColumnSearchProps('age'),
-    },
-    {
-      title: 'Address',
-      dataIndex: 'address',
-      key: 'address',
-      ...antdGetColumnSearchProps('address'),
-      sorter: (a, b) => a.address.length - b.address.length,
-      sortDirections: ['descend', 'ascend'],
-    },
-  ]
 
   return (
     <div style={{ padding: 24 }}>
@@ -445,29 +150,10 @@ export default function CustomFilterPanelDemo() {
       <SplitDemo
         minPaneWidth={480}
         left={
-          <Table<RecordType>
-            columns={dgColumns}
-            dataSource={data}
-            bordered={bordered}
-            pagination={{}}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-               pane 限高，虚拟窗口才有滚动区；filterDropdown 下拉是表头 popover，不受虚拟化影响）；
-               OFF 时回 undefined，行为与改造前一致。 */
-            virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
-          />
+          <CustomFilterPanelDg bordered={bordered} virtual={virtual} />
         }
         right={
-          <AntdTable<RecordType>
-            columns={antdColumns}
-            dataSource={data}
-            bordered={bordered}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且表头/默认
-               分页画在 scroll.y 之外，需扣除表头~55 与分页条~64 → 约 280 才能塞进 pane 限高；
-               OFF 时回 undefined，行为与改造前一致）。 */
-            virtual={virtual}
-            scroll={virtual ? { y: 280 } : undefined}
-          />
+          <CustomFilterPanelAntd bordered={bordered} virtual={virtual} />
         }
       >
         <div>

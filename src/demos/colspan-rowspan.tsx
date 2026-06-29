@@ -44,7 +44,7 @@
  *   加粗（.dg-cell-rowscope 消费 --dg-header-bg/--dg-header-color，font-weight:600=fontWeightStrong）。
  * - bordered：保留（与 antd demo 一致，便于看清合并边界）。
  *
- * === §11 外观对齐（本轮修复，CSS Grid 范围内）===
+ * === §11 外观对齐（CSS Grid 范围内）===
  *
  * - rowScope 灰底 + 文字色：原仅 font-weight 加粗（白底），antd `<th scope="row">` 走 tbody>tr>th
  *   规则有 headerBg 背景。补 background/color 对齐。
@@ -52,132 +52,29 @@
  *   data-header-colspan 属性（GridTable），CSS 触发 justify-content:center。
  * - 跨列表头无分割竖线（非 bordered）：antd th[colspan] 不画 ::before 分割线，data-grid 补
  *   :not([data-header-colspan]) 排除（bordered 默认开，此差异仅在切 bordered=false 时可见）。
+ *
+ * === 拆子文件（live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：bordered state + useVirtualization + DemoToolbar(Switch Bordered +
+ * 文字提示) + SplitDemo 外壳 + children 对照说明。两侧表格 JSX 与 columns 拆到子文件：
+ *   - `./colspan-rowspan.dg`：`ColspanRowspanDg({bordered, virtual})`（左栏）
+ *   - `./colspan-rowspan.antd`：`ColspanRowspanAntd({bordered, virtual})`（右栏）
+ *
+ * 这样：
+ *   - 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `ColspanRowspanDemo`，零编辑开销。
+ *   - live 编辑模式：SplitDemoPreview 静态 import 真实子组件，并按 editedDg/editedAntd 替换。
  */
 
 import { useState } from 'react'
-import { Space, Switch, Table as AntdTable, theme } from 'antd'
-import type { TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType } from '../table'
+import { Space, Switch, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, sharedOnCell, type DataType } from './_compare/colspan-rowspan.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<DataType>[] = [
-  {
-    title: 'RowHead',
-    dataIndex: 'key',
-    rowScope: 'row',
-  },
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    render: (text) => <a>{text}</a>,
-    onCell: (_record, index) => ({
-      colSpan: index === 1 ? 5 : 1,
-    }),
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    onCell: sharedOnCell,
-  },
-  {
-    title: 'Home phone',
-    colSpan: 2,
-    dataIndex: 'tel',
-    onCell: (_record, index) => {
-      if (index === 3) {
-        return { rowSpan: 2 }
-      }
-      // These two are merged into above cell
-      if (index === 4) {
-        return { rowSpan: 0 }
-      }
-      if (index === 1) {
-        return { colSpan: 0 }
-      }
-
-      return {}
-    },
-  },
-  {
-    title: 'Phone',
-    colSpan: 0,
-    dataIndex: 'phone',
-    onCell: sharedOnCell,
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    onCell: sharedOnCell,
-  },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd 官方 colspan-rowspan demo
-// ---------------------------------------------------------------------------
-
-const antdColumns: NonNullable<TableProps<DataType>['columns']> = [
-  {
-    title: 'RowHead',
-    dataIndex: 'key',
-    rowScope: 'row',
-  },
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    render: (text) => <a>{text}</a>,
-    onCell: (_, index) => ({
-      colSpan: index === 1 ? 5 : 1,
-    }),
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    onCell: sharedOnCell,
-  },
-  {
-    title: 'Home phone',
-    colSpan: 2,
-    dataIndex: 'tel',
-    onCell: (_, index) => {
-      if (index === 3) {
-        return { rowSpan: 2 }
-      }
-      // These two are merged into above cell
-      if (index === 4) {
-        return { rowSpan: 0 }
-      }
-      if (index === 1) {
-        return { colSpan: 0 }
-      }
-
-      return {}
-    },
-  },
-  {
-    title: 'Phone',
-    colSpan: 0,
-    dataIndex: 'phone',
-    onCell: sharedOnCell,
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    onCell: sharedOnCell,
-  },
-]
-
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
+// ★ 拆子文件后，左/右栏 JSX + columns 由子组件提供（props 驱动）。DataType/data/sharedOnCell
+//   现在由子文件各自 import colspan-rowspan.shared，父文件不再需要。
+import ColspanRowspanDg from './colspan-rowspan.dg'
+import ColspanRowspanAntd from './colspan-rowspan.antd'
 
 export default function ColspanRowspanDemo() {
   // ★ 共享状态：同一个 bordered 同时驱动两侧（初值 true 对齐 antd demo）。
@@ -211,36 +108,8 @@ export default function ColspanRowspanDemo() {
       */}
       <SplitDemo
         minPaneWidth={480}
-        left={
-          /* pagination={{}}：对齐 antd 默认分页条（antd 6.4.4 即便 5 行也渲染 disabled 态分页条）。
-             data-grid 不传=不渲染，故补齐使两侧分页器存在性一致。 */
-          <Table<DataType>
-            columns={dgColumns}
-            dataSource={data}
-            bordered={bordered}
-            /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll:{y:true}（data-grid 数据区域模式，
-               CSS 自适应填满 SplitDemo 给的 400px 限高，虚拟窗口才有滚动区；本 demo 仅 5 行故实际
-               不滚动，但 prop 接入保持开关语义完整）。
-               ★ 合并单元格 × 虚拟：M3×M4 组合，跨虚拟窗口边界的合并（rowSpan 跨越可见区裁剪边界）
-               是已知 §9 简化，本 demo 仅 5 行不触发，正常接入。
-               OFF 时 scroll=undefined，行为与改造前一致。 */
-            virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
-            pagination={{}}
-          />
-        }
-        right={
-          <AntdTable<DataType>
-            columns={antdColumns}
-            dataSource={data}
-            bordered={bordered}
-            /* 全局虚拟化开关接入：ON 时叠加 virtual=true + scroll:{y:300}（antd 默认渲染分页条，
-               扣除表头~55 + 分页条~50 → 约 300 塞进 split pane 限高）；
-               OFF 时 scroll=undefined，行为与改造前一致。 */
-            virtual={virtual}
-            scroll={virtual ? { y: 300 } : undefined}
-          />
-        }
+        left={<ColspanRowspanDg bordered={bordered} virtual={virtual} />}
+        right={<ColspanRowspanAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 B11，合并单元格）：</strong>本 demo 左右并排呈现 data-grid 与 antd

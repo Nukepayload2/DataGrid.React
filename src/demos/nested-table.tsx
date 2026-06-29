@@ -33,7 +33,7 @@
  *   能正常渲染（grid 布局嵌套：子 Table 自己的 dg-grid 容器，独立 grid 上下文）。
  *
  * - **antd 组件复用**（决策 6）：子表 Status 用 antd `<Badge>`、Action 用 antd `<Space>`
- *   + `<Dropdown>`（表格非核心部位用 antd）。`DownOutlined` 内联 SVG
+ *   + `<Dropdown>`（表格非核心部位用 antd）。`DownOutlined` 左栏内联 SVG
  *   （**不 import @ant-design/icons**——与 custom-filter-panel / drag-sorting-handler 约定一致）。
  *
  * === 两侧保留的差异 ===
@@ -51,152 +51,31 @@
  * 3. 子表 `pagination={false}`（不渲染分页器，3 行全显）。
  * 4. 点击其它行展开图标可展开/收起。
  * 5. 顶部 Segmented size（large/medium/small）同时驱动两侧主表 —— 两侧同步。
+ *
+ * === 拆子文件（task：live 编辑接入，同 basic/expand 模式）===
+ *
+ * 父文件只保留「外壳职责」：size state（父控制条 Segmented 直接驱动）+ useVirtualization +
+ * DemoToolbar(Segmented size) + SplitDemo 外壳 + children 对照说明。
+ * 两侧表格 JSX + columns + expandable（嵌套子 Table + defaultExpandedRowKeys）拆到子文件：
+ *   - `./nested-table.dg`：`NestedTableDg({size, virtual})`（左栏）
+ *   - `./nested-table.antd`：`NestedTableAntd({size, virtual})`（右栏）
+ *
+ * ★ 状态提升说明：size 必须留父——父渲染顶部 Segmented 控制条需直接读写它；且同一 state
+ *   驱动两侧同步。子组件接 size + virtual props（配置型 state 提升，默认值 'large' 合理有效）。
+ *   defaultExpandedRowKeys 是配置型初值（非受控），随 expandable 在子组件内派生即可，无需提升。
  */
 
 import { useState } from 'react'
-import { Badge, Dropdown, Segmented, Space, Table as AntdTable, theme } from 'antd'
-import type { TableColumnsType, TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType, Expandable } from '../table'
+import { Segmented, Space, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import {
-  dataSource,
-  expandDataSource,
-  items,
-  type ExpandedDataType,
-  type RecordType,
-} from './_compare/nested-table.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（仅外层主表，内层子表保持非虚拟）
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 行为与改造前一致
-// ---------------------------------------------------------------------------
-
-const dgExpandColumns: ColumnType<ExpandedDataType>[] = [
-  { title: 'Date', dataIndex: 'date', key: 'date' },
-  { title: 'Name', dataIndex: 'name', key: 'name' },
-  {
-    title: 'Status',
-    key: 'state',
-    render: () => <Badge status="success" text="Finished" />,
-  },
-  { title: 'Upgrade Status', dataIndex: 'upgradeNum', key: 'upgradeNum' },
-  {
-    title: 'Action',
-    key: 'operation',
-    render: () => (
-      <Space size="middle">
-        <a>Pause</a>
-        <a>Stop</a>
-        <Dropdown menu={{ items }}>
-          <a>
-            More <DownOutlined />
-          </a>
-        </Dropdown>
-      </Space>
-    ),
-  },
-]
-
-const dgColumns: ColumnType<RecordType>[] = [
-  { title: 'Name', dataIndex: 'name', key: 'name' },
-  { title: 'Platform', dataIndex: 'platform', key: 'platform' },
-  { title: 'Version', dataIndex: 'version', key: 'version' },
-  { title: 'Upgraded', dataIndex: 'upgradeNum', key: 'upgradeNum' },
-  { title: 'Creator', dataIndex: 'creator', key: 'creator' },
-  { title: 'Date', dataIndex: 'createdAt', key: 'createdAt' },
-  { title: 'Action', key: 'operation', render: () => <a>Publish</a> },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd nested-table demo
-// ---------------------------------------------------------------------------
-
-const antdExpandColumns: TableColumnsType<ExpandedDataType> = [
-  { title: 'Date', dataIndex: 'date', key: 'date' },
-  { title: 'Name', dataIndex: 'name', key: 'name' },
-  {
-    title: 'Status',
-    key: 'state',
-    render: () => <Badge status="success" text="Finished" />,
-  },
-  { title: 'Upgrade Status', dataIndex: 'upgradeNum', key: 'upgradeNum' },
-  {
-    title: 'Action',
-    key: 'operation',
-    render: () => (
-      <Space size="medium">
-        <a>Pause</a>
-        <a>Stop</a>
-        <Dropdown menu={{ items }}>
-          <a>
-            More <DownOutlined />
-          </a>
-        </Dropdown>
-      </Space>
-    ),
-  },
-]
-
-const antdColumns: TableColumnsType<RecordType> = [
-  { title: 'Name', dataIndex: 'name', key: 'name' },
-  { title: 'Platform', dataIndex: 'platform', key: 'platform' },
-  { title: 'Version', dataIndex: 'version', key: 'version' },
-  { title: 'Upgraded', dataIndex: 'upgradeNum', key: 'upgradeNum' },
-  { title: 'Creator', dataIndex: 'creator', key: 'creator' },
-  { title: 'Date', dataIndex: 'createdAt', key: 'createdAt' },
-  { title: 'Action', key: 'operation', render: () => <a>Publish</a> },
-]
-
-// ---------------------------------------------------------------------------
-// expandable（两侧同款：defaultExpandedRowKeys + 嵌套子 Table）
-// ---------------------------------------------------------------------------
-
-const dgExpandable: Expandable<RecordType> = {
-  // 嵌套子 Table 是 data-grid <Table>（独立 grid 上下文）。
-  expandedRowRender: () => (
-    <Table<ExpandedDataType>
-      columns={dgExpandColumns}
-      dataSource={expandDataSource}
-      pagination={false}
-    />
-  ),
-  defaultExpandedRowKeys: ['0'],
-}
-
-const antdExpandable: NonNullable<TableProps<RecordType>['expandable']> = {
-  // 嵌套子 Table 是真实 antd <Table>（与 antd demo 逐字一致）。
-  expandedRowRender: () => (
-    <AntdTable<ExpandedDataType>
-      columns={antdExpandColumns}
-      dataSource={expandDataSource}
-      pagination={false}
-    />
-  ),
-  defaultExpandedRowKeys: ['0'],
-}
-
-/**
- * 内联 DownOutlined（More 链接右侧的小箭头）——避免直接依赖 @ant-design/icons
- * （仅 antd 间接依赖，与 custom-filter-panel / drag-sorting-handler 约定一致）。
- * SVG 路径取自 ant-design-icons DownOutlined。
- */
-function DownOutlined() {
-  return (
-    <svg
-      viewBox="64 64 896 896"
-      width="1em"
-      height="1em"
-      fill="currentColor"
-      aria-hidden="true"
-      style={{ verticalAlign: '-0.125em' }}
-    >
-      <path d="M884 256h-75c-5.1 0-9.9 2.5-12.9 6.6L512 654.2 227.9 262.6c-3-4.1-7.8-6.6-12.9-6.6h-75c-6.5 0-10.3 7.4-6.5 12.7l352.6 486.1c12.8 17.6 39 17.6 51.7 0l352.6-486.1c3.9-5.3.1-12.7-6.4-12.7z" />
-    </svg>
-  )
-}
+// ★ 拆子文件后，左/右栏 JSX + columns + expandable（嵌套子 Table）由子组件提供（props 驱动）。
+//   RecordType/ExpandedDataType/dataSource/expandDataSource/items 现在由子文件各自 import
+//   nested-table.shared；父文件不再需要。
+import NestedTableDg from './nested-table.dg'
+import NestedTableAntd from './nested-table.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -241,35 +120,8 @@ export default function NestedTableDemo() {
       */}
       <SplitDemo
         minPaneWidth={480}
-        left={
-          <Table<RecordType>
-            columns={dgColumns}
-            expandable={dgExpandable}
-            dataSource={dataSource}
-            size={size}
-            // 主表 pagination={{}} 对齐右栏 antd 默认分页（antd 对任意数据都渲染 .ant-pagination）。
-            // 子表（dgExpandable.expandedRowRender）pagination={false} 与右栏 antd 子表一致，不动。
-            pagination={{}}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-               给的限高，虚拟窗口才有滚动区）；OFF 时回 undefined，行为与改造前一致。
-               ★ 仅外层主表接入；内层子表（dgExpandable.expandedRowRender 返回的 <Table>）保持非虚拟、不动。 */
-            virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
-          />
-        }
-        right={
-          <AntdTable<RecordType>
-            columns={antdColumns}
-            expandable={antdExpandable}
-            dataSource={dataSource}
-            size={size}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:300（antd 不认 true，需数字像素高度；
-               OFF 时回 undefined，行为与改造前一致）。
-               ★ 仅外层主表接入；内层子表（antdExpandable.expandedRowRender 返回的 <AntdTable>）保持非虚拟、不动。 */
-            virtual={virtual}
-            scroll={virtual ? { y: 300 } : undefined}
-          />
-        }
+        left={<NestedTableDg size={size} virtual={virtual} />}
+        right={<NestedTableAntd size={size} virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 B10 / S24 嵌套子表格）：</strong>

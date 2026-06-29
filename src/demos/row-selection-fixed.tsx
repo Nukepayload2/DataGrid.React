@@ -26,96 +26,40 @@
  *
  * - 首列 fixed:'left'，rowSelection 不设 fixed → selection 列应继承 fixed:'left'（antd 行为）。
  * - data-grid 对齐为 fixed:'start'（normalizeFixed 把 'left' 映射 'start'）。
+ *
+ * === 拆子文件（task：live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：selectionType/firstColFixed/selFixed/selectedKeys state
+ * （受控真理源，驱动两侧 + 顶部控制条）+ useVirtualization + DemoToolbar(Selection type
+ * + First column fixed + rowSelection.fixed) + SplitDemo 外壳 + children 对照说明。
+ * 两侧表格 JSX 与各自列定义/fixed 派生拆到子文件（props 驱动）：
+ *   - `./row-selection-fixed.dg`：`RowSelectionFixedDg({selectionType, firstColFixed, selFixed, selectedKeys, onSelectedKeysChange, virtual})`（左栏）
+ *   - `./row-selection-fixed.antd`：`RowSelectionFixedAntd(...)`（右栏，同款 props 签名）
+ *
+ * ★ 状态提升说明：四个 state 均留父——父渲染顶部控制条需直接读写它们；且同一组 state
+ *   驱动两侧同步。子组件接 props + onSelectedKeysChange 回调（受控选择 + 配置型 state 提升）。
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `RowSelectionFixedDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
  */
 
-import { useMemo, useState } from 'react'
-import { Radio, Switch, Table as AntdTable, theme } from 'antd'
-import type { TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType, TableRowSelection } from '../table'
+import { useState } from 'react'
+import { Radio, Switch, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（SplitDemo pane 自动限高，虚拟窗口才有滚动区）
 import { useVirtualization } from './VirtualizationContext'
+// ★ 拆子文件后，左/右栏 JSX + columns + rowSelection 派生由子组件提供（props 驱动）。
+//   类型 SelectionType/SelFixed 由 dg 子文件导出，antd 子文件本地声明同款（scope 安全）。
+import RowSelectionFixedDg, {
+  type SelectionType,
+  type SelFixed,
+} from './row-selection-fixed.dg'
+import RowSelectionFixedAntd from './row-selection-fixed.antd'
 
 // ---------------------------------------------------------------------------
-// 共享数据（两侧同构）
+// 控制条选项
 // ---------------------------------------------------------------------------
-
-interface RecordType {
-  key: string
-  name: string
-}
-
-const data: RecordType[] = [
-  { key: '1', name: 'Edward King 0' },
-  { key: '2', name: 'Edward King 1' },
-  { key: '3', name: 'Edward King 2' },
-  { key: '4', name: 'Edward King 3' },
-]
-
-// ---------------------------------------------------------------------------
-// 列定义（两侧同构；首列 fixed 由 firstColFixed 开关控，末列固定 'end'）
-// ---------------------------------------------------------------------------
-
-function buildColumns(firstColFixed: boolean): ColumnType<RecordType>[] {
-  const middle: ColumnType<RecordType>[] = Array.from({ length: 6 }, (_, i) => ({
-    title: `Col ${i + 1}`,
-    dataIndex: `col${i + 1}`,
-    width: 100,
-    render: () => '—',
-  }))
-  return [
-    {
-      title: 'Name',
-      dataIndex: 'name',
-      width: 200,
-      fixed: firstColFixed ? 'start' : undefined,
-    },
-    ...middle,
-    {
-      title: 'Action',
-      key: 'action',
-      width: 100,
-      fixed: 'end',
-      render: () => <a>action</a>,
-    },
-  ]
-}
-
-function buildAntdColumns(
-  firstColFixed: boolean,
-): NonNullable<TableProps<RecordType>['columns']> {
-  const middle: NonNullable<TableProps<RecordType>['columns']>[number][] =
-    Array.from({ length: 6 }, (_, i) => ({
-      title: `Col ${i + 1}`,
-      dataIndex: `col${i + 1}`,
-      width: 100,
-      render: () => '—',
-    }))
-  return [
-    {
-      title: 'Name',
-      dataIndex: 'name',
-      width: 200,
-      fixed: firstColFixed ? 'left' : undefined,
-    },
-    ...middle,
-    {
-      title: 'Action',
-      key: 'action',
-      width: 100,
-      fixed: 'right',
-      render: () => <a>action</a>,
-    },
-  ]
-}
-
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
-
-type SelectionType = 'checkbox' | 'radio'
-type SelFixed = 'auto' | 'start' | 'end'
 
 const rowSelectionFixedOptions: Array<{ value: SelFixed; label: string }> = [
   { value: 'auto', label: 'auto (邻列继承)' },
@@ -128,79 +72,28 @@ const selectionTypeOptions: Array<{ value: SelectionType; label: string }> = [
   { value: 'radio', label: 'Radio' },
 ]
 
+// ---------------------------------------------------------------------------
+// Demo 根组件
+// ---------------------------------------------------------------------------
+
 export default function RowSelectionFixedDemo() {
-  // ★ 共享状态：同一组 state 同时驱动两侧表格。
+  // ★ 共享状态（提升到父）：同一组 state 同时驱动两侧表格 + 顶部控制条。
+  // 提升原因：控制条需直接读写这四个 state；切换 selectionType 时清空 selectedKeys
+  // （checkbox/radio 选择语义不同，残留旧选择会越界）。
   const [selectionType, setSelectionType] = useState<SelectionType>('checkbox')
   const [firstColFixed, setFirstColFixed] = useState(true)
   const [selFixed, setSelFixed] = useState<SelFixed>('auto')
   const [selectedKeys, setSelectedKeys] = useState<Array<React.Key>>([])
-  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y（原 scroll={{x:1200}} 数字 OK，
-  // ON 时合并 y；OFF 时保留原 scroll，行为与改造前一致）。
+  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y。
   const { virtual } = useVirtualization()
   // 主题 token：验证点说明区文字色 token 化（colorTextSecondary≈rgba(0,0,0,0.65)），暗主题自适应。
   const { token } = theme.useToken()
 
-  const dgColumns = useMemo(() => buildColumns(firstColFixed), [firstColFixed])
-  const antdColumns = useMemo(() => buildAntdColumns(firstColFixed), [
-    firstColFixed,
-  ])
-
-  // rowSelection.fixed：'auto' = 不传（走邻列继承），其余显式传 'start'/'end'。
-  const fixedProp = selFixed === 'auto' ? undefined : selFixed
-
-  // 左栏（data-grid）rowSelection。
-  const dgRowSelection: TableRowSelection<RecordType> = {
-    type: selectionType,
-    fixed: fixedProp,
-    selectedRowKeys: selectedKeys,
-    onChange: (keys) => setSelectedKeys(keys),
-  }
-
-  // 右栏（antd）rowSelection：fixed 用 antd 原生 'left'/'right'（'start'→'left', 'end'→'right'）。
-  const antdFixedProp =
-    fixedProp === 'start' ? 'left' : fixedProp === 'end' ? 'right' : undefined
-  const antdRowSelection: TableProps<RecordType>['rowSelection'] = {
-    type: selectionType,
-    fixed: antdFixedProp,
-    selectedRowKeys: selectedKeys,
-    onChange: (keys: React.Key[]) => setSelectedKeys(keys),
-  }
-
   return (
     <div style={{ padding: 24 }}>
-      {/*
-        minPaneWidth=520（含 selection 列 + 8 列 + scroll.x=1200）→ 横排阈值 ≈ 1056。
-        常规笔记本视口（≥1280）横排；窄视口自动换行竖排。
-      */}
-      <SplitDemo
-        minPaneWidth={520}
-        left={
-          <Table<RecordType>
-            columns={dgColumns}
-            rowSelection={dgRowSelection}
-            dataSource={data}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + 在原 scroll.x:1200 基础上合并 y:true
-               （CSS 自适应，填满 SplitDemo pane 限高，虚拟窗口才有滚动区；selection 列 fixed
-               继承不受影响）；OFF 时回原 scroll={{x:1200}}，行为与改造前一致。 */
-            virtual={virtual}
-            scroll={virtual ? { x: 1200, y: true } : { x: 1200 }}
-            pagination={{}}
-          />
-        }
-        right={
-          <AntdTable<RecordType>
-            columns={antdColumns}
-            rowSelection={antdRowSelection}
-            dataSource={data}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + 在原 scroll.x:1200 基础上合并 y:300
-               （本 demo 有分页条，antd 表头/分页画在 scroll.y 之外，扣除后约 300 塞进 pane 限高；
-               OFF 时回原 scroll={{x:1200}}，行为与改造前一致）。 */
-            virtual={virtual}
-            scroll={virtual ? { x: 1200, y: 300 } : { x: 1200 }}
-            pagination={false}
-          />
-        }
-      >
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一组 state 同时驱动两侧表格。
+          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0。 */}
+      <DemoToolbar>
         <div
           style={{
             display: 'flex',
@@ -263,7 +156,35 @@ export default function RowSelectionFixedDemo() {
             />
           </label>
         </div>
+      </DemoToolbar>
 
+      {/*
+        minPaneWidth=520（含 selection 列 + 8 列 + scroll.x=1200）→ 横排阈值 ≈ 1056。
+        常规笔记本视口（≥1280）横排；窄视口自动换行竖排。
+      */}
+      <SplitDemo
+        minPaneWidth={520}
+        left={
+          <RowSelectionFixedDg
+            selectionType={selectionType}
+            firstColFixed={firstColFixed}
+            selFixed={selFixed}
+            selectedKeys={selectedKeys}
+            onSelectedKeysChange={setSelectedKeys}
+            virtual={virtual}
+          />
+        }
+        right={
+          <RowSelectionFixedAntd
+            selectionType={selectionType}
+            firstColFixed={firstColFixed}
+            selFixed={selFixed}
+            selectedKeys={selectedKeys}
+            onSelectedKeysChange={setSelectedKeys}
+            virtual={virtual}
+          />
+        }
+      >
         <div style={{ marginTop: 12, color: token.colorTextSecondary, fontSize: 13 }}>
           <strong>验证点：</strong>
           <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>

@@ -20,224 +20,46 @@
  * - **共享控制条**：顶部全宽，Virtual / scroll.y 两个 Switch + 一次性展示「对象 styles /
  *   函数 stylesFn」两种模式（同一 state 同时驱动两侧表格）。
  *
- * === _semantic 部位对照（data-grid 各部位注入的 DOM）===
+ * === 拆子文件（task S29：live 编辑接入，同 basic 模式）===
  *
- *   - `root`            → `.dg-wrapper`（根容器）。
- *   - `title`           → `.dg-title`（标题区）。
- *   - `footer`          → `.dg-footer`（脚注区）。
- *   - `content`         → `.dg-grid`（表格内容区根，grid 容器）。
- *   - `section`         → `.dg-scroll`（包装/滚动容器）。
- *   - `header.wrapper`  → 表头容器（grid 共享，wrapper 暂留接口）。
- *   - `header.row`      → 表头行（grid 无 tr，row class 透传到表头格）。
- *   - `header.cell`     → `.dg-cell-header`（表头单元格）。
- *   - `body.wrapper`    → 表体容器（暂留接口）。
- *   - `body.row`        → 表体行（grid 无 tr，row class 透传到该行所有 `.dg-cell-body`）。
- *   - `body.cell`       → `.dg-cell-body`（表体单元格）。
- *   - `pagination.root` → `.dg-pagination`（分页根容器）。
- *   - `pagination.item` → 透传到 antd `<Pagination>` className（近似单项样式）。
+ * 父文件只保留「外壳职责」：virtual/scrollY state（受控真理源，驱动两侧 + 顶部 Switch 控制条）
+ * + SplitDemo 外壳（virtualizable={false}：本 demo 自带局部 Virtual 开关，不接全局开关）+
+ * children 对照说明。两侧表格 JSX + columns + classNames/styles（对象 + 函数）拆到子文件：
+ *   - `./style-class.dg`：`StyleClassDg({virtual, scrollY})`（左栏）
+ *   - `./style-class.antd`：`StyleClassAntd({virtual, scrollY})`（右栏）
  *
- * === 两侧已知差异（如实保留作为对照价值）===
+ * ★ classNames/styles 配置（dgClassNames/dgStyles/dgStylesFn + antd 同款）全部搬入子组件，
+ *   父文件不再持有（live 编辑子组件源码可独立展示/编译）。
  *
- * - antd demo 用 `antd-style`（CSS-in-JS 生成 className）；本 demo 两侧均直接用字面量
- *   className 字符串 + inline style 对象（不依赖 antd-style）——功能等价，演示部位注入。
- *   root class `.dg-style-class-root` 的视觉样式由 `table.css` 预定义（对齐 antd root CSS）。
- * - antd Pagination 有原生 `itemClassName`；data-grid 的 pagination.item 为近似单项样式。
- * - grid 渲染无独立 tr，body.row/header.row 的 class 透传到行内单元格（与 antd td 结构不同）。
+ * ★ state 提升决策（SOP）：virtual/scrollY 必须留父——父渲染顶部 Switch 控制条需直接读写它们；
+ *   且同一 state 驱动两侧同步。classNames/styles 配置无外部控制条直接操作，按 SOP 留子组件内。
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `StyleClassDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
+ * 子组件 props 全部带默认值（virtual=false/scrollY=false），编辑态超集 props
+ * {bordered,virtual,size,autoScroll} 不全也不崩（两块 Table 完整可演示）。
  */
 
 import { useState } from 'react'
-import type { TableProps as AntdTableProps } from 'antd'
-import { Space, Switch, Table as AntdTable } from 'antd'
-import { Table } from '../table'
-import type {
-  ColumnType,
-  TableClassNames,
-  TableStyles,
-} from '../table'
+import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
-import { dataSource as sharedData, type RecordType } from './_compare/style-class.shared'
-
-// ---------------------------------------------------------------------------
-// 两侧共享 columns 形状（data-grid / antd 各自类型）
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<RecordType>[] = [
-  { title: 'Name', dataIndex: 'name', key: 'name' },
-  { title: 'Age', dataIndex: 'age', key: 'age' },
-  { title: 'Address', dataIndex: 'address', key: 'address' },
-  { title: 'Description', dataIndex: 'description', key: 'description' },
-]
-
-const antdColumns: NonNullable<AntdTableProps<RecordType>['columns']> = [
-  { title: 'Name', dataIndex: 'name', key: 'name' },
-  { title: 'Age', dataIndex: 'age', key: 'age' },
-  { title: 'Address', dataIndex: 'address', key: 'address' },
-  { title: 'Description', dataIndex: 'description', key: 'description' },
-]
-
-// ---------------------------------------------------------------------------
-// classNames / styles 共享定义（两侧等价注入）
-// ---------------------------------------------------------------------------
-
-// classNames：对象（静态）。root class 注入到根容器（.dg-wrapper / .ant-table-wrapper）。
-// 对齐 antd demo 的 `createStaticStyles({ root })` 生成的 root class（color/borderRadius/boxShadow）。
-// antd demo 用 antd-style CSS-in-JS 注入该 class 的样式；本 demo 两侧均改用字面量 class +
-// 预定义 CSS（见 `style-class.css` 的 `.dg-style-class-root`），视觉等价、零额外依赖。
-const dgClassNames: TableClassNames<RecordType> = {
-  root: 'dg-style-class-root',
-}
-const antdClassNames: NonNullable<AntdTableProps<RecordType>['classNames']> = {
-  root: 'dg-style-class-root',
-}
-
-// styles：对象（静态）。作用于 root/pagination/body.row/body.cell 等部位。
-// 对齐 antd demo 的 `styles` 对象（深色主题，逐字复刻 antd 6.4.4 官方 style-class demo）。
-const dgStyles: TableStyles<RecordType> = {
-  root: {
-    padding: 10,
-    borderRadius: 8,
-  },
-  pagination: {
-    root: {
-      padding: 10,
-    },
-  },
-  body: {
-    row: {
-      outline: '1px dashed rgba(226, 225, 225, 0.1)',
-    },
-    cell: {
-      outline: '1px dashed rgba(226, 225, 225, 0.1)',
-    },
-  },
-}
-const antdStyles: NonNullable<AntdTableProps<RecordType>['styles']> = {
-  root: {
-    padding: 10,
-    borderRadius: 8,
-  },
-  pagination: {
-    root: {
-      padding: 10,
-    },
-  },
-  body: {
-    row: {
-      outline: '1px dashed rgba(226, 225, 225, 0.1)',
-    },
-    cell: {
-      outline: '1px dashed rgba(226, 225, 225, 0.1)',
-    },
-  },
-}
-
-// stylesFn：函数式 `(info) => styles`。按 info.props.size 求值返回不同样式。
-// 对齐 antd demo 的 `stylesFn`：size='medium' 时返回自定义深色 root/title/footer/header.cell/pagination
-// （逐字复刻 antd 6.4.4 官方 style-class demo）。
-const dgStylesFn: TableStyles<RecordType> = (info) => {
-  if (info?.props?.size === 'medium') {
-    return {
-      root: {
-        color: '#e0e0e0',
-        borderRadius: 8,
-        boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-      },
-      title: {
-        backgroundImage: 'linear-gradient(90deg, #6a5acd, #836fff)',
-        color: '#fff',
-        fontSize: '1.25rem',
-        fontWeight: 600,
-        padding: '12px 16px',
-      },
-      footer: {
-        color: '#9ca3af',
-      },
-      header: {
-        cell: {
-          fontWeight: 600,
-          fontSize: '0.95rem',
-          color: '#b8bdfd',
-          padding: '12px 16px',
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-        },
-      },
-      pagination: {
-        root: {
-          padding: 10,
-        },
-        item: {
-          color: '#b8bdfd',
-        },
-      },
-    }
-  }
-  return {}
-}
-const antdStylesFn: NonNullable<AntdTableProps<RecordType>['styles']> = (info) => {
-  if (info?.props?.size === 'medium') {
-    return {
-      root: {
-        color: '#e0e0e0',
-        borderRadius: 8,
-        boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-      },
-      title: {
-        backgroundImage: 'linear-gradient(90deg, #6a5acd, #836fff)',
-        color: '#fff',
-        fontSize: '1.25rem',
-        fontWeight: 600,
-        padding: '12px 16px',
-      },
-      footer: {
-        color: '#9ca3af',
-      },
-      header: {
-        cell: {
-          fontWeight: 600,
-          fontSize: '0.95rem',
-          color: '#b8bdfd',
-          padding: '12px 16px',
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
-        },
-      },
-      pagination: {
-        root: {
-          padding: 10,
-        },
-        item: {
-          color: '#b8bdfd',
-        },
-      },
-    }
-  }
-  return {}
-}
-
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
+import { DemoToolbar } from './_compare/DemoToolbar'
+// ★ 拆子文件后，左/右栏 JSX + columns + classNames/styles 配置由子组件提供（props 驱动）。
+//   RecordType/dataSource 现在由子文件各自 import style-class.shared；父文件不再需要。
+import StyleClassDg from './style-class.dg'
+import StyleClassAntd from './style-class.antd'
 
 export default function StyleClassDemo() {
-  // ★ 共享状态：同一个状态同时驱动两侧表格。
+  // ★ 共享状态：同一个状态同时驱动两侧表格。初值 virtual=true/scrollY=true（对齐改造前 demo
+  //   默认演示虚拟化 + 固定表头纵滚 + styles 组合的语义）。
   const [virtual, setVirtual] = useState(true)
   const [scrollY, setScrollY] = useState(true)
 
-  // pagination：antd demo 用 { pageSize:3, simple:true }；data-grid 未暴露 simple，仅 pageSize。
-  const dgPagination = { pageSize: 3 }
-  const antdPagination = { pageSize: 3, simple: true }
-
   return (
     <div style={{ padding: 24 }}>
-      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。 */}
-      <div
-        style={{
-          marginBottom: 16,
-          padding: 12,
-          border: '1px solid #f0f0f0',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+      {/* ★ 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。
+          DemoToolbar 用 useToken（light/dark/自定义 token 自适应），替代硬编码 #fff/#f0f0f0。 */}
+      <DemoToolbar>
         <Space wrap>
           <Switch
             checked={virtual}
@@ -255,7 +77,7 @@ export default function StyleClassDemo() {
             两块 Table 同时展示：对象 styles (size=small) + 函数 stylesFn (size=medium)
           </span>
         </Space>
-      </div>
+      </DemoToolbar>
 
       {/*
         minPaneWidth=600 → 横排阈值 ≈ 1216。常规笔记本视口（≥1280）即可横排；
@@ -266,93 +88,8 @@ export default function StyleClassDemo() {
         // ★ virtualizable={false}：本 demo 自带局部 Virtual 开关（演示 virtual + styles 组合），
         // 不接全局开关——避免全局开关的限高与自带的 virtual 演示叠加冲突。
         virtualizable={false}
-        left={
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-            {/* 对象 styles 块（含 virtual + scroll.y）。 */}
-            <div>
-              <h3 style={{ marginBottom: 12 }}>
-                对象 styles（root/pagination/body.row/body.cell）
-              </h3>
-              {/*
-                ★ 决策 7：scroll.y:true 数据区域模式需父容器有明确 height。
-                scrollY 开启时给对象 styles 块固定 height:300（等价 antd demo y:300）；
-                函数 stylesFn 块不涉及 scroll.y，不包 height。
-              */}
-              <div style={scrollY ? { height: 300 } : undefined}>
-                <Table<RecordType>
-                  columns={dgColumns}
-                  dataSource={sharedData}
-                  classNames={dgClassNames}
-                  styles={dgStyles}
-                  title={() => 'Table Object Styles'}
-                  footer={() => 'Table Object Footer'}
-                  size="small"
-                  virtual={virtual}
-                  scroll={scrollY ? { y: true } : undefined}
-                  pagination={dgPagination}
-                />
-              </div>
-            </div>
-            {/* 函数 stylesFn 块（size=medium，无 scroll.y）。 */}
-            <div>
-              <h3 style={{ marginBottom: 12 }}>
-                函数 styles（size=medium 时自定义
-                root/title/footer/header.cell/pagination）
-              </h3>
-              <Table<RecordType>
-                columns={dgColumns}
-                dataSource={sharedData}
-                classNames={dgClassNames}
-                styles={dgStylesFn}
-                title={() => 'Table Function Styles'}
-                footer={() => 'Table Function Styles'}
-                size="medium"
-                pagination={dgPagination}
-              />
-            </div>
-          </div>
-        }
-        right={
-          /* 忠实复刻 antd style-class demo（antd-style createStaticStyles 改为原生
-             classNames/styles 对象/函数，等价展示）。两块结构同左栏。 */
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 32 }}>
-            <div>
-              <h3 style={{ marginBottom: 12 }}>
-                对象 styles（root/pagination/body.row/body.cell）
-              </h3>
-              <div style={scrollY ? { height: 300 } : undefined}>
-                <AntdTable<RecordType>
-                  columns={antdColumns}
-                  dataSource={sharedData}
-                  classNames={antdClassNames}
-                  styles={antdStyles}
-                  title={() => 'Table Object Styles'}
-                  footer={() => 'Table Object Footer'}
-                  size="small"
-                  virtual={virtual}
-                  scroll={scrollY ? { y: 300 } : undefined}
-                  pagination={antdPagination}
-                />
-              </div>
-            </div>
-            <div>
-              <h3 style={{ marginBottom: 12 }}>
-                函数 styles（size=medium 时自定义
-                root/title/footer/header.cell/pagination）
-              </h3>
-              <AntdTable<RecordType>
-                columns={antdColumns}
-                dataSource={sharedData}
-                classNames={antdClassNames}
-                styles={antdStylesFn}
-                title={() => 'Table Function Styles'}
-                footer={() => 'Table Function Styles'}
-                size="medium"
-                pagination={antdPagination}
-              />
-            </div>
-          </div>
-        }
+        left={<StyleClassDg virtual={virtual} scrollY={scrollY} />}
+        right={<StyleClassAntd virtual={virtual} scrollY={scrollY} />}
       >
         <div>
           <strong>对照说明（决策 9 B19 / S29 语义化样式 classNames/styles）：</strong>

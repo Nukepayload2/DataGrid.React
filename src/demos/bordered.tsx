@@ -31,115 +31,36 @@
  *   - `align` 差异：data-grid 用逻辑属性 `'end'`（等价 antd `'right'`，RTL 自动适配），两栏视觉等价。
  * - **示例 2 固定列边框**：data-grid S26 主动补 border-inline-start 修正 lun 缺陷；antd 原生正确。
  *   两侧均应边框完整，对照验证 data-grid 修正生效。
+ *
+ * === 拆子文件（task S26 live 编辑接入，summary 双轨多示例模式）===
+ *
+ * 父文件只保留「外壳职责」：bordered state + useVirtualization + DemoToolbar(Switch Bordered)
+ * + 两个 SplitDemo（示例1 / 示例2 各一对左右栏）+ children 对照说明 + 底部说明区。两侧表格 JSX
+ * + columns 拆到子文件：
+ *   - `./bordered.dg`：导出 `BorderedTitleFooterDg` / `BorderedFixedDg`（命名，父按示例选用）+
+ *     `BorderedDg`（默认，live 编辑用）。
+ *   - `./bordered.antd`：导出 `BorderedTitleFooterAntd` / `BorderedFixedAntd`（命名）+
+ *     `BorderedAntd`（默认，live 编辑用）。
+ *
+ * ★ 状态提升说明：bordered 必须留父——父渲染顶部 Switch Bordered 控制条需直接读写它；
+ *   且同一 state 驱动两示例 + 两侧同步。virtual 是顶栏全局开关（useVirtualization）。
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `BorderedDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件默认导出并按 editedDg/editedAntd 替换
+ * （编辑态展示单侧两示例堆叠，不对照——Phase 1 简化）。
  */
 
 import { useState } from 'react'
-import { Space, Switch, Table as AntdTable, theme } from 'antd'
-import type { TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType } from '../table'
+import { Space, Switch, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, fixedData, type FixedRow, type RowType } from './_compare/bordered.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 示例 1 列定义
-// ---------------------------------------------------------------------------
-
-// 左栏（data-grid）：align 用逻辑属性 'end'（等价 antd 'right'）。
-const dgColumnsExample1: ColumnType<RowType>[] = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    render: (text) => <a>{text}</a>,
-  },
-  {
-    title: 'Cash Assets',
-    // 注：antd demo 此列带 className:'column-money'（demo 自定义 placeholder，非 antd 内置 CSS）。
-    // ★ §9 B4 更正：antd Table 未定义 .column-money CSS 规则（全仓搜仅命中 demo 源码 + snapshot），
-    //   该 className 是演示 column.className 透传的 placeholder，antd 自身不消费——两栏均无视觉高亮。
-    // data-grid 接口全兼容阶段已支持 column.className 透传（数据格 + 表头格），此处透传与 antd 等价。
-    className: 'column-money',
-    dataIndex: 'money',
-    // 注：antd demo 此处为 align:'right'；data-grid 用逻辑属性 'end'（等价 right，RTL 自动适配）。
-    align: 'end',
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-  },
-]
-
-// 右栏（antd）：忠实复刻 antd bordered demo（align:'right'，className:'column-money'）。
-const antdColumnsExample1: NonNullable<TableProps<RowType>['columns']> = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    render: (text) => <a>{text}</a>,
-  },
-  {
-    title: 'Cash Assets',
-    className: 'column-money',
-    dataIndex: 'money',
-    align: 'right',
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-  },
-]
-
-// ---------------------------------------------------------------------------
-// 示例 2 列定义（bordered + fixed 组合）
-// ---------------------------------------------------------------------------
-
-// 左栏（data-grid）：fixed 用逻辑属性 'start'/'end'（等价 antd 'left'/'right'）。
-const dgColumnsExample2: ColumnType<FixedRow>[] = [
-  {
-    title: 'Full Name',
-    dataIndex: 'name',
-    width: 120,
-    fixed: 'start',
-  },
-  { title: 'Age', dataIndex: 'age', width: 100, fixed: 'start' },
-  { title: 'Column 1', dataIndex: 'address', key: '1' },
-  { title: 'Column 2', dataIndex: 'address', key: '2' },
-  { title: 'Column 3', dataIndex: 'address', key: '3' },
-  { title: 'Column 4', dataIndex: 'address', key: '4' },
-  { title: 'Column 5', dataIndex: 'address', key: '5' },
-  {
-    title: 'Action',
-    key: 'operation',
-    width: 100,
-    fixed: 'end',
-    render: () => <a>action</a>,
-  },
-]
-
-// 右栏（antd）：fixed 用 'left'/'right'（antd 原生）。
-const antdColumnsExample2: NonNullable<TableProps<FixedRow>['columns']> = [
-  {
-    title: 'Full Name',
-    dataIndex: 'name',
-    width: 120,
-    fixed: 'left',
-  },
-  { title: 'Age', dataIndex: 'age', width: 100, fixed: 'left' },
-  { title: 'Column 1', dataIndex: 'address', key: '1' },
-  { title: 'Column 2', dataIndex: 'address', key: '2' },
-  { title: 'Column 3', dataIndex: 'address', key: '3' },
-  { title: 'Column 4', dataIndex: 'address', key: '4' },
-  { title: 'Column 5', dataIndex: 'address', key: '5' },
-  {
-    title: 'Action',
-    key: 'operation',
-    width: 100,
-    fixed: 'right',
-    render: () => <a>action</a>,
-  },
-]
+// ★ 拆子文件后，左/右栏 JSX + columns 由子组件提供（props 驱动）。RowType/FixedRow/data/fixedData
+//   现在由子文件各自 import bordered.shared；父文件不再需要。
+//   父按示例分别取命名导出（示例1 / 示例2 各一对左右栏）。
+import { BorderedTitleFooterDg, BorderedFixedDg } from './bordered.dg'
+import { BorderedTitleFooterAntd, BorderedFixedAntd } from './bordered.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -183,37 +104,8 @@ export default function BorderedDemo() {
         */}
         <SplitDemo
           minPaneWidth={600}
-          left={
-            <Table<RowType>
-              columns={dgColumnsExample1}
-              dataSource={data}
-              bordered={bordered}
-              title={() => 'Header'}
-              footer={() => 'Footer'}
-              // ★ 对齐右栏 antd 默认分页（校准事实 1：antd 对任意行数都渲染 .ant-pagination
-              //   disabled 态分页条；data-grid omit=不渲染）。补 pagination={{}} 启用默认分页器，
-              //   两侧分页条存在性一致（disabled 态在 ≤pageSize 行时无视觉可点页码）。
-              pagination={{}}
-              /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-                 给的 400px 限高，虚拟窗口才有滚动区）；OFF 时回 undefined，行为与改造前一致。 */
-              virtual={virtual}
-              scroll={virtual ? { y: true } : undefined}
-            />
-          }
-          right={
-            <AntdTable<RowType>
-              columns={antdColumnsExample1}
-              dataSource={data}
-              bordered={bordered}
-              title={() => 'Header'}
-              footer={() => 'Footer'}
-              /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且两侧均有
-                 分页条，需扣除表头~55 与分页条~64 → 约 280 才能塞进 ~400px pane；OFF 时回 undefined，
-                 行为与改造前一致）。 */
-              virtual={virtual}
-              scroll={virtual ? { y: 280 } : undefined}
-            />
-          }
+          left={<BorderedTitleFooterDg bordered={bordered} virtual={virtual} />}
+          right={<BorderedTitleFooterAntd bordered={bordered} virtual={virtual} />}
         >
           <div>
             <strong>对照说明（示例 1，决策 9 T1）：</strong>bordered + title/footer。
@@ -271,36 +163,8 @@ export default function BorderedDemo() {
         */}
         <SplitDemo
           minPaneWidth={600}
-          left={
-            <Table<FixedRow>
-              columns={dgColumnsExample2}
-              dataSource={fixedData}
-              bordered={bordered}
-              /* 全局虚拟化开关接入：ON 时在原 scroll.x 基础上叠加 virtual=true + scroll.y:true
-                 （CSS 自适应，填满 SplitDemo 给的 400px 限高，虚拟窗口才有滚动区）；
-                 OFF 时仅保留原 scroll.x:'max-content'，行为与改造前一致。 */
-              virtual={virtual}
-              scroll={virtual ? { x: 'max-content', y: true } : { x: 'max-content' }}
-              // ★ 对齐右栏 antd 默认分页（同示例 1：antd 默认渲染分页条，data-grid omit=无）。
-              pagination={{}}
-            />
-          }
-          right={
-            <AntdTable<FixedRow>
-              columns={antdColumnsExample2}
-              dataSource={fixedData}
-              bordered={bordered}
-              /* 全局虚拟化开关接入：ON 时在原 scroll.x 基础上叠加 virtual=true + scroll.y:280
-                 （antd 不认 true；本示例两侧均有分页条，需扣除表头~55 与分页条~64 → 约 280 才能
-                 塞进 ~400px pane）。
-                 ★ antd virtual 要求 scroll.x 必须为数字（字符串 'max-content' 会抛
-                 "scroll.x must be number" error），故 ON 时改传数字 2000（按列宽估算：
-                 2×120 fixed + 5×~120 普通列 + 1×100 Action ≈ 940，取保险值 2000 足够触发横滚）；
-                 OFF 时回原 'max-content'，行为与改造前一致。data-grid 左栏不受此限（保持 'max-content'）。 */
-              virtual={virtual}
-              scroll={virtual ? { x: 2000, y: 280 } : { x: 'max-content' }}
-            />
-          }
+          left={<BorderedFixedDg bordered={bordered} virtual={virtual} />}
+          right={<BorderedFixedAntd bordered={bordered} virtual={virtual} />}
         >
           <div>
             <strong>对照说明（示例 2，决策 9 T1）：</strong>bordered + fixed 组合。

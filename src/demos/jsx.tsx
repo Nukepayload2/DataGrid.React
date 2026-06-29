@@ -30,24 +30,30 @@
  *   （antd v6 Space size 类型为 `'small'|'middle'|'large'|number`，无 'medium'；antd jsx demo
  *   写 'medium' 实为 v6 别名兼容，data-grid 显式用规范的 'middle'）。**右栏忠实 antd demo 用
  *   'medium'**（antd 侧 antd 自家兼容别名）。
+ *
+ * === 拆子文件（task：live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：bordered state + useVirtualization + DemoToolbar(Switch Bordered)
+ * + SplitDemo 外壳 + children 对照说明。两侧表格 JSX（Table.Column/ColumnGroup 子元素声明列）
+ * 拆到子文件：
+ *   - `./jsx.dg`：`JsxDg({bordered, virtual})`（左栏）
+ *   - `./jsx.antd`：`JsxAntd({bordered, virtual})`（右栏）
+ *
+ * 这样：
+ *   - 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `JsxDemo`，零编辑开销。
+ *   - live 编辑模式：SplitDemoPreview 静态 import 真实子组件，并按 editedDg/editedAntd 替换。
  */
 
 import { useState } from 'react'
-import { Flex, Space, Switch, Table as AntdTable, Tag } from 'antd'
-import { Table } from '../table'
+import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, tagColor, type RecordType } from './_compare/jsx.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
-
-// 左栏：从 data-grid Table 解构 Column/ColumnGroup（对齐 antd demo 写法）。
-const { Column, ColumnGroup } = Table
-// 右栏：从 antd Table 解构 Column/ColumnGroup（忠实 antd demo）。
-const {
-  Column: AntdColumn,
-  ColumnGroup: AntdColumnGroup,
-} = AntdTable
+// ★ 拆子文件后，左/右栏 JSX（Table.Column/ColumnGroup 子元素声明列）由子组件提供（props 驱动）。
+//   RecordType/data/tagColor 现在由子文件各自 import jsx.shared，父文件不再需要。
+import JsxDg from './jsx.dg'
+import JsxAntd from './jsx.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -80,95 +86,8 @@ export default function JsxDemo() {
       */}
       <SplitDemo
         minPaneWidth={480}
-        left={
-          // ★ 对齐右栏 antd 默认分页（校准事实 1：antd 对任意行数都渲染 .ant-pagination
-          //   disabled 态分页条；data-grid omit=不渲染）。补 pagination={{}} 启用默认分页器，
-          //   两侧分页条存在性一致。
-          <Table<RecordType>
-            dataSource={data}
-            bordered={bordered}
-            pagination={{}}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-               给的 400px 限高，虚拟窗口才有滚动区）；OFF 时回 undefined，行为与改造前一致。
-               virtual/scroll 加在 <Table> 上（JSX 子元素 Column/ColumnGroup 仅声明列，不接虚拟化）。 */
-            virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
-          >
-            <ColumnGroup title="Name">
-              <Column title="First Name" dataIndex="firstName" key="firstName" />
-              <Column title="Last Name" dataIndex="lastName" key="lastName" />
-            </ColumnGroup>
-            <Column title="Age" dataIndex="age" key="age" />
-            <Column title="Address" dataIndex="address" key="address" />
-            <Column
-              title="Tags"
-              dataIndex="tags"
-              key="tags"
-              render={(tags: string[]) => (
-                <Flex gap="small" align="center" wrap>
-                  {tags.map((tag) => (
-                    <Tag color={tagColor(tag)} key={tag}>
-                      {tag.toUpperCase()}
-                    </Tag>
-                  ))}
-                </Flex>
-              )}
-            />
-            <Column
-              title="Action"
-              key="action"
-              render={(_: any, record: RecordType) => (
-                <Space size="middle">
-                  <a>Invite {record.lastName}</a>
-                  <a>Delete</a>
-                </Space>
-              )}
-            />
-          </Table>
-        }
-        right={
-          /* 忠实复刻 antd jsx demo：antd Table + antd Column/ColumnGroup + size="medium"。
-             全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且两侧均有
-             分页条，需扣除表头~55 与分页条~64 → 约 280 才能塞进 ~400px pane；OFF 时回 undefined，
-             行为与改造前一致）。virtual/scroll 加在 <Table> 上。 */
-          <AntdTable<RecordType>
-            dataSource={data}
-            bordered={bordered}
-            virtual={virtual}
-            scroll={virtual ? { y: 280 } : undefined}
-          >
-            <AntdColumnGroup title="Name">
-              <AntdColumn title="First Name" dataIndex="firstName" key="firstName" />
-              <AntdColumn title="Last Name" dataIndex="lastName" key="lastName" />
-            </AntdColumnGroup>
-            <AntdColumn title="Age" dataIndex="age" key="age" />
-            <AntdColumn title="Address" dataIndex="address" key="address" />
-            <AntdColumn
-              title="Tags"
-              dataIndex="tags"
-              key="tags"
-              render={(tags: string[]) => (
-                <Flex gap="small" align="center" wrap>
-                  {tags.map((tag) => (
-                    <Tag color={tagColor(tag)} key={tag}>
-                      {tag.toUpperCase()}
-                    </Tag>
-                  ))}
-                </Flex>
-              )}
-            />
-            <AntdColumn
-              title="Action"
-              key="action"
-              render={(_: any, record: RecordType) => (
-                <Space size="medium">
-                  <a>Invite {record.lastName}</a>
-                  <a>Delete</a>
-                </Space>
-              )}
-            />
-          </AntdTable>
-        }
+        left={<JsxDg bordered={bordered} virtual={virtual} />}
+        right={<JsxAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 T1）：</strong>左右并排呈现 data-grid 与 antd jsx demo，

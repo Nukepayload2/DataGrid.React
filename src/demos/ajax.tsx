@@ -9,11 +9,25 @@
  *   onChange）。**唯一改动**：antd demo 原用真实 fetch 外部 mockapi.io，本 demo 统一改用本地
  *   mock（`_compare/ajax.shared.ts` 的 `queryData`，左右两栏共用），避免网络依赖（决策 6 +
  *   任务规约避免副作用）。
- * - **共享控制条**：无独立控制条（antd ajax demo 原本无控制条）；改造后**两侧共用同一组
- *   state**（`tableParams` / `loading` / `data` / `selectedRowKeys`），任一侧 onChange 都写回
- *   共享 tableParams → 触发同一个 useEffect → 同一个 queryData → 同一份 data 同时回填两侧。
- * - **共享数据**：`RecordType` + `MOCK_DATA` + `queryData` 见 `_compare/ajax.shared.ts`，
- *   两侧复用同一 mock 数据源 + 同一服务端逻辑（保证 diff 对照公平）。
+ * - **共享控制条**：无独立控制条（antd ajax demo 原本无控制条）。
+ *
+ * === ★ 异步加载 state 拆子文件后各自独立（SOP + 类 edit-cell 模式）===
+ *
+ * 改造前（单文件）：两侧共用同一组 state（tableParams / loading / data / selectedRowKeys），
+ * 任一侧 onChange 都写回共享 tableParams → 触发同一个 useEffect → 同一份 data 同时回填两侧。
+ *
+ * 拆子文件后（按 SOP「交互 state 含异步加载/loading/分页/排序/筛选/选择/展开 优先留子组件内
+ * 自管；仅当父控制条需直接操作时才提升父」）：本 demo 无外部控制条，故 data / loading /
+ * tableParams / selectedRowKeys + fetchData + useEffect + handleTableChange + onSelectChange
+ * 全部留各侧子组件内自管。两栏从「共享同一组 state」改为「各自独立 state」——任一侧 onChange
+ * 只刷新该侧（不再跨栏同步）。这是拆子文件后的天然结果，与 edit-cell demo 的「编辑各自独立」
+ * 同构。功能演示（loading + 服务端分页/排序/筛选 + preserveSelectedRowKeys 跨页保留）完整保留，
+ * 两侧行为各自等价于改造前。
+ *
+ * === 共享数据 ===
+ *
+ * `RecordType` + `MOCK_DATA` + `queryData` 见 `_compare/ajax.shared.ts`，两侧复用同一 mock 数据源
+ * + 同一服务端逻辑（保证 diff 对照公平）。
  *
  * === antd demo 要素（S12 远程数据 ajax + loading）===
  *
@@ -42,208 +56,44 @@
  *    demo 的真实 fetch。机制（loading + 异步回填）与 antd 等价。
  * 2. **preserveSelectedRowKeys**：两侧均显式 `true`（对齐 antd ajax demo 风格——antd 官方 ajax
  *    demo 未演示勾选，本 demo 加上勾选以对照 preserveSelectedRowKeys 跨页保留）。
+ * 3. **state 各自独立**：拆子文件后两栏不再共享 state，任一侧 onChange 只刷新该侧（类 edit-cell）。
  *
  * === 验证点（S12 + 决策 9）===
  *
- * 1. loading 态：首次进入 + 每次 onChange（翻页/排序/筛选）→ 两侧表格同步 Spin 转圈约 800ms
- *    → 数据刷新。
- * 2. 服务端分页：任一侧翻页 → 触发共享 useEffect → queryData → 两份数据同步刷新。
- * 3. 服务端排序：点 Name 表头 → ascend/descend → 全量按 name 排序后切片（两侧同步）。
+ * 1. loading 态：首次进入 + 每次 onChange（翻页/排序/筛选）→ 该侧表格 Spin 转圈约 800ms
+ *    → 数据刷新（两侧各自独立触发）。
+ * 2. 服务端分页：翻页 → 触发该侧 useEffect → queryData → 数据刷新。
+ * 3. 服务端排序：点 Name 表头 → ascend/descend → 全量按 name 排序后切片。
  * 4. 服务端筛选：Gender 漏斗选 male/female → 全量按 gender 筛选 + total 更新为筛选后长度。
- * 5. preserveSelectedRowKeys：第 2 页勾选 → 翻回第 1 页 → 翻回第 2 页，勾选保留；底部显示
- *    selectedRowKeys（含跨页 key）。
+ * 5. preserveSelectedRowKeys：第 2 页勾选 → 翻回第 1 页 → 翻回第 2 页，勾选保留。
  * 6. 回归：其它 demo（basic/head/...）未传 loading → 不包 Spin。
+ *
+ * === 拆子文件（task：live 编辑接入，自包含 pane 模式，类 edit-cell）===
+ *
+ * 父文件只保留「外壳职责」：useVirtualization + SplitDemo 外壳 + children 对照说明。
+ * 两侧表格 JSX + columns + 异步加载 state + fetchData/useEffect/handleChange/onSelectChange
+ * 拆到子文件（各自独立 state，不再共享）：
+ *   - `./ajax.dg`：`AjaxDg({virtual})`（左栏）
+ *   - `./ajax.antd`：`AjaxAntd({virtual})`（右栏）
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `AjaxDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
+ * 子组件 props 全部带默认值（virtual=false），编辑态超集 props {bordered,virtual,size,autoScroll}
+ * 不全也不崩（异步加载 state 全在子组件内自管）。
  */
 
-import { useEffect, useState } from 'react'
-import { Table as AntdTable, theme } from 'antd'
-import type { TableProps } from 'antd'
-import { Table } from '../table'
-import type {
-  ColumnType,
-  TablePaginationState,
-  TableProps as DgTableProps,
-  TableRowSelection,
-} from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
-import { queryData, type RecordType, type TableParams } from './_compare/ajax.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（loading×virtual 共存是已知 §9 简化）
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 行为与改造前一致
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<RecordType>[] = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    sorter: true,
-    width: '25%',
-  },
-  {
-    title: 'Gender',
-    dataIndex: 'gender',
-    filters: [
-      { text: 'Male', value: 'male' },
-      { text: 'Female', value: 'female' },
-    ],
-    width: '20%',
-  },
-  {
-    title: 'Email',
-    dataIndex: 'email',
-  },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd ajax demo（仅 width 25%→20% 同步，保持一致）
-// ---------------------------------------------------------------------------
-
-const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    sorter: true,
-    width: '25%',
-  },
-  {
-    title: 'Gender',
-    dataIndex: 'gender',
-    filters: [
-      { text: 'Male', value: 'male' },
-      { text: 'Female', value: 'female' },
-    ],
-    width: '20%',
-  },
-  {
-    title: 'Email',
-    dataIndex: 'email',
-  },
-]
-
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
+// ★ 拆子文件后，左/右栏 JSX + columns + 异步加载 state 由子组件提供（props 驱动）。
+//   RecordType/queryData 现在由子文件各自 import ajax.shared；父文件不再需要。
+import AjaxDg from './ajax.dg'
+import AjaxAntd from './ajax.antd'
 
 export default function AjaxDemo() {
-  // ★ 共享状态：同一组 state 同时驱动两侧表格。
-  const [data, setData] = useState<RecordType[]>([])
-  const [loading, setLoading] = useState(false)
-  const [tableParams, setTableParams] = useState<TableParams>({
-    pagination: {
-      current: 1,
-      pageSize: 10,
-    },
-  })
-  // 受控勾选 + preserveSelectedRowKeys（跨页保留）。两侧共用同一 selectedRowKeys。
-  const [selectedRowKeys, setSelectedRowKeys] = useState<Array<React.Key>>([])
   // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y（loading 态 Spin 与 virtual
   // 共存是已知 §9 简化——Spin 可能破坏 data-area flex 链高度，正常接入即可）。
   const { virtual } = useVirtualization()
-  // 底部选中态可视化区 chrome 文字/弱底色 token 化（colorTextSecondary≈rgba(0,0,0,0.65)、
-  // colorTextTertiary≈rgba(0,0,0,0.45)、colorFillQuaternary≈#fafafa），暗主题自适应。
-  // ★ 仅 chrome 色，不动 loading/server/fetch 逻辑。
-  const { token } = theme.useToken()
-
-  const fetchData = () => {
-    setLoading(true)
-    queryData(tableParams).then(({ data: paged, total }) => {
-      setData(paged)
-      setLoading(false)
-      setTableParams((prev) => ({
-        ...prev,
-        pagination: {
-          ...prev.pagination,
-          total,
-        },
-      }))
-    })
-  }
-
-  useEffect(() => {
-    fetchData()
-    // 依赖：current/pageSize/sortOrder/sortField/filters 变化即重新"请求"（对齐 antd demo）。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    tableParams.pagination?.current,
-    tableParams.pagination?.pageSize,
-    tableParams.sortOrder,
-    tableParams.sortField,
-    JSON.stringify(tableParams.filters),
-  ])
-
-  // 共享 onChange：任一侧触发都写回同一 tableParams → 触发 useEffect → 两份数据同步刷新。
-  // 收敛两侧 pagination 入参（data-grid `TablePaginationState` 与 antd `TablePaginationConfig`
-  // 共有 current/pageSize/total）到同一形状，便于共享 state。
-  const applyChange = (
-    pagination: { current?: number; pageSize?: number; total?: number },
-    filters: TableParams['filters'],
-    sorter: { field?: string; order?: TableParams['sortOrder'] },
-  ) => {
-    const prevPageSize = tableParams.pagination?.pageSize
-    const nextPagination: TableParams['pagination'] = {
-      current: pagination.current,
-      pageSize: pagination.pageSize,
-      total: pagination.total,
-    }
-    setTableParams({
-      pagination: nextPagination,
-      filters,
-      sortOrder: sorter.order,
-      sortField: sorter.field,
-    })
-    // pageSize 变化时清空当前页数据（对齐 antd demo：dataSource is useless since pageSize changed）。
-    if (pagination.pageSize !== prevPageSize) {
-      setData([])
-    }
-  }
-
-  // 收敛两侧 sorter 的宽类型（data-grid SorterResult.field 用 React Key 含 bigint，
-  // antd field 可能 string|number|(string|number)[]；order 均含 null）到本 demo 共享
-  // TableParams 的窄类型（field?: string，order?: 'ascend'|'descend'）。
-  const normalizeSorter = (
-    sorter:
-      | { field?: unknown; order?: 'ascend' | 'descend' | null }
-      | undefined,
-  ): { field?: string; order: TableParams['sortOrder'] } => {
-    if (!sorter) return { order: undefined }
-    const field = typeof sorter.field === 'string' ? sorter.field : undefined
-    const order: TableParams['sortOrder'] =
-      sorter.order === 'ascend' || sorter.order === 'descend' ? sorter.order : undefined
-    return { field, order }
-  }
-
-  const dgHandleChange: DgTableProps<RecordType>['onChange'] = (
-    pagination: TablePaginationState,
-    filters,
-    sorter,
-  ) => {
-    const n = normalizeSorter(Array.isArray(sorter) ? undefined : sorter)
-    applyChange(pagination, filters, n)
-  }
-
-  const antdHandleChange: TableProps<RecordType>['onChange'] = (pagination, filters, sorter) => {
-    const n = normalizeSorter(Array.isArray(sorter) ? undefined : sorter)
-    applyChange(
-      { current: pagination.current, pageSize: pagination.pageSize, total: pagination.total },
-      filters as TableParams['filters'],
-      n,
-    )
-  }
-
-  // 共享 rowSelection：受控 selectedRowKeys + preserveSelectedRowKeys（跨页保留）。两侧共用。
-  const onSelectChange = (keys: Array<React.Key>) => setSelectedRowKeys(keys)
-  const dgRowSelection: TableRowSelection<RecordType> = {
-    preserveSelectedRowKeys: true,
-    selectedRowKeys,
-    onChange: onSelectChange,
-  }
-  const antdRowSelection: TableProps<RecordType>['rowSelection'] = {
-    preserveSelectedRowKeys: true,
-    selectedRowKeys,
-    onChange: onSelectChange,
-  }
 
   return (
     <div style={{ padding: 24 }}>
@@ -253,68 +103,24 @@ export default function AjaxDemo() {
       */}
       <SplitDemo
         minPaneWidth={600}
-        left={
-          <Table<RecordType>
-            columns={dgColumns}
-            rowKey="id"
-            dataSource={data}
-            pagination={tableParams.pagination}
-            loading={loading}
-            onChange={dgHandleChange}
-            rowSelection={dgRowSelection}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-               限高）；OFF 时回 undefined，行为与改造前一致。loading×virtual 共存属已知 §9 简化。 */
-            virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
-          />
-        }
-        right={
-          <AntdTable<RecordType>
-            columns={antdColumns}
-            rowKey={(record) => record.id}
-            dataSource={data}
-            pagination={tableParams.pagination}
-            loading={loading}
-            onChange={antdHandleChange}
-            rowSelection={antdRowSelection}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 分页条画在 scroll.y 之外，
-               需扣除表头~55 与分页条~64 → 约 280 才能塞进 ~400px pane；OFF 时回 undefined）。 */
-            virtual={virtual}
-            scroll={virtual ? { y: 280 } : undefined}
-          />
-        }
+        left={<AjaxDg virtual={virtual} />}
+        right={<AjaxAntd virtual={virtual} />}
       >
         <div>
-          <div
-            style={{
-              padding: 12,
-              background: token.colorFillQuaternary,
-              borderRadius: 8,
-              marginBottom: 8,
-            }}
-          >
-            <strong>selectedRowKeys (preserveSelectedRowKeys=true，跨页保留):</strong>{' '}
-            {selectedRowKeys.length === 0 ? (
-              <span style={{ color: token.colorTextTertiary }}>(none)</span>
-            ) : (
-              <code>[{selectedRowKeys.join(', ')}]</code>
-            )}
-            <div style={{ marginTop: 4, color: token.colorTextSecondary, fontSize: 12 }}>
-              翻到第 2 页勾几行 → 回第 1 页 → 再翻第 2 页，勾选应保留；selectedRowKeys 含跨页 id。
-            </div>
-          </div>
           <strong>对照说明（决策 9 B14 / S12 远程数据 + loading）：</strong>
           左右并排呈现 data-grid 与 antd ajax demo（loading + 服务端分页/排序/筛选 +
           preserveSelectedRowKeys）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>共享 state</strong>：<code>tableParams</code> / <code>loading</code> /
-              <code> data</code> / <code>selectedRowKeys</code> 共用同一组——任一侧 onChange
-              （翻页/排序/筛选/勾选）都写回共享 state，触发同一 useEffect → 同一 queryData →
-              两份数据/勾选同步刷新。
+              <strong>★ state 各自独立</strong>：拆子文件后，<code>tableParams</code> /
+              <code> loading</code> / <code>data</code> / <code>selectedRowKeys</code> +
+              <code> fetchData</code> + <code>useEffect</code> + <code>handleTableChange</code> +
+              <code> onSelectChange</code> 全部留各侧子组件内自管（按 SOP「交互 state 含异步加载/
+              loading/分页/排序/筛选/选择 优先留子组件内自管」，类 edit-cell 模式）。任一侧 onChange
+              只刷新该侧（不再跨栏同步），功能演示完整保留。
             </li>
             <li>
-              <strong>loading 态</strong>：首次进入 + 每次 onChange → 两侧表格同步 Spin 转圈约
+              <strong>loading 态</strong>：首次进入 + 每次 onChange → 该侧表格 Spin 转圈约
               800ms（本地 mock + setTimeout，替代 antd demo 的真实 fetch，避免网络依赖）。
             </li>
             <li>
@@ -324,7 +130,7 @@ export default function AjaxDemo() {
             </li>
             <li>
               <strong>preserveSelectedRowKeys</strong>：两侧均 <code>true</code>（跨页保留勾选）；
-              第 2 页勾选 → 翻回第 1 页 → 翻回第 2 页，勾选保留；底部 selectedRowKeys 含跨页 id。
+              第 2 页勾选 → 翻回第 1 页 → 翻回第 2 页，勾选保留。
             </li>
             <li>
               <strong>数据源</strong>：左右两栏均用同一本地 mock（<code>queryData</code>，100 条），

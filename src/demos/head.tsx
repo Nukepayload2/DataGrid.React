@@ -19,8 +19,7 @@
  *   `showSorterTooltip: { target: 'full-header' }`（hover 整表头格提示）。
  *   同时带 `filters`（Joe/Jim/Submenu→Green/Black）+ `onFilter`（按名字起始匹配）——
  *   排序 + 筛选共存（S1 + S3 组合，head demo 核心场景）。
- * - Age 列：`sorter: (a,b) => a.age - b.age`（数值排序），`defaultSortOrder: 'descend'`（初始降序）。
- *   无筛选。
+ * - Age 列：`sorter: (a,b) => a.age - b.age`（数值排序），`defaultSortOrder: 'descend'`（初始降序）。无筛选。
  * - Address 列：带 `filters`（London/New York）+ `onFilter`（按地址起始匹配），无 sorter。
  *   默认多选（Checkbox）——与官方 antd demo 逐字一致（官方 head.tsx 此列无 filterMultiple）。
  * - Table 级 `showSorterTooltip: { target: 'sorter-icon' }`（默认 tooltip 绑定到排序图标）。
@@ -47,137 +46,39 @@
  * 2. **sortDirections 第三次回 null**：`sortDirections:['descend','ascend']` 第三次点击回 null 是
  *    antd 本身循环（antd `nextSortDirection` 与 data-grid `useSorter.ts:163-171` 逐字相同）。
  *
- * === 验证点（S1 + S3）===
+ * === 拆子文件（task：live 编辑接入，同 basic 模式）===
  *
- * 【S1 排序】
- * 1. Age 列初始降序（defaultSortOrder: 'descend'）—— 两侧一致。
- * 2. 点击 Age 列表头循环排序（descend → null → ascend → descend）。
- * 3. 点击 Name 列表头：sortDirections=['descend']，循环为 null → descend → null。
- * 4. 单列语义：点击新列清空旧列排序。
- * 5. 排序图标三态；当前排序列表头/表体淡灰底（dg-column-sort）。
+ * 父文件只保留「外壳职责」：bordered/remountKey state + useVirtualization + DemoToolbar(Switch Bordered
+ * + Reset Button) + SplitDemo 外壳 + children 对照说明。两侧表格 JSX 与 columns + onChange 拆到子文件：
+ *   - `./head.dg`：`HeadDg({bordered, virtual, remountKey})`（左栏）
+ *   - `./head.antd`：`HeadAntd({bordered, virtual, remountKey})`（右栏）
  *
- * 【S3 筛选】
- * 6. Name 列漏斗：默认灰；勾选 Joe+Jim 后变 Filled 高亮，表格只剩名字以 Joe/Jim 开头的行（OR）。
- * 7. Address 列漏斗（默认多选 Checkbox）：勾 London+New York → 两地起始地址行并集（OR）。
- * 8. filterOnClose=true（默认）：勾选后点外部/ESC 关闭下拉即应用。
- * 9. 确定按钮：点 OK 也应用；重置按钮：清空当前勾选（草稿），需再关闭/确定才生效（S5 经验 1）。
- * 10. onChange 回调：console.log filters（{ name: [...], address: [...] | null }），extra.action='filter'。
- * 11. 排序 + 筛选叠加：先按 Age 排序，再筛选 Name——筛选结果保持排序顺序（raw → sort → filter）。
+ * ★ 状态提升说明：bordered 必须留父（控制条 Switch 直接读写）；remountKey 必须留父（控制条 Reset
+ *   按钮递增它），并以 prop 下发子组件，子组件把它应用到内部 `<Table key={...}>` 强制 remount 清空
+ *   排序/筛选草稿（head demo 排序/筛选非受控，不能通过受控 setState 重置）。排序/筛选瞬时态由 Table
+ *   内部自管（非受控），不提升。
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `HeadDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
  */
 
 import { useState } from 'react'
-import { Button, Space, Switch, Table as AntdTable } from 'antd'
-import type { TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType, TableProps as DgTableProps } from '../table'
+import { Button, Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, type RecordType } from './_compare/head.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（SplitDemo pane 自动限高，虚拟窗口才有滚动区）
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 行为与改造前一致
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<RecordType>[] = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    showSorterTooltip: { target: 'full-header' },
-    // S3：筛选（与排序共存）。filters 含 children（Submenu）——S7 树形筛选，本阶段扁平化为顶层项。
-    filters: [
-      { text: 'Joe', value: 'Joe' },
-      { text: 'Jim', value: 'Jim' },
-      {
-        text: 'Submenu',
-        value: 'Submenu',
-        children: [
-          { text: 'Green', value: 'Green' },
-          { text: 'Black', value: 'Black' },
-        ],
-      },
-    ],
-    // 筛选判定：名字以 value 开头（与 antd demo 一致）。
-    onFilter: (value, record) => record.name.indexOf(value as string) === 0,
-    sorter: (a, b) => a.name.length - b.name.length,
-    sortDirections: ['descend'],
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    defaultSortOrder: 'descend',
-    sorter: (a, b) => a.age - b.age,
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    // S3：筛选（默认多选 Checkbox，与 antd 官方 head demo 逐字一致——官方此列无 filterMultiple）。
-    filters: [
-      { text: 'London', value: 'London' },
-      { text: 'New York', value: 'New York' },
-    ],
-    onFilter: (value, record) => record.address.indexOf(value as string) === 0,
-  },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd head demo（逐字一致）
-// ---------------------------------------------------------------------------
-
-const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    showSorterTooltip: { target: 'full-header' },
-    filters: [
-      { text: 'Joe', value: 'Joe' },
-      { text: 'Jim', value: 'Jim' },
-      {
-        text: 'Submenu',
-        value: 'Submenu',
-        children: [
-          { text: 'Green', value: 'Green' },
-          { text: 'Black', value: 'Black' },
-        ],
-      },
-    ],
-    onFilter: (value, record) => record.name.indexOf(value as string) === 0,
-    sorter: (a, b) => a.name.length - b.name.length,
-    sortDirections: ['descend'],
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-    defaultSortOrder: 'descend',
-    sorter: (a, b) => a.age - b.age,
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-    filters: [
-      { text: 'London', value: 'London' },
-      { text: 'New York', value: 'New York' },
-    ],
-    onFilter: (value, record) => record.address.indexOf(value as string) === 0,
-  },
-]
-
-// ---------------------------------------------------------------------------
-// onChange（两侧共用同一个 console.log 形态）
-// ---------------------------------------------------------------------------
-
-const onChange: DgTableProps<RecordType>['onChange'] = (pagination, filters, sorter, extra) => {
-  // eslint-disable-next-line no-console
-  console.log('head demo onChange params:', { pagination, filters, sorter, extra })
-}
+// ★ 拆子文件后，左/右栏 JSX + columns + onChange 由子组件提供（props 驱动）。RecordType/data
+//   现在由子文件各自 import head.shared；父文件不再需要。
+import HeadDg from './head.dg'
+import HeadAntd from './head.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
 // ---------------------------------------------------------------------------
 
 export default function HeadDemo() {
-  // ★ 共享状态：同一个状态同时驱动两侧表格。
+  // ★ 共享状态（提升到父）：同一个状态同时驱动两侧表格 + 顶部控制条。
   const [bordered, setBordered] = useState(false)
   // Reset trick：递增 remountKey 强制两侧 Table 重新挂载，清空所有排序/筛选草稿与激活态
   // （不引入受控 filteredValue/sortOrder，保持 head demo 非受控本质）。
@@ -211,33 +112,17 @@ export default function HeadDemo() {
       <SplitDemo
         minPaneWidth={480}
         left={
-          <Table<RecordType>
-            key={`dg-${remountKey}`}
-            columns={dgColumns}
-            dataSource={data}
-            onChange={onChange}
-            showSorterTooltip={{ target: 'sorter-icon' }}
+          <HeadDg
             bordered={bordered}
-            pagination={{}}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-               pane 限高，虚拟窗口才有滚动区）；OFF 时回 undefined，行为与改造前一致。 */
             virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
+            remountKey={remountKey}
           />
         }
         right={
-          <AntdTable<RecordType>
-            key={`antd-${remountKey}`}
-            columns={antdColumns}
-            dataSource={data}
-            onChange={onChange as TableProps<RecordType>['onChange']}
-            showSorterTooltip={{ target: 'sorter-icon' }}
+          <HeadAntd
             bordered={bordered}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且表头/默认
-               分页画在 scroll.y 之外，需扣除表头~55 与分页条~64 → 约 280 才能塞进 pane 限高；
-               OFF 时回 undefined，行为与改造前一致）。 */
             virtual={virtual}
-            scroll={virtual ? { y: 280 } : undefined}
+            remountKey={remountKey}
           />
         }
       >

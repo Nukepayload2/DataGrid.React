@@ -15,15 +15,6 @@
  * - **共享数据**：`RecordType` + `data`（4 行，Team A/B 各 2 行）见
  *   `_compare/expand-sticky.shared.ts`。
  *
- * === antd demo 要素 ===
- *
- * - `bordered`。
- * - 合并行：Team 列每 2 行合并（`onCell` rowSpan: 2 / 0）。
- * - `Table.EXPAND_COLUMN` 哨兵控制展开列位置（Team 之后）。
- * - `expandable.expandedRowOffset: 3`（antd **已废弃**，等效于把展开列放在第 3 列位置，
- *   antd 建议改用 `Table.EXPAND_COLUMN`）。
- * - `expandable.expandedRowRender(record)`：展开 description。
- *
  * === 简化说明 ===
  *
  * antd 的 `expandedRowOffset` 已废弃（v5.26+）：设置后会强制把前 N 列设为固定列 + 展开列偏移。
@@ -32,84 +23,31 @@
  * （antd 本体仍接受该 prop，内部转为 EXPAND_COLUMN 等效行为）。两侧展开列位置应一致
  * （Team 之后、Name 之前）。
  *
- * === 两侧保留的差异 ===
+ * === 拆子文件（task：live 编辑接入，同 expand 模式）===
  *
- * - 哨兵来源：左栏 `Table.EXPAND_COLUMN` 来自 data-grid 引擎；右栏 antd 同名哨兵来自 antd 本体。
- * - 展开列位置控制：左栏纯靠 EXPAND_COLUMN 哨兵；右栏 antd demo 同时有哨兵 + 废弃 offset
- *   （offset 在 antd 本体内部等效哨兵，不产生额外视觉差异）。
- * - 展开过渡实现差异：左栏 data-grid grid track `0fr↔1fr`；右栏 antd 内置展开动画。
+ * 父文件只保留「外壳职责」：expandedRowKeys state（受控真理源，驱动两侧 + 顶部按钮组）+
+ * useVirtualization + DemoToolbar(Expand All / Collapse All 按钮组) + SplitDemo 外壳 +
+ * children 对照说明。
+ * 两侧表格 JSX 与 columns 拆到子文件：
+ *   - `./expand-sticky.dg`：`ExpandStickyDg({expandedRowKeys, onExpandedRowsChange, virtual})`（左栏）
+ *   - `./expand-sticky.antd`：`ExpandStickyAntd({expandedRowKeys, onExpandedRowsChange, virtual})`（右栏）
  *
- * === 验证点（M9 + 决策 9）===
- *
- * 1. 展开列位于 Team 列之后、Name 列之前（EXPAND_COLUMN 哨兵位置生效）——两侧一致。
- * 2. Team 列每 2 行合并（M3 合并 × M9 展开组合：合并 track 与展开 track 各自独立，互不干扰）。
- * 3. 展开内容跨整行（grid-column: 1 / -1），不受合并列影响。
- * 4. bordered + 展开视觉正确。
- * 5. 顶部「Expand All / Collapse All」一键展开/收起，同一份 expandedRowKeys 同时驱动两侧。
+ * ★ 状态提升说明：expandedRowKeys 必须留父——父渲染顶部 Expand All / Collapse All 按钮
+ *   组需直接读写它；且同一 state 驱动两侧同步。子组件接 expandedRowKeys + onExpandedRowsChange
+ *   回调（配置型 state 提升，默认值 []，纯瞬时态合理）。
  */
 
 import { useState } from 'react'
-import { Button, Space, Table as AntdTable, theme } from 'antd'
-import type { TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnOrSentinel, Expandable } from '../table'
+import { Button, Space, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, type RecordType } from './_compare/expand-sticky.shared'
+import { data } from './_compare/expand-sticky.shared'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（容器内 demo，可虚拟）
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）columns —— 哨兵控制位置（行为与改造前一致）
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnOrSentinel<RecordType>[] = [
-  {
-    title: 'Team',
-    dataIndex: 'team',
-    key: 'team',
-    width: 100,
-    // 每 2 行合并：偶数行 rowSpan=2，奇数行 rowSpan=0（被覆盖）。
-    onCell: (_record, index = 0) =>
-      index % 2 === 0 ? { rowSpan: 2 } : { rowSpan: 0 },
-  },
-  // 展开列位置哨兵：放在 Team 之后。
-  Table.EXPAND_COLUMN,
-  { title: 'Name', dataIndex: 'name', key: 'name', width: 150 },
-  { title: 'Age', dataIndex: 'age', key: 'age' },
-  { title: 'Address', dataIndex: 'address', key: 'address' },
-  {
-    title: 'Action',
-    dataIndex: '',
-    key: 'x',
-    render: () => <a>Delete</a>,
-  },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）columns —— 忠实复刻 antd expand-sticky demo
-// ---------------------------------------------------------------------------
-
-const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
-  {
-    title: 'Team',
-    dataIndex: 'team',
-    key: 'team',
-    onCell: (_record, index = 0) =>
-      index % 2 === 0 ? { rowSpan: 2 } : { rowSpan: 0 },
-    width: 100,
-  },
-  AntdTable.EXPAND_COLUMN,
-  { title: 'Name', dataIndex: 'name', key: 'name', width: 150 },
-  { title: 'Age', dataIndex: 'age', key: 'age' },
-  { title: 'Address', dataIndex: 'address', key: 'address' },
-  {
-    title: 'Action',
-    dataIndex: '',
-    key: 'x',
-    render: () => <a>Delete</a>,
-  },
-]
+// ★ 拆子文件后，左/右栏 JSX + columns + expandable 派生由子组件提供（props 驱动）。RecordType/data
+//   现在由子文件各自 import expand-sticky.shared；父文件只保留 data（用于 Expand All 派生所有行 key）。
+import ExpandStickyDg from './expand-sticky.dg'
+import ExpandStickyAntd from './expand-sticky.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -129,19 +67,9 @@ export default function ExpandStickyDemo() {
   // 一键收起所有行。
   const collapseAll = () => setExpandedRowKeys([])
 
-  // 左栏 data-grid expandable：纯靠 EXPAND_COLUMN 哨兵控位置，不消费废弃 offset。
-  const dgExpandable: Expandable<RecordType> = {
-    expandedRowRender: (record) => <div>{record.description}</div>,
-    expandedRowKeys,
-    onExpandedRowsChange: (keys) => setExpandedRowKeys([...keys]),
-  }
-
-  // 右栏 antd expandable：忠实复刻 antd demo（含废弃 expandedRowOffset: 3）。
-  const antdExpandable: NonNullable<TableProps<RecordType>['expandable']> = {
-    expandedRowOffset: 3,
-    expandedRowRender: (record) => <div>{record.description}</div>,
-    expandedRowKeys,
-    onExpandedRowsChange: (keys) => setExpandedRowKeys([...keys]),
+  // onExpandedRowsChange 回调（两侧同款）：规整成 React.Key[] 后回写共享 state（驱动两侧同步）。
+  const onExpandedRowsChange = (keys: Array<React.Key>) => {
+    setExpandedRowKeys([...keys])
   }
 
   return (
@@ -165,28 +93,17 @@ export default function ExpandStickyDemo() {
       <SplitDemo
         minPaneWidth={480}
         left={
-          <Table<RecordType>
-            bordered
-            columns={dgColumns}
-            expandable={dgExpandable}
-            dataSource={data}
-            pagination={{}}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-               给的限高，虚拟窗口才有滚动区）；OFF 时回 undefined，行为与改造前一致。 */
+          <ExpandStickyDg
+            expandedRowKeys={expandedRowKeys}
+            onExpandedRowsChange={onExpandedRowsChange}
             virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
           />
         }
         right={
-          <AntdTable<RecordType>
-            bordered
-            columns={antdColumns}
-            expandable={antdExpandable}
-            dataSource={data}
-            /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:300（antd 不认 true，需数字像素高度；
-               OFF 时回 undefined，行为与改造前一致）。 */
+          <ExpandStickyAntd
+            expandedRowKeys={expandedRowKeys}
+            onExpandedRowsChange={onExpandedRowsChange}
             virtual={virtual}
-            scroll={virtual ? { y: 300 } : undefined}
           />
         }
       >

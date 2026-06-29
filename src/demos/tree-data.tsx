@@ -51,81 +51,38 @@
  * 树形展开行视为**普通表格行**：非虚拟走约定 `rowHeight`（track），
  * 虚拟路径同样被 RO 实测（measured-first + 约定兜底）
  * （见 task-plan §1.2 决策 2 + GridTable.tsx 文件头注释）。
+ *
+ * === 拆子文件（task：live 编辑接入，同 basic 模式）===
+ *
+ * 父文件只保留「外壳职责」：checkStrictly state（受控真理源，驱动两侧 + 顶部 CheckStrictly
+ * Switch 控制条）+ useVirtualization + DemoToolbar(Switch CheckStrictly) + SplitDemo 外壳 +
+ * children 对照说明。两侧表格 JSX 与各自列定义/rowSelection 拆到子文件：
+ *   - `./tree-data.dg`：`TreeDataDg({checkStrictly, virtual})`（左栏）
+ *   - `./tree-data.antd`：`TreeDataAntd({checkStrictly, virtual})`（右栏）
+ *
+ * ★ 状态提升说明：checkStrictly 必须留父——父渲染顶部 CheckStrictly Switch 控制条需直接读写它；
+ *   且同一 state 驱动两侧同步。子组件接 checkStrictly 后各自拼到 rowSelection
+ *   （列类型两侧不同：data-grid ColumnType vs antd TableProps['columns']）。checkStrictly 是受控
+ *   配置型 state（非瞬时态），必须提升父；子组件用合理默认值 false 兜底编辑模式（对齐 antd demo）。
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `TreeDataDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
  */
 
 import { useState } from 'react'
-import { Space, Switch, Table as AntdTable, theme } from 'antd'
-import type { TableColumnsType, TableProps as AntdTableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType, TableProps } from '../table'
+import { Space, Switch, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, type RecordType } from './_compare/tree-data.shared'
 // 虚拟化开关接入（决策 7）：顶栏 Switch ON 时两侧 Table 叠加 virtual + scroll.y。
 // 树形展开行视为普通行（决策 2），虚拟路径同样被 RO 实测（measured-first + 约定兜底）。
 import { useVirtualization } from './VirtualizationContext'
-
-type TableRowSelection<T extends object = object> = TableProps<T>['rowSelection']
-
-// ---------------------------------------------------------------------------
-// 列定义 —— 两侧同款（Name/Age/Address 纯文本，无 render）。类型各自归位。
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<RecordType>[] = [
-  { title: 'Name', dataIndex: 'name', key: 'name' },
-  { title: 'Age', dataIndex: 'age', key: 'age', width: '12%' },
-  { title: 'Address', dataIndex: 'address', key: 'address', width: '30%' },
-]
-
-const antdColumns: TableColumnsType<RecordType> = [
-  { title: 'Name', dataIndex: 'name', key: 'name' },
-  { title: 'Age', dataIndex: 'age', key: 'age', width: '12%' },
-  { title: 'Address', dataIndex: 'address', key: 'address', width: '30%' },
-]
-
-// ---------------------------------------------------------------------------
-// rowSelection —— 各侧独立（非跨栏同步选中态）；仅 checkStrictly 共享。
-// 注：antd demo 含 onSelect（单行勾选回调）console.log；data-grid TableRowSelection
-// 尚未声明 onSelect（决策 3 第二步补齐），这里仅保留 onChange（功能等价：onChange 在每次
-// 勾选时触发，可在其中观察 selectedRowKeys 变化）。
-// ---------------------------------------------------------------------------
-
-const dgRowSelectionBase: TableRowSelection<RecordType> = {
-  onChange: (selectedRowKeys, selectedRows, info) => {
-    // eslint-disable-next-line no-console
-    console.log(
-      `[data-grid] selectedRowKeys: ${selectedRowKeys}`,
-      'selectedRows: ',
-      selectedRows,
-      'info',
-      info,
-    )
-  },
-}
-
-const antdRowSelectionBase: AntdTableProps<RecordType>['rowSelection'] = {
-  onChange: (selectedRowKeys, selectedRows, info) => {
-    // eslint-disable-next-line no-console
-    console.log(
-      `[antd] selectedRowKeys: ${selectedRowKeys}`,
-      'selectedRows: ',
-      selectedRows,
-      'info',
-      info,
-    )
-  },
-  onSelect: (record, selected, selectedRows) => {
-    // eslint-disable-next-line no-console
-    console.log('[antd] onSelect:', record, selected, selectedRows)
-  },
-}
-
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
+// ★ 拆子文件后，左/右栏 JSX + 各自列定义 + rowSelection 由子组件提供（props 驱动）。
+//   RecordType/data 现在由子文件各自 import tree-data.shared；父文件不再需要。
+import TreeDataDg from './tree-data.dg'
+import TreeDataAntd from './tree-data.antd'
 
 export default function TreeDataDemo() {
-  // ★ 共享状态：同一个 checkStrictly state 同时驱动两侧表格。
+  // ★ 共享状态（提升到父）：同一个 checkStrictly state 同时驱动两侧表格。
   // 默认 false（父子联动），对齐 antd tree-data demo（§9 S13：data-grid 引擎默认 true，此处
   // 显式传 false 覆盖，对齐 antd demo 演示意图）。
   const [checkStrictly, setCheckStrictly] = useState(false)
@@ -158,36 +115,8 @@ export default function TreeDataDemo() {
       */}
       <SplitDemo
         minPaneWidth={480}
-        left={
-          // ★ 翻页器对齐（任务 G）：
-          // antd tree-data demo 不传 pagination → antd 默认 pagination 开启
-          // （defaultPageSize=10 / defaultCurrent=1 / placement=bottomEnd，antd Table 默认）。
-          // data-grid 默认不分页（§9 S11：pagination 默认 undefined=全显），故**左栏需显式
-          // 传 pagination={{}}** 复刻 antd 默认分页行为（启用 + antd Pagination 默认配置）。
-          // 本 demo 顶层仅 2 行（John Brown sr. + Joe Black，分页基于**顶层记录**而非展开后总数），
-          // pageSize=10 → 单页即可容纳，但翻页器**会渲染**（total=2，single page）——与 antd 一致。
-          <Table<RecordType>
-            columns={dgColumns}
-            rowSelection={{ ...dgRowSelectionBase, checkStrictly }}
-            dataSource={data}
-            pagination={{}}
-            // 虚拟化（决策 7）：ON→virtual+scroll.y=true（CSS 自适应高度，SplitDemo 限高 pane body 提供可滚动区域）；OFF→不传，非虚拟全量 DOM（零回归）。
-            virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
-          />
-        }
-        right={
-          // 右栏 antd Table 忠实复刻 antd tree-data demo：不传 pagination → antd 默认开启分页
-          // （与左栏 data-grid 显式 pagination={{}} 等价，两侧行为一致）。
-          <AntdTable<RecordType>
-            columns={antdColumns}
-            rowSelection={{ ...antdRowSelectionBase, checkStrictly }}
-            dataSource={data}
-            // 虚拟化（决策 7）：ON→virtual+scroll.y=300（有分页，antd scroll.y 须数字）；OFF→不传，非虚拟（零回归）。
-            virtual={virtual}
-            scroll={virtual ? { y: 300 } : undefined}
-          />
-        }
+        left={<TreeDataDg checkStrictly={checkStrictly} virtual={virtual} />}
+        right={<TreeDataAntd checkStrictly={checkStrictly} virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 B15 / S13 树形数据）：</strong>

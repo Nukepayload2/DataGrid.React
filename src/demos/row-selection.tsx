@@ -4,16 +4,24 @@
  * === 决策 9 双栏对照 ===
  *
  * - **左栏（data-grid Table）**：行为与改造前一致（rowSelection type 切换 + getCheckboxProps
- *   禁用 "Disabled User" 行 + onChange 回调 + 页面 selectedKeys 可视化）。type 用原生
- *   `<input type="radio">` 最小 RadioGroup（data-grid 引擎不依赖 antd 本体控件）。
+ *   禁用 "Disabled User" 行 + onChange 回调）。type 用原生 `<input type="radio">` 最小 RadioGroup
+ *   （data-grid 引擎不依赖 antd 本体控件）。
  * - **右栏（antd Table）**：忠实复刻 antd row-selection demo（antd `<Radio.Group>` + antd
- *   `<Divider>` + antd 原生 rowSelection，不再用左栏原生 input radio 等价实现）。
+ *   `<Divider>` + antd 原生 rowSelection）。
  * - **共享控制条**：`Selection Type` Radio.Group（Checkbox/Radio 切换），同一个 state
  *   同时驱动两侧 `rowSelection.type`；切换 type 时同步清空 selectedKeys（避免 checkbox→radio
  *   残留多选），**两侧同步清空**。
  * - **共享状态**：`selectedKeys`（受控）+ `selectionType`，**同一组 state 同时驱动两侧**；
  *   两侧 onChange 都写回同一个 selectedKeys，diff 选中差异（§9 disabled 行灰底差异对照）。
  * - **共享数据**：`RecordType` + `data` 见 `_compare/row-selection.shared.ts`。
+ *
+ * === ★ 行选择 state 处理（SOP 提升）===
+ *
+ * 顶部控制条需直接操作「切 type 时清空选择」→ 选择 state **提升到父**（而非子组件自管）：
+ *   - `selectedKeys` + `selectionType` 在父组件 useState；
+ *   - 两侧子组件均受控（selectedRowKeys = 父 props，onChange → onSelectedKeysChange 写回父）；
+ *   - type 切换通过 onTypeChange 回调，父同时 setSelectionType + setSelectedKeys([])，两侧同步。
+ * 故 `selectedKeys` prop 默认 [] 合理（初始无选择是有效态）。
  *
  * === antd demo 要素（M5）===
  *
@@ -22,141 +30,50 @@
  *     * onChange(selectedRowKeys, selectedRows)：antd demo 用 console.log。
  *     * getCheckboxProps(record)：禁用 "Disabled User" 行（record.name === 'Disabled User'），
  *       并透传 name（antd demo 同款）。
- * - 数据：4 行，最后一行被禁用。
+ * - 数据：4 行，最后一行被禁用（_compare/row-selection.shared.ts，静态导出 → 无 T1 空表问题）。
  *
  * === 两侧保留的差异 ===
  *
  * 1. **type 控件**：左栏用原生 `<input type="radio">` 最小 RadioGroup（决策 6 允许非核心控件
  *    用 antd，但 data-grid 引擎本身不依赖 antd 本体，保留改造前的原生实现）；右栏 antd
  *    `<Radio.Group>`。
- * 2. **分隔线**：左栏用 `border-top`；右栏 antd `<Divider>`。
+ * 2. **分隔线**：左栏用 `border-top`（颜色 var(--ant-color-border-secondary)）；右栏 antd `<Divider>`。
  * 3. **onChange 回调签名**：data-grid `onChange(keys, rows, info)` 三参；antd `onChange(keys, rows)`
  *    两参。两侧均 console.log 实际入参（对照可看 console）。
  *
  * === §11 row-selection 外观对齐说明（★ disabled 行无灰底属正确，非差异）===
  *
  * 原 §9 登记「M5 disabled 行无整行灰底」曾误判为差异——经 antd 6.4.4 源码核实为**错误登记**：
- *   - antd `components/table/style/selection.ts:97-114` 只定义了 `row-selected` / `row-hover` 两态
- *     行背景，**无 disabled 行背景规则**。
- *   - antd `components/table/style/index.ts` 全表样式也无任何 disabled-row 背景类。
- *   - antd `components/table/hooks/useSelection.tsx` 只在 checkbox 自身上透传 `disabled`（getCheckboxProps），
- *     不给行加任何 class。
- *   - 唯一 disabled 视觉来自 antd **Checkbox 组件自身**（`components/checkbox/style/index.ts:227-251`）：
- *     `.ant-checkbox-disabled { background: colorBgContainerDisabled; borderColor: colorBorder }`——
- *     **仅作用于 16×16 方框**，行 td 无任何背景变化。
- *   - 实测 antd row-selection demo 右栏 "Disabled User" 行：整行白底，仅 checkbox 方框灰（行 td 背景与
- *     普通行一致）。
- *   - data-grid 的 SelectionInput 渲染 antd `<Checkbox>`/`<Radio>`（决策 6 统一化），disabled 透传
- *     → antd Checkbox/Radio 的 disabled 样式自动接管（方框灰、colorBgContainerDisabled 背景）。
- *   - 故 data-grid disabled 行视觉与 antd **逐像素一致**（整行白底 + 方框灰）——**无差异，无需修**。
- *   - 本任务不新增 dg-row-disabled 类（加了反而与 antd 不符）。
+ * antd selection.ts/index.ts 无 disabled 行背景规则，disabled 视觉仅来自 Checkbox 组件自身
+ * （colorBgContainerDisabled 作用于 16×16 方框）。data-grid SelectionInput 渲染 antd Checkbox/Radio
+ * + 透传 disabled → 视觉逐像素对齐（整行白底 + 方框灰）——**无差异，无需修**，本任务不新增
+ * dg-row-disabled 类。
  *
- * 选择列 padding（§11 本任务修复）：antd `selection.ts:49-61` 给选择列单独设 paddingXS(4px/4px)，
- *   不随 size 变化。data-grid 原沿用普通 cell padding（16/16）→ 列宽 32px 下勾选框被挤。已在
- *   table.css `.dg-cell[data-column-key='__dg_selection__']` 修复（padding-inline = paddingXS）。
+ * 选择列 padding（§11）：antd selection.ts:49-61 给选择列单独设 paddingXS(4px)，已在 table.css
+ * `.dg-cell[data-column-key='__dg_selection__']` 收紧对齐。
  *
- * === 验证点（M5 + 决策 9 + §11）===
+ * === 拆子文件（task #54：live 编辑接入，同 basic 模式）===
  *
- * 【checkbox 模式】
- * 1. 勾选某行 → 表头反映状态；表头全选框三态（未选/全选/半选）。
- * 2. 表头全选切换；"Disabled User" 行 checkbox 不可勾选（点击无反应、视觉 disabled——方框灰，
- *    整行白底与普通行一致，与 antd 一致）。
- * 【radio 模式】
- * 3. 单选互斥；表头无全选框；"Disabled User" 行 radio 不可选（圆圈灰，整行白底）。
- * 【§11 对齐点】
- * 4. **disabled 行视觉**：两侧 "Disabled User" 整行均白底（无灰底）+ 勾选框灰——逐格一致（非差异）。
- * 5. **选择列 padding**：两侧选择列单元格左右 padding = 4px（antd paddingXS），勾选框水平居中。
- * 6. **表头全选半选**：部分选中时表头 checkbox 显示 indeterminate 8×8 蓝方块（antd Checkbox 原生）。
- * 7. **选中行色**：选中行整行 `--ant-table-row-selected-bg`；选中+hover `--ant-table-row-selected-hover-bg`。
- * 8. **行 hover 色**：非选中行 hover `--ant-table-row-hover-bg`。
- * 9. 两侧 onChange 各自 console.log（selectedRowKeys + selectedRows）。
- * 10. 切换 type → 两侧 selectedKeys 同步清空（共享 state）。
+ * 父文件只保留「外壳职责」：selectionType/selectedKeys state + useVirtualization +
+ * DemoToolbar(Radio.Group Selection Type) + SplitDemo 外壳 + children 对照说明。两侧表格 JSX 与
+ * columns 拆到子文件（受控 props 驱动）：
+ *   - `./row-selection.dg`：`RowSelectionDg({selectionType, selectedKeys, onTypeChange, onSelectedKeysChange, virtual})`
+ *   - `./row-selection.antd`：`RowSelectionAntd({selectionType, selectedKeys, onTypeChange, onSelectedKeysChange, virtual})`
+ *
+ * 默认渲染（App SplitDemoPreview 默认模式）直接渲染本文件 `RowSelectionDemo`，零编辑开销；
+ * live 编辑模式 SplitDemoPreview 静态 import 真实子组件并按 editedDg/editedAntd 替换。
  */
 
 import { useState } from 'react'
-import { Divider, Radio, Space, Table as AntdTable, theme } from 'antd'
-import type { TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnType, TableRowSelection } from '../table'
+import { Radio, Space, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-import { data, type RecordType } from './_compare/row-selection.shared'
-// 虚拟化开关（决策 7）：顶栏 Switch 全局驱动两侧 Table 的 virtual + scroll.y。
+// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）列定义 —— 行为与改造前一致
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnType<RecordType>[] = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    render: (text: string) => <a>{text}</a>,
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-  },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd row-selection demo
-// ---------------------------------------------------------------------------
-
-const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    render: (text: string) => <a>{text}</a>,
-  },
-  {
-    title: 'Age',
-    dataIndex: 'age',
-  },
-  {
-    title: 'Address',
-    dataIndex: 'address',
-  },
-]
-
-// ---------------------------------------------------------------------------
-// 左栏：最小 Radio.Group（原生 input[type='radio']，视觉对齐 antd）。保留改造前实现。
-// ---------------------------------------------------------------------------
-
-function RadioGroup({
-  value,
-  onChange,
-  options,
-}: {
-  value: 'checkbox' | 'radio'
-  onChange: (v: 'checkbox' | 'radio') => void
-  options: Array<{ value: 'checkbox' | 'radio'; label: string }>
-}) {
-  return (
-    <span style={{ display: 'inline-flex', gap: 16 }}>
-      {options.map((opt) => (
-        <label
-          key={opt.value}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}
-        >
-          <input
-            type="radio"
-            name="selection-type-dg"
-            checked={value === opt.value}
-            onChange={() => onChange(opt.value)}
-            style={{ margin: 0 }}
-          />
-          {opt.label}
-        </label>
-      ))}
-    </span>
-  )
-}
+// ★ 拆子文件后，左/右栏 JSX + columns 由子组件提供（受控 props 驱动）。RecordType/data 现在由
+//   子文件各自 import row-selection.shared；父文件不再需要（state 提升后只需 React.Key 类型）。
+import RowSelectionDg from './row-selection.dg'
+import RowSelectionAntd from './row-selection.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -165,10 +82,11 @@ function RadioGroup({
 type SelectionType = 'checkbox' | 'radio'
 
 export default function RowSelectionDemo() {
-  // ★ 共享状态：同一组 state 同时驱动两侧表格。
+  // ★ 共享状态（提升到父）：同一组 state 同时驱动两侧表格。
+  // 选择 state 提升原因：顶部控制条需直接操作「切 type 时清空选择」（SOP 外部控制选择场景）。
   const [selectionType, setSelectionType] = useState<SelectionType>('checkbox')
   const [selectedKeys, setSelectedKeys] = useState<Array<React.Key>>([])
-  // 虚拟化开关（决策 7）：顶栏 Switch ON 时两侧 Table 接入 virtual + scroll.y。
+  // 全局虚拟化开关接入：开关 ON 时两侧 Table 接入 virtual + scroll.y。
   const { virtual } = useVirtualization()
   const { token } = theme.useToken()
 
@@ -176,38 +94,6 @@ export default function RowSelectionDemo() {
   const handleTypeChange = (v: SelectionType) => {
     setSelectionType(v)
     setSelectedKeys([])
-  }
-
-  // 左栏（data-grid）rowSelection：selectedRowKeys 受控（共享 state）+ onChange 写回同一 state。
-  const dgRowSelection: TableRowSelection<RecordType> = {
-    type: selectionType,
-    selectedRowKeys: selectedKeys,
-    onChange: (keys, rows) => {
-      // 与 antd demo 一致：console.log 输出（便于浏览器 console 对照）。
-      // eslint-disable-next-line no-console
-      console.log(`selectedRowKeys: ${JSON.stringify(keys)}`, 'selectedRows: ', rows)
-      setSelectedKeys(keys)
-    },
-    getCheckboxProps: (record: RecordType) => ({
-      disabled: record.name === 'Disabled User', // 禁用"Disabled User"行
-      name: record.name,
-    }),
-  }
-
-  // 右栏（antd）rowSelection：selectedRowKeys 受控（共享 state）+ onChange 写回同一 state。
-  // ★ 与 antd row-selection demo 逐字一致（onChange + getCheckboxProps），叠加 type + selectedRowKeys 受控。
-  const antdRowSelection: TableProps<RecordType>['rowSelection'] = {
-    type: selectionType,
-    selectedRowKeys: selectedKeys,
-    onChange: (keys: React.Key[], rows: RecordType[]) => {
-      // eslint-disable-next-line no-console
-      console.log(`selectedRowKeys: ${keys}`, 'selectedRows: ', rows)
-      setSelectedKeys(keys)
-    },
-    getCheckboxProps: (record: RecordType) => ({
-      disabled: record.name === 'Disabled User', // Column configuration not to be checked
-      name: record.name,
-    }),
   }
 
   return (
@@ -233,47 +119,22 @@ export default function RowSelectionDemo() {
       <SplitDemo
         minPaneWidth={480}
         left={
-          <div>
-            <RadioGroup
-              value={selectionType}
-              onChange={handleTypeChange}
-              options={[
-                { value: 'checkbox', label: 'Checkbox' },
-                { value: 'radio', label: 'Radio' },
-              ]}
-            />
-            {/* 分割线（antd demo 用 <Divider />，这里用 border-top 替代）。 */}
-            <div style={{ borderTop: `1px solid ${token.colorBorderSecondary}`, margin: '0 0 16px' }} />
-            {/* 虚拟化（决策 7）：ON→virtual+scroll.y=true（CSS 自适应高度，SplitDemo 限高 pane body 提供可滚动区域）；OFF→不传，非虚拟全量 DOM（零回归）。 */}
-            <Table<RecordType>
-              rowSelection={dgRowSelection}
-              columns={dgColumns}
-              dataSource={data}
-              pagination={{}}
-              virtual={virtual}
-              scroll={virtual ? { y: true } : undefined}
-            />
-          </div>
+          <RowSelectionDg
+            selectionType={selectionType}
+            selectedKeys={selectedKeys}
+            onTypeChange={handleTypeChange}
+            onSelectedKeysChange={setSelectedKeys}
+            virtual={virtual}
+          />
         }
         right={
-          <div>
-            <Radio.Group
-              onChange={(e) => handleTypeChange(e.target.value as SelectionType)}
-              value={selectionType}
-            >
-              <Radio value="checkbox">Checkbox</Radio>
-              <Radio value="radio">Radio</Radio>
-            </Radio.Group>
-            <Divider />
-            {/* 虚拟化（决策 7）：ON→virtual+scroll.y=300（有分页，antd scroll.y 须数字）；OFF→不传，非虚拟（零回归）。 */}
-            <AntdTable<RecordType>
-              rowSelection={antdRowSelection}
-              columns={antdColumns}
-              dataSource={data}
-              virtual={virtual}
-              scroll={virtual ? { y: 300 } : undefined}
-            />
-          </div>
+          <RowSelectionAntd
+            selectionType={selectionType}
+            selectedKeys={selectedKeys}
+            onTypeChange={handleTypeChange}
+            onSelectedKeysChange={setSelectedKeys}
+            virtual={virtual}
+          />
         }
       >
         <div>
@@ -295,10 +156,9 @@ export default function RowSelectionDemo() {
             </li>
             <li>
               <strong>★ §11 disabled 行视觉（非差异）</strong>：两侧 <strong>"Disabled User"</strong>
-              整行均<strong>白底</strong>（无灰底）+ 勾选框方框灰。经 antd 6.4.4 源码核实：antd
-              selection.ts/index.ts <strong>无 disabled 行背景规则</strong>，disabled 视觉仅来自
-              Checkbox 组件自身（<code>colorBgContainerDisabled</code> 作用于 16×16 方框）。data-grid
-              的 SelectionInput 渲染 antd Checkbox/Radio + 透传 disabled → 视觉逐像素对齐。
+              整行均<strong>白底</strong>（无灰底）+ 勾选框方框灰。经 antd 6.4.4 源码核实 disabled 视觉
+              仅来自 Checkbox 组件自身（<code>colorBgContainerDisabled</code> 作用于 16×16 方框），
+              data-grid 的 SelectionInput 渲染 antd Checkbox/Radio + 透传 disabled → 视觉逐像素对齐。
               原 §9「M5 disabled 行无灰底」登记为<strong>误判</strong>（本任务不新增 dg-row-disabled 类）。
             </li>
             <li>

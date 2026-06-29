@@ -65,9 +65,9 @@ const antdColumns: TableColumnsType<DataType> = [
 ]
 
 export default function FixedColumnsAntd({
-  bordered,
-  size,
-  virtual,
+  bordered = false,
+  size = 'medium',
+  virtual = false,
 }: {
   bordered: boolean
   size: 'medium' | 'large'

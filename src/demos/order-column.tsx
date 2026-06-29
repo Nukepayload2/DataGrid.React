@@ -14,13 +14,6 @@
  * - **无独立控制条**：本 demo antd 原始结构无控制条（哨兵位置由 columns 数组静态决定），
  *   无需共享控件；两栏直接静态呈现。
  *
- * === antd demo 要素 ===
- *
- * - columns 数组中通过 `Table.EXPAND_COLUMN` 和 `Table.SELECTION_COLUMN` 哨兵
- *   控制展开列 / 选择列的位置（不一定首列）。
- * - antd demo 的列顺序：Name → EXPAND_COLUMN → Age → SELECTION_COLUMN → Address。
- * - 同时配 `rowSelection={{}}`（默认 checkbox）和 `expandable.expandedRowRender`。
- *
  * === 两侧保留的差异 ===
  *
  * - 基本逐字复刻（columns 顺序 / rowSelection / expandable 一致）。
@@ -31,63 +24,32 @@
  * - 左栏 rowSelection 用受控 selectedRowKeys（便于页面下方显示），右栏 antd 用 `rowSelection={{}}`
  *   非受控（与 antd demo 逐字一致）。此差异不影响哨兵位置验证（核心目标）。
  *
- * === 验证点（M9 + M5 + S10 + 决策 9）===
+ * === 拆子文件（task：live 编辑接入，同 expand 模式）===
  *
- * 1. 两侧展开列均位于 Name 与 Age 之间（EXPAND_COLUMN 哨兵位置生效）。
- * 2. 两侧选择列均位于 Age 与 Address 之间（SELECTION_COLUMN 哨兵位置生效）。
- * 3. 两侧勾选 / 展开独立工作（M5 × M9 组合，互不干扰）。
- * 4. 选择列：checkbox 全选/半选/单选；展开列：展开/收起 0fr↔1fr 过渡。
- * 5. antd demo 未设 rowExpandable，4 行均可展开（"Not Expandable" 仅文字）——两侧忠实。
+ * 父文件只保留「外壳职责」：selectedKeys state（左栏受控真理源，驱动父底部 selectedKeys 可视化区）+
+ * useVirtualization + SplitDemo 外壳 + children 对照说明 + 左栏选中态可视化区。
+ * 两侧表格 JSX 与 columns 拆到子文件：
+ *   - `./order-column.dg`：`OrderColumnDg({selectedKeys, onSelectedKeysChange, virtual})`（左栏）
+ *   - `./order-column.antd`：`OrderColumnAntd({virtual})`（右栏，rowSelection 非受控自管）
+ *
+ * ★ 状态提升说明：左栏 dg 的 selectedKeys 必须留父——父底部「左栏 data-grid selectedKeys」
+ *   可视化区需直接读取它（便于无 console 环境验证选择功能）。右栏 antd rowSelection={{}}
+ *   非受控（与 antd demo 逐字一致），选择 state 在子组件内自管，父无需也不读取它。
  */
 
 import { useState } from 'react'
-import { Table as AntdTable, theme } from 'antd'
-import type { TableProps } from 'antd'
-import { Table } from '../table'
-import type { ColumnOrSentinel, Expandable, TableRowSelection } from '../table'
+import { theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
-import { data, type RecordType } from './_compare/order-column.shared'
 // 虚拟化开关（决策 7）：顶栏 Switch 全局驱动两侧 Table 的 virtual + scroll.y。
 import { useVirtualization } from './VirtualizationContext'
-
-// ---------------------------------------------------------------------------
-// 左栏（data-grid）columns —— 哨兵控制位置（行为与改造前一致）
-// ---------------------------------------------------------------------------
-
-const dgColumns: ColumnOrSentinel<RecordType>[] = [
-  { title: 'Name', dataIndex: 'name', key: 'name' },
-  // 展开列哨兵：放在 Name 之后。
-  Table.EXPAND_COLUMN,
-  { title: 'Age', dataIndex: 'age', key: 'age' },
-  // 选择列哨兵：放在 Age 之后。
-  Table.SELECTION_COLUMN,
-  { title: 'Address', dataIndex: 'address', key: 'address' },
-]
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）columns —— 忠实复刻 antd order-column demo
-// ---------------------------------------------------------------------------
-
-const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
-  { title: 'Name', dataIndex: 'name', key: 'name' },
-  AntdTable.EXPAND_COLUMN,
-  { title: 'Age', dataIndex: 'age', key: 'age' },
-  AntdTable.SELECTION_COLUMN,
-  { title: 'Address', dataIndex: 'address', key: 'address' },
-]
+// ★ 拆子文件后，左/右栏 JSX + columns + expandable/rowSelection 派生由子组件提供（props 驱动）。
+//   RecordType/data 现在由子文件各自 import order-column.shared；父文件不再需要。
+import OrderColumnDg from './order-column.dg'
+import OrderColumnAntd from './order-column.antd'
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
 // ---------------------------------------------------------------------------
-
-// expandable 两侧同款（expandedRowRender 渲染 description 段落）。
-const expandable: Expandable<RecordType> = {
-  expandedRowRender: (record) => <p style={{ margin: 0 }}>{record.description}</p>,
-}
-
-const antdExpandable: NonNullable<TableProps<RecordType>['expandable']> = {
-  expandedRowRender: (record) => <p style={{ margin: 0 }}>{record.description}</p>,
-}
 
 export default function OrderColumnDemo() {
   // 左栏 rowSelection 受控（便于页面下方显示 selectedKeys，对照验证选择功能）。
@@ -98,13 +60,10 @@ export default function OrderColumnDemo() {
   // colorTextTertiary≈rgba(0,0,0,0.45)），暗主题自适应。
   const { token } = theme.useToken()
 
-  const dgRowSelection: TableRowSelection<RecordType> = {
-    selectedRowKeys: selectedKeys,
-    onChange: (keys) => setSelectedKeys(keys),
+  // 左栏 dg 选择变化写回父 state（驱动父底部 selectedKeys 可视化区刷新）。
+  const onSelectedKeysChange = (keys: Array<React.Key>) => {
+    setSelectedKeys(keys)
   }
-
-  // 右栏 antd rowSelection 与 antd demo 逐字一致（{} 非受控默认 checkbox）。
-  const antdRowSelection: TableProps<RecordType>['rowSelection'] = {}
 
   return (
     <div style={{ padding: 24 }}>
@@ -115,26 +74,13 @@ export default function OrderColumnDemo() {
       <SplitDemo
         minPaneWidth={480}
         left={
-          <Table<RecordType>
-            columns={dgColumns}
-            rowSelection={dgRowSelection}
-            expandable={expandable}
-            dataSource={data}
-            pagination={{}}
+          <OrderColumnDg
+            selectedKeys={selectedKeys}
+            onSelectedKeysChange={onSelectedKeysChange}
             virtual={virtual}
-            scroll={virtual ? { y: true } : undefined}
           />
         }
-        right={
-          <AntdTable<RecordType>
-            columns={antdColumns}
-            rowSelection={antdRowSelection}
-            expandable={antdExpandable}
-            dataSource={data}
-            virtual={virtual}
-            scroll={virtual ? { y: 300 } : undefined}
-          />
-        }
+        right={<OrderColumnAntd virtual={virtual} />}
       >
         <div>
           <strong>对照说明（决策 9 B9 / S10 列顺序）：</strong>
