@@ -39,8 +39,9 @@ export default function ExpandStickyDg({
   onExpandedRowsChange: (keys: Array<React.Key>) => void
   virtual: boolean
 }) {
-  // 纯靠 EXPAND_COLUMN 哨兵控位置，不消费 antd 废弃 expandedRowOffset（data-grid 无此 prop）。
+  // 与 antd demo 保持同款偏移：展开内容跳过 Team / 展开列 / Name，从 Age 列开始。
   const dgExpandable: Expandable<RecordType> = {
+    expandedRowOffset: 3,
     expandedRowRender: (record) => <div>{record.description}</div>,
     expandedRowKeys,
     onExpandedRowsChange,

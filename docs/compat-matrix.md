@@ -31,11 +31,8 @@
 | `rowSelection.columnTitle` | rowSelection | 未实现 | 自定义选择列表头格内容（ReactNode 或 `(checkboxNode) => ReactNode`）。dg 无此字段。 | antd `interface.ts:243`；dg `types.ts:192-318`（无 `columnTitle`）|
 | `rowSelection.onCell` | rowSelection | 未实现 | 选择列单元格 props 注入。dg 无此字段。 | antd `interface.ts:253`；dg `types.ts:192-318`（无 `onCell`）|
 | `rowSelection.getTitleCheckboxProps` | rowSelection | 未实现 | 表头勾选框的 props（v6 新增）。dg 无此字段。 | antd `interface.ts:254-255`；dg `types.ts:192-318`（无此字段）|
-| `expandable.expandRowByClick` | expandable | 未实现 | 点击行触发展开。dg 仅图标触发。 | antd `interface.ts` ExpandableConfig:179；dg `types.ts:1084-1085`（明示未覆盖）|
-| `expandable.expandedRowClassName` | expandable | 未实现 | 展开行的 className。dg 未实现。 | antd `interface.ts` ExpandableConfig；dg `types.ts:1084`（明示未覆盖）|
 | `expandable.columnTitle` | expandable | 未实现 | 展开列列表头自定义内容。dg 未实现。 | antd rc-table `ExpandableConfig.columnTitle`；dg `types.ts:1084` |
 | `expandable.fixed` | expandable | 未实现 | 展开列固定方向（'left'\|'right'）。dg 未实现。 | antd `ExpandableConfig.fixed`；dg `types.ts:1107-1158`（无 `fixed`）|
-| `expandable.expandedRowOffset` | expandable | 未实现 | 展开行偏移（树形缩进微调）。dg 未实现。 | antd `ExpandableConfig.expandedRowOffset`；dg `types.ts:1107-1158` |
 | `components.table` | components | 未实现 | 整个 `<table>` 替换。dg 无 table 元素。 | antd rc-table components；dg `types.ts:742-769`（TableComponents 仅 header/body，无 table）|
 | `components.header.table` | components | 未实现 | 表头 `<table>` 替换。 | dg `types.ts:747-749`（header 只有 `cell`）|
 | `components.header.wrapper` | components | 未实现 | 表头 `<thead>` 替换。 | dg `types.ts:747-749`（仅 `cell`）|
@@ -73,7 +70,7 @@
 |-----|------|--------|-----------|------|
 | `scroll`（整体） | TableProps | 部分兼容 | `x` 接受 `number\|string`（rc-table 另接受 `true`）；`y` 仅 `true`（不接受 number=max-height）。`scrollToFirstRowOnChange` 未实现。 | rc-table `Table.d.ts:53-56`；dg `types.ts:990, 1313` |
 | `rowSelection`（整体） | rowSelection | 部分兼容 | 覆盖：`type/selectedRowKeys/defaultSelectedRowKeys/onChange/getCheckboxProps/columnWidth/fixed/hideSelectAll/align/selections/preserveSelectedRowKeys/checkStrictly/renderCell`。缺：`onSelect/columnTitle/onCell/getTitleCheckboxProps`。`onSelectMultiple/All/Invert/None` 已废弃→`onChange`，无回归。 | antd `interface.ts:222-256`；dg `types.ts:192-318` |
-| `expandable`（整体） | expandable | 部分兼容 | 覆盖：`expandedRowRender/rowExpandable/expandedRowKeys/defaultExpandedRowKeys/onExpand/onExpandedRowsChange/columnWidth/expandIcon/defaultExpandAllRows/showExpandColumn/childrenColumnName/indentSize`。缺：`expandRowByClick/expandedRowClassName/columnTitle/fixed/expandedRowOffset`。 | antd `ExpandableConfig`；dg `types.ts:1078-1158` |
+| `expandable`（整体） | expandable | 部分兼容 | 覆盖：`expandedRowRender/expandedRowOffset/rowExpandable/expandedRowKeys/defaultExpandedRowKeys/onExpand/onExpandedRowsChange/columnWidth/expandIcon/defaultExpandAllRows/showExpandColumn/childrenColumnName/indentSize/expandRowByClick/expandedRowClassName`。缺：`columnTitle/fixed`。 | antd `ExpandableConfig`；dg `types.ts:1078-1158` |
 | `components`（整体） | components | 部分兼容 | 覆盖：`header.cell`/`body.cell`/`body.row`。缺：`table/header.table/header.wrapper/header.row/body.wrapper/body 函数形态`。语义有适配（cell/row 见「名兼义异」）。 | antd rc-table components；dg `types.ts:742-769` |
 | `sticky`（整体） | TableProps | 部分兼容 | 覆盖：`boolean \| { offsetHeader?, offsetScroll?, getContainer? }`，页面级 sticky 表头 + 底部 fake scrollbar。缺：`offsetSummary`。 | antd rc-table `interface.d.ts:199`；dg `types.ts:1017-1054, 1658` |
 | `filterDropdownProps` | ColumnType | 部分兼容 | dg 仅透传子集（`open`/`onOpenChange` 等被消费），antd 完整 `CoverableDropdownProps`（Omit DropdownProps 一组字段）。 | antd `interface.ts:138-149, 178`；dg `engine\FilterDropdown.tsx:452-471`（仅消费 onOpenChange 等）|
@@ -157,7 +154,7 @@
 
 4. **`rowSelection` 缺 `onSelect/columnTitle/onCell/getTitleCheckboxProps`**（均非 deprecated）。`onSelectMultiple/All/Invert/None` 已 deprecated→`onChange`，无回归。证据：antd `interface.ts:230, 243, 253, 254-255`；dg `types.ts:192-318`。
 
-5. **`expandable` 缺 `expandRowByClick/expandedRowClassName/columnTitle/fixed/expandedRowOffset`**。证据：antd `ExpandableConfig`；dg `types.ts:1084-1085, 1107-1158`。
+5. **`expandable` 缺 `columnTitle/fixed`**。证据：antd `ExpandableConfig`；dg `types.ts:1084-1085, 1107-1158`。
 
 6. **`components` 缺 `table/header.table/header.wrapper/header.row/body(wrapper)/body 函数形态`**。`body.cell`/`body.row` 已通，但语义有适配（见「名兼义异」）。证据：dg `types.ts:742-769`。
 

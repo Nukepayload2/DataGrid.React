@@ -1177,7 +1177,7 @@ export const TABLE_LOCALE_DEFAULT = {
 /**
  * antd `expandable` 接口。
  *
- * **覆盖**：`expandedRowRender`、`rowExpandable`、`defaultExpandedRowKeys`、
+ * **覆盖**：`expandedRowRender`、`expandedRowOffset`、`rowExpandable`、`defaultExpandedRowKeys`、
  *   `expandedRowKeys`（受控）、`onExpand`、`onExpandedRowsChange`、`columnWidth`、
  *   `expandIcon`、`defaultExpandAllRows`、`showExpandColumn`。
  *
@@ -1191,7 +1191,8 @@ export const TABLE_LOCALE_DEFAULT = {
  * `.dg-grid` 上 `transition: grid-template-rows 0.3s ease` 实现 0fr↔1fr 的平滑展开/收起动画
  * （grid-template-rows 是可动画属性，fr 单位可逐项插值）。
  *
- * 展开内容作为 grid item 放在该展开 track（grid-row 指向展开 track，grid-column: 1 / -1 跨整行）；
+ * 展开内容作为 grid item 放在该展开 track（grid-row 指向展开 track，默认 grid-column: 1 / -1 跨整行；
+ * 传 expandedRowOffset 时从第 N+1 个叶子列开始）；
  * 展开内容容器设 `overflow: hidden; min-height: 0`，使其在 0fr track 下被裁剪、在 1fr 下自然展开。
  *
  * === 虚拟 × 展开约定 ===
@@ -1216,6 +1217,13 @@ export interface Expandable<RecordType = any> {
     indent: number,
     expanded: boolean,
   ) => ReactNode
+  /**
+   * 展开内容起始列偏移（对齐 antd deprecated `expandedRowOffset`）。
+   *
+   * 传入 N 时，展开内容跳过前 N 个叶子列，从第 N+1 列开始并跨到表尾。
+   * antd 已建议改用 `Table.EXPAND_COLUMN` 控制展开列位置；保留该字段用于兼容旧 demo/API。
+   */
+  expandedRowOffset?: number
   /**
    * 某行是否可展开。返回 false 的行不渲染展开图标（也不插入展开 track）。
    * 缺省视所有行可展开（前提是有 expandedRowRender）。

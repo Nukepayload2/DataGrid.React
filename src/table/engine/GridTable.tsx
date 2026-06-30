@@ -1229,6 +1229,7 @@ function GridTableInner<RecordType = any>(
                 expandState,
                 expandLayout: expandLayout.layout,
                 rowKey,
+                leafColumns,
               })
             : null}
           {/* 自定义空状态：dataSource 空时渲染跨所有列的 empty 占位区。
@@ -1485,7 +1486,7 @@ function GridTableInner<RecordType = any>(
  *
  * 遍历可视区（虚拟）或全集（非虚拟）数据行，对"可展开 + 展开中"的行渲染一个展开内容 grid item：
  *   - grid-row：该行展开内容 track 的起始线（来自 expandLayout）。
- *   - grid-column: 1 / -1：跨整行（与 antd expandedRowRender 视觉一致）。
+ *   - grid-column：默认 1 / -1 跨整行；expandedRowOffset=N 时从第 N+1 个叶子列开始。
  *   - 容器 `overflow:hidden + min-height:0`：配合 track 0fr/1fr 过渡——0fr 时被裁剪、1fr 时自然展开。
  *
  * 收起的可展开行不渲染内容（节省 DOM）——track 仍存在（0fr）但无 grid item 占位，
@@ -1564,6 +1565,7 @@ function renderExpandedContents<RecordType>({
   expandState,
   expandLayout,
   rowKey,
+  leafColumns,
 }: {
   dataSource: Array<RecordType>
   virtualEnabled: boolean
@@ -1571,10 +1573,17 @@ function renderExpandedContents<RecordType>({
   expandState: EngineExpandState
   expandLayout: Map<number, { rowLine: number; expandTrackLine?: number }>
   rowKey: string | ((record: RecordType) => string | number)
+  leafColumns: Array<EngineLeafColumn<RecordType>>
 }): Array<ReactNode> {
   const out: Array<ReactNode> = []
   const lo = virtualEnabled ? virtualState.start : 0
   const hi = virtualEnabled ? virtualState.end : dataSource.length
+  const rawOffset = expandState.expandedRowOffset
+  const offset = typeof rawOffset === 'number' && Number.isFinite(rawOffset)
+    ? Math.max(0, Math.floor(rawOffset))
+    : 0
+  const startLine = Math.min(offset, Math.max(leafColumns.length - 1, 0)) + 1
+  const gridColumn = startLine <= 1 ? '1 / -1' : `${startLine} / -1`
   for (let i = lo; i < hi; i += 1) {
     const record = dataSource[i]
     if (record === undefined) continue
@@ -1590,7 +1599,7 @@ function renderExpandedContents<RecordType>({
         key={`expand-${i}-${key}`}
         className="dg-row-expanded"
         style={{
-          gridColumn: '1 / -1',
+          gridColumn,
           gridRow: layout.expandTrackLine,
           overflow: 'hidden',
           minHeight: 0,
@@ -1942,6 +1951,26 @@ function renderBodyCells<RecordType>({
         if (expandState.isExpandable(getRowKey(rec, rowKey))) extraTracks += 1
       }
       rowSpanTracks += extraTracks
+    }
+    if (expandEnabled && expandState) {
+      const rawOffset = expandState.expandedRowOffset
+      const offset = typeof rawOffset === 'number' && Number.isFinite(rawOffset)
+        ? Math.min(Math.max(0, Math.floor(rawOffset)), Math.max(leafColumns.length - 1, 0))
+        : 0
+      const colSpan = merge?.colSpan ?? 1
+      const cellEnd = colIdx + colSpan
+      const record = dataSource[index]
+      const key = record === undefined ? undefined : getRowKey(record, rowKey)
+      if (
+        (merge?.rowSpan ?? 1) === 1 &&
+        offset > 0 &&
+        cellEnd <= offset &&
+        key !== undefined &&
+        expandState.isExpandable(key) &&
+        expandState.isExpanded(key)
+      ) {
+        rowSpanTracks += 1
+      }
     }
     return { merge, rowSpanTracks }
   }

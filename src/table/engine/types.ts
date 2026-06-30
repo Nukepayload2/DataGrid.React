@@ -914,6 +914,8 @@ export interface EngineExpandState {
   expandableKeySet: Set<React.Key>
   /** 展开内容渲染器（来自 expandable.expandedRowRender）。 */
   expandedRowRender: (record: any, index: number, expanded: boolean) => ReactNode
+  /** 展开内容起始列偏移（antd deprecated expandedRowOffset 兼容）。 */
+  expandedRowOffset?: number
   /**
    * 切换某行展开态（点击展开图标触发）。引擎在展开列单元格点击时调用。
    * 参数：(key, record)。返回的新展开 keys 由适配层 state 管理。

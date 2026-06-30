@@ -1877,6 +1877,7 @@ function TableInner<RecordType = any>(
       isExpandable: (key) => expand.expandableKeySet.has(key),
       expandedRowRender: (record, index, expanded) =>
         expandable.expandedRowRender!(record, index, 0, expanded),
+      expandedRowOffset: expandable.expandedRowOffset,
       toggleExpand: expand.toggleExpand,
       showExpandColumn,
       expandIcon: expandable.expandIcon,
