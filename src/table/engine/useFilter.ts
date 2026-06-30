@@ -7,7 +7,7 @@
  */
 
 import { useCallback, useMemo, useState } from 'react'
-import type { ColumnType, ColumnFilterItem } from '../types'
+import type { ColumnType, ColumnFilterItem, FilterValue } from '../types'
 import { resolveColumnSortKey } from './useSorter'
 import type { EngineFilterItem } from './types'
 
@@ -24,7 +24,7 @@ export interface UseFilterOptions<RecordType> {
    * @param currentDataSource 排序+筛选后的数据源（受控/非受控都计算）。
    */
   onFilterChange?: (
-    filters: Record<string, Array<string | number> | null>,
+    filters: Record<string, Array<FilterValue> | null>,
     currentDataSource: Array<RecordType>,
   ) => void
 }
@@ -35,7 +35,7 @@ export interface UseFilterResult<RecordType> {
    * 受控：取自外部 column.filteredValue；非受控：取自内部 state。
    * 空数组表示无激活筛选。
    */
-  filteredValueMap: Map<string, Array<string | number>>
+  filteredValueMap: Map<string, Array<FilterValue>>
   /**
    * 筛选后的数据源（raw → sort → filter；受控/非受控都过滤，对齐 antd）。
    * 引擎用此渲染数据行。
@@ -50,13 +50,13 @@ export interface UseFilterResult<RecordType> {
    */
   setFilterValue: (
     filterKey: string,
-    nextFilteredValue: Array<string | number> | null,
+    nextFilteredValue: Array<FilterValue> | null,
   ) => void
   /**
    * 当前 onChange 用的 filters 对象（{ filterKey: filteredValue[] | null }）。
    * 所有可筛选列均出现为 key；无激活的列值为 null。
    */
-  getFiltersArg: () => Record<string, Array<string | number> | null>
+  getFiltersArg: () => Record<string, Array<FilterValue> | null>
 }
 
 /**
@@ -95,8 +95,8 @@ export function isFilterable<RecordType>(
  * 树形筛选本阶段扁平化为顶层项参与勾选（不做二级菜单 UI）。返回扁平 value 列表仅用于
  * "判定某 value 是否在 filters 配置中"等辅助；实际渲染下拉 UI 用原始 ColumnFilterItem[]（保留 text）。
  */
-export function flattenFilterValues(items: Array<ColumnFilterItem>): Array<string | number> {
-  const out: Array<string | number> = []
+export function flattenFilterValues(items: Array<ColumnFilterItem>): Array<FilterValue> {
+  const out: Array<FilterValue> = []
   const walk = (list: Array<ColumnFilterItem>) => {
     for (const it of list) {
       out.push(it.value)
@@ -111,12 +111,12 @@ export function flattenFilterValues(items: Array<ColumnFilterItem>): Array<strin
  * 规范化单列的"当前 filteredValue"：null/undefined → 空（无激活）；数组去重保序。
  */
 function normalizeFilteredValue(
-  v: Array<string | number> | null | undefined,
-): Array<string | number> {
+  v: Array<FilterValue> | null | undefined,
+): Array<FilterValue> {
   if (!v || v.length === 0) return []
   // 去重保序（避免重复勾选导致 onChange 数组重复）。
-  const seen = new Set<string | number>()
-  const out: Array<string | number> = []
+  const seen = new Set<FilterValue>()
+  const out: Array<FilterValue> = []
   for (const item of v) {
     const key = typeof item === 'object' ? String(item) : item
     if (!seen.has(key)) {
@@ -137,12 +137,12 @@ function normalizeFilteredValue(
 function computeFilteredDataSource<RecordType>(
   dataSource: Array<RecordType>,
   filterableColumns: Array<ColumnType<RecordType>>,
-  filteredValueMap: Map<string, Array<string | number>>,
+  filteredValueMap: Map<string, Array<FilterValue>>,
 ): Array<RecordType> {
   if (filterableColumns.length === 0) return dataSource
   const activeFilters: Array<{
-    onFilter: (value: string | number, record: RecordType) => boolean
-    values: Array<string | number>
+    onFilter: (value: FilterValue, record: RecordType) => boolean
+    values: Array<FilterValue>
   }> = []
   for (const c of filterableColumns) {
     const key = resolveFilterKey(c)
@@ -166,9 +166,9 @@ function computeFilteredDataSource<RecordType>(
  */
 function buildFiltersArg<RecordType>(
   filterableColumns: Array<ColumnType<RecordType>>,
-  filteredValueMap: Map<string, Array<string | number>>,
-): Record<string, Array<string | number> | null> {
-  const arg: Record<string, Array<string | number> | null> = {}
+  filteredValueMap: Map<string, Array<FilterValue>>,
+): Record<string, Array<FilterValue> | null> {
+  const arg: Record<string, Array<FilterValue> | null> = {}
   for (const c of filterableColumns) {
     const key = resolveFilterKey(c)
     if (key === undefined) continue
@@ -197,7 +197,7 @@ export function useFilter<RecordType>(
   // 受控列：filteredValue !== undefined（含 null/[] 显式受控）。
   // 收集受控列及其当前值（用于 merged 状态）。
   const controlledMap = useMemo(() => {
-    const map = new Map<string, Array<string | number>>()
+    const map = new Map<string, Array<FilterValue>>()
     for (const c of filterableColumns) {
       const key = resolveFilterKey(c)
       if (key === undefined) continue
@@ -211,9 +211,9 @@ export function useFilter<RecordType>(
   // === 非受控内部 state ===
   // 初始值：取自 defaultFilteredValue（仅初始化时生效；列变化不重置）。
   const [uncontrolledMap, setUncontrolledMap] = useState<
-    Map<string, Array<string | number>>
+    Map<string, Array<FilterValue>>
   >(() => {
-    const map = new Map<string, Array<string | number>>()
+    const map = new Map<string, Array<FilterValue>>()
     for (const c of filterableColumns) {
       const key = resolveFilterKey(c)
       if (key === undefined) continue
@@ -226,7 +226,7 @@ export function useFilter<RecordType>(
 
   // === merged 状态（受控列用外部值，非受控列用内部 state）===
   const filteredValueMap = useMemo(() => {
-    const map = new Map<string, Array<string | number>>()
+    const map = new Map<string, Array<FilterValue>>()
     for (const c of filterableColumns) {
       const key = resolveFilterKey(c)
       if (key === undefined) continue
@@ -263,7 +263,7 @@ export function useFilter<RecordType>(
   // 受控列不更新内部 state（外部 filteredValue 是真理源），但仍构造新的 merged map 用于 onFilterChange。
   // — 详见 docs/design-notes/filter-sorter.md（onChange 分发）
   const setFilterValue = useCallback(
-    (filterKey: string, nextFilteredValue: Array<string | number> | null) => {
+    (filterKey: string, nextFilteredValue: Array<FilterValue> | null) => {
       const normalized = normalizeFilteredValue(nextFilteredValue)
       // 找到列定义（判定受控与否）。
       const col = filterableColumns.find((c) => resolveFilterKey(c) === filterKey)

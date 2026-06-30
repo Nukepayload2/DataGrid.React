@@ -86,8 +86,8 @@ export default function SemanticDomAntd({
   bordered = false,
   virtual = false,
 }: {
-  bordered: boolean
-  virtual: boolean
+  bordered?: boolean
+  virtual?: boolean
 }) {
   // sortOrder 态由子组件内部自管（非受控），onChange 回写显示在表格下方便于 devtools 对照 aria-sort。
   const [antdSortOrder, setAntdSortOrder] = useState<

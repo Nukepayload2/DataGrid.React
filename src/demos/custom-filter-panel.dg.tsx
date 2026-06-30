@@ -65,7 +65,7 @@ function useDgColumnSearch() {
   }
 
   const handleReset = (clearFilters: FilterDropdownProps['clearFilters']) => {
-    clearFilters()
+    clearFilters?.()
     setSearchText('')
   }
 

@@ -46,7 +46,7 @@ export function evalModule(
     if (typeof Comp !== 'function') {
       return { ok: false, error: '编译产物未导出 default 组件函数' }
     }
-    return { ok: true, Comp }
+    return { ok: true, Comp: Comp as ComponentType<Record<string, unknown>> }
   } catch (e) {
     return { ok: false, error: (e as Error)?.message ?? String(e) }
   }

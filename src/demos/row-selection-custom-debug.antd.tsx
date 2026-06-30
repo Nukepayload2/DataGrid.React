@@ -15,7 +15,7 @@ import { dataSource, type RecordType } from './_compare/row-selection-custom-deb
 // 右栏（antd）列定义 + rowSelection —— 忠实复刻 antd row-selection-custom-debug demo
 // ---------------------------------------------------------------------------
 
-const antdColumns: TableColumnsType<RecordType>[] = [
+const antdColumns: TableColumnsType<RecordType> = [
   {
     title: 'Name',
     dataIndex: 'name',

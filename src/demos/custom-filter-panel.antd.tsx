@@ -15,7 +15,8 @@
 import { useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Button, Input, Space, Table as AntdTable, theme } from 'antd'
-import type { FilterDropdownProps, InputRef, TableColumnType, TableProps } from 'antd'
+import type { InputRef, TableColumnType, TableProps } from 'antd'
+import type { FilterDropdownProps } from 'antd/es/table/interface'
 import Highlighter from 'react-highlight-words'
 import { data, type DataIndex, type RecordType } from './_compare/custom-filter-panel.shared'
 

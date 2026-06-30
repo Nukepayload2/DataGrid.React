@@ -30,8 +30,8 @@ export default function ExpandAntd({
   onExpandedRowsChange,
   virtual = false,
 }: {
-  expandedRowKeys: Array<React.Key>
-  onExpandedRowsChange: (keys: Array<React.Key>) => void
+  expandedRowKeys: readonly React.Key[]
+  onExpandedRowsChange: (keys: readonly React.Key[]) => void
   virtual: boolean
 }) {
   // expandable：expandedRowRender + rowExpandable + 受控 expandedRowKeys。

@@ -38,7 +38,7 @@ export default function EditRowDemo() {
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：data-grid 的 <code>components.body.cell</code> 返回
                   <strong> 内容 ReactNode（不包 td）</strong>，引擎渲染在 <code>.dg-cell-inner</code>；
-                  antd 返回原生 <code>&lt;td {...props}&gt;</code>。</li>
+                  antd 返回原生 <code>&lt;td &#123;...props&#125;&gt;</code>。</li>
                 <li><strong>触发条件</strong>：编辑态整行（name/age/address 三列进入 Input/InputNumber）。</li>
                 <li><strong>差异原因</strong>：data-grid 用 div 渲染（无 td），cell 组件只产出单元格内容；
                   antd 是原生 <code>&lt;table&gt;</code>，cell 组件产出整个 <code>&lt;td&gt;</code>。</li>

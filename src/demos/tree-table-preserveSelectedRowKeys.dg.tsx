@@ -4,7 +4,7 @@
  * rowSelection 的 onChange console.log 各侧独立。
  */
 import { Table } from '../table'
-import type { ColumnType, TableProps, TableRowSelection } from '../table'
+import type { ColumnType, TableRowSelection } from '../table'
 import { dataSource, type RecordType } from './_compare/tree-table-preserveSelectedRowKeys.shared'
 
 // ---------------------------------------------------------------------------

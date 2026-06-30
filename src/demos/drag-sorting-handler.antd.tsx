@@ -49,8 +49,8 @@ function InlineHolderOutlined({ style }: { style?: CSSProperties }): ReactNode {
 // 右栏（antd）Row + RowContext + DragHandle —— 忠实复刻 antd 官方 drag-sorting-handler.tsx
 // ---------------------------------------------------------------------------
 
-// SyntheticListenerMap 用本地等价类型，避免引入 scope 条目 '@dnd-kit/core/dist/hooks/utilities'。
-type SyntheticListenerMap = Record<string, (...args: unknown[]) => void> | undefined
+// 从 useSortable 返回值推导 listeners 类型，避免引入 @dnd-kit 内部路径。
+type SyntheticListenerMap = ReturnType<typeof useSortable>['listeners']
 
 interface RowContextProps {
   setActivatorNodeRef?: (element: HTMLElement | null) => void

@@ -44,7 +44,7 @@ export default function TreeTableEllipsisAntd({
 }) {
   // 仅首列 Name 固定（对齐 antd 官方 demo 只 fixed Name 列）；Age/Address 不 fixed（详见左栏 dg 段）。
   const antdColumns: TableColumnsType<RecordType> = antdColumnsBase.map((col) =>
-    col.dataIndex === 'name' ? { ...col, fixed } : col,
+    'dataIndex' in col && col.dataIndex === 'name' ? { ...col, fixed } : col,
   )
 
   return (

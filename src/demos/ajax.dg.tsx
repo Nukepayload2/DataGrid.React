@@ -111,7 +111,7 @@ export default function AjaxDg({
         pageSize: pagination.pageSize,
         total: pagination.total,
       },
-      filters,
+      filters: filters as TableParams['filters'],
       sortOrder: n.order,
       sortField: n.field,
     })

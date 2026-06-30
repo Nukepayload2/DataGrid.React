@@ -171,7 +171,7 @@ export interface UseSorterResult<RecordType> {
  */
 export function resolveColumnSortKey<RecordType>(
   column: ColumnType<RecordType>,
-): string | number | undefined {
+): React.Key | undefined {
   if (column.key !== undefined) return column.key
   if (Array.isArray(column.dataIndex)) return column.dataIndex.join('.')
   return column.dataIndex

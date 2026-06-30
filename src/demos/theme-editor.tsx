@@ -585,7 +585,7 @@ export function ThemeEditorPanel() {
               scroll={dgScroll}
               columns={dgColumns}
               dataSource={sharedData}
-              pagination={{ placement: ['top', 'bottom'] }}
+              pagination={{ placement: ['topStart', 'bottomEnd'] }}
             />
           </div>
         </div>
@@ -615,7 +615,7 @@ export function ThemeEditorPanel() {
               scroll={antdScroll}
               columns={antdColumns}
               dataSource={sharedData}
-              pagination={{ placement: ['top', 'bottom'] }}
+              pagination={{ placement: ['topStart', 'bottomEnd'] }}
             />
           </div>
         </div>

@@ -5,7 +5,7 @@
  */
 
 import type { ReactElement, ReactNode } from 'react'
-import type { SpinProps } from 'antd'
+import type { DropdownProps, SpinProps } from 'antd'
 // antd `Breakpoint`（'xs'|'sm'|'md'|'lg'|'xl'|'xxl'|'xxxl'，7 个断点；对齐 antd
 // `components/_util/responsiveObserver.ts` responsiveArray）。
 import type { Breakpoint } from 'antd/es/_util/responsiveObserver'
@@ -54,12 +54,15 @@ export interface RowCheckboxProps {
  */
 export type RowSelectMethod = 'all' | 'none' | 'invert' | 'single' | 'multiple'
 
+/** Filter item value type, aligned with antd v6 `ColumnFilterItem['value']`. */
+export type FilterValue = boolean | React.Key
+
 /**
  * `confirm` 参数（自定义筛选面板，对齐 antd `FilterConfirmProps`）。
  */
 export interface FilterConfirmProps {
-  /** 应用筛选后是否同时关闭筛选下拉（默认 false）。 */
-  closeDropdown?: boolean
+  /** 应用筛选后是否同时关闭筛选下拉。 */
+  closeDropdown: boolean
 }
 
 /**
@@ -104,9 +107,9 @@ export interface FilterDropdownProps {
    *   - `closeDropdown: true`：清空后关闭下拉。
    *   - `confirm: true`：清空后立即应用（默认 false 仅清草稿——但本实现因无草稿概念，clearFilters 直接清空并应用）。
    */
-  clearFilters: (param?: FilterResetProps) => void
+  clearFilters?: (param?: FilterResetProps) => void
   /** 内置筛选项（自定义面板下恒为 `[]`；保留字段兼容 antd demo 原样拷贝）。 */
-  filters: Array<ColumnFilterItem>
+  filters?: Array<ColumnFilterItem>
   /** 关闭下拉（不改变已应用的 filteredValue）。等价 `confirm({ closeDropdown: true })` 中只关闭不应用的部分。 */
   close: () => void
   /** 下拉是否打开。 */
@@ -136,7 +139,7 @@ export interface ColumnFilterDropdownProps {
   /** 弹出层额外 className（v6：作用于 overlay root）。 */
   overlayClassName?: string
   /** 弹出层对齐配置（透传 antd Dropdown）。 */
-  align?: unknown
+  align?: DropdownProps['align']
   /** 弹出层挂载容器（透传 antd Dropdown getPopupContainer）。 */
   getPopupContainer?: (triggerNode: HTMLElement) => HTMLElement
 }
@@ -146,7 +149,7 @@ export interface ColumnFilterDropdownProps {
  *
  * 仅消费顶层项（不实现 `children` 子菜单——属树形筛选 `filterMode='tree'`）：
  *   - `text`：筛选项展示文案（任意 ReactNode）。
- *   - `value`：筛选项取值（string/number；用于 `onFilter` 第一个参数 + onChange 的 filters 形态）。
+ *   - `value`：筛选项取值（boolean / React.Key；用于 `onFilter` 第一个参数 + onChange 的 filters 形态）。
  *
  * antd 还支持 `children: ColumnFilterItem[]`（子菜单筛选，对应 `filterMode='tree'`）；
  * menu 模式下保留字段但**不消费**（出现时会被 `flattenKeys` 扁平化为单个筛选项列表参与勾选；
@@ -157,8 +160,8 @@ export interface ColumnFilterDropdownProps {
 export interface ColumnFilterItem {
   /** 筛选项展示文案。 */
   text: ReactNode
-  /** 筛选项取值（string / number；将作为 onFilter 第一参、onChange filters 数组元素）。 */
-  value: string | number
+  /** 筛选项取值（boolean / React.Key；将作为 onFilter 第一参、onChange filters 数组元素）。 */
+  value: FilterValue
   /**
    * 子筛选项（树形筛选；menu 模式保留字段但不消费 UI——出现时内部扁平化为普通项参与勾选）。
    */
@@ -365,7 +368,7 @@ export interface SorterResult<RecordType = any> {
   column?: ColumnType<RecordType>
   order?: SortOrder
   field?: string | number | Array<string | number>
-  columnKey?: string | number
+  columnKey?: React.Key
 }
 
 /**
@@ -373,7 +376,7 @@ export interface SorterResult<RecordType = any> {
  * `dataIndex` 支持字符串/数字/路径数组（与 antd 一致）。
  */
 export interface ColumnType<RecordType = any> {
-  key?: string | number
+  key?: React.Key
   title?: ReactNode
   dataIndex?: string | number | Array<string | number>
   /**
@@ -621,7 +624,7 @@ export interface ColumnType<RecordType = any> {
    *
    * 详见 `docs/design-notes/filter-sorter.md`。
    */
-  onFilter?: (value: string | number, record: RecordType) => boolean
+  onFilter?: (value: FilterValue, record: RecordType) => boolean
   /**
    * 是否多选（对齐 antd `column.filterMultiple`，默认 true）。
    * - `true`（默认）：Checkbox.Group 多选，命中任一保留（OR）。
@@ -631,7 +634,7 @@ export interface ColumnType<RecordType = any> {
   /**
    * 非受控初始筛选值。仅当 `filteredValue` 未传时生效（初始态）。
    */
-  defaultFilteredValue?: Array<string | number>
+  defaultFilteredValue?: Array<FilterValue>
   /**
    * 受控筛选值。传入即受控（引擎不主动过滤，调用方负责 dataSource）。
    * 与 `defaultFilteredValue` 互斥：`filteredValue` 优先。
@@ -639,7 +642,7 @@ export interface ColumnType<RecordType = any> {
    * 传 `[]`（空数组）表示"无激活筛选"（受控显式空）；传非空数组表示激活筛选。
    * （注意与 undefined 区分：undefined 表示该列非受控，由内部 state / defaultFilteredValue 驱动。）
    */
-  filteredValue?: Array<string | number> | null
+  filteredValue?: Array<FilterValue> | null
   /**
    * 关闭下拉即应用筛选（对齐 antd `column.filterOnClose`，默认 true）。
    *
@@ -1674,7 +1677,7 @@ export interface TableProps<RecordType = any> {
    */
   onChange?: (
     pagination: TablePaginationState,
-    filters: Record<string, Array<string | number> | null>,
+    filters: Record<string, Array<FilterValue> | null>,
     sorter: SorterResult<RecordType> | Array<SorterResult<RecordType>>,
     extra: TableCurrentDataSource<RecordType>,
   ) => void

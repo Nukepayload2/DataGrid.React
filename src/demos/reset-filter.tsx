@@ -27,7 +27,7 @@ type OnChange = NonNullable<DgTableProps<RecordType>['onChange']>
 type AntdOnChange = NonNullable<AntdTableProps<RecordType>['onChange']>
 type Filters = Parameters<OnChange>[1]
 type GetSingle<T> = T extends (infer U)[] ? U : never
-type Sorts = GetSingle<Parameters<OnChange>[2]>
+type Sorts = Pick<GetSingle<Parameters<OnChange>[2]>, 'columnKey' | 'order'>
 
 // ---------------------------------------------------------------------------
 // Demo 根组件
@@ -43,13 +43,19 @@ export default function ResetFilterDemo() {
   // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y。
   const { virtual } = useVirtualization()
 
-  // 两侧共用同一个 onChange：写回同一组 state → 两侧受控同步。
+  // 两侧写回同一组 state → 两侧受控同步。
   // 已知：filter 触发时 onChange 的 sorter 字段可能不完整（data-grid 与 antd 均如此，不修）。
-  const handleChange: OnChange = (_pagination, filters, sorter) => {
+  const handleDgChange: OnChange = (_pagination, filters, sorter) => {
     // eslint-disable-next-line no-console
     console.log('reset-filter demo onChange params:', { filters, sorter })
     setFilteredInfo(filters)
     setSortedInfo(sorter as Sorts)
+  }
+  const handleAntdChange: AntdOnChange = (_pagination, filters, sorter) => {
+    // eslint-disable-next-line no-console
+    console.log('reset-filter demo onChange params:', { filters, sorter })
+    setFilteredInfo(filters as Filters)
+    setSortedInfo(sorter as unknown as Sorts)
   }
 
   // 清空所有筛选（保留排序）。两侧 state 同步清空。
@@ -100,7 +106,7 @@ export default function ResetFilterDemo() {
             sortedInfo={sortedInfo}
             bordered={bordered}
             virtual={virtual}
-            onChange={handleChange}
+            onChange={handleDgChange}
           />
         }
         right={
@@ -109,7 +115,7 @@ export default function ResetFilterDemo() {
             sortedInfo={sortedInfo}
             bordered={bordered}
             virtual={virtual}
-            onChange={handleChange as AntdOnChange}
+            onChange={handleAntdChange}
           />
         }
       >

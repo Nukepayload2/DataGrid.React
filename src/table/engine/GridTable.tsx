@@ -78,7 +78,7 @@ import type {
   FixedSide,
 } from './types'
 // onHeaderCell 签名 `(column) => HTMLAttributes` 的 column 类型用 ColumnType 表达（与对外 types.ts 一致），仅 type-only。
-import type { ColumnType } from '../types'
+import type { ColumnType, FilterValue } from '../types'
 import { ExpandIcon } from './ExpandIcon'
 import { FloatingScrollBar } from './FloatingScrollBar'
 
@@ -714,7 +714,7 @@ function GridTableInner<RecordType = any>(
 
   // === 固定列 sticky 偏移 — 详见 docs/design-notes/fixed-column.md ===
   // useStickyColumns 用 ResizeObserver 监听叶子表头格宽度变化重算。
-  const { leafSticky, headerSticky, hasFixed } = useStickyColumns(
+  const { leafSticky, headerSticky } = useStickyColumns(
     leafColumns,
     headerCells,
     gridRef,
@@ -756,13 +756,15 @@ function GridTableInner<RecordType = any>(
         const rec = dataSource[index]
         const declared =
           typeof gridRowHeightOpt === 'function'
-            ? gridRowHeightOpt(rec, index)
+            ? resolveNumericRowHeight(gridRowHeightOpt, rec, index)
             : typeof gridRowHeightOpt === 'number'
               ? gridRowHeightOpt
-              : minRowHeight
-        return clampSize(declared, minRowHeight, maxRowHeight)
+              : minRowHeightRaw
+        return clampSize(declared, minRowHeightRaw, maxRowHeightRaw)
       }
-      return resolveNumericRowHeight(resolvedRowHeight, dataSource[index], index)
+      return resolvedRowHeight === undefined
+        ? 0
+        : resolveNumericRowHeight(resolvedRowHeight, dataSource[index], index)
     },
     [
       boundedRowHeight,
@@ -2157,7 +2159,7 @@ function HeaderCell<RecordType>({
   /** 排序点击回调（参数为列 key）。仅可排序叶子表头格响应。 */
   onSorterClick?: (columnKey: string) => void
   /** 筛选应用回调（参数：列 key + 新筛选值数组）。仅可筛选叶子表头格触发。 */
-  onFilterApply?: (filterKey: string, nextFilteredValue: Array<string | number>) => void
+  onFilterApply?: (filterKey: string, nextFilteredValue: Array<FilterValue>) => void
   /** 语义化 header 部位（cell/row/wrapper 的 className 与 style）。 */
   semanticHeader?: import('./types').EngineSemantic['header']
   /**
@@ -2526,7 +2528,7 @@ interface ColumnCellsProps<RecordType> {
   /** 排序点击回调（参数为列 key）。仅可排序列响应。 */
   onSorterClick?: (columnKey: string) => void
   /** 筛选应用回调（参数：列 key + 新筛选值数组）。仅可筛选列触发。 */
-  onFilterApply?: (filterKey: string, nextFilteredValue: Array<string | number>) => void
+  onFilterApply?: (filterKey: string, nextFilteredValue: Array<FilterValue>) => void
   /** 自定义组件（components.body.cell 替换单元格内容；body.row 暂不在此路径消费）。 */
   components?: import('./types').EngineTableProps['components']
   /** 语义化 header 部位（cell/row/wrapper）。 */

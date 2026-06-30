@@ -25,6 +25,7 @@ import type { RenderEmptyHandler } from 'antd/es/config-provider/defaultRenderEm
 import type { EngineFilterItem } from './types'
 import type {
   ColumnFilterDropdownProps,
+  FilterValue,
   FilterDropdownProps as DgFilterDropdownProps,
 } from '../types'
 import { TABLE_LOCALE_DEFAULT } from '../types'
@@ -54,14 +55,14 @@ export interface FilterDropdownProps {
   /** 是否多选（默认 true）。true → Checkbox.Group；false → Radio.Group。 */
   filterMultiple?: boolean
   /** 当前应用的筛选值（来自列树 EngineHeaderCell.filteredValue；空数组/null = 无激活）。 */
-  filteredValue?: Array<string | number> | null
+  filteredValue?: Array<FilterValue> | null
   /** 关闭下拉即应用（默认 true）。 */
   filterOnClose?: boolean
   /**
    * 应用筛选回调（Dropdown 关闭/确定时调用）。
    * @param nextFilteredValue 新筛选值数组；空数组表示清除该列筛选。
    */
-  onApply: (nextFilteredValue: Array<string | number>) => void
+  onApply: (nextFilteredValue: Array<FilterValue>) => void
   /** 触发器渲染（漏斗图标）。可由外部覆盖；默认根据 activated 渲染 FilterOutlined/FilterFilled。 */
   triggerRender?: (activated: boolean) => React.ReactNode
   /**
@@ -149,6 +150,10 @@ interface FilterTreeNode {
   children?: Array<FilterTreeNode>
 }
 
+function toReactKey(value: FilterValue): React.Key {
+  return typeof value === 'boolean' ? String(value) : value
+}
+
 /**
  * 把 EngineFilterItem[]（含 children）转为 antd Tree 的 treeData（对齐 antd getTreeData）。
  *   - key = value（与 onFilter/onCompare 的 value 同源）。
@@ -159,7 +164,7 @@ function toTreeData(filters: Array<EngineFilterItem>): Array<FilterTreeNode> {
   return filters.map((filter) => {
     const item: FilterTreeNode = {
       title: filter.text,
-      key: filter.value,
+      key: toReactKey(filter.value),
     }
     if (filter.children && filter.children.length > 0) {
       item.children = toTreeData(filter.children)
@@ -172,8 +177,8 @@ function toTreeData(filters: Array<EngineFilterItem>): Array<FilterTreeNode> {
  * 递归收集所有叶子 value（对齐 antd flattenKeys）。
  * 用于"全选" Checkbox 的 checked/indeterminate 判定——只看叶子，因为父节点勾选是联动的（非独立）。
  */
-function collectLeafValues(filters: Array<EngineFilterItem>): Array<string | number> {
-  const out: Array<string | number> = []
+function collectLeafValues(filters: Array<EngineFilterItem>): Array<FilterValue> {
+  const out: Array<FilterValue> = []
   const walk = (list: Array<EngineFilterItem>) => {
     for (const it of list) {
       if (it.children && it.children.length > 0) {
@@ -192,7 +197,7 @@ function collectLeafValues(filters: Array<EngineFilterItem>): Array<string | num
  * antd Tree 在 `checkStrictly=false` 时 onCheck 第一参为 `{ checked: Key[], halfChecked: Key[] }`，
  * `checkStrictly=true` 时为 `Key[]`；统一处理。
  */
-function resolveCheckedKeys(keys: unknown): Array<string | number> {
+function resolveCheckedKeys(keys: unknown): Array<FilterValue> {
   if (Array.isArray(keys)) {
     return keys.map((k) => (typeof k === 'number' ? k : String(k)))
   }
@@ -238,7 +243,7 @@ export function FilterDropdown({
   const [open, setOpen] = useState(false)
   // 本地草稿（面板内勾选），与外部 filteredValue 解耦。
   // 每次打开下拉时同步为当前 filteredValue（草稿初始化）。
-  const [localSelected, setLocalSelected] = useState<Array<string | number>>(
+  const [localSelected, setLocalSelected] = useState<Array<FilterValue>>(
     () => (filteredValue ?? []).slice(),
   )
 
@@ -599,7 +604,7 @@ export function FilterDropdown({
     if (!isCustom) return null
     const antdCompatProps: DgFilterDropdownProps = {
       prefixCls: 'dg-filter',
-      selectedKeys: localSelected,
+      selectedKeys: localSelected.map(toReactKey),
       setSelectedKeys: (keys: Array<React.Key>) =>
         setLocalSelected(keys as Array<string | number>),
       confirm: confirmFn,

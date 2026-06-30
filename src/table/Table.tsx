@@ -88,6 +88,7 @@ import {
   type ColumnProps,
   type ColumnType,
   type Expandable,
+  type FilterValue,
   type RowSelectMethod,
   type SizeType,
   type TablePaginationConfig,
@@ -389,7 +390,7 @@ function toEngineColumns<RecordType>(
         // 筛选相关透传（仅叶子列消费；分组列无筛选）。filters/onFilter/filterMultiple/filterOnClose
         // 是配置类字段直接透传；filteredValue 由适配层 useFilter 派生后回填（applyFilterToNode 阶段）。
         node.filters = col.filters as unknown as Array<import('./engine/types').EngineFilterItem> | undefined
-        node.onFilter = col.onFilter as unknown as ((value: string | number, record: RecordType) => boolean) | undefined
+        node.onFilter = col.onFilter as unknown as ((value: FilterValue, record: RecordType) => boolean) | undefined
         node.filterMultiple = col.filterMultiple
         node.filterOnClose = col.filterOnClose
         // 自定义筛选面板相关字段透传（filterDropdown/filterIcon/filterDropdownProps）。
@@ -705,7 +706,7 @@ function isNodeFilterable<RecordType>(
  */
 function applyFilterToNode<RecordType>(
   node: EngineColumnNode<RecordType>,
-  filteredValueMap: Map<string, Array<string | number>>,
+  filteredValueMap: Map<string, Array<FilterValue>>,
 ): EngineColumnNode<RecordType> {
   if (hasChildren(node)) {
     const newChildren = node.children!.map(
@@ -2066,7 +2067,9 @@ function TableInner<RecordType = any>(
     // pagedDataSource 非空 → 不需要 empty（引擎渲染数据行）。
     if (pagedDataSource.length > 0) return null
     // 1. Table 级 locale.emptyText 优先（antd 同款门：typeof !== 'undefined'）。
-    if (locale?.emptyText !== undefined) return locale.emptyText
+    if (locale?.emptyText !== undefined) {
+      return typeof locale.emptyText === 'function' ? locale.emptyText() : locale.emptyText
+    }
     // 2. ConfigProvider.renderEmpty('Table')（表体 empty 统一用 'Table'，不区分空数据 vs 筛选无结果）。
     const rendered = (renderEmpty as RenderEmptyHandler | undefined)?.('Table')
     if (rendered !== undefined && rendered !== null && rendered !== false) return rendered

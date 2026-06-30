@@ -37,7 +37,7 @@ export default function ExpandDemo() {
   const collapseAll = () => setExpandedRowKeys([])
 
   // onExpandedRowsChange 回调（两侧同款）：规整成 React.Key[] 后回写共享 state（驱动两侧同步）。
-  const onExpandedRowsChange = (keys: Array<React.Key>) => {
+  const onExpandedRowsChange = (keys: readonly React.Key[]) => {
     setExpandedRowKeys([...keys])
   }
 

@@ -29,7 +29,7 @@ export default function ExpandStickyDemo() {
   const expandAll = () => setExpandedRowKeys(data.map((r) => r.key))
   const collapseAll = () => setExpandedRowKeys([])
 
-  const onExpandedRowsChange = (keys: Array<React.Key>) => {
+  const onExpandedRowsChange = (keys: readonly React.Key[]) => {
     setExpandedRowKeys([...keys])
   }
 

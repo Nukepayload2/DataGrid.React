@@ -27,7 +27,7 @@ export type FixedSide = 'start' | 'end'
  */
 export interface EngineFilterItem {
   text: ReactNode
-  value: string | number
+  value: import('../types').FilterValue
   children?: Array<EngineFilterItem>
 }
 
@@ -166,7 +166,7 @@ export interface EngineLeafColumn<RecordType = any> {
    * 筛选判定函数（仅叶子列消费）。引擎不调用（适配层 useFilter 调），仅作为"该列可筛选"的标志
    * （与 filters 同时存在才渲染漏斗）。
    */
-  onFilter?: (value: string | number, record: RecordType) => boolean
+  onFilter?: (value: import('../types').FilterValue, record: RecordType) => boolean
   /**
    * 是否多选筛选（默认 true）。引擎据此决定下拉用 Checkbox.Group 还是 Radio。
    */
@@ -176,7 +176,7 @@ export interface EngineLeafColumn<RecordType = any> {
    * 引擎据此渲染漏斗激活态（FilterFilled 高亮）+ 下拉默认勾选。
    * 空数组/undefined/null 均视为"无激活筛选"（漏斗为 FilterOutlined 灰态）。
    */
-  filteredValue?: Array<string | number> | null
+  filteredValue?: Array<import('../types').FilterValue> | null
   /**
    * 关闭下拉即应用（默认 true）。引擎据此控制 Dropdown 的 onOpenChange 行为。
    */
@@ -324,7 +324,7 @@ export interface EngineColumnNode<RecordType = any> {
   /**
    * 筛选判定函数（仅叶子节点消费）。详见 EngineLeafColumn.onFilter。
    */
-  onFilter?: (value: string | number, record: RecordType) => boolean
+  onFilter?: (value: import('../types').FilterValue, record: RecordType) => boolean
   /**
    * 是否多选筛选（仅叶子节点消费，默认 true）。
    */
@@ -332,7 +332,7 @@ export interface EngineColumnNode<RecordType = any> {
   /**
    * 当前激活筛选值（仅叶子节点消费，由适配层 useFilter 解析后回填）。
    */
-  filteredValue?: Array<string | number> | null
+  filteredValue?: Array<import('../types').FilterValue> | null
   /**
    * 关闭下拉即应用（仅叶子节点消费，默认 true）。
    */
@@ -509,7 +509,7 @@ export interface EngineHeaderCell<RecordType = any> {
    * 否则多级表头下嵌套叶子（key=`Other.Age`）的 sortKey（`'age'`）不匹配，点击无响应
    * （useSorter 按 `resolveColumnSortKey(c) === columnKey` 查找列）。
    */
-  sortKey?: string | number
+  sortKey?: React.Key
   /**
    * 该列的**筛选标识**（仅叶子表头格有值，由 flattenHeaderCells 从 node.raw 经
    * `resolveFilterKey` 解析填入）。与 sortKey 同算法（column.key ?? dataIndex），
@@ -535,7 +535,7 @@ export interface EngineHeaderCell<RecordType = any> {
    * 当前激活筛选值（仅叶子表头格有值）。决定漏斗激活态（Filled 高亮）+ 下拉默认勾选。
    * 空数组/null 均视为无激活（漏斗为 Outlined 灰态）。
    */
-  filteredValue?: Array<string | number> | null
+  filteredValue?: Array<import('../types').FilterValue> | null
   /**
    * 关闭下拉即应用（仅叶子表头格有值，默认 true）。
    */
@@ -725,7 +725,10 @@ export interface EngineTableProps<RecordType = any> {
    * 筛选状态机（受控/非受控、filteredValue、defaultFilteredValue）由适配层 useFilter 维护；
    * 引擎只负责触发此回调，不持有筛选状态。
    */
-  onFilterApply?: (filterKey: string, nextFilteredValue: Array<string | number>) => void
+  onFilterApply?: (
+    filterKey: string,
+    nextFilteredValue: Array<import('../types').FilterValue>,
+  ) => void
   /**
    * 汇总栏 summary（透传对外 `TableProps.summary` 解析后的 ReactNode）。
    *
