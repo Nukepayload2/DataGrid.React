@@ -2,16 +2,16 @@
  * 列宽拖拽调整 demo（data-grid 增强能力，antd 无原生 resizable demo，自建演示）。
  *
  * 双栏对照（特例：右栏无 antd 原生对应）：
- * - 左栏（data-grid Table）：`resizable` + `resizableMinWidth`/`resizableMaxWidth` 演示 pointer
- *   拖拽改列宽 + min/max 约束 + 部分列给 width / 部分不给（max-content → 首次拖拽转 px）。
+ * - 左栏（data-grid Table）：`columnResizeMode` + `resizableMinWidth`/`resizableMaxWidth` 演示 pointer
+ *   拖拽改列宽模式 + min/max 约束 + 部分列给 width / 部分不给（max-content → 首次拖拽转 px）。
  * - 右栏（antd 无原生 resizable）：antd 6.4.4 Table 无原生列宽拖拽（resizable）能力，右栏不渲染
  *   antd 同名 demo，而是一个说明区 + 一张静态 antd `<Table>` 作基线参照（同数据/同列，无拖拽手柄）。
- * - 共享状态 + 控制条：`resizable` / `minWidth` / `maxWidth` 三个控件只驱动左栏 data-grid
+ * - 共享状态 + 控制条：`columnResizeMode` / `minWidth` / `maxWidth` 三个控件只驱动左栏 data-grid
  *   （右栏无此能力，控制条不作用于右栏）。共享数据见 `_compare/resizable.shared.ts`。
  */
 
 import { useState } from 'react'
-import { InputNumber, Space, Switch, theme } from 'antd'
+import { InputNumber, Segmented, Space, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
 import { useVirtualization } from './VirtualizationContext'
@@ -23,7 +23,8 @@ import ResizableAntd from './resizable.antd'
 // ---------------------------------------------------------------------------
 
 export default function ResizableDemo() {
-  const [resizable, setResizable] = useState(true)
+  const [columnResizeMode, setColumnResizeMode] =
+    useState<'Disabled' | 'ResizeLeft' | 'ResizeSibling'>('ResizeLeft')
   const [minWidth, setMinWidth] = useState(30)
   const [maxWidth, setMaxWidth] = useState(400)
   const { virtual } = useVirtualization()
@@ -41,11 +42,13 @@ export default function ResizableDemo() {
         }}
       >
         <Space>
-          <Switch
-            checked={resizable}
-            onChange={setResizable}
-            checkedChildren="resizable"
-            unCheckedChildren="resizable"
+          <span>resize mode:</span>
+          <Segmented
+            value={columnResizeMode}
+            onChange={(value) =>
+              setColumnResizeMode(value as 'Disabled' | 'ResizeLeft' | 'ResizeSibling')
+            }
+            options={['Disabled', 'ResizeLeft', 'ResizeSibling']}
           />
         </Space>
         <Space>
@@ -83,7 +86,7 @@ export default function ResizableDemo() {
         minPaneWidth={480}
         left={
           <ResizableDg
-            resizable={resizable}
+            columnResizeMode={columnResizeMode}
             minWidth={minWidth}
             maxWidth={maxWidth}
             virtual={virtual}

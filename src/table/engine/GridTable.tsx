@@ -63,7 +63,7 @@ import { useHeaderRowHeights } from './useHeaderRowHeights'
 import {
   useVirtualList,
 } from './useVirtualList'
-import { useColumnResize } from './useColumnResize'
+import { useColumnResize, type ColumnResizeMode } from './useColumnResize'
 import { SortIndicator } from './SortIndicator'
 import { FilterDropdown } from './FilterDropdown'
 import { parseSummaryNode } from './Summary'
@@ -536,6 +536,7 @@ function GridTableInner<RecordType = any>(
     resizable,
     resizableMinWidth,
     resizableMaxWidth,
+    columnResizeMode,
   } = gridOptions ?? {}
 
   const gridRef = useRef<HTMLDivElement | null>(null)
@@ -701,13 +702,29 @@ function GridTableInner<RecordType = any>(
     return 0
   }, [treeEnabled, leafColumns])
 
+  const visibleLeafKeys = useMemo(
+    () => leafColumns.filter((col) => !col.hidden).map((col) => col.key),
+    [leafColumns],
+  )
+  const resizeSiblingByKey = useMemo(() => {
+    const map = new Map<string, string>()
+    visibleLeafKeys.forEach((key, index) => {
+      const nextKey = visibleLeafKeys[index + 1]
+      if (nextKey !== undefined) map.set(key, nextKey)
+    })
+    return map
+  }, [visibleLeafKeys])
+
   // === 列宽拖拽调整 — 详见 docs/design-notes/column-width.md ===
-  // enabled = resizable === true（默认由适配层决定；引擎层 undefined/false 不启用）。
-  // resizedWidths 在算 colTracks 时优先覆盖 column.width；onPointerDown 绑定到 resizer 手柄。
-  const resizeEnabled = resizable === true
+  // columnResizeMode 显式配置时优先；未配置时保留 resizable=true 的旧行为（ResizeLeft）。
+  // 只有右侧存在下一列的可见叶子列才渲染手柄，所以最后一列右边不可 resize。
+  const effectiveColumnResizeMode: ColumnResizeMode =
+    columnResizeMode ?? (resizable === true ? 'ResizeLeft' : 'Disabled')
+  const resizeEnabled = effectiveColumnResizeMode !== 'Disabled'
   const { resizedWidths, resizingKey, onPointerDown: onResizerPointerDown } =
     useColumnResize({
       enabled: resizeEnabled,
+      mode: effectiveColumnResizeMode,
       minWidth: resizableMinWidth,
       maxWidth: resizableMaxWidth,
     })
@@ -1163,6 +1180,7 @@ function GridTableInner<RecordType = any>(
                         : 0
                     }
                     resizeEnabled={resizeEnabled}
+                    resizeSiblingKey={resizeSiblingByKey.get(cell.key)}
                     onResizerPointerDown={onResizerPointerDown}
                     resizingKey={resizingKey}
                     semanticHeader={semantic?.header}
@@ -1313,6 +1331,7 @@ function GridTableInner<RecordType = any>(
             // flat 单行表头 → headerRowOffsets=[0]，表头格 top:0。
             headerStickyTopOffset={headerRowOffsets[0] ?? 0}
             resizeEnabled={resizeEnabled}
+            resizeSiblingKey={resizeSiblingByKey.get(column.key)}
             onResizerPointerDown={onResizerPointerDown}
             resizingKey={resizingKey}
             onSorterClick={onSorterClick}
@@ -2123,6 +2142,7 @@ function HeaderCell<RecordType>({
   stickyHeaderOffset,
   headerStickyTopOffset,
   resizeEnabled,
+  resizeSiblingKey,
   onResizerPointerDown,
   resizingKey,
   onSorterClick,
@@ -2181,8 +2201,10 @@ function HeaderCell<RecordType>({
   headerStickyTopOffset?: number
   /** 是否启用列宽拖拽（仅在叶子表头格渲染 resizer）。 */
   resizeEnabled?: boolean
+  /** 右侧相邻可见列 key。undefined 表示全局最后一个可见叶子列，右侧不可 resize。 */
+  resizeSiblingKey?: string
   /** resizer pointerdown 回调（参数为列 key）。 */
-  onResizerPointerDown?: (key: string) => (event: React.PointerEvent<HTMLDivElement>) => void
+  onResizerPointerDown?: (key: string, siblingKey?: string) => (event: React.PointerEvent<HTMLDivElement>) => void
   /** 当前正在拖拽的列 key（视觉反馈）。 */
   resizingKey?: string | null
   /** 排序点击回调（参数为列 key）。仅可排序叶子表头格响应。 */
@@ -2504,11 +2526,11 @@ function HeaderCell<RecordType>({
       )}
       {/* 列宽拖拽 resizer：仅在叶子表头格 + 非隐藏列 + resizeEnabled 时渲染。
           分组表头格（isLeaf=false）无 resizer；隐藏列（cell.hidden）0fr track 无可调宽度。 */}
-      {resizeEnabled && cell.isLeaf && !cell.hidden && onResizerPointerDown ? (
+      {resizeEnabled && cell.isLeaf && !cell.hidden && resizeSiblingKey && onResizerPointerDown ? (
         <ColumnResizer
           columnKey={cell.key}
           active={resizingKey === cell.key}
-          onPointerDown={onResizerPointerDown(cell.key)}
+          onPointerDown={onResizerPointerDown(cell.key, resizeSiblingKey)}
         />
       ) : null}
     </div>
@@ -2550,8 +2572,10 @@ interface ColumnCellsProps<RecordType> {
   headerStickyTopOffset?: number
   /** 是否启用列宽拖拽。 */
   resizeEnabled?: boolean
+  /** 右侧相邻可见列 key。undefined 表示全局最后一个可见叶子列，右侧不可 resize。 */
+  resizeSiblingKey?: string
   /** resizer pointerdown 回调（参数为列 key）。 */
-  onResizerPointerDown?: (key: string) => (event: React.PointerEvent<HTMLDivElement>) => void
+  onResizerPointerDown?: (key: string, siblingKey?: string) => (event: React.PointerEvent<HTMLDivElement>) => void
   /** 当前正在拖拽的列 key（视觉反馈）。 */
   resizingKey?: string | null
   /** 排序点击回调（参数为列 key）。仅可排序列响应。 */
@@ -2613,6 +2637,7 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
     stickyHeaderOffset,
     headerStickyTopOffset,
     resizeEnabled,
+    resizeSiblingKey,
     onResizerPointerDown,
     resizingKey,
     onSorterClick,
@@ -2850,11 +2875,11 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
             </div>
           )}
           {/* 列宽拖拽 resizer：非隐藏列 + resizeEnabled 时渲染。 */}
-          {resizeEnabled && !column.hidden && onResizerPointerDown ? (
+          {resizeEnabled && !column.hidden && resizeSiblingKey && onResizerPointerDown ? (
             <ColumnResizer
               columnKey={column.key}
               active={resizingKey === column.key}
-              onPointerDown={onResizerPointerDown(column.key)}
+              onPointerDown={onResizerPointerDown(column.key, resizeSiblingKey)}
             />
           ) : null}
         </div>
@@ -3024,7 +3049,7 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
  * 列宽拖拽 resizer 手柄。详见 docs/design-notes/column-width.md + `useColumnResize.ts` 文件头注释。
  *
  * 渲染在叶子表头格**右侧边缘**（绝对定位 `inset-inline-end:0`），默认透明且 pointer-events:none，
- * 表头 hover 时显形并接收事件。pointerdown 由 `useColumnResize.onPointerDown(key)` 处理
+ * 表头 hover 时接收事件。pointerdown 由 `useColumnResize.onPointerDown(key)` 处理
  * （setPointerCapture + 原生 move/up 监听 → 实时改 resizedWidths → 重算 grid-template-columns）。
  *
  * 仅在 `resizeEnabled === true` 且**非隐藏列**时渲染（隐藏列 0fr track 无可调宽度）。
@@ -3036,7 +3061,7 @@ function ColumnResizer({
   onPointerDown,
 }: {
   columnKey: string
-  /** 是否正在拖拽该列（视觉反馈：加 dg-resizer-active 类）。 */
+  /** 是否正在拖拽该列（加 dg-resizer-active，保持 pointer 事件）。 */
   active: boolean
   onPointerDown: (event: React.PointerEvent<HTMLDivElement>) => void
 }) {

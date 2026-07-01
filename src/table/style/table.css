@@ -457,7 +457,7 @@
   color: var(--dg-header-color);
 }
 
-/* 列宽拖拽调整 resizable：手柄默认透明 + hover 显形（主色竖条），详见 docs/design-notes/column-width.md。 */
+/* 列宽拖拽调整 resizable：手柄保持透明，仅保留边缘命中区和 col-resize 光标。 */
 .dg-cell-header {
   /* resizer 用 absolute 定位，表头格需 position:relative 作定位上下文（兜底声明）。 */
   position: relative;
@@ -487,23 +487,10 @@
   transition: background-color 0.2s;
 }
 
-/* 表头格 hover（或 resizer 自身 hover）时显形 + 启用 pointer 事件。 */
+/* 表头格 hover（或 resizer 自身 hover）时启用 pointer 事件。 */
 .dg-cell-header:hover .dg-resizer,
 .dg-resizer:hover {
   pointer-events: auto;
-}
-
-.dg-cell-header:hover .dg-resizer::after,
-.dg-resizer:hover::after {
-  background: var(--dg-resizer-color);
-}
-
-/* 拖拽中：手柄高亮（主色加粗），无论是否 hover。 */
-.dg-resizer-active::after,
-.dg-resizer-active:hover::after {
-  background: var(--dg-resizer-color);
-  width: 2px;
-  height: 80%;
 }
 
 .dg-resizer-active {
@@ -985,5 +972,3 @@
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
-
-

@@ -1,8 +1,8 @@
 /**
  * resizable demo 的 data-grid 段（左栏）。
  *
- * props 驱动 `{ resizable, minWidth, maxWidth, virtual }`（由 resizable.tsx 父组件传）：
- *   * resizable：是否开启列宽拖拽（控制条 Switch）。
+ * props 驱动 `{ columnResizeMode, minWidth, maxWidth, virtual }`（由 resizable.tsx 父组件传）：
+ *   * columnResizeMode：列宽拖拽模式（Disabled / ResizeLeft / ResizeSibling）。
  *   * minWidth：拖拽最小宽度约束（控制条 InputNumber，px）。
  *   * maxWidth：拖拽最大宽度约束（控制条 InputNumber，px）。
  *   * virtual：全局虚拟化开关。
@@ -96,14 +96,14 @@ const dgColumns: ColumnType<RecordType>[] = [
   },
 ]
 
-// props 默认值：resizable=true / minWidth=30 / maxWidth=400（与父控制条初值一致的有效约束范围）。
+// props 默认值：columnResizeMode=ResizeLeft / minWidth=30 / maxWidth=400（与父控制条初值一致的有效约束范围）。
 export default function ResizableDg({
-  resizable = true,
+  columnResizeMode = 'ResizeLeft',
   minWidth = 30,
   maxWidth = 400,
   virtual = false,
 }: {
-  resizable: boolean
+  columnResizeMode: 'Disabled' | 'ResizeLeft' | 'ResizeSibling'
   minWidth: number
   maxWidth: number
   virtual: boolean
@@ -117,7 +117,7 @@ export default function ResizableDg({
       virtual={virtual}
       scroll={virtual ? { y: true } : undefined}
       gridOptions={{
-        resizable,
+        columnResizeMode,
         resizableMinWidth: minWidth,
         resizableMaxWidth: maxWidth,
       }}

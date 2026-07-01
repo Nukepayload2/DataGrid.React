@@ -1476,8 +1476,11 @@ export interface TableProps<RecordType = any> {
    *   仅设其一（缺 min 或 max）→ 退化为固定行高（等同不设）。
    *   详见 `docs/design-notes/row-height.md`。
    * - `headerHeight`：表头行高约定（数字 px 或字符串 CSS track）。多级表头下所有表头行统一高度。
-   * - `resizable`：列宽拖拽调整开关。`true` 时叶子表头格右侧渲染 resizer 手柄，
-   *   pointer 拖拽实时改列宽（覆盖 column.width）。默认 `false`（零回归）。
+   * - `resizable`：列宽拖拽调整兼容开关。`true` 且未配置 `columnResizeMode` 时等同
+   *   `columnResizeMode: 'ResizeLeft'`。默认 `false`（零回归）。
+   * - `columnResizeMode`：列宽拖拽模式。`Disabled` 禁用；`ResizeLeft` 只改变分隔线左侧列宽，
+   *   表格宽度总和随之变化；`ResizeSibling` 同时改变左右相邻列宽，保持总宽不变。
+   *   最后一个可见叶子列右侧不渲染 resizer。
    *   详见 `docs/design-notes/column-width.md`。
    * - `resizableMinWidth` / `resizableMaxWidth`：列宽拖拽 min/max 约束（px）。number → 统一；
    *   函数 → 按列 key 逐列定制。默认 min 30 / max Infinity。
@@ -1488,6 +1491,7 @@ export interface TableProps<RecordType = any> {
     maxRowHeight?: number
     headerHeight?: number | string
     resizable?: boolean
+    columnResizeMode?: 'Disabled' | 'ResizeLeft' | 'ResizeSibling'
     resizableMinWidth?: number | ((key: string) => number)
     resizableMaxWidth?: number | ((key: string) => number)
     /**
