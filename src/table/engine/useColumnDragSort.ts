@@ -2,14 +2,14 @@
  * 列拖拽排序 hook — 详见 docs/design-notes/drag-sort.md。
  *
  * 采用事件委托（命中 `[data-leaf-index]` 叶子表头格）+ setPointerCapture + 水平 hit-test +
- * 垂直指示线 + arrayMove。不引入 @dnd-kit/*（CSS Grid 渲染下 dnd-kit 的 DOM 元素 transform 模型
- * 会破坏 grid 布局，详见 drag-sort.md「为什么不用 dnd-kit」）。
+ * overlay 跟手 + 离散让位 + 垂直指示线 + arrayMove。不引入 @dnd-kit/*（CSS Grid 渲染下 dnd-kit
+ * 的 DOM 元素 transform 模型会破坏 grid 布局，详见 drag-sort.md「为什么不用 dnd-kit」）。
  *
  * 与行拖（useRowDragSort，命中 `[data-row-index]`）命中不同属性，两者正交互不干扰。
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useAutoScrollOnDrag } from './useAutoScrollOnDrag'
+import { findScrollContainer, useAutoScrollOnDrag } from './useAutoScrollOnDrag'
 
 /** arrayMove：把数组 from 位置的元素移到 to 位置（对齐 @dnd-kit/sortable）。 */
 export function arrayMoveColumns<T>(arr: Array<T>, from: number, to: number): Array<T> {
@@ -35,6 +35,119 @@ function isColumnLocked<ColumnType>(col: ColumnType): boolean {
   return opts?.lockPosition === true
 }
 
+function getColumnKey<ColumnType>(columns: Array<ColumnType>, index: number): string | null {
+  const key = (columns[index] as { key?: React.Key } | undefined)?.key
+  if (key === undefined || key === null) return null
+  return String(key)
+}
+
+function findColumnCells(
+  container: HTMLElement,
+  columnIndex: number,
+  columnKey: string | null,
+): HTMLElement[] {
+  const cells = new Set<HTMLElement>()
+  container
+    .querySelectorAll<HTMLElement>(`[data-leaf-index="${columnIndex}"]`)
+    .forEach((cell) => cells.add(cell))
+  if (columnKey !== null) {
+    container.querySelectorAll<HTMLElement>('[data-column-key]').forEach((cell) => {
+      if (cell.getAttribute('data-column-key') === columnKey) cells.add(cell)
+    })
+  }
+  return Array.from(cells)
+}
+
+function createColumnDragOverlay(
+  container: HTMLElement,
+  columnIndex: number,
+  columnKey: string | null,
+): HTMLElement | null {
+  const cells = findColumnCells(container, columnIndex, columnKey)
+  if (cells.length === 0) return null
+
+  const rects = cells.map((cell) => ({ cell, rect: cell.getBoundingClientRect() }))
+  const left = Math.min(...rects.map(({ rect }) => rect.left))
+  const right = Math.max(...rects.map(({ rect }) => rect.right))
+  const top = Math.min(...rects.map(({ rect }) => rect.top))
+  const bottom = Math.max(...rects.map(({ rect }) => rect.bottom))
+  const width = right - left
+  const height = bottom - top
+  if (width <= 0 || height <= 0) return null
+
+  const overlay = document.createElement('div')
+  overlay.className = 'dg-drag-column-overlay'
+  overlay.setAttribute('aria-hidden', 'true')
+  Object.assign(overlay.style, {
+    position: 'fixed',
+    left: `${left}px`,
+    top: `${top}px`,
+    width: `${width}px`,
+    height: `${height}px`,
+    pointerEvents: 'none',
+    zIndex: '10000',
+    transform: 'translate3d(0, 0, 0)',
+    transition: 'none',
+  })
+
+  rects.forEach(({ cell, rect }) => {
+    const clone = cell.cloneNode(true) as HTMLElement
+    clone.removeAttribute('data-leaf-index')
+    clone.removeAttribute('data-column-key')
+    clone.removeAttribute('data-row-index')
+    clone.removeAttribute('data-known-size')
+    clone.classList.remove('dg-drag-column-active', 'dg-drag-column-yield', 'dg-drag-column-source')
+    Object.assign(clone.style, {
+      position: 'absolute',
+      left: `${rect.left - left}px`,
+      top: `${rect.top - top}px`,
+      width: `${rect.width}px`,
+      height: `${rect.height}px`,
+      transform: 'none',
+      transition: 'none',
+      boxSizing: 'border-box',
+    })
+    overlay.appendChild(clone)
+  })
+
+  const host = container.querySelector<HTMLElement>('.dg-wrapper') ?? document.body
+  host.appendChild(overlay)
+  return overlay
+}
+
+function updateColumnDragOverlay(overlay: HTMLElement | null, delta: number): void {
+  if (!overlay) return
+  overlay.style.transform = `translate3d(${delta}px, 0, 0)`
+}
+
+function removeColumnDragOverlay(overlay: HTMLElement | null): void {
+  overlay?.remove()
+}
+
+function getTranslateXFromComputedTransform(el: HTMLElement): number {
+  const transform = getComputedStyle(el).transform
+  if (!transform || transform === 'none') return 0
+  const matrix3d = transform.match(/^matrix3d\((.+)\)$/)
+  if (matrix3d) {
+    const values = matrix3d[1].split(',').map((v) => Number.parseFloat(v.trim()))
+    return Number.isFinite(values[12]) ? values[12] : 0
+  }
+  const matrix = transform.match(/^matrix\((.+)\)$/)
+  if (matrix) {
+    const values = matrix[1].split(',').map((v) => Number.parseFloat(v.trim()))
+    return Number.isFinite(values[4]) ? values[4] : 0
+  }
+  return 0
+}
+
+function getUntransformedRect(el: HTMLElement): { left: number; width: number } {
+  const rect = el.getBoundingClientRect()
+  return {
+    left: rect.left - getTranslateXFromComputedTransform(el),
+    width: rect.width,
+  }
+}
+
 /**
  * 锁定列友好的列重排算法 — 详见 docs/design-notes/drag-sort.md（「列拖：锁定列」节）。
  *
@@ -46,9 +159,8 @@ function isColumnLocked<ColumnType>(col: ColumnType): boolean {
  *   1. 把原 columns 分成两组索引：`movableIdxs`（非锁定列的原 index 列表，按原顺序）+
  *      `lockedIdxs`（锁定列的原 index 集合）。
  *   2. 在 movableIdxs 上找到 from 对应的可动列序号（`fromMovable`）+ to 对应的可动列序号
- *      （`toMovable`）。toIndex 必须也指向可动列（被拖列是可动的，拖拽发起前已校验；
- *      hit-test 的 over index 可能落在锁定列上——此时 toMovable 退化为最近的可动列序号，
- *      保证不会把可动列"插入"到锁定列的固定槽位之间错乱）。
+ *      （`toMovable`）。toIndex 落在锁定列上时，toMovable 取锁定列另一侧最近的可动列序号，
+ *      让拖拽目标越过锁定列，同时锁定列仍保持原 index 不动。
  *   3. 对 `movableIdxs` 做 arrayMove（fromMovable → toMovable）得到新的可动列 index 序列。
  *   4. 重建数组：锁定列保持原位（按 lockedIdxs 的原 index），可动列按重排后的顺序依次填入剩余槽位。
  *
@@ -77,8 +189,8 @@ export function arrayMoveColumnsRespectLocks<ColumnType>(
   if (fromMovable < 0) return arr
 
   // 把 toIndex（原数组 index，可能落在锁定列上）映射到"可动列序号"语义：
-  // toIndex 落在锁定列上时，根据拖拽方向（from<to 向右拖 / from>to 向左拖）取最近的可动列序号，
-  // 避免 arrayMove 把可动列插进锁定列的固定槽位导致锁定列被动移位。
+  // toIndex 落在锁定列上时，根据拖拽方向跨过锁定列，取锁定列另一侧最近的可动列序号。
+  // 这样拖到锁定列右侧/左侧时，视觉与最终顺序都会越过锁定列，而锁定列自身仍保持原位。
   let toMovable: number
   if (toIndex === arr.length) {
     // 拖到末尾之后 → 目标可动列序号 = 末尾可动列序号（arrayMove 的 to 上界）。
@@ -88,23 +200,24 @@ export function arrayMoveColumnsRespectLocks<ColumnType>(
     if (directIdx >= 0) {
       toMovable = directIdx
     } else {
-      // toIndex 落在锁定列上：找原数组中 toIndex 之前最近的可动列序号（向右拖）或之后最近（向左拖）。
+      // toIndex 落在锁定列上：找原数组中 toIndex 之后最近的可动列序号（向右拖）
+      // 或之前最近的可动列序号（向左拖），让目标越过锁定列。
       if (fromIndex < toIndex) {
-        // 向右拖：取 toIndex 之前最后一个可动列序号。
+        // 向右拖：取 toIndex 之后第一个可动列序号。
+        toMovable = -1
+        for (let m = 0; m < movableIdxs.length; m += 1) {
+          if (movableIdxs[m] > toIndex) {
+            toMovable = m
+            break
+          }
+        }
+        if (toMovable < 0) return arr
+      } else {
+        // 向左拖：取 toIndex 之前最后一个可动列序号。
         toMovable = -1
         for (let m = 0; m < movableIdxs.length; m += 1) {
           if (movableIdxs[m] < toIndex) toMovable = m
           else break
-        }
-        if (toMovable < 0) return arr
-      } else {
-        // 向左拖：取 toIndex 之后第一个可动列序号。
-        toMovable = -1
-        for (let m = 0; m < movableIdxs.length; m += 1) {
-          if (movableIdxs[m] >= toIndex) {
-            toMovable = m
-            break
-          }
         }
         if (toMovable < 0) return arr
       }
@@ -237,9 +350,109 @@ export function useColumnDragSort<ColumnType>(
   // 拖拽过程中跨事件保留的临时状态（不直接驱动渲染，放 ref；驱动渲染用 dragState/indicator state）。
   const dragRef = useRef<{
     fromIndex: number
+    overIndex: number
+    startClientX: number
     pointerId: number
     el: HTMLElement
+    overlayEl: HTMLElement | null
+    startScrollLeft: number
+    lastClientX: number
+    columnKey: string | null
+    scrollEl: HTMLElement | null
+    scrollRafId: number | null
+    ac: AbortController | null
+    previousBodyCursor: string
+    previousBodyUserSelect: string
   } | null>(null)
+  const scrollHandlerRef = useRef<(() => void) | null>(null)
+
+  const applyYieldTransforms = useCallback(
+    (fromIndex: number, overIndex: number, delta: number) => {
+      const container = containerRef.current
+      if (!container) return
+      const nextColumns = arrayMoveColumnsRespectLocks(columns, fromIndex, overIndex)
+      const currentRects = new Map<number, { left: number; width: number }>()
+      container.querySelectorAll<HTMLElement>('[data-leaf-index]').forEach((cell) => {
+        const idxAttr = cell.getAttribute('data-leaf-index')
+        if (idxAttr === null) return
+        const idx = Number.parseInt(idxAttr, 10)
+        if (!Number.isFinite(idx)) return
+        if (currentRects.has(idx)) return
+        currentRects.set(idx, getUntransformedRect(cell))
+      })
+      if (currentRects.size === 0) return
+
+      const baseLeft = Math.min(...Array.from(currentRects.values()).map((rect) => rect.left))
+      const finalLefts = new Map<number, number>()
+      let cursorLeft = baseLeft
+      nextColumns.forEach((column) => {
+        const originalIndex = columns.indexOf(column)
+        if (originalIndex < 0) return
+        finalLefts.set(originalIndex, cursorLeft)
+        cursorLeft += currentRects.get(originalIndex)?.width ?? 0
+      })
+
+      for (let i = 0; i < columns.length; i += 1) {
+        const key = getColumnKey(columns, i)
+        const cells = findColumnCells(container, i, key)
+        cells.forEach((cell) => {
+          if (i === fromIndex) {
+            cell.classList.add('dg-drag-column-active', 'dg-drag-column-source')
+            cell.classList.remove('dg-drag-column-yield')
+            cell.style.transform = `translate3d(${delta}px, 0, 0)`
+            return
+          }
+          const currentLeft = currentRects.get(i)?.left
+          const targetLeft = finalLefts.get(i)
+          const rawYieldDelta =
+            currentLeft !== undefined && targetLeft !== undefined ? targetLeft - currentLeft : 0
+          const yieldDelta = Math.abs(rawYieldDelta) < 0.5 ? 0 : rawYieldDelta
+          if (yieldDelta !== 0) {
+            cell.classList.add('dg-drag-column-yield')
+            cell.classList.remove('dg-drag-column-active', 'dg-drag-column-source')
+            cell.style.transform = `translate3d(${yieldDelta}px, 0, 0)`
+            return
+          }
+          cell.classList.remove('dg-drag-column-active', 'dg-drag-column-source', 'dg-drag-column-yield')
+          cell.style.transform = ''
+        })
+      }
+    },
+    [columns, containerRef],
+  )
+
+  const clearYieldTransforms = useCallback(() => {
+    const container = containerRef.current
+    if (!container) return
+    const cells = container.querySelectorAll<HTMLElement>('[data-leaf-index], [data-column-key]')
+    cells.forEach((cell) => {
+      cell.classList.remove('dg-drag-column-active', 'dg-drag-column-source', 'dg-drag-column-yield')
+      cell.style.transform = ''
+    })
+  }, [containerRef])
+
+  const cleanupDragSession = useCallback(() => {
+    const drag = dragRef.current
+    if (!drag) return
+    drag.ac?.abort()
+    drag.ac = null
+    if (drag.scrollRafId !== null) {
+      cancelAnimationFrame(drag.scrollRafId)
+      drag.scrollRafId = null
+    }
+    if (drag.scrollEl && scrollHandlerRef.current) {
+      drag.scrollEl.removeEventListener('scroll', scrollHandlerRef.current as EventListener)
+      drag.scrollEl = null
+    }
+    removeColumnDragOverlay(drag.overlayEl)
+    drag.overlayEl = null
+    document.body.style.cursor = drag.previousBodyCursor
+    document.body.style.userSelect = drag.previousBodyUserSelect
+    scrollHandlerRef.current = null
+    dragRef.current = null
+    clearYieldTransforms()
+    stopAutoScroll()
+  }, [clearYieldTransforms, stopAutoScroll])
 
   /**
    * 水平 hit-test：根据 pointer X 算出"插入位置"（over index）。
@@ -274,9 +487,10 @@ export function useColumnDragSort<ColumnType>(
         if (idxAttr === null) return
         const idx = Number.parseInt(idxAttr, 10)
         if (!Number.isFinite(idx)) return
+        if (idx === dragRef.current?.fromIndex) return
         if (colBounds.has(idx)) return
-        const r = cell.getBoundingClientRect()
-        colBounds.set(idx, { left: r.left, right: r.right })
+        const r = getUntransformedRect(cell)
+        colBounds.set(idx, { left: r.left, right: r.left + r.width })
       })
       if (colBounds.size === 0) return null
       // 排序后的列 index 列表（升序）。
@@ -309,6 +523,30 @@ export function useColumnDragSort<ColumnType>(
     [containerRef],
   )
 
+  const recomputeFromPointer = useCallback(
+    (clientX: number) => {
+      const drag = dragRef.current
+      if (!drag) return
+      const result = hitTest(clientX)
+      if (!result) return
+      let overIndex = result.overIndex
+      if (overIndex > drag.fromIndex) overIndex = overIndex - 1
+      drag.overIndex = overIndex
+      setDragState({ fromIndex: drag.fromIndex, overIndex })
+      setIndicator({
+        visible: true,
+        left: result.indicatorLeft,
+        top: result.containerTop,
+        height: result.containerHeight,
+      })
+      const currentScrollLeft = drag.scrollEl?.scrollLeft ?? drag.startScrollLeft
+      const delta = clientX - drag.startClientX + (currentScrollLeft - drag.startScrollLeft)
+      applyYieldTransforms(drag.fromIndex, overIndex, delta)
+      updateColumnDragOverlay(drag.overlayEl, clientX - drag.startClientX)
+    },
+    [hitTest, applyYieldTransforms],
+  )
+
   /** 外层容器 pointerdown（事件委托）：命中叶子表头格则启动列拖拽。 */
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
@@ -337,6 +575,10 @@ export function useColumnDragSort<ColumnType>(
       if (colOpts?.movable === false) return
       if (colOpts?.lockPosition === true) return
 
+      if (dragRef.current) {
+        cleanupDragSession()
+      }
+
       const el = cell
       const pointerId = e.pointerId
       e.preventDefault()
@@ -346,11 +588,31 @@ export function useColumnDragSort<ColumnType>(
       } catch {
         // 极少数 setPointerCapture 失败（pointer 已 cancel）；忽略。
       }
+      const scrollEl = findScrollContainer(containerRef.current)
+      const startScrollLeft = scrollEl?.scrollLeft ?? 0
+      const columnKey = getColumnKey(columns, index)
+      const overlayEl = containerRef.current
+        ? createColumnDragOverlay(containerRef.current, index, columnKey)
+        : null
+      const ac = new AbortController()
       dragRef.current = {
         fromIndex: index,
+        overIndex: index,
+        startClientX: e.clientX,
         pointerId,
         el,
+        overlayEl,
+        startScrollLeft,
+        lastClientX: e.clientX,
+        columnKey,
+        scrollEl: null,
+        scrollRafId: null,
+        ac,
+        previousBodyCursor: document.body.style.cursor,
+        previousBodyUserSelect: document.body.style.userSelect,
       }
+      document.body.style.cursor = 'move'
+      document.body.style.userSelect = 'none'
       // 初始 overIndex = fromIndex（未移动时松手不重排）。
       const initial = hitTest(e.clientX)
       setDragState({
@@ -365,65 +627,63 @@ export function useColumnDragSort<ColumnType>(
           height: initial.containerHeight,
         })
       }
+      recomputeFromPointer(e.clientX)
 
       // 初始化 auto-scroll 指针坐标 + 启动 RAF 边缘检测循环（横向）。
       autoScrollPointerRef.current = { clientX: e.clientX, clientY: e.clientY }
       startAutoScroll()
 
-      // 原生监听 move/up（挂到捕获表头格元素，pointer capture 保证事件路由到它）。
+      if (scrollEl) {
+        const onScrollDuringDrag = () => {
+          const drag = dragRef.current
+          if (!drag) return
+          if (drag.scrollRafId !== null) return
+          drag.scrollRafId = requestAnimationFrame(() => {
+            if (dragRef.current) dragRef.current.scrollRafId = null
+            const d = dragRef.current
+            if (!d) return
+            recomputeFromPointer(d.lastClientX)
+          })
+        }
+        scrollEl.addEventListener('scroll', onScrollDuringDrag, { passive: true })
+        dragRef.current.scrollEl = scrollEl
+        scrollHandlerRef.current = onScrollDuringDrag
+      }
+
+      // 原生监听 move/up 挂 window，避免横向 auto-scroll/虚拟卸载拖拽源表头后丢失 pointerup。
       const nativeMove = (ev: PointerEvent) => {
         const drag = dragRef.current
         if (!drag || ev.pointerId !== drag.pointerId) return
         // 实时更新指针坐标供 auto-scroll RAF 循环读取。
         autoScrollPointerRef.current = { clientX: ev.clientX, clientY: ev.clientY }
-        const result = hitTest(ev.clientX)
-        if (!result) return
-        // 调整 over index：@dnd-kit 语义是 over = 目标列 index（松手后 arrayMove 把 from 移到 to）。
-        // hitTest 返回插入位置（0..len）；转成"目标列 index"：
-        //   - 插入位置 <= from：over = 插入位置（移到该位置）。
-        //   - 插入位置 > from：over = 插入位置 - 1（因为 arrayMove 先删 from 再插，实际目标列 index = 插入位置 - 1）。
-        let overIndex = result.overIndex
-        if (overIndex > drag.fromIndex) overIndex = overIndex - 1
-        setDragState({ fromIndex: drag.fromIndex, overIndex })
-        setIndicator({
-          visible: true,
-          left: result.indicatorLeft,
-          top: result.containerTop,
-          height: result.containerHeight,
-        })
+        drag.lastClientX = ev.clientX
+        recomputeFromPointer(ev.clientX)
       }
       const nativeUp = (ev: PointerEvent) => {
         const drag = dragRef.current
         if (!drag || ev.pointerId !== drag.pointerId) return
+        drag.lastClientX = ev.clientX
+        recomputeFromPointer(ev.clientX)
+        const finalFromIndex = drag.fromIndex
+        const finalOverIndex = drag.overIndex
         try {
           drag.el.releasePointerCapture(drag.pointerId)
         } catch {
           // ignore
         }
-        drag.el.removeEventListener('pointermove', nativeMove)
-        drag.el.removeEventListener('pointerup', nativeUp)
-        drag.el.removeEventListener('pointercancel', nativeUp)
-        dragRef.current = null
-        // 拖拽结束，停止 auto-scroll RAF 循环。
-        stopAutoScroll()
-        // 最终 overIndex（state 中已是最新）。from===over 不重排。
-        setDragState((cur) => {
-          if (cur && cur.fromIndex !== cur.overIndex) {
-            // 用尊重锁定列的重排算法（锁定列 index 不变，可动列在剩余槽位间重排）。
-            // 无锁定列时内部退化为普通 arrayMoveColumns（零回归 + 性能更优）。
-            const next = arrayMoveColumnsRespectLocks(columns, cur.fromIndex, cur.overIndex)
-            onSort(next)
-          }
-          return null
-        })
+        cleanupDragSession()
+        if (finalFromIndex !== finalOverIndex) {
+          // 用尊重锁定列的重排算法（锁定列 index 不变，可动列在剩余槽位间重排）。
+          // 无锁定列时内部退化为普通 arrayMoveColumns（零回归 + 性能更优）。
+          const next = arrayMoveColumnsRespectLocks(columns, finalFromIndex, finalOverIndex)
+          onSort(next)
+        }
+        setDragState(null)
         setIndicator({ visible: false, left: 0, top: 0, height: 0 })
       }
-      // TODO: pointer 监听当前挂 el，列拖虚拟 + autoScroll 场景若 from cell 滚出视口被虚拟引擎卸载，
-      //   会丢 move/up 监听导致 drop 卡死。后续应改挂 window + AbortController 批量管理 +
-      //   拖拽中挂 scroll 监听重跑 hit-test（与 useRowDragSort 同款修复，详见 drag-sort.md 已知简化）。
-      el.addEventListener('pointermove', nativeMove)
-      el.addEventListener('pointerup', nativeUp)
-      el.addEventListener('pointercancel', nativeUp)
+      window.addEventListener('pointermove', nativeMove, { signal: ac.signal })
+      window.addEventListener('pointerup', nativeUp, { signal: ac.signal })
+      window.addEventListener('pointercancel', nativeUp, { signal: ac.signal })
     },
     [
       hitTest,
@@ -432,7 +692,9 @@ export function useColumnDragSort<ColumnType>(
       reorderEnabled,
       autoScrollPointerRef,
       startAutoScroll,
-      stopAutoScroll,
+      cleanupDragSession,
+      recomputeFromPointer,
+      containerRef,
     ],
   )
 
@@ -446,12 +708,12 @@ export function useColumnDragSort<ColumnType>(
         } catch {
           // ignore
         }
-        dragRef.current = null
+        cleanupDragSession()
       }
       // 卸载时确保 auto-scroll RAF 已停（防止组件卸载后 RAF 继续跑）。
       stopAutoScroll()
     }
-  }, [stopAutoScroll])
+  }, [stopAutoScroll, cleanupDragSession])
 
   return { dragState, indicator, containerProps: { onPointerDown } }
 }

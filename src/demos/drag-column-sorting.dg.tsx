@@ -1,10 +1,10 @@
 /**
  * drag-column-sorting demo 的 data-grid 段（左栏）。
  * 拖拽 columns 在子组件内自管（两栏各自独立）。自研 pointer 列拖拽（`useColumnDragSort`
- * 命中叶子表头格 + 垂直指示线 + arrayMoveColumns）。grid 渲染无"列 DOM"，transform 平移会
- * 破坏 grid 布局，故用指示线提示插入位置。
+ * 命中叶子表头格 + overlay + 离散让位 + 垂直指示线 + arrayMoveColumns）。grid 渲染无"列 DOM"，
+ * 故只对可见单元格做离散 transform，真实顺序仍由 columns 重排完成。
  */
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { theme } from 'antd'
 import { Table, useColumnDragSort } from '../table'
 import type { ColumnType } from '../table'
@@ -56,6 +56,29 @@ export default function DragColumnSortingDg({
 
   const containerRef = useRef<HTMLDivElement>(null)
   const { token } = theme.useToken()
+  const tableColumns = useMemo(
+    () =>
+      columns.map((column) => {
+        const draggable =
+          columnReorder &&
+          column.gridColumnOptions?.movable !== false &&
+          column.gridColumnOptions?.lockPosition !== true
+        return {
+          ...column,
+          onHeaderCell: (col, index) => {
+            const base = column.onHeaderCell?.(col, index) ?? {}
+            return {
+              ...base,
+              style: {
+                ...base.style,
+                cursor: draggable ? 'move' : undefined,
+              },
+            }
+          },
+        } satisfies ColumnType<RecordType>
+      }),
+    [columnReorder, columns],
+  )
 
   const { dragState, indicator, containerProps } = useColumnDragSort<ColumnType<RecordType>>({
     columns,
@@ -71,7 +94,7 @@ export default function DragColumnSortingDg({
     <div ref={containerRef} style={{ position: 'relative' }} {...containerProps}>
       <Table<RecordType>
         rowKey="key"
-        columns={columns}
+        columns={tableColumns}
         dataSource={data}
         bordered={bordered}
         // 对齐右栏 antd 默认分页（antd 对任意数据都渲染 .ant-pagination，data-grid 不传=无分页条）。

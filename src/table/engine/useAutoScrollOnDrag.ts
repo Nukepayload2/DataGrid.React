@@ -9,7 +9,7 @@
  * DOM 行边界变化 → 下一帧 hit-test 自动跟随到新位置。
  *
  * 自研 RAF 循环（边缘检测 + scrollBy + cleanup），不依赖 @dnd-kit autoscroll（与其 DndContext 强耦合）。
- * 本 hook 仅负责滚动；hit-test 跟随由调用方在 scroll 事件中重跑（见 useRowDragSort 的 onScrollDuringDrag）。
+ * 本 hook 仅负责滚动；hit-test 跟随由调用方在 scroll 事件中重跑（见行/列拖拽 hook 的 onScrollDuringDrag）。
  */
 
 import { useCallback, useEffect, useRef } from 'react'

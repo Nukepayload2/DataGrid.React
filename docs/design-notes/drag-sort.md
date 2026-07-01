@@ -45,7 +45,7 @@ data-grid 的"行"/"列"不是单一 DOM 元素：
 
 指示线是外层容器的子元素，**不是 grid item**，不参与 `grid-template-rows/columns` 计算（零回归，不影响布局）。
 
-## 离散让位（dnd-kit 风格，行拖专用）
+## 离散让位（dnd-kit 风格）
 
 行拖拽中**不**把整行 transform 平移到指针位置（会破坏 grid track），而是离散让位：
 
@@ -58,6 +58,13 @@ data-grid 的"行"/"列"不是单一 DOM 元素：
 被拖行高度在拖拽开始时**一次性快照**（用该行首个 `[data-row-index]` cell 的 `getBoundingClientRect` 高度），后续让位 transform 用此高度算位移量。过程中行高不变（grid track 未重排，dataSource 未变），无需 ResizeObserver 跟踪。
 
 松手前调 `clearYieldTransforms()` 清场（移除全部 cell 的 transform + 让位类），再 `arrayMove` 重排 dataSource（grid 重新计算 track，cell 复用但无残留位移）。
+
+列拖采用同款视觉模型：
+
+- **被拖列视觉**：pointerdown 时克隆当前可见列单元格到 fixed overlay，overlay 只跟随指针水平位移。
+- **被拖列源格**：源格保留在表内参与占位 / hit-test，有 overlay 时加 `dg-drag-column-source` 隐藏。
+- **让位列**：根据 lock-aware 最终列顺序和当前实测列宽，计算每个可见列从当前 x 坐标到最终 x 坐标的 `translateX(...)` + `dg-drag-column-yield` 类（`transition: transform 150ms ease`）。`lockPosition:true` 列不能发起拖拽且最终 index 恒定；但若列宽不同导致该 index 的最终 x 坐标变化，锁定列也允许在拖拽动画中临时位移，以匹配 drop 后的真实位置。
+- **其余列**：清 inline transform + 清拖拽类。
 
 ### 为何用 transform 而非改 grid track
 
@@ -92,7 +99,7 @@ dnd-kit 的 autoscroll 与其 DndContext/useDraggable 强耦合——data-grid �
 
 `scrollContainer.scrollBy` 会触发原生 scroll 事件 → useVirtualList 重算可视区 + 新行进入 DOM + FloatingScrollBar 同步悬浮条 thumb。**但 hit-test 不会随 scroll 自动重跑**——指针停在容器边缘不动时没有 pointermove 事件，被拖行/让位行的 over/yield 会冻结在旧值。
 
-故调用方（`useRowDragSort`）需在拖拽期间自行监听 scroll：`scroll` 事件 → `requestAnimationFrame`（延迟一帧确保虚拟引擎已 flush 新行 DOM）→ 用最后已知 clientY 重跑 `recomputeFromPointer`（hit-test → over 换算 → setDragState → setIndicator → applyYieldTransforms）。RAF 去重（scroll 一帧可能触发多次，dragRef.scrollRafId !== null 时跳过）保证每帧只重算一次。
+故调用方（`useRowDragSort` / `useColumnDragSort`）需在拖拽期间自行监听 scroll：`scroll` 事件 → `requestAnimationFrame`（延迟一帧确保虚拟引擎已 flush 新 DOM）→ 用最后已知指针坐标重跑 `recomputeFromPointer`（hit-test → over 换算 → setDragState → setIndicator → applyYieldTransforms）。RAF 去重（scroll 一帧可能触发多次，dragRef.scrollRafId !== null 时跳过）保证每帧只重算一次。
 
 ## 行拖：手柄列限定（drag-sorting-handler）
 
@@ -132,7 +139,7 @@ dnd-kit 的 autoscroll 与其 DndContext/useDraggable 强耦合——data-grid �
 | | data-grid | antd |
 |---|---|---|
 | 行拖视觉 | fixed overlay 跟手 + 中间行离散让位 + 指示线（横线） | dnd-kit `useSortable` transform 跟随指针平移整行 |
-| 列拖视觉 | 垂直指示线（竖线）提示插入位置 + 松手重排 columns（列瞬间到新位置） | dnd-kit `useSortable` transform 跟随指针平移整列 + body cell 虚线边 + DragOverlay 预览 |
+| 列拖视觉 | fixed overlay 跟手 + 中间列离散让位 + 垂直指示线（竖线） | dnd-kit `useSortable` transform 跟随指针平移整列 + body cell 虚线边 + DragOverlay 预览 |
 | 手势挂载 | 事件委托（外层容器 onPointerDown，命中 data 属性） | `<tr>`/`<th>` 挂 listeners（drag-sorting）或手柄 setActivatorNodeRef（drag-sorting-handler） |
 | 锁定列 | `lockPosition` + 可动列子序列重排算法 | dnd-kit 的 `disabled` / restrict |
 
@@ -140,7 +147,6 @@ dnd-kit 的 autoscroll 与其 DndContext/useDraggable 强耦合——data-grid �
 
 ## 已知简化
 
-- **列拖虚拟 + autoScroll 场景**：列拖的 pointer 监听挂 `el`（不像行拖挂 window），若 from cell 滚出视口被虚拟引擎卸载会丢 move/up 监听导致 drop 卡死（与行拖同款 BUG，待对称修复）。
 - **多级表头列重排**：多级表头下叶子列重排仅在同父分组内才有语义意义，跨分组重排复杂；demo 用单层表头。
 - **树形 / 展开行重排**：展开/树形行重排语义复杂（子树跟随？），未覆盖。
 - **虚拟模式让位 transform**：`querySelectorAll('[data-row-index]')` 只命中当前可见的 cell；被拖行视觉由 fixed overlay 保留，不受虚拟卸载影响。让位行滚出视口后会被卸载，新可见行在下一帧 `recomputeFromPointer` 中重新计算让位。

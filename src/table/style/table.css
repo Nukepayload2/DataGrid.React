@@ -243,6 +243,34 @@
   transition: transform 150ms ease;
 }
 
+/* 列拖拽离散让位：与行拖同族，源列由 fixed overlay 跟手，中间列用 transform 横向让位。 */
+.dg-cell.dg-drag-column-active {
+  position: relative;
+  z-index: 10;
+  transition: none;
+  background: var(--dg-body-bg);
+  cursor: move;
+  user-select: none;
+}
+
+.dg-cell-header.dg-drag-column-active {
+  background: var(--dg-header-bg);
+}
+
+.dg-cell.dg-drag-column-source {
+  opacity: 0;
+}
+
+.dg-drag-column-overlay {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  background: var(--dg-body-bg);
+  cursor: move;
+}
+
+.dg-cell.dg-drag-column-yield {
+  transition: transform 150ms ease;
+}
+
 /* 有界行高模型（minRowHeight/maxRowHeight），详见 docs/design-notes/row-height.md。 */
 .dg-grid.dg-grid-bounded .dg-cell-body {
   min-height: var(--dg-row-min-h);

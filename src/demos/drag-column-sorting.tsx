@@ -1,6 +1,7 @@
 /**
  * drag-column-sorting 双栏对照 demo：列方向拖拽排序。两侧各自维护 columns。
- * - 左栏 data-grid：自研 pointer 列拖拽（`useColumnDragSort` 命中叶子表头格 + 垂直指示线 + arrayMoveColumns）。
+ * - 左栏 data-grid：自研 pointer 列拖拽（`useColumnDragSort` 命中叶子表头格 + overlay + 离散让位 +
+ *   垂直指示线 + arrayMoveColumns）。
  * - 右栏 antd：忠实复刻官方 drag-column-sorting（@dnd-kit + restrictToHorizontalAxis + useSortable +
  *   DragIndexContext borderInline 虚线 + DragOverlay 预览）。
  */
@@ -80,13 +81,13 @@ export default function DragColumnSortingDemo() {
               <strong>拖拽视觉</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：data-grid 拖拽中显示<strong>蓝色垂直指示线</strong>
-                  （被拖列原位不动，指示线提示列插入位置）；antd 被拖列表头
+                  + 被拖列 overlay 跟随指针 + 中间列自动让位；antd 被拖列表头
                   <strong>跟随指针平移</strong>（transform）+ body cell borderInline 虚线指示 +
                   DragOverlay 预览（灰底）。</li>
                 <li><strong>触发条件</strong>：按住列头并水平移动指针。</li>
                 <li><strong>差异原因</strong>：data-grid 用 CSS Grid，transform 平移单个单元格会破坏
-                  grid 布局，故用指示线提示插入位置；antd 各列 <code>&lt;th&gt;</code>/<code>&lt;td&gt;</code>
-                  可独立 transform。</li>
+                  grid 布局，故 data-grid 只对可见单元格做离散 transform，让真实重排仍由 columns
+                  更新完成；antd 各列 <code>&lt;th&gt;</code>/<code>&lt;td&gt;</code> 可独立 transform。</li>
               </ul>
             </li>
             <li>
