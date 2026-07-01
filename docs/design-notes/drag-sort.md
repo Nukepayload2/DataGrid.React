@@ -49,7 +49,8 @@ data-grid 的"行"/"列"不是单一 DOM 元素：
 
 行拖拽中**不**把整行 transform 平移到指针位置（会破坏 grid track），而是离散让位：
 
-- **被拖行**（`rowIndex === fromIndex`）：`transform = translateY(delta)` 跟手抬起（delta = clientY - startClientY，实时更新无 transition）+ `dg-drag-row-active` 类（z-index 抬高 + box-shadow + 不透明背景防透视）。
+- **被拖行视觉**：pointerdown 时克隆当前行单元格到 fixed overlay，overlay 脱离 `.dg-scroll`，只跟随指针位移，不会被虚拟窗口卸载。
+- **被拖行源格**（`rowIndex === fromIndex`）：源格保留在表体内参与占位 / hit-test；有 overlay 时加 `dg-drag-row-source` 隐藏，源格 transform 仍叠加滚动位移以抵消表体滚动。
 - **让位行**（from → over 中间行）：`transform = translateY(±draggedHeight)`（向上拖负、向下拖正）+ `dg-drag-row-yield` 类（`transition: transform 150ms ease`，平滑让位动画）。
 - **其余行**：清 inline transform + 清两个让位类（复位）。
 - `from === over`：无让位行（仅被拖行抬起，其余行复位）。
@@ -130,7 +131,7 @@ dnd-kit 的 autoscroll 与其 DndContext/useDraggable 强耦合——data-grid �
 
 | | data-grid | antd |
 |---|---|---|
-| 行拖视觉 | 被拖行 `translateY(delta)` 跟手抬起 + 中间行离散让位 + 指示线（横线） | dnd-kit `useSortable` transform 跟随指针平移整行 |
+| 行拖视觉 | fixed overlay 跟手 + 中间行离散让位 + 指示线（横线） | dnd-kit `useSortable` transform 跟随指针平移整行 |
 | 列拖视觉 | 垂直指示线（竖线）提示插入位置 + 松手重排 columns（列瞬间到新位置） | dnd-kit `useSortable` transform 跟随指针平移整列 + body cell 虚线边 + DragOverlay 预览 |
 | 手势挂载 | 事件委托（外层容器 onPointerDown，命中 data 属性） | `<tr>`/`<th>` 挂 listeners（drag-sorting）或手柄 setActivatorNodeRef（drag-sorting-handler） |
 | 锁定列 | `lockPosition` + 可动列子序列重排算法 | dnd-kit 的 `disabled` / restrict |
@@ -142,7 +143,7 @@ dnd-kit 的 autoscroll 与其 DndContext/useDraggable 强耦合——data-grid �
 - **列拖虚拟 + autoScroll 场景**：列拖的 pointer 监听挂 `el`（不像行拖挂 window），若 from cell 滚出视口被虚拟引擎卸载会丢 move/up 监听导致 drop 卡死（与行拖同款 BUG，待对称修复）。
 - **多级表头列重排**：多级表头下叶子列重排仅在同父分组内才有语义意义，跨分组重排复杂；demo 用单层表头。
 - **树形 / 展开行重排**：展开/树形行重排语义复杂（子树跟随？），未覆盖。
-- **虚拟模式让位 transform**：`querySelectorAll('[data-row-index]')` 只命中当前可见的 cell，被拖行/让位行滚出视口被卸载后重新挂载的新 cell 不带 transform（跟手抬起 / 让位视觉短暂丢失），但指示线仍由 hitTest 正确算出。单指针正常拖拽不触发此限制——仅在 auto-scroll 把被拖行/让位行推出视口边缘的极端情况下出现，且滚回时下一次 pointermove 重新施加 transform（自愈）。
+- **虚拟模式让位 transform**：`querySelectorAll('[data-row-index]')` 只命中当前可见的 cell；被拖行视觉由 fixed overlay 保留，不受虚拟卸载影响。让位行滚出视口后会被卸载，新可见行在下一帧 `recomputeFromPointer` 中重新计算让位。
 
 ## 关联源码
 

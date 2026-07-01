@@ -221,12 +221,21 @@
 }
 
 /* 行拖拽离散让位（dnd-kit 风格）：被拖行加 dg-drag-row-active（抬起态），让位行加 dg-drag-row-yield（带过渡）。
-   inline transform 由 useRowDragSort 设，类只管 transition + 抬起视觉。 */
+   inline transform 由 useRowDragSort 设。data-grid 行无 wrapper，外投影若加在每个 cell 上会在单元格接缝叠影；
+   active 态只保留层级与不透明背景。 */
 .dg-cell.dg-drag-row-active {
   position: relative;
   z-index: 10;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
   transition: none;
+  background: var(--dg-body-bg);
+}
+
+.dg-cell.dg-drag-row-source {
+  opacity: 0;
+}
+
+.dg-drag-row-overlay {
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
   background: var(--dg-body-bg);
 }
 

@@ -2,7 +2,7 @@
  * 行拖拽排序 hook — 详见 docs/design-notes/drag-sort.md。
  *
  * 采用事件委托（命中 `[data-row-index]` body 单元格）+ setPointerCapture + 行 hit-test +
- * 指示线 + 离散让位（被拖行 translateY 跟手抬起 + 中间行让位）+ arrayMove。
+ * 指示线 + 拖拽 overlay（被拖行脱离虚拟窗口跟手）+ 离散让位（中间行让位）+ arrayMove。
  * 不引入 @dnd-kit/*（CSS Grid 渲染下 dnd-kit 的 DOM 元素 transform 模型会破坏 grid 布局，
  * 详见 drag-sort.md「为什么不用 dnd-kit」）。
  *
@@ -109,6 +109,68 @@ function resolveRowKey<RecordType>(
  */
 function sameRowKey(a: React.Key, b: React.Key): boolean {
   return String(a) === String(b)
+}
+
+function createRowDragOverlay(container: HTMLElement, rowIndex: number): HTMLElement | null {
+  const cells = Array.from(
+    container.querySelectorAll<HTMLElement>(`[data-row-index="${rowIndex}"]`),
+  )
+  if (cells.length === 0) return null
+
+  const rects = cells.map((cell) => ({ cell, rect: cell.getBoundingClientRect() }))
+  const left = Math.min(...rects.map(({ rect }) => rect.left))
+  const right = Math.max(...rects.map(({ rect }) => rect.right))
+  const top = Math.min(...rects.map(({ rect }) => rect.top))
+  const bottom = Math.max(...rects.map(({ rect }) => rect.bottom))
+  const width = right - left
+  const height = bottom - top
+  if (width <= 0 || height <= 0) return null
+
+  const overlay = document.createElement('div')
+  overlay.className = 'dg-drag-row-overlay'
+  overlay.setAttribute('aria-hidden', 'true')
+  Object.assign(overlay.style, {
+    position: 'fixed',
+    left: `${left}px`,
+    top: `${top}px`,
+    width: `${width}px`,
+    height: `${height}px`,
+    pointerEvents: 'none',
+    zIndex: '10000',
+    transform: 'translate3d(0, 0, 0)',
+    transition: 'none',
+  })
+
+  rects.forEach(({ cell, rect }) => {
+    const clone = cell.cloneNode(true) as HTMLElement
+    clone.removeAttribute('data-row-index')
+    clone.removeAttribute('data-known-size')
+    clone.classList.remove('dg-drag-row-active', 'dg-drag-row-yield', 'dg-drag-row-source')
+    Object.assign(clone.style, {
+      position: 'absolute',
+      left: `${rect.left - left}px`,
+      top: `${rect.top - top}px`,
+      width: `${rect.width}px`,
+      height: `${rect.height}px`,
+      transform: 'none',
+      transition: 'none',
+      boxSizing: 'border-box',
+    })
+    overlay.appendChild(clone)
+  })
+
+  const host = container.querySelector<HTMLElement>('.dg-wrapper') ?? document.body
+  host.appendChild(overlay)
+  return overlay
+}
+
+function updateRowDragOverlay(overlay: HTMLElement | null, delta: number): void {
+  if (!overlay) return
+  overlay.style.transform = `translate3d(0, ${delta}px, 0)`
+}
+
+function removeRowDragOverlay(overlay: HTMLElement | null): void {
+  overlay?.remove()
 }
 
 /** 指示线样式（调用方在外层相对定位容器内渲染一条绝对定位横线）。 */
@@ -253,6 +315,21 @@ export function useRowDragSort<RecordType>(
     //   未变，row track 不重排，被拖行高恒定）。让位行位移 ±此高度即让出/补回原被拖行所占的 track 高度。
     draggedHeight: number
     /**
+     * 脱离虚拟窗口的拖拽视觉层。
+     *
+     * 原始行滚出虚拟窗口后会被卸载，不能继续作为“被拖行”视觉；overlay 克隆 pointerdown 时的行，
+     * 后续用 fixed 定位跟随指针。其它行仍按原虚拟窗口渲染。
+     */
+    overlayEl: HTMLElement | null
+    /**
+     * 拖拽开始时滚动容器的 scrollTop。
+     *
+     * 虚拟表自动滚动时，DOM 行会随 `.dg-scroll` 的 scrollTop 上移/下移；若被拖行 transform 只用
+     * pointer delta（clientY - startClientY），指针静止但容器滚动时，被拖行会被自然滚动带走。
+     * 因此实时位移需叠加 scrollDelta（currentScrollTop - startScrollTop）。
+     */
+    startScrollTop: number
+    /**
      * 最后已知指针 clientY。
      *
      * pointerdown 初始化、pointermove 更新；当 auto-scroll（或用户滚轮）触发 scroll 事件时，
@@ -295,8 +372,8 @@ export function useRowDragSort<RecordType>(
    * 详见 docs/design-notes/drag-sort.md（「离散让位」节）。
    *
    * 分类（依据 cell.dataset.rowIndex 与 dragState.fromIndex/overIndex 的关系）：
-   *   - **被拖行**（rowIndex === fromIndex）：`transform = translateY(delta)`（跟手抬起，无 transition），
-   *     加 `dg-drag-row-active` 类（z-index 高 + box-shadow 抬起感 + 不透明背景防透视）。
+   *   - **被拖行源格**（rowIndex === fromIndex）：加 `dg-drag-row-active` / `dg-drag-row-source`
+   *     类并同步 transform。真实跟手视觉由 fixed overlay 承担；源格只保留占位与 hit-test 兼容。
    *   - **让位行**（from→over 之间的中间行）：
    *       · from < over：让位区间 (from, over] 各行 → 向上让位 translateY(-draggedHeight)。
    *       · from > over：让位区间 [over, from) 各行 → 向下让位 translateY(+draggedHeight)。
@@ -308,11 +385,9 @@ export function useRowDragSort<RecordType>(
    * 不动 grid 布局：cell 的 grid 槽位（grid-row）不变，纯视觉 transform（CSS transform 不影响
    *   grid item 的 grid-track 定位，仅视觉位移），松手 arrayMove 重排 dataSource 后 grid 重新计算 track。
    *
-   * 已知限制（虚拟模式）：querySelectorAll('[data-row-index]') 只命中当前可见的 cell。
-   *   被拖行 / 让位行滚出视口被虚拟引擎卸载后，重新挂载的新 cell 不带 transform / 让位类
-   *   （跟手抬起 / 让位视觉短暂丢失），但指示线仍由 hitTest 正确算出（基于 overIndex 语义，
-   *   指示线位置不依赖 transform）。单指针正常拖拽不触发此限制——仅在 auto-scroll 把被拖行/让位行
-   *   推出视口边缘的极端情况下出现，且滚回时下一次 pointermove 重新施加 transform（自愈）。
+   * 虚拟模式：querySelectorAll('[data-row-index]') 只命中当前可见的 cell。被拖行自身的视觉由
+   * fixed overlay 保留，不受虚拟卸载影响；让位 transform 仍只作用于当前可见行，滚动后下一帧
+   * recomputeFromPointer 会对新可见行重新施加。
    */
   const applyYieldTransforms = useCallback(
     (fromIndex: number, overIndex: number, delta: number, draggedHeight: number) => {
@@ -346,10 +421,11 @@ export function useRowDragSort<RecordType>(
         const idx = Number.parseInt(idxAttr, 10)
         if (!Number.isFinite(idx)) return
         // 清类 + 清 transform 作为基线（下方按分类重新施加）。
-        cell.classList.remove('dg-drag-row-active', 'dg-drag-row-yield')
+        cell.classList.remove('dg-drag-row-active', 'dg-drag-row-yield', 'dg-drag-row-source')
         if (idx === fromIndex) {
-          // 被拖行：跟手抬起（无 transition，transform 实时跟 pointer）。
+          // 被拖行源格：真实视觉由 overlay 承担，源格隐藏但保留 transform 语义。
           cell.classList.add('dg-drag-row-active')
+          if (dragRef.current?.overlayEl) cell.classList.add('dg-drag-row-source')
           cell.style.transform = `translateY(${delta}px)`
         } else if (idx >= yieldLo && idx <= yieldHi) {
           // 让位行：±draggedHeight 让出原被拖行 track 高度（带 transition 平滑）。
@@ -373,7 +449,7 @@ export function useRowDragSort<RecordType>(
     if (!container) return
     const cells = container.querySelectorAll<HTMLElement>('[data-row-index]')
     cells.forEach((cell) => {
-      cell.classList.remove('dg-drag-row-active', 'dg-drag-row-yield')
+      cell.classList.remove('dg-drag-row-active', 'dg-drag-row-yield', 'dg-drag-row-source')
       cell.style.transform = ''
     })
   }, [containerRef])
@@ -408,6 +484,8 @@ export function useRowDragSort<RecordType>(
       drag.scrollEl.removeEventListener('scroll', scrollHandlerRef.current as EventListener)
       drag.scrollEl = null
     }
+    removeRowDragOverlay(drag.overlayEl)
+    drag.overlayEl = null
     scrollHandlerRef.current = null
     dragRef.current = null
     // 清残留 transform + 两个让位类（恢复 grid 原始视觉）。
@@ -484,7 +562,8 @@ export function useRowDragSort<RecordType>(
    *   - 插入位置 > from：over = 插入位置 - 1（因为 arrayMove 先删 from 再插，实际目标行 index = 插入位置 - 1）。
    *   - 插入位置 <= from：over = 插入位置（直接移到该位置）。
    *
-   * 让位 delta：delta = clientY - drag.startClientY（跟手位移量）。
+   * 源格让位 delta：delta = pointer 位移 + 滚动位移（抵消滚动容器带走源格）。
+   * overlay delta：只取 pointer 位移，因为 fixed overlay 已脱离滚动容器。
    *
    * 调用方：pointermove（nativeMove）+ scroll handler（auto-scroll 滚动期间重算）。
    */
@@ -508,9 +587,12 @@ export function useRowDragSort<RecordType>(
         right: 0,
       })
       // 离散让位：命令式对所有可见 body cell 施加 transform + 类（被拖行跟手抬起、中间行让位）。
-      //   delta = 当前 pointer Y - 起始 Y（跟手位移量）；draggedHeight 是 pointerdown 快照。
-      const delta = clientY - drag.startClientY
+      //   delta = pointer 位移 + 滚动位移；draggedHeight 是 pointerdown 快照。
+      //   滚动位移用于虚拟/auto-scroll：指针静止但滚动容器滚动时，被拖行仍保持跟手。
+      const currentScrollTop = drag.scrollEl?.scrollTop ?? drag.startScrollTop
+      const delta = clientY - drag.startClientY + (currentScrollTop - drag.startScrollTop)
       applyYieldTransforms(drag.fromIndex, overIndex, delta, drag.draggedHeight)
+      updateRowDragOverlay(drag.overlayEl, clientY - drag.startClientY)
     },
     [hitTest, applyYieldTransforms],
   )
@@ -554,6 +636,11 @@ export function useRowDragSort<RecordType>(
       //   未重排），无需 ResizeObserver 跟踪。
       const draggedRect = el.getBoundingClientRect()
       const draggedHeight = draggedRect.height
+      const scrollEl = findScrollContainer(containerRef.current)
+      const startScrollTop = scrollEl?.scrollTop ?? 0
+      const overlayEl = containerRef.current
+        ? createRowDragOverlay(containerRef.current, index)
+        : null
       // 虚拟模式健壮性：window 监听的 AbortController（pointermove/up/cancel 三监听挂其 signal）。
       //   nativeUp 内 ac.abort() 一次性移除全部三监听；卸载 cleanup 也 abort()。见 dragRef.ac 注释。
       const ac = new AbortController()
@@ -563,6 +650,8 @@ export function useRowDragSort<RecordType>(
         pointerId,
         el,
         draggedHeight,
+        overlayEl,
+        startScrollTop,
         // 初始化 scroll 跟随相关字段。
         lastClientY: e.clientY,
         scrollEl: null,
@@ -583,6 +672,7 @@ export function useRowDragSort<RecordType>(
           right: 0,
         })
       }
+      recomputeFromPointer(e.clientY)
 
       // 初始化 auto-scroll 指针坐标 + 启动 RAF 边缘检测循环。
       autoScrollPointerRef.current = { clientX: e.clientX, clientY: e.clientY }
@@ -608,7 +698,6 @@ export function useRowDragSort<RecordType>(
       // **滚动容器**：复用 useAutoScrollOnDrag 的 findScrollContainer（保持与 auto-scroll 实际
       // 滚的容器是同一个）。非虚拟 demo（如 drag-sorting 3 行）下 findScrollContainer 可能返回
       // 外层可滚动祖先或 null；即使挂了监听，内容不超出 / 指针不在阈值内 → scroll 不触发 → 零回归。
-      const scrollEl = findScrollContainer(containerRef.current)
       if (scrollEl) {
         const onScrollDuringDrag = () => {
           const drag = dragRef.current
@@ -665,6 +754,8 @@ export function useRowDragSort<RecordType>(
           drag.scrollEl.removeEventListener('scroll', scrollHandlerRef.current as EventListener)
           drag.scrollEl = null
         }
+        removeRowDragOverlay(drag.overlayEl)
+        drag.overlayEl = null
         scrollHandlerRef.current = null
         dragRef.current = null
         // 离散让位清场：移除所有 cell 的 transform + 两个让位类，恢复 grid 原始视觉。
