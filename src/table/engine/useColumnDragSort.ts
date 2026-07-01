@@ -417,7 +417,11 @@ export function useColumnDragSort<ColumnType>(
             cell.style.transform = `translate3d(${yieldDelta}px, 0, 0)`
             return
           }
-          cell.classList.remove('dg-drag-column-active', 'dg-drag-column-source', 'dg-drag-column-yield')
+          cell.classList.remove('dg-drag-column-active', 'dg-drag-column-source')
+          if (cell.classList.contains('dg-drag-column-yield')) {
+            cell.style.transform = 'translate3d(0, 0, 0)'
+            return
+          }
           cell.style.transform = ''
         })
       }
