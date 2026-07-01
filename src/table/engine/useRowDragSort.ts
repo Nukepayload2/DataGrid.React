@@ -307,6 +307,7 @@ export function useRowDragSort<RecordType>(
   // 拖拽过程中跨事件保留的临时状态（不直接驱动渲染，放 ref；驱动渲染用 dragState/indicator state）。
   const dragRef = useRef<{
     fromIndex: number
+    overIndex: number
     startClientY: number
     pointerId: number
     el: HTMLElement
@@ -425,8 +426,12 @@ export function useRowDragSort<RecordType>(
         if (idx === fromIndex) {
           // 被拖行源格：真实视觉由 overlay 承担，源格隐藏但保留 transform 语义。
           cell.classList.add('dg-drag-row-active')
-          if (dragRef.current?.overlayEl) cell.classList.add('dg-drag-row-source')
-          cell.style.transform = `translateY(${delta}px)`
+          if (dragRef.current?.overlayEl) {
+            cell.classList.add('dg-drag-row-source')
+            cell.style.transform = ''
+          } else {
+            cell.style.transform = `translateY(${delta}px)`
+          }
         } else if (idx >= yieldLo && idx <= yieldHi) {
           // 让位行：±draggedHeight 让出原被拖行 track 高度（带 transition 平滑）。
           cell.classList.add('dg-drag-row-yield')
@@ -520,6 +525,7 @@ export function useRowDragSort<RecordType>(
         if (idxAttr === null) return
         const idx = Number.parseInt(idxAttr, 10)
         if (!Number.isFinite(idx)) return
+        if (idx === dragRef.current?.fromIndex) return
         if (rowBounds.has(idx)) return
         const r = cell.getBoundingClientRect()
         rowBounds.set(idx, { top: r.top, bottom: r.bottom })
@@ -579,6 +585,7 @@ export function useRowDragSort<RecordType>(
       //   - 插入位置 > from：over = 插入位置 - 1（因为 arrayMove 先删 from 再插，实际目标行 index = 插入位置 - 1）。
       let overIndex = result.overIndex
       if (overIndex > drag.fromIndex) overIndex = overIndex - 1
+      drag.overIndex = overIndex
       setDragState({ fromIndex: drag.fromIndex, overIndex })
       setIndicator({
         visible: true,
@@ -646,6 +653,7 @@ export function useRowDragSort<RecordType>(
       const ac = new AbortController()
       dragRef.current = {
         fromIndex: index,
+        overIndex: index,
         startClientY: e.clientY,
         pointerId,
         el,
@@ -733,6 +741,12 @@ export function useRowDragSort<RecordType>(
       const nativeUp = (ev: PointerEvent) => {
         const drag = dragRef.current
         if (!drag || ev.pointerId !== drag.pointerId) return
+        // pointerup 自身也作为最终 drop 坐标重算一次，避免快速拖出表格时最后一次
+        // pointermove 未落到表格外，导致 overIndex 停在旧位置。
+        drag.lastClientY = ev.clientY
+        recomputeFromPointer(ev.clientY)
+        const finalFromIndex = drag.fromIndex
+        const finalOverIndex = drag.overIndex
         try {
           drag.el.releasePointerCapture(drag.pointerId)
         } catch {
@@ -764,48 +778,46 @@ export function useRowDragSort<RecordType>(
         clearYieldTransforms()
         // 拖拽结束，停止 auto-scroll RAF 循环。
         stopAutoScroll()
-        // 最终 overIndex（state 中已是最新）。from===over 不重排。
-        setDragState((cur) => {
-          if (cur && cur.fromIndex !== cur.overIndex) {
-            // 多行成块重排判定。详见 docs/design-notes/drag-sort.md（「行拖：多行成块重排」节）。
-            //
-            // 仅当 multiRowReorder=true 且被拖行属于多选 selection（selectedRowKeys 含 ≥2 个
-            // 且包含被拖行的 key）时，把所有选中行作为一块移到目标位置（保持相对顺序）；
-            // 否则退化为单行 arrayMove。
-            //
-            // 成块移动的目标位置语义：单行 arrayMove 的 overIndex 是"目标行 index"（先删 from 再插）；
-            // 成块移动时用 arrayMoveBlock——其 toIndex 语义是"插入位置"（0..len），需把 overIndex
-            // 还原成插入位置：over <= from 时插入位置=over；over > from 时插入位置=over+1（因为
-            // 此时 over 指的是"from 删除后"的目标行 index）。
-            const fromRecord = dataSource[cur.fromIndex]
-            const fromKey = resolveRowKey(rowKey, fromRecord, cur.fromIndex)
-            const selKeys = selectedRowKeys ?? []
-            const isFromSelected =
-              fromKey !== undefined && selKeys.some((k) => sameRowKey(k, fromKey))
-            const shouldBlockMove =
-              multiRowReorderEnabled && isFromSelected && selKeys.length > 1
+        // 最终 overIndex 取自 dragRef，同步反映 pointerup 坐标。from===over 不重排。
+        if (finalFromIndex !== finalOverIndex) {
+          // 多行成块重排判定。详见 docs/design-notes/drag-sort.md（「行拖：多行成块重排」节）。
+          //
+          // 仅当 multiRowReorder=true 且被拖行属于多选 selection（selectedRowKeys 含 ≥2 个
+          // 且包含被拖行的 key）时，把所有选中行作为一块移到目标位置（保持相对顺序）；
+          // 否则退化为单行 arrayMove。
+          //
+          // 成块移动的目标位置语义：单行 arrayMove 的 overIndex 是"目标行 index"（先删 from 再插）；
+          // 成块移动时用 arrayMoveBlock——其 toIndex 语义是"插入位置"（0..len），需把 overIndex
+          // 还原成插入位置：over <= from 时插入位置=over；over > from 时插入位置=over+1（因为
+          // 此时 over 指的是"from 删除后"的目标行 index）。
+          const fromRecord = dataSource[finalFromIndex]
+          const fromKey = resolveRowKey(rowKey, fromRecord, finalFromIndex)
+          const selKeys = selectedRowKeys ?? []
+          const isFromSelected =
+            fromKey !== undefined && selKeys.some((k) => sameRowKey(k, fromKey))
+          const shouldBlockMove =
+            multiRowReorderEnabled && isFromSelected && selKeys.length > 1
 
-            if (shouldBlockMove) {
-              // 找出所有选中行在 dataSource 中的 index（升序），保持原相对顺序。
-              const blockIdxs: number[] = []
-              for (let i = 0; i < dataSource.length; i += 1) {
-                const k = resolveRowKey(rowKey, dataSource[i], i)
-                if (k !== undefined && selKeys.some((sk) => sameRowKey(sk, k))) {
-                  blockIdxs.push(i)
-                }
+          if (shouldBlockMove) {
+            // 找出所有选中行在 dataSource 中的 index（升序），保持原相对顺序。
+            const blockIdxs: number[] = []
+            for (let i = 0; i < dataSource.length; i += 1) {
+              const k = resolveRowKey(rowKey, dataSource[i], i)
+              if (k !== undefined && selKeys.some((sk) => sameRowKey(sk, k))) {
+                blockIdxs.push(i)
               }
-              // 还原插入位置（见上注释）。
-              const insertPos =
-                cur.overIndex <= cur.fromIndex ? cur.overIndex : cur.overIndex + 1
-              const next = arrayMoveBlock(dataSource, blockIdxs, insertPos)
-              if (next !== dataSource) onSort(next)
-            } else {
-              const next = arrayMove(dataSource, cur.fromIndex, cur.overIndex)
-              onSort(next)
             }
+            // 还原插入位置（见上注释）。
+            const insertPos =
+              finalOverIndex <= finalFromIndex ? finalOverIndex : finalOverIndex + 1
+            const next = arrayMoveBlock(dataSource, blockIdxs, insertPos)
+            if (next !== dataSource) onSort(next)
+          } else {
+            const next = arrayMove(dataSource, finalFromIndex, finalOverIndex)
+            onSort(next)
           }
-          return null
-        })
+        }
+        setDragState(null)
         setIndicator({ visible: false, top: 0, left: 0, right: 0 })
       }
       // 虚拟模式健壮性：pointermove/up/cancel 监听挂 window（详见 docs/design-notes/drag-sort.md

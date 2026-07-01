@@ -151,14 +151,16 @@ export function useAutoScrollOnDrag(options: UseAutoScrollOnDragOptions): {
       const rect = container.getBoundingClientRect()
       if (vertical) {
         // 行拖：纵向滚动。按指针 clientY 与容器 top/bottom 算 delta。
-        const dy = computeAxisDelta(pointerRef.current.clientY, rect.top, rect.height)
+        const canScrollY = container.scrollHeight > container.clientHeight + 1
+        const dy = canScrollY ? computeAxisDelta(pointerRef.current.clientY, rect.top, rect.height) : 0
         if (dy !== 0) {
           // 仅当 delta≠0 才 scrollBy（避免无谓 scroll 事件）。
           container.scrollBy(0, dy)
         }
       } else {
         // 列拖：横向滚动。按指针 clientX 与容器 left/right 算 delta。
-        const dx = computeAxisDelta(pointerRef.current.clientX, rect.left, rect.width)
+        const canScrollX = container.scrollWidth > container.clientWidth + 1
+        const dx = canScrollX ? computeAxisDelta(pointerRef.current.clientX, rect.left, rect.width) : 0
         if (dx !== 0) {
           container.scrollBy(dx, 0)
         }
