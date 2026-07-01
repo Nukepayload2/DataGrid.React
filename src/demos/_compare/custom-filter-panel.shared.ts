@@ -1,18 +1,3 @@
-/**
- * custom-filter-panel 左右对比 demo 的共享配置。
- *
- * 提取两侧都复用的类型与数据。列定义因两侧类型/render 不同（data-grid `ColumnType`
- * + 内联 SearchOutlined + HTMLInputElement ref；antd `TableProps['columns']` + antd
- * 原生 SearchOutlined + InputRef），保留在各自 demo 文件，但均引用本文件的
- * `RecordType`、`data`、`DataIndex`。
- *
- * 与 antd `components/table/demo/custom-filter-panel.tsx` 逐字一致。
- *
- * 注意：custom-filter-panel 的 data 第 2/3 行顺序与 reset-filter/head 不同
- * （key 2 = Joe Black / key 3 = Jim Green），antd 官方三份 demo 各自独立声明，
- * 故各自单独建 shared 文件。
- */
-
 /** 记录类型。两侧共用。 */
 export interface RecordType {
   key: string

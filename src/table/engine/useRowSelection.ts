@@ -1,11 +1,4 @@
-/**
- * 行选择状态机 — 详见 docs/design-notes/selection.md
- *
- * 受控 `selectedRowKeys`（React.Key[]）作为真理源，每次操作生成新数组并调 onChange。
- * 多选（checkbox）用 Set 维护选中集合 + 全选/半选判定；单选（radio）单值替换。
- * 禁用行（getCheckboxProps.disabled）不参与全选； selections 自定义选择项 + 树形父子联动
- * （checkStrictly=false）详见 selection.md。
- */
+/** 行选择状态机。详见 docs/design-notes/selection.md。 */
 
 import { useCallback, useMemo } from 'react'
 import type { ReactNode } from 'react'
@@ -23,14 +16,7 @@ export type SelectionType = 'checkbox' | 'radio'
  */
 export type RowSelectMethod = 'all' | 'none' | 'invert' | 'single' | 'multiple'
 
-// ============================================================================
-// 自定义选择项 selections（内置哨兵 SELECTION_ALL / SELECTION_INVERT / SELECTION_NONE）。
-// 设计对齐 antd `useSelection.tsx` — 详见 docs/design-notes/selection.md（selections 自定义选择项）。
-//
-// data-grid 用哨兵对象（含 key/text/onSelect）而非 antd 的字符串字面量——便于 Table 上挂为
-// 静态属性 + 直接渲染菜单项。内置哨兵的 onSelect 是占位，真正行为由 applySelection 按 key 分支处理。
-// changeableRowKeys = 当前所有可选（非 disabled）行的 rowKeys（与 antd recordKeys 一致）。
-// ============================================================================
+// 内置 selections 用哨兵对象承载，真正行为由 applySelection 按 key 分支处理。
 
 /**
  * 内置选择项 key。
@@ -56,40 +42,21 @@ export interface SelectionItem {
   onSelect?: (changeableRowKeys: Array<React.Key>) => void
 }
 
-/**
- * 内置哨兵：全选。挂为 `Table.SELECTION_ALL` + 命名导出。
- * `onSelect` 占位（真正行为在 `useRowSelection.applySelection` 中按 key='all' 执行）。
- *
- * `text` 对齐 antd 6.4.4 默认文案（enUS `Table.selectionAll = 'Select all data'`）。
- * 已知简化：data-grid 暂未把 Table locale 透传到 selections（enUS 硬编码处理）。
- * — 详见 docs/design-notes/selection.md（内置文案对齐 antd enUS）
- */
+/** 内置哨兵：全选。 */
 export const SELECTION_ALL: SelectionItem = {
   key: 'all',
   text: 'Select all data',
   onSelect: () => {},
 }
 
-/**
- * 内置哨兵：反选。挂为 `Table.SELECTION_INVERT` + 命名导出。
- *
- * `text` 对齐 antd 6.4.4 默认文案（enUS `Table.selectInvert = 'Invert current page'`）。
- * 注：antd 文案用 "current page" 字眼但实际作用于 changeableRowKeys（全数据范围），
- * 属 antd 历史文案，data-grid 对齐文案而不改语义。
- * — 详见 docs/design-notes/selection.md（内置文案对齐 antd enUS）
- */
+/** 内置哨兵：反选。 */
 export const SELECTION_INVERT: SelectionItem = {
   key: 'invert',
   text: 'Invert current page',
   onSelect: () => {},
 }
 
-/**
- * 内置哨兵：清空。挂为 `Table.SELECTION_NONE` + 命名导出。
- *
- * `text` 对齐 antd 6.4.4 默认文案（enUS `Table.selectNone = 'Clear all data'`）。
- * — 详见 docs/design-notes/selection.md（内置文案对齐 antd enUS）
- */
+/** 内置哨兵：清空。 */
 export const SELECTION_NONE: SelectionItem = {
   key: 'none',
   text: 'Clear all data',

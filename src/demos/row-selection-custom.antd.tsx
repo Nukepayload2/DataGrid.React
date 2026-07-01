@@ -1,12 +1,3 @@
-/**
- * row-selection-custom demo 的 antd 段（右栏）。
- *
- * - props 驱动 `{ selectedRowKeys, onSelectedRowKeysChange, virtual }`（与左栏 dg 子组件同款）。
- * - 自包含：含 `antdColumns`（Name/Age/Address）+ 右栏 `antdSelections`（3 内置哨兵
- *   + odd/even 自定义，与 antd demo 逐字一致）+ `<AntdTable>` JSX。
- * - 忠实复刻 antd row-selection-custom demo：pagination={false}（46 行全显）+
- *   rowSelection.selections + 受控 selectedRowKeys。
- */
 import { Table as AntdTable } from 'antd'
 import type { TableProps } from 'antd'
 import { dataSource, type RecordType } from './_compare/row-selection-custom.shared'
@@ -31,7 +22,6 @@ export default function RowSelectionCustomAntd({
   onSelectedRowKeysChange: (keys: Array<React.Key>) => void
   virtual: boolean
 }) {
-  // 右栏（antd）selections：与 antd demo 逐字一致（3 内置 + odd/even），叠加受控 selectedRowKeys。
   const antdSelections: NonNullable<
     NonNullable<TableProps<RecordType>['rowSelection']>['selections']
   > = [

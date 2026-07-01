@@ -1,8 +1,3 @@
-/**
- * row-selection-and-operation demo 的 data-grid 段（左栏）。
- * props 驱动 `{ selectedKeys, onSelectedKeysChange, virtual }`（由父组件传：受控 selectedKeys
- * 真理源 + 顶部 Reload 批量清空经父 setState 同步回两侧）。
- */
 import { Table } from '../table'
 import type { ColumnType, TableRowSelection } from '../table'
 import { dataSource, type RecordType } from './_compare/row-selection-and-operation.shared'
@@ -28,7 +23,6 @@ export default function RowSelectionAndOperationDg({
   onSelectedKeysChange: (keys: Array<React.Key>) => void
   virtual: boolean
 }) {
-  // 左栏（data-grid）rowSelection：selectedRowKeys 受控（父共享 state）+ onChange 写回父 state。
   const dgRowSelection: TableRowSelection<RecordType> = {
     selectedRowKeys: selectedKeys,
     onChange: (keys) => {

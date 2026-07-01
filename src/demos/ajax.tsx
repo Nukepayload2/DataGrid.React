@@ -1,11 +1,3 @@
-/**
- * 复刻 antd ajax demo：`G:\Projects\ant-design\components\table\demo\ajax.tsx`。
- * 双栏对照 demo：loading + 服务端分页/排序/筛选 + preserveSelectedRowKeys 跨页保留勾选。
- * 两栏各自维护异步加载 state（data / loading / tableParams / selectedRowKeys），任一侧 onChange
- * 只刷新该侧（便于独立对照 loading/异步行为，不跨栏同步）。
- * 数据源统一改用本地 mock（`_compare/ajax.shared.ts` 的 `queryData`，两侧共用），避免网络依赖。
- */
-
 import { SplitDemo } from './_compare/SplitDemo'
 import { useVirtualization } from './VirtualizationContext'
 import AjaxDg from './ajax.dg'
@@ -16,10 +8,7 @@ export default function AjaxDemo() {
 
   return (
     <div style={{ padding: 24 }}>
-      {/*
-        minPaneWidth=600（含 3 列 + email 宽列，无 scroll.x 但 email 列较长）→ 横排阈值 ≈ 1216。
-        常规笔记本视口（≥1280）即可横排；窄视口自动换行竖排。
-      */}
+      
       <SplitDemo
         minPaneWidth={600}
         left={<AjaxDg virtual={virtual} />}
@@ -65,3 +54,4 @@ export default function AjaxDemo() {
     </div>
   )
 }
+

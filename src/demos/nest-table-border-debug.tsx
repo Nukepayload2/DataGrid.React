@@ -1,12 +1,3 @@
-/**
- * 复刻 antd `nest-table-border-debug` demo：
- *   `G:\Projects\ant-design\components\table\demo\nest-table-border-debug.tsx`
- *
- * 双栏对照：主表 + expandedRowRender 返回嵌套子 Table，父子 `bordered` 各自独立 Switch。
- * `rootTableBordered` / `childTableBordered` 两个 Switch 同一组 state 同时驱动两侧主表 + 子表。
- * 共享数据见 `_compare/nest-table-border-debug.shared.ts`。
- */
-
 import { useState } from 'react'
 import { Form, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
@@ -14,10 +5,7 @@ import { useVirtualization } from './VirtualizationContext'
 import NestTableBorderDebugDg from './nest-table-border-debug.dg'
 import NestTableBorderDebugAntd from './nest-table-border-debug.antd'
 
-// Demo 根组件
-
 export default function NestTableBorderDebugDemo() {
-  // 父子 bordered 各自受控（独立 Switch），同一组 state 同时驱动两侧主表 + 子表。
   const [rootTableBordered, setRootTableBordered] = useState(true)
   const [childTableBordered, setChildTableBordered] = useState(true)
   const { virtual } = useVirtualization()

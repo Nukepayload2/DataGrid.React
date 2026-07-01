@@ -1,10 +1,4 @@
-/**
- * HomePage：demo 门户首页。
- *
- * - 顶部 Input.Search（受控 query）+ 命中数。
- * - query 空 → 按 DemoMeta.category 分组渲染卡片网格（Row/Col 响应式）。
- * - query 非空 → 扁平按 title/description/name 不区分大小写过滤，渲染单节「搜索结果」；无命中 Empty。
- */
+/** demo 门户首页。 */
 
 import { useMemo, useState } from 'react'
 import { Card, Col, Empty, Input, Row, Tag, Typography } from 'antd'

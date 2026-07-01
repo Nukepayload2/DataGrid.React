@@ -1,8 +1,3 @@
-/**
- * nested-table demo 的 data-grid 段（左栏）。
- * 主表 7 列 + expandedRowRender 返回嵌套子 data-grid `<Table>`（5 列，独立 grid 上下文）
- * + defaultExpandedRowKeys: ['0']。内联 `DownOutlined`（避免直接依赖 @ant-design/icons）。
- */
 import { Badge, Dropdown, Space } from 'antd'
 import { Table } from '../table'
 import type { ColumnType, Expandable } from '../table'
@@ -50,9 +45,7 @@ const dgColumns: ColumnType<RecordType>[] = [
   { title: 'Action', key: 'operation', render: () => <a>Publish</a> },
 ]
 
-// defaultExpandedRowKeys 是配置型初值（非受控），随 expandable 派生即可。
 const dgExpandable: Expandable<RecordType> = {
-  // 嵌套子 Table 是 data-grid <Table>（独立 grid 上下文，与主表正交）。
   expandedRowRender: () => (
     <Table<ExpandedDataType>
       columns={dgExpandColumns}
@@ -63,8 +56,6 @@ const dgExpandable: Expandable<RecordType> = {
   defaultExpandedRowKeys: ['0'],
 }
 
-// 内联 DownOutlined（More 链接右侧的小箭头）——避免直接依赖 @ant-design/icons
-// （仅 antd 间接依赖）。SVG 路径取自 ant-design-icons DownOutlined。
 function DownOutlined() {
   return (
     <svg

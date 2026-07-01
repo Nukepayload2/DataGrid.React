@@ -1,13 +1,3 @@
-/**
- * virtual-list demo：万行虚拟 + 宽表横滚 + 合并/展开，左右并排呈现 data-grid 与 antd。
- *
- * 强制虚拟 demo——自身永久 virtual=true、自管高度，不消费顶栏「Virtual」Switch。
- * 父组件 SplitDemo 传 `virtualizable={false}`；两侧子组件内部各自硬编码 virtual=true + scroll。
- *
- * 顶部共享控制条：Bordered / Fixed / Expandable / Empty / Merged / Count 任一变化，
- * 同时驱动两侧表格，便于对照差异。
- */
-
 import { useMemo, useRef, useState } from 'react'
 import { Button, Segmented, Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
@@ -19,26 +9,22 @@ import { Table as AntdTable } from 'antd'
 import VirtualListDg from './virtual-list.dg'
 import VirtualListAntd from './virtual-list.antd'
 
-/** antd Table 的 ref 实例类型（含 scrollTo）。antd 顶层未导出 TableRef，用 GetRef 取得。 */
+/** antd Table ref type with `scrollTo`. */
 type AntdTableRef = GetRef<typeof AntdTable>
 
 export default function VirtualListDemo() {
-  // 共享状态：同一个状态同时驱动两侧表格。
   const [fixed, setFixed] = useState(true)
   const [bordered, setBordered] = useState(true)
   const [expanded, setExpanded] = useState(false)
   const [empty, setEmpty] = useState(false)
   const [count, setCount] = useState<number>(10000)
-  // data-grid 专属：保留独立的 Merged 开关（差异点）。
   const [merged, setMerged] = useState(true)
 
-  // 双 ref：父文件持有，以 tableRef prop 下发两侧子组件，驱动双侧 scrollTo 对照。
   const dgRef = useRef<TableRef>(null)
   const antdRef = useRef<AntdTableRef | null>(null)
 
   const data = useMemo<RecordType[]>(() => getData(count), [count])
 
-  // ----- 双侧 scrollTo（同时滚动两侧）-----
   const scrollToBoth = (opts: { index?: number; key?: import('react').Key }) => {
     dgRef.current?.scrollTo(opts)
     antdRef.current?.scrollTo(opts)
@@ -48,7 +34,6 @@ export default function VirtualListDemo() {
 
   return (
     <div style={{ padding: 24 }}>
-      {/* 共享控制条：全宽，在 SplitDemo 上方。DemoToolbar 用 useToken 适配主题。 */}
       <DemoToolbar>
         <Space wrap>
           <Switch
@@ -75,7 +60,6 @@ export default function VirtualListDemo() {
             checkedChildren="Empty"
             unCheckedChildren="Empty"
           />
-          {/* data-grid 专属：独立 Merged 开关（差异点）。antd 侧 merged 行为由 fixed+expanded 推导。 */}
           <Switch
             checked={merged}
             onChange={() => setMerged(!merged)}
@@ -99,7 +83,6 @@ export default function VirtualListDemo() {
               <Button onClick={() => scrollToBoth({ index: 0 })}>
                 Scroll To Top (both)
               </Button>
-              {/* data-grid 专属：保留原 key 50 滚动（左栏专属）。 */}
               <Button onClick={() => dgRef.current?.scrollTo({ key: 50 })}>
                 Scroll To key 50 (data-grid)
               </Button>
@@ -108,11 +91,6 @@ export default function VirtualListDemo() {
         </Space>
       </DemoToolbar>
 
-      {/*
-        minPaneWidth=1000（scroll.x:2000 宽表，半宽太挤）→ 横排阈值 ≈ 2016。
-        常规笔记本视口（1440–1920）下竖排（每栏全宽对宽表更友好），仅超宽屏（≥2560）横排。
-        virtualizable={false}：强制虚拟 demo，不消费全局开关，子组件内部已自管 scroll + 高度。
-      */}
       <SplitDemo
         minPaneWidth={1000}
         virtualizable={false}

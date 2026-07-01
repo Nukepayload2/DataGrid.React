@@ -1,8 +1,3 @@
-/**
- * nest-table-border-debug demo 的 antd 段（右栏）。
- * 忠实复刻 antd nest-table-border-debug demo：antd `<Table>` 主表 + antd `<Table>` 子表。
- * 与左栏共用同一内联 `DgDownOutlined`（避免直接依赖 @ant-design/icons，仅 antd 间接依赖）。
- */
 import { Badge, Dropdown, Space, Table as AntdTable } from 'antd'
 import type { TableColumnsType, TableProps } from 'antd'
 import {
@@ -55,8 +50,6 @@ const antdColumns: TableColumnsType<RecordType> = [
   { title: 'Action', key: 'operation', render: () => <a>Publish</a> },
 ]
 
-// 内联 DownOutlined（More 链接右侧的小箭头）——与左栏共用同一内联 SVG，
-// 避免直接依赖 @ant-design/icons（仅 antd 间接依赖）。SVG 路径取自 ant-design-icons。
 function DgDownOutlined() {
   return (
     <svg

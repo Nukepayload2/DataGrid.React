@@ -1,18 +1,11 @@
-/**
- * edit-row demo 的 data-grid 段（左栏）。
- * 行级编辑 state（form/data/editingKey）在子组件内自管（两栏各自独立，共用会冲突）。
- * EditableCell 返回内容 ReactNode（不包 td），引擎渲染在 `.dg-cell-inner`。
- */
 import React, { useEffect, useState } from 'react'
 import { Form, Input, InputNumber, Popconfirm, Typography } from 'antd'
 import { Table } from '../table'
 import type { TableProps } from '../table'
 import { originData, type RecordType } from './_compare/edit-row.shared'
 
-// ---------------------------------------------------------------------------
 // antd demo 配套 CSS（.editable-row .ant-form-item-explain 校验错误定位）。
 // 注入 document.head，两子组件共用同一 CSS；幂等（模块级标志 + DOM 存在性双重检查）。
-// ---------------------------------------------------------------------------
 
 let cssInjected = false
 function injectEditRowCss() {
@@ -35,9 +28,7 @@ function injectEditRowCss() {
   document.head.appendChild(style)
 }
 
-// ---------------------------------------------------------------------------
 // data-grid 适配：EditableCell（返回内容 ReactNode，不包 td）
-// ---------------------------------------------------------------------------
 
 interface DgEditableCellProps {
   editing: boolean
@@ -48,10 +39,6 @@ interface DgEditableCellProps {
   index: number
 }
 
-/**
- * 返回内容 ReactNode（不包 td），引擎渲染在 `.dg-cell-inner` 处。editing 态 Form.Item +
- * inputNode（InputNumber for number / Input for text）；展示态渲染 children。
- */
 const DgEditableCell: React.FC<React.PropsWithChildren<DgEditableCellProps>> = ({
   editing,
   dataIndex,
@@ -61,7 +48,7 @@ const DgEditableCell: React.FC<React.PropsWithChildren<DgEditableCellProps>> = (
 }) => {
   const inputNode = inputType === 'number' ? <InputNumber /> : <Input />
 
-  // data-grid 适配：返回内容 ReactNode（不包 td）。
+  // data-grid cells render the editor inside `.dg-cell-inner`, so this component returns content only.
   return (
     <>
       {editing ? (
@@ -81,9 +68,7 @@ const DgEditableCell: React.FC<React.PropsWithChildren<DgEditableCellProps>> = (
 
 type DgColumnTypes = Exclude<TableProps<RecordType>['columns'], undefined>
 
-// ---------------------------------------------------------------------------
 // 子组件（自管行级编辑 state）
-// ---------------------------------------------------------------------------
 
 export default function EditRowDg({
   virtual = false,
@@ -192,3 +177,4 @@ export default function EditRowDg({
     </Form>
   )
 }
+

@@ -1,10 +1,3 @@
-/**
- * semantic-dom demo 的 antd 段（右栏）。
- *
- * 列定义（Personal Info 分组表头 + Name rowScope + Age sorter）+ 13 槽位 classNames/styles 染色
- * （与 dg 子组件逐字同款）。antd 有 thead/tbody/tr 真实容器，header.wrapper/body.wrapper/
- * header.row/body.row 全部染色成功（与 dg 形成对照）。内部 sortOrder 态显示在表格下方。
- */
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import type {
@@ -14,7 +7,6 @@ import type {
 import { Table as AntdTable } from 'antd'
 import { semanticData, type SemanticRecord } from './_compare/semantic-dom.shared'
 
-// 13 槽位 classNames（逐字与 dg 同款）。antd 有 thead/tbody/tr 真实容器故全部染色成功。
 const antdClassNames: NonNullable<AntdTableProps<SemanticRecord>['classNames']> = {
   root: 'dg-semi-slot-root',
   section: 'dg-semi-slot-section',
@@ -37,7 +29,6 @@ const antdClassNames: NonNullable<AntdTableProps<SemanticRecord>['classNames']> 
   },
 }
 
-// 每槽一种霓虹色 outline（与 dg 子组件逐字同款）。
 const slotOutline = (color: string): CSSProperties => ({
   outline: `2px dashed ${color}`,
   outlineOffset: -2,
@@ -64,7 +55,6 @@ const antdStyles: NonNullable<AntdTableProps<SemanticRecord>['styles']> = {
   },
 }
 
-// Age 可排序（aria-sort 专项）+ Name rowScope（行表头语义演示）。
 const antdColumns: TableColumnsType<SemanticRecord> = [
   {
     title: 'Personal Info',
@@ -89,7 +79,6 @@ export default function SemanticDomAntd({
   bordered?: boolean
   virtual?: boolean
 }) {
-  // sortOrder 态由子组件内部自管（非受控），onChange 回写显示在表格下方便于 devtools 对照 aria-sort。
   const [antdSortOrder, setAntdSortOrder] = useState<
     'ascend' | 'descend' | null
   >(null)

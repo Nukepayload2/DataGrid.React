@@ -1,38 +1,20 @@
-/**
- * multiple-sorter 双栏对照 demo：复刻 antd multiple-sorter demo。
- *
- * 左栏 data-grid / 右栏 antd Table 共享控制条（Bordered 开关 + Reset 按钮）+ 共享数据
- * （`RecordType` + `data` 见 `_compare/multiple-sorter.shared.ts`）。三列分数带
- * `sorter: { compare, multiple }`（Chinese=3 / Math=2 / English=1，Name 不可排序），多列叠加语义：
- * multiple 越大 = 优先级越高（主排序键）。排序瞬时态非受控，Reset 通过 React key remount 清空两侧激活态。
- */
-
 import { useState } from 'react'
 import { Button, Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（SplitDemo pane 自动限高，虚拟窗口才有滚动区）
 import { useVirtualization } from './VirtualizationContext'
 import MultipleSorterDg from './multiple-sorter.dg'
 import MultipleSorterAntd from './multiple-sorter.antd'
 
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
-
 export default function MultipleSorterDemo() {
-  // 共享 Bordered 开关同时驱动两侧。
   const [bordered, setBordered] = useState(false)
-  // 递增 remountKey 强制两侧 Table 重新挂载，清空所有排序激活态（保持非受控本质）。
   const [remountKey, setRemountKey] = useState(0)
-  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y。
   const { virtual } = useVirtualization()
 
   const handleReset = () => setRemountKey((k) => k + 1)
 
   return (
     <div style={{ padding: 24 }}>
-      {/* 共享控制条：全宽，在 SplitDemo 上方。DemoToolbar 用 useToken 适配主题。 */}
       <DemoToolbar>
         <Space>
           <Switch
@@ -44,11 +26,6 @@ export default function MultipleSorterDemo() {
           <Button onClick={handleReset}>Reset (remount both)</Button>
         </Space>
       </DemoToolbar>
-
-      {/*
-        minPaneWidth=480（窄表，4 列无 scroll.x）→ 横排阈值 ≈ 976。
-        常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。
-      */}
       <SplitDemo
         minPaneWidth={480}
         left={

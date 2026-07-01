@@ -1,25 +1,7 @@
-/**
- * Semantic DOM 兼容性对比 demo。
- *
- * 对齐 antd `_semantic.tsx` 的 13 槽位思路，三件事对照：
- * 1. 13 槽位 classNames/styles 染色对照（每槽一种霓虹色 outline）。
- * 2. a11y 属性兼容矩阵（role / aria-sort / aria-expanded / aria-label / aria-colspan 等，
- *    demo 下方说明区表格）。
- * 3. 排序 aria-sort 专项（Age 列 sorter，点击表头观察两侧 aria-sort 同步）。
- *
- * 架构天花板：data-grid 用 div + CSS Grid 渲染（非真 `<table>`），行＝多 cell 直接铺在 grid
- * 上无行容器，故无法构成有效 ARIA table 结构 — 详见 docs/design-notes/layout.md。
- * 完整兼容矩阵：docs/semantic-dom-compat.md。
- */
-
 import type { CSSProperties } from 'react'
 import { SplitDemo } from './_compare/SplitDemo'
 import SemanticDomDg from './semantic-dom.dg'
 import SemanticDomAntd from './semantic-dom.antd'
-
-// ---------------------------------------------------------------------------
-// a11y 兼容矩阵（demo 下方说明区表格）。源数据同步 docs/semantic-dom-compat.md。
-// ---------------------------------------------------------------------------
 
 interface A11yRow {
   attr: string
@@ -97,10 +79,6 @@ const a11yMatrix: A11yRow[] = [
   },
 ]
 
-// ---------------------------------------------------------------------------
-// 13 槽位染色对照表（demo 下方说明区）。
-// ---------------------------------------------------------------------------
-
 interface SlotRow {
   slot: string
   color: string
@@ -164,16 +142,11 @@ const slotMatrix: SlotRow[] = [
   },
 ]
 
-// 共享 cell border 样式（说明区表格用）。
 const cellBorder: CSSProperties = {
   border: '1px solid #f0f0f0',
   padding: '6px 8px',
   verticalAlign: 'top',
 }
-
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
 
 export default function SemanticDomDemo() {
   return (
@@ -197,13 +170,11 @@ export default function SemanticDomDemo() {
 
       <SplitDemo
         minPaneWidth={520}
-        // virtualizable={false}：虚拟化会隐藏非可视行破坏 DOM 检视目的，故排除全局开关。
         virtualizable={false}
         left={<SemanticDomDg />}
         right={<SemanticDomAntd />}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          {/* 13 槽位染色对照表 */}
           <div>
             <h3 style={{ margin: '0 0 8px' }}>13 槽位染色对照</h3>
             <table
@@ -251,7 +222,6 @@ export default function SemanticDomDemo() {
             </p>
           </div>
 
-          {/* a11y 兼容矩阵 */}
           <div>
             <h3 style={{ margin: '0 0 8px' }}>a11y 属性兼容矩阵</h3>
             <table

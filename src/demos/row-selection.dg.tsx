@@ -1,9 +1,3 @@
-/**
- * row-selection demo 的 data-grid 段（左栏）。
- * props 驱动 `{ selectionType, selectedKeys, onTypeChange, onSelectedKeysChange, virtual }`
- * （由 row-selection.tsx 父组件传：selectionType 控制条 + 受控 selectedKeys 真理源 + 切 type 时
- * 清空选择的外部回调 onTypeChange）。
- */
 import { Table } from '../table'
 import type { ColumnType, TableRowSelection } from '../table'
 import { data, type RecordType } from './_compare/row-selection.shared'
@@ -28,9 +22,7 @@ const dgColumns: ColumnType<RecordType>[] = [
   },
 ]
 
-// ---------------------------------------------------------------------------
-// 左栏：最小 Radio.Group（原生 input[type='radio']，视觉对齐 antd）。
-// ---------------------------------------------------------------------------
+// Minimal radio group so the left pane does not depend on antd form controls.
 
 function RadioGroup({
   value,
@@ -80,12 +72,11 @@ export default function RowSelectionDg({
   onSelectedKeysChange: (keys: Array<React.Key>) => void
   virtual: boolean
 }) {
-  // 左栏（data-grid）rowSelection：selectedRowKeys 受控（父共享 state）+ onChange 写回父 state。
   const dgRowSelection: TableRowSelection<RecordType> = {
     type: selectionType,
     selectedRowKeys: selectedKeys,
     onChange: (keys, rows) => {
-      // data-grid onChange 三参含 info，此处只用前两参（keys/rows）与 antd 对照。
+      // Ignore the third `info` arg here to keep the demo shape aligned with antd.
       // eslint-disable-next-line no-console
       console.log(`selectedRowKeys: ${JSON.stringify(keys)}`, 'selectedRows: ', rows)
       onSelectedKeysChange(keys)

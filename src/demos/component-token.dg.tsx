@@ -1,10 +1,3 @@
-/**
- * component-token demo 的 data-grid 段（左栏）。
- *
- * 列定义（Name + Age sorter + Address filters/onFilter + Action render 内联 DownOutlined）+
- * defaultExpandable。ConfigProvider theme token 由父级包裹提供。
- * props 见 ComponentTokenDgProps（全量动态面板 state + virtual）。
- */
 import { Space } from 'antd'
 import { Table } from '../table'
 import type {
@@ -19,8 +12,6 @@ import {
   defaultTitle,
   type RecordType,
 } from './_compare/component-token.shared'
-
-// 内联 DownOutlined（More 链接右侧小箭头）— 避免 @ant-design/icons 直接依赖。两侧各自声明。
 function DownOutlined() {
   return (
     <svg
@@ -117,9 +108,6 @@ export default function ComponentTokenDg({
   const dgRowSelection: TableRowSelection<RecordType> | undefined = rowSelectionEnabled
     ? {}
     : undefined
-
-  // scroll.y:true 数据区域模式需父容器有明确 height — 详见 docs/design-notes/virtualization.md
-  // virtual ON → 400 有界（虚拟裁剪需有界区）；yScroll ON → 240；都 OFF → undefined。
   const dgScroll: { x?: number | string; y?: true } = {}
   if (yScroll || virtual) {
     dgScroll.y = true
@@ -160,3 +148,4 @@ export default function ComponentTokenDg({
     </div>
   )
 }
+

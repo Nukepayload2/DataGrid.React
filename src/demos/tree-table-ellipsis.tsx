@@ -1,39 +1,17 @@
-/**
- * 复刻 antd `tree-table-ellipsis` demo：
- *   `G:\Projects\ant-design\components\table\demo\tree-table-ellipsis.tsx`
- *
- * 双栏对照：树形首列 ellipsis + fixed 组合（issue #36583）。
- *   - 左栏（data-grid Table）：树形 data（children 嵌套）+ Name 列 ellipsis + width:'30%' +
- *     fixed（Switch 受控）+ rowSelection 前置 + defaultExpandAllRows。
- *   - 右栏（antd Table）：antd 原生 `<Table>` + 同列结构 + 同 rowSelection + 同 expandable。
- *   - 共享控制条：`Fixed first column` 开关同时驱动两侧（默认 true，对齐 antd demo）。
- *
- * 父文件保留外壳职责：fixed state（顶部 Switch 读写）+ useVirtualization + DemoToolbar +
- * SplitDemo + 对照说明。两侧表格 JSX + columns 由子组件提供（props 驱动 fixed + virtual）。
- */
-
 import { useState } from 'react'
 import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-// 顶栏 Switch ON 时两侧 Table 叠加 virtual + scroll.y；树形展开行视为普通行，同样被 RO 实测。
 import { useVirtualization } from './VirtualizationContext'
 import TreeTableEllipsisDg from './tree-table-ellipsis.dg'
 import TreeTableEllipsisAntd from './tree-table-ellipsis.antd'
 
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
-
 export default function TreeTableEllipsisDemo() {
-  // 共享状态：同一个 fixed state 同时驱动两侧表格；默认 true（对齐 antd demo）。
   const [fixed, setFixed] = useState(true)
-  // 顶栏 Switch ON 时两侧 Table 叠加 virtual + scroll.y。
   const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* 共享控制条：全宽，在 SplitDemo 上方；同一个 fixed state 同时驱动两侧。 */}
       <DemoToolbar>
         <Space align="center">
           <span>Fixed first column:</span>
@@ -41,7 +19,6 @@ export default function TreeTableEllipsisDemo() {
         </Space>
       </DemoToolbar>
 
-      {/* minPaneWidth=900：Name name 超长撑开 + 固定列 + 选择列 → 宽表；常规视口竖排（每栏全宽更友好）。 */}
       <SplitDemo
         minPaneWidth={900}
         left={<TreeTableEllipsisDg fixed={fixed} virtual={virtual} />}

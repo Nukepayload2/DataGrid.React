@@ -1,8 +1,3 @@
-/**
- * row-selection demo 的 antd 段（右栏），忠实复刻 antd row-selection demo。
- * props 驱动 `{ selectionType, selectedKeys, onTypeChange, onSelectedKeysChange, virtual }`
- * （由 row-selection.tsx 父组件传）。
- */
 import { Divider, Radio, Table as AntdTable } from 'antd'
 import type { TableProps } from 'antd'
 import { data, type RecordType } from './_compare/row-selection.shared'
@@ -45,7 +40,6 @@ export default function RowSelectionAntd({
   onSelectedKeysChange: (keys: Array<React.Key>) => void
   virtual: boolean
 }) {
-  // 右栏（antd）rowSelection：与 antd row-selection demo 同款 + 受控 selectedRowKeys（父共享 state）。
   const antdRowSelection: TableProps<RecordType>['rowSelection'] = {
     type: selectionType,
     selectedRowKeys: selectedKeys,
@@ -70,7 +64,6 @@ export default function RowSelectionAntd({
         <Radio value="radio">Radio</Radio>
       </Radio.Group>
       <Divider />
-      {/* 虚拟化：ON→virtual+scroll.y=300（有分页，antd scroll.y 须数字）；OFF→不传，非虚拟。 */}
       <AntdTable<RecordType>
         rowSelection={antdRowSelection}
         columns={antdColumns}

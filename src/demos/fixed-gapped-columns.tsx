@@ -1,12 +1,3 @@
-/**
- * fixed-gapped-columns 双栏对照 demo：分散的多个固定列堆叠 + bordered +
- * `scroll={{ x:'max-content' }}`。共享 `Bordered`（初值 true）+ `Size` 控制条同步驱动左栏
- * data-grid 与右栏 antd Table。
- *
- * 列结构（与 antd demo 一致）：
- *   - start 侧分散两段：[FullName(start)] ... [Column1(start)]（中间夹非固定的 Age）。
- *   - end 侧分散两段：[Action1(end)] ... [Action3(end)]（中间夹非固定的 Action2）。
- */
 
 import { useState } from 'react'
 import { Segmented, Space, Switch } from 'antd'
@@ -16,9 +7,7 @@ import { useVirtualization } from './VirtualizationContext'
 import FixedGappedColumnsDg from './fixed-gapped-columns.dg'
 import FixedGappedColumnsAntd from './fixed-gapped-columns.antd'
 
-// ---------------------------------------------------------------------------
 // Demo 根组件
-// ---------------------------------------------------------------------------
 
 type SizeOption = 'medium' | 'large'
 
@@ -111,3 +100,4 @@ export default function FixedGappedColumnsDemo() {
     </div>
   )
 }
+

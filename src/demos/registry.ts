@@ -1,13 +1,3 @@
-/**
- * data-grid demo 框架：轻量 hash 路由。
- *
- * 自建极简路由，避免引入 react-router 这类重型依赖（发布形态为项目内组件 + dev demo）。
- *
- * 路由约定：
- *   #/              → demo 列表首页
- *   #/demos/<name>  → 具体 demo
- */
-
 import { useEffect, useState } from 'react'
 import type { ComponentType } from 'react'
 
@@ -20,28 +10,19 @@ export interface DemoMeta {
   description?: string
   /** 懒加载组件。 */
   element: () => Promise<{ default: ComponentType }>
-  /**
-   * 是否为左右对比 demo（左 data-grid / 右 antd 同名 demo）。
-   * opt-in：未声明时当作 false（其它 demo 不受影响）。列表页会显示「对比」徽章。
-   */
+  /** 是否为左右对比 demo。 */
   compare?: boolean
-  /**
-   * 首页分组类别（必填）。用于 HomePage 按类别分组渲染卡片网格。
-   * 取值见 src/demos/index.ts（如 '基础'、'列'、'固定列与表头' 等）。
-   */
+  /** 首页分组类别。 */
   category: string
 }
 
-/** 按类别分组的 demo 集合（HomePage 卡片网格 + App Sider 菜单分组共用）。 */
+/** 按类别分组的 demo 集合。 */
 export interface CategoryGroup {
   category: string
   items: DemoMeta[]
 }
 
-/**
- * 按 registry 声明顺序分组（保持稳定展示顺序，按首次出现排序）。
- * 共享：HomePage 卡片网格 + App Sider 侧栏分组菜单。
- */
+/** 按首次出现顺序分组。 */
 export function groupByCategory(list: DemoMeta[]): CategoryGroup[] {
   const order: string[] = []
   const map = new Map<string, DemoMeta[]>()

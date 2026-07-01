@@ -1,15 +1,7 @@
-/**
- * ajax demo 的 antd 段（右栏）。自管异步加载 state，忠实复刻 antd ajax demo
- * （loading + 受控分页 + onChange + preserveSelectedRowKeys）。
- */
 import { useEffect, useState } from 'react'
 import { Table as AntdTable } from 'antd'
 import type { TableProps } from 'antd'
 import { queryData, type RecordType, type TableParams } from './_compare/ajax.shared'
-
-// ---------------------------------------------------------------------------
-// 列定义 —— 与 antd ajax demo 一致
-// ---------------------------------------------------------------------------
 
 const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
   {
@@ -32,12 +24,6 @@ const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
     dataIndex: 'email',
   },
 ]
-
-// ---------------------------------------------------------------------------
-// 子组件（自管异步加载 state）
-// ---------------------------------------------------------------------------
-
-// 收敛 antd SorterResult 到 demo 共享 TableParams 窄类型（field?: string）。
 function normalizeSorter(
   sorter:
     | { field?: unknown; order?: 'ascend' | 'descend' | null }
@@ -129,9 +115,10 @@ export default function AjaxAntd({
       loading={loading}
       onChange={handleChange}
       rowSelection={antdRowSelection}
-      /* ON 时 virtual=true + scroll.y:280（antd 分页条画在 scroll.y 之外，需扣除表头与分页条高）。 */
       virtual={virtual}
       scroll={virtual ? { y: 280 } : undefined}
     />
   )
 }
+
+

@@ -1,16 +1,8 @@
-/**
- * fixed-header demo 的 data-grid 段（左栏）。
- *
- * props 驱动 `{ bordered, virtual }`（由 fixed-header.tsx 父组件传）。
- * 自包含：含 `dgColumns`（Name/Age/Address 3 列）+ `<Table>` JSX + 父容器 height:394 wrapper。
- */
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { dataSource, type DataType } from './_compare/fixed-header.shared'
 
-// ---------------------------------------------------------------------------
 // 左栏（data-grid）列定义 —— 与 antd demo 列结构逐字一致
-// ---------------------------------------------------------------------------
 
 const dgColumns: ColumnType<DataType>[] = [
   { title: 'Name', dataIndex: 'name', width: 150 },
@@ -42,3 +34,4 @@ export default function FixedHeaderDg({
     </div>
   )
 }
+

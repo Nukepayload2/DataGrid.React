@@ -1,16 +1,4 @@
-/**
- * useDemoSource：按 demo 名懒加载源码字符串。
- *
- * 用 Vite 的 import.meta.glob '?raw' + eager:false，与 demo 懒加载机制一致。
- * 模块级 cache Map 跨组件实例复用，避免重复请求模块。
- *
- * @param name demo 名（对应 src/demos/<name>.tsx 文件）；undefined/null/空 → 不加载。
- * @returns { source: string | null, loading: boolean }
- *          - source：源码字符串（加载完成），或 null（未加载 / 加载中 / name 为空）。
- *          - loading：true 表示正在请求模块（cache 未命中）。
- *
- * 注意 cleanup：name 切换时丢弃过期结果（用闭包捕获的 name 比对当前 name）。
- */
+/** 按 demo 名懒加载单文件源码，并复用模块级缓存。 */
 import { useEffect, useState } from 'react'
 
 const sources = import.meta.glob('./demos/*.tsx', {

@@ -1,19 +1,4 @@
-/**
- * useSplitDemoSource：按 demo 名懒加载 split demo 子文件源码（dg + antd 两段）。
- *
- * 仿 useDemoSource.ts 模式。用两条 `import.meta.glob '?raw'`：
- *   - `'./demos/*.dg.tsx'`   → data-grid 段
- *   - `'./demos/*.antd.tsx'` → antd 段
- *
- * 模块级 cache Map 跨组件实例复用，避免重复请求模块。
- *
- * @param name demo 名（对应 src/demos/<name>.dg.tsx / <name>.antd.tsx）；undefined/空 → 不加载。
- * @returns { dgSource, antdSource, loading }
- *          - dgSource/antdSource：源码字符串（加载完成），或 null（未加载 / 加载中 / name 空）。
- *          - loading：true 表示至少一段仍在请求模块（cache 未命中）。
- *
- * 注意 cleanup：name 切换时丢弃过期结果（用闭包捕获的 cancelled 比对）。
- */
+/** 按 demo 名懒加载 split demo 两段源码，并复用模块级缓存。 */
 import { useEffect, useState } from 'react'
 
 const dgSources = import.meta.glob('./demos/*.dg.tsx', {

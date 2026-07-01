@@ -1,12 +1,3 @@
-/**
- * 复刻 antd `responsive` demo：
- *   `G:\Projects\ant-design\components\table\demo\responsive.tsx`
- *
- * `column.responsive: Breakpoint[]` 按视口断点显隐列。`screens[bp]===true` 表示当前视口 >= bp，
- * 故 `responsive: ['md']` 语义是 md 及以上显示（与 antd 注释 "medium screen or bigger" 一致）。
- * 3 列：Name（无 responsive，始终显示）/ Age（`responsive:['md']`）/ Address（`responsive:['lg']`）。
- */
-
 import { useState } from 'react'
 import { Grid, Space, Switch, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
@@ -19,7 +10,7 @@ export default function ResponsiveDemo() {
   const [bordered, setBordered] = useState(false)
   const { virtual } = useVirtualization()
 
-  // 仅用于控制条 UI 的「当前断点状态」提示；列显隐由两侧 Table 各自内部订阅驱动。
+  // 仅用于展示当前断点；列显隐仍由两侧表格各自订阅。
   const screens = Grid.useBreakpoint()
   const { token } = theme.useToken()
 

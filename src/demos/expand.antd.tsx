@@ -1,16 +1,8 @@
-/**
- * expand demo 的 antd 段（右栏），忠实复刻 antd expand demo。
- *
- * props：`{ expandedRowKeys, onExpandedRowsChange, virtual }`（与左栏同款，真理源在父）。
- * 改为受控展开（antd demo 原本非受控），便于对照两侧展开行为同步。
- */
 import { Table as AntdTable } from 'antd'
 import type { TableProps } from 'antd'
 import { data, type RecordType } from './_compare/expand.shared'
 
-// ---------------------------------------------------------------------------
 // 右栏（antd）列定义
-// ---------------------------------------------------------------------------
 
 const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
   { title: 'Name', dataIndex: 'name', key: 'name' },
@@ -53,3 +45,4 @@ export default function ExpandAntd({
     />
   )
 }
+

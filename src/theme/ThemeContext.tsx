@@ -1,23 +1,4 @@
-/**
- * 全局主题上下文（任务 T16）。
- *
- * === 背景 / Bug 根因 ===
- *
- * 旧 `src\demos\theme-editor.tsx` 把写死的 light 绝对值（headerBg #fafafa 等）塞进
- * useState，**全 token 都传** ConfigProvider components.Table/token → antd 当用户
- * override → dark algorithm 派生被覆盖 → dark 下表头仍 #fafafa（应派生为 #1d1d1d）。
- *
- * === ★ 核心修复语义（必守）===
- *
- * **edited = key 在 overrides 对象里；未编辑的 key 绝不进 theme.token / components.Table**
- * → 让 antd algorithm + prepareComponentToken 派生 → dark 下自动变暗。只有用户显式
- * 编辑过的 token 才作为 override 传入 ConfigProvider。
- *
- * 此 context 是单一真理源：顶栏 dark/light 切换 + 编辑/未编辑 token override 集合。
- * ThemeProvider 内部持有 state，并直接包 `<ConfigProvider theme={...}>`，把 store 值
- * 同时喂给 ConfigProvider（驱动 antd cssinjs + data-grid Table.tsx realToken 重算）
- * 与 context（供顶栏 / theme-editor / 任意 demo 读写）。
- */
+/** 全局主题上下文；只把显式编辑过的 token 作为 override 下发给 ConfigProvider。 */
 
 import {
   createContext,
@@ -28,10 +9,6 @@ import {
   type ReactNode,
 } from 'react'
 import { ConfigProvider, theme } from 'antd'
-
-// ---------------------------------------------------------------------------
-// 类型
-// ---------------------------------------------------------------------------
 
 /** 主题模式（顶栏全局切换）。 */
 export type ThemeMode = 'light' | 'dark'
@@ -104,10 +81,6 @@ export interface ThemeContextValue {
   resetAll: () => void
 }
 
-// ---------------------------------------------------------------------------
-// Context
-// ---------------------------------------------------------------------------
-
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 /**
@@ -122,27 +95,11 @@ export function useTheme(): ThemeContextValue {
   return ctx
 }
 
-// ---------------------------------------------------------------------------
-// Provider
-// ---------------------------------------------------------------------------
-
 export interface ThemeProviderProps {
   children: ReactNode
 }
 
-/**
- * 全局主题 Provider。
- *
- * 结构：`<ThemeProvider>` 持有 state（themeMode + 两 overrides）→ 直接渲染
- * `<ConfigProvider theme={{ token: globalOverrides, components:{ Table: tableOverrides },
- * algorithm }}>` 包 `{children}`，同时通过 `<ThemeContext.Provider>` 把 store 值
- * 暴露给后代组件（顶栏切换控件、theme-editor、SplitDemo 等任意 demo）。
- *
- * algorithm = themeMode==='dark' ? theme.darkAlgorithm : theme.defaultAlgorithm。
- *
- * **关键**：globalOverrides / tableOverrides 只含 edited 键 → ConfigProvider 仅收到
- * 用户显式覆盖项 → 未编辑键由 antd algorithm + prepareComponentToken 派生（dark 自动变暗）。
- */
+/** 提供主题模式与 token overrides，并同步配置到 antd ConfigProvider。 */
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const [themeMode, setThemeModeState] = useState<ThemeMode>('light')
   const [globalOverrides, setGlobalOverrides] = useState<GlobalOverrides>({})

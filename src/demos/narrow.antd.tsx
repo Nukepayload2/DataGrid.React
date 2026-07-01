@@ -1,9 +1,3 @@
-/**
- * narrow demo 的 antd 段（右栏）。
- *
- * 忠实复刻 antd narrow demo：300px 窄容器 + 200 行 + size="small" + 分页 defaultCurrent:13。
- * props `{ paginated, defaultCurrent, virtual }` 由父组件传入。
- */
 import { Table as AntdTable } from 'antd'
 import type { TableProps } from 'antd'
 import { dataSource, rawColumns, type RecordType } from './_compare/narrow.shared'

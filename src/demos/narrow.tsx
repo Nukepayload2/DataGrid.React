@@ -1,12 +1,3 @@
-/**
- * 复刻 antd `narrow` demo：`G:\Projects\ant-design\components\table\demo\narrow.tsx`。
- *
- * 窄容器（width: 300）内 + 200 行数据 + `size="small"` + 分页 `defaultCurrent: 13`，
- * 演示在小空间内展示大量数据。
- *
- * 顶部共享控制条（`Pagination` 开关 + `Default Current` Segmented）驱动两侧 + 全局虚拟化开关。
- */
-
 import { useState } from 'react'
 import { Segmented, Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
@@ -14,10 +5,6 @@ import { DemoToolbar } from './_compare/DemoToolbar'
 import { useVirtualization } from './VirtualizationContext'
 import NarrowDg from './narrow.dg'
 import NarrowAntd from './narrow.antd'
-
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
 
 export default function NarrowDemo() {
   const [paginated, setPaginated] = useState(true)

@@ -1,18 +1,10 @@
-/**
- * 复刻 antd `edit-cell` demo：
- *   `G:\Projects\ant-design\components\table\demo\edit-cell.tsx`
- * 双栏对照 demo：`components.body.cell/row` + `onCell` 单元格编辑 + Add/Delete 增删行。
- * 两栏各自维护编辑/增删行 state（编辑是局部交互，共用 dataSource 会互相干扰）。
- */
 
 import { SplitDemo } from './_compare/SplitDemo'
 import { useVirtualization } from './VirtualizationContext'
 import EditCellDg from './edit-cell.dg'
 import EditCellAntd from './edit-cell.antd'
 
-// ===========================================================================
 // Demo 根组件
-// ===========================================================================
 
 export default function EditCellDemo() {
   const { virtual } = useVirtualization()
@@ -70,3 +62,4 @@ export default function EditCellDemo() {
     </div>
   )
 }
+

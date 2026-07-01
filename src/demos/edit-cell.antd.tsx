@@ -1,8 +1,3 @@
-/**
- * edit-cell demo 的 antd 段（右栏）。自管编辑/增删行 state。忠实复刻 antd edit-cell demo：
- * antd 原生 components.body.cell/row + onCell（EditableRow 返回 <tr>、EditableCell 返回 <td>）+
- * rowClassName='editable-row' + CSS。
- */
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import type { GetRef, InputRef, TableProps as AntdTableProps } from 'antd'
 import { Button, Form, Input, Popconfirm, Table as AntdTable } from 'antd'
@@ -13,10 +8,8 @@ import {
   type RecordType,
 } from './_compare/edit-cell.shared'
 
-// ---------------------------------------------------------------------------
 // antd demo 配套 CSS（.editable-cell-value-wrap hover 边框），注入 document.head。
 // 两子组件共用同一 CSS，幂等：模块级 cssInjected 标志 + DOM [data-edit-cell-css] 双重检查。
-// ---------------------------------------------------------------------------
 
 type FormInstance<T> = GetRef<typeof Form<T>>
 
@@ -47,9 +40,7 @@ function injectEditCellCss() {
   document.head.appendChild(style)
 }
 
-// ---------------------------------------------------------------------------
 // antd 原生：EditableRow（Form component={false} + Provider + <tr>）+ EditableCell（<td>）
-// ---------------------------------------------------------------------------
 
 const AntdEditableContext = React.createContext<FormInstance<any> | null>(null)
 
@@ -129,9 +120,7 @@ const AntdEditableCell: React.FC<
 
 type AntdColumnTypes = Exclude<AntdTableProps<RecordType>['columns'], undefined>
 
-// ---------------------------------------------------------------------------
 // 子组件（自管编辑/增删行 state）
-// ---------------------------------------------------------------------------
 
 export default function EditCellAntd({
   virtual = false,
@@ -225,3 +214,4 @@ export default function EditCellAntd({
     </div>
   )
 }
+

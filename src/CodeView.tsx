@@ -1,11 +1,4 @@
-/**
- * CodeView：demo 源码高亮展示。
- *
- * 使用 prism-react-renderer（v2，package 已装 2.4.1）。
- * - theme 跟随全局 ThemeContext.themeMode：dark→vsDark，light→oneLight。
- * - 背景取 themes 自带的 style.background（不硬编码颜色，遵循 demo token 化约定）。
- * - 带行号（左 gutter，半透明）+ 横向滚动；外层 div 控 max-height + overflow。
- */
+/** 只读 demo 源码高亮视图。 */
 import { Highlight, themes } from 'prism-react-renderer'
 import { useTheme } from './theme/ThemeContext'
 

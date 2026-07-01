@@ -1,15 +1,3 @@
-/**
- * 列宽拖拽调整 demo（data-grid 增强能力，antd 无原生 resizable demo，自建演示）。
- *
- * 双栏对照（特例：右栏无 antd 原生对应）：
- * - 左栏（data-grid Table）：`columnResizeMode` + `resizableMinWidth`/`resizableMaxWidth` 演示 pointer
- *   拖拽改列宽模式 + min/max 约束 + 部分列给 width / 部分不给（max-content → 首次拖拽转 px）。
- * - 右栏（antd 无原生 resizable）：antd 6.4.4 Table 无原生列宽拖拽（resizable）能力，右栏不渲染
- *   antd 同名 demo，而是一个说明区 + 一张静态 antd `<Table>` 作基线参照（同数据/同列，无拖拽手柄）。
- * - 共享状态 + 控制条：`columnResizeMode` / `minWidth` / `maxWidth` 三个控件只驱动左栏 data-grid
- *   （右栏无此能力，控制条不作用于右栏）。共享数据见 `_compare/resizable.shared.ts`。
- */
-
 import { useState } from 'react'
 import { InputNumber, Segmented, Space, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
@@ -17,10 +5,6 @@ import { DemoToolbar } from './_compare/DemoToolbar'
 import { useVirtualization } from './VirtualizationContext'
 import ResizableDg from './resizable.dg'
 import ResizableAntd from './resizable.antd'
-
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
 
 export default function ResizableDemo() {
   const [columnResizeMode, setColumnResizeMode] =
@@ -32,7 +16,6 @@ export default function ResizableDemo() {
 
   return (
     <div style={{ padding: 24 }}>
-      {/* 控制条：仅驱动左栏 data-grid（右栏 antd 无 resizable 能力）。 */}
       <DemoToolbar
         style={{
           display: 'flex',
@@ -78,10 +61,6 @@ export default function ResizableDemo() {
         </span>
       </DemoToolbar>
 
-      {/*
-        minPaneWidth=480（窄表，5 列无 scroll.x）→ 横排阈值 ≈ 976。
-        常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。
-      */}
       <SplitDemo
         minPaneWidth={480}
         left={

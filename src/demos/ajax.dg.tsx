@@ -1,7 +1,3 @@
-/**
- * ajax demo 的 data-grid 段（左栏）。自管异步加载 state（data / loading / tableParams /
- * selectedRowKeys + fetchData/useEffect/handleChange/onSelectChange）。
- */
 import { useEffect, useState } from 'react'
 import { Table } from '../table'
 import type {
@@ -11,10 +7,6 @@ import type {
   TableRowSelection,
 } from '../table'
 import { queryData, type RecordType, type TableParams } from './_compare/ajax.shared'
-
-// ---------------------------------------------------------------------------
-// 列定义 —— Name（sorter:true 服务端排序）/ Gender（filters 服务端筛选）/ Email
-// ---------------------------------------------------------------------------
 
 const dgColumns: ColumnType<RecordType>[] = [
   {
@@ -37,12 +29,6 @@ const dgColumns: ColumnType<RecordType>[] = [
     dataIndex: 'email',
   },
 ]
-
-// ---------------------------------------------------------------------------
-// 子组件（自管异步加载 state）
-// ---------------------------------------------------------------------------
-
-// 收敛 data-grid SorterResult 到 demo 共享 TableParams 窄类型（field?: string）。
 function normalizeSorter(
   sorter:
     | { field?: unknown; order?: 'ascend' | 'descend' | null }
@@ -68,7 +54,6 @@ export default function AjaxDg({
       pageSize: 10,
     },
   })
-  // 受控勾选 + preserveSelectedRowKeys（跨页保留）。
   const [selectedRowKeys, setSelectedRowKeys] = useState<Array<React.Key>>([])
 
   const fetchData = () => {
@@ -88,7 +73,6 @@ export default function AjaxDg({
 
   useEffect(() => {
     fetchData()
-    // 依赖：current/pageSize/sortOrder/sortField/filters 变化即重新"请求"（对齐 antd demo）。
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     tableParams.pagination?.current,
@@ -115,7 +99,6 @@ export default function AjaxDg({
       sortOrder: n.order,
       sortField: n.field,
     })
-    // pageSize 变化时清空当前页数据（对齐 antd demo：dataSource is useless since pageSize changed）。
     if (pagination.pageSize !== prevPageSize) {
       setData([])
     }
@@ -137,9 +120,9 @@ export default function AjaxDg({
       loading={loading}
       onChange={handleChange}
       rowSelection={dgRowSelection}
-      /* ON 时 virtual=true + scroll.y:true（CSS 自适应填满 SplitDemo 限高）。 */
       virtual={virtual}
       scroll={virtual ? { y: true } : undefined}
     />
   )
 }
+

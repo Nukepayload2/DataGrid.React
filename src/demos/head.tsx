@@ -1,29 +1,3 @@
-/**
- * head 双栏对照 demo：复刻 antd head demo（排序 + 筛选）：
- *   `G:\Projects\ant-design\components\table\demo\head.tsx`。
- *
- * - **左栏（data-grid Table）**：行为对齐 antd（Name sorter+filters / Age sorter+defaultSortOrder /
- *   Address filters 默认多选 / Table 级 showSorterTooltip / onChange console.log / pagination={{}}）。
- * - **右栏（antd Table）**：忠实复刻 antd head demo（antd 原生 sorter/filters/onFilter/filterMultiple +
- *   antd 原生 filter 下拉 Checkbox/Radio + 确定/重置）。
- * - **共享控制条**：`Bordered` 开关 + `Reset` 按钮（antd head demo 原本无控制条，此处加最小开关便于对照
- *   「有/无边框」下两侧行为；Reset 用 React key remount 两侧 Table 一次清空所有排序/筛选草稿与激活态，
- *   避免引入受控语义破坏 head demo 的非受控本质）。
- * - **共享数据**：`RecordType` + `data` 见 `_compare/head.shared.ts`。
- *
- * antd demo 要素（排序 + 筛选共存）：
- * - Name 列：`sorter: (a,b) => a.name.length - b.name.length`（按名字长度），
- *   `sortDirections: ['descend']`（点击循环：null → descend → null，不经过 ascend），
- *   `showSorterTooltip: { target: 'full-header' }`；同时带 `filters`（Joe/Jim/Submenu→Green/Black）+
- *   `onFilter`（按名字起始匹配）。
- * - Age 列：`sorter: (a,b) => a.age - b.age`，`defaultSortOrder: 'descend'`（初始降序）。无筛选。
- * - Address 列：`filters`（London/New York）+ `onFilter`，默认多选 Checkbox（官方 head.tsx 此列无
- *   filterMultiple，逐字一致）。无 sorter。
- * - Table 级 `showSorterTooltip: { target: 'sorter-icon' }`。
- * - `onChange(pagination, filters, sorter, extra)`：点击排序/应用筛选触发，console.log 各参数。
- *
- * 两侧行为对齐 antd：filterOnClose 默认 / confirm 应用 / clearFilters 草稿不立即清表。
- */
 
 import { useState } from 'react'
 import { Button, Space, Switch } from 'antd'
@@ -34,9 +8,7 @@ import { useVirtualization } from './VirtualizationContext'
 import HeadDg from './head.dg'
 import HeadAntd from './head.antd'
 
-// ---------------------------------------------------------------------------
 // Demo 根组件
-// ---------------------------------------------------------------------------
 
 export default function HeadDemo() {
   // 共享状态（提升到父）：同一个状态同时驱动两侧表格 + 顶部控制条。
@@ -127,3 +99,4 @@ export default function HeadDemo() {
     </div>
   )
 }
+

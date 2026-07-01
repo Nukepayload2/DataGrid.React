@@ -1,30 +1,12 @@
-/**
- * reset-filter demo 的 antd 段（右栏）。
- *
- * props 驱动 `{ filteredInfo, sortedInfo, bordered, virtual, onChange }`（与左栏 dg 子组件同款签名）：
- * - filteredInfo / sortedInfo：受控筛选/排序真理源（父持有，控制条三按钮 + onChange 共同写回）。
- * - bordered：表格边框开关（控制条驱动）。
- * - virtual：全局虚拟化开关。
- * - onChange：写回父级共享 state 的回调（两栏共用同一份 state → 两侧受控同步）。
- *
- * 自包含：含 `buildAntdColumns(filteredInfo, sortedInfo)`（受控 filteredValue/sortOrder + ellipsis +
- * 三列均带 key）+ `<AntdTable>` JSX。排序/筛选全部受控，无子组件内部 state。
- */
 import { Table as AntdTable } from 'antd'
 import type { TableProps } from 'antd'
 import { data, type RecordType } from './_compare/reset-filter.shared'
 
-// 受控 state 类型（本子文件内部独立声明，对齐 dg 子文件的 Filters/Sorts 推导）。
 type OnChange = NonNullable<TableProps<RecordType>['onChange']>
 type Filters = Parameters<OnChange>[1]
 type GetSingle<T> = T extends (infer U)[] ? U : never
 type Sorts = GetSingle<Parameters<OnChange>[2]>
 
-// ---------------------------------------------------------------------------
-// 受控列定义 —— 忠实复刻 antd reset-filter demo（逐字一致）
-// ---------------------------------------------------------------------------
-
-/** 构造 antd 受控列（依赖同一份 filteredInfo/sortedInfo）。 */
 function buildAntdColumns(
   filteredInfo: Filters,
   sortedInfo: Sorts,
@@ -66,8 +48,6 @@ function buildAntdColumns(
       sortOrder: sortedInfo.columnKey === 'address' ? sortedInfo.order : null,
       ellipsis: true,
     },
-    // locale 文案对照列（右栏不传 locale → 英文，与左栏中文对照）。
-    // Status：filterSearch=true → antd 下拉渲染搜索框，placeholder='Search'（对照左栏「搜索」）。
     {
       title: 'Status',
       dataIndex: 'status',
@@ -82,7 +62,6 @@ function buildAntdColumns(
       filterSearch: true,
       ellipsis: true,
     },
-    // Tag：filterMode='tree' → antd 下拉渲染 tree 全选 Checkbox，文案='Select all'（对照「全选」）。
     {
       title: 'Tag',
       dataIndex: 'tag',
@@ -96,7 +75,6 @@ function buildAntdColumns(
       filterMode: 'tree',
       ellipsis: true,
     },
-    // Empty：filters=[] 空数组 → antd 下拉空占位='No filters'（对照「无筛选」）。
     {
       title: 'Empty',
       dataIndex: 'empty',
@@ -109,11 +87,6 @@ function buildAntdColumns(
   ]
 }
 
-// ---------------------------------------------------------------------------
-// 子组件
-// ---------------------------------------------------------------------------
-
-// props 默认值同左栏 dg（见 dg 子文件注释）。
 export default function ResetFilterAntd({
   filteredInfo = {},
   sortedInfo = {},
@@ -135,9 +108,6 @@ export default function ResetFilterAntd({
       dataSource={data}
       onChange={onChange}
       bordered={bordered}
-      /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且表头/默认
-         分页画在 scroll.y 之外，需扣除表头~55 与分页条~64 → 约 280 才能塞进 pane 限高；
-         OFF 时回 undefined，无 scroll）。 */
       virtual={virtual}
       scroll={virtual ? { y: 280 } : undefined}
     />

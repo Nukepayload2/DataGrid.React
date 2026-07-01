@@ -1,14 +1,3 @@
-/**
- * 复刻 antd `style-class` demo：
- *   `G:\Projects\ant-design\components\table\demo\style-class.tsx`
- *
- * 演示 classNames/styles（对象或 `(info)=>` 函数）作用于 root/header.{cell,row,wrapper}/
- * body.{cell,row,wrapper}/title/footer/pagination.{root,item}/section/content 各槽位。
- * 深色主题逐字复刻 antd 官方 demo（不改浅色/紫色）；root class `.dg-style-class-root`
- * 的 CSS 在 `src/table/style/table.css` 末尾预定义。
- * 右栏改用 antd v6 原生 `classNames` + `styles`（替代 antd-style 库），视觉等价、零额外依赖。
- */
-
 import { useState } from 'react'
 import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'

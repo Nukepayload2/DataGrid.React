@@ -1,9 +1,3 @@
-/**
- * bordered demo 的 data-grid 段（左栏）。
- * - `BorderedTitleFooterDg`：示例1（bordered + title/footer，复刻 antd 官方 bordered demo）。
- * - `BorderedFixedDg`：示例2（bordered + fixed 组合）。
- * - 默认导出 `BorderedDg`：div gap 堆叠两个示例。
- */
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import {
@@ -12,9 +6,6 @@ import {
   type FixedRow,
   type RowType,
 } from './_compare/bordered.shared'
-
-// 示例 1 列定义：Name / Cash Assets(align end + className 'column-money') / Address，
-// 3 列 + title/footer。
 const dgColumnsExample1: ColumnType<RowType>[] = [
   {
     title: 'Name',
@@ -23,11 +14,8 @@ const dgColumnsExample1: ColumnType<RowType>[] = [
   },
   {
     title: 'Cash Assets',
-    // className 'column-money' 是 antd demo 演示 column.className 透传的 placeholder，
-    // antd 自身无对应 CSS 规则——两栏均无视觉高亮。详见 docs/design-notes/bordered.md。
     className: 'column-money',
     dataIndex: 'money',
-    // data-grid 用逻辑属性 'end'（等价 antd 'right'，RTL 自动适配）。
     align: 'end',
   },
   {
@@ -35,8 +23,6 @@ const dgColumnsExample1: ColumnType<RowType>[] = [
     dataIndex: 'address',
   },
 ]
-
-// 示例 2 列定义：bordered + fixed 组合，fixed 用逻辑属性 'start'/'end'（等价 antd 'left'/'right'）。
 const dgColumnsExample2: ColumnType<FixedRow>[] = [
   {
     title: 'Full Name',
@@ -58,8 +44,6 @@ const dgColumnsExample2: ColumnType<FixedRow>[] = [
     render: () => <a>action</a>,
   },
 ]
-
-// 示例 1：bordered + title/footer
 export function BorderedTitleFooterDg({
   bordered = true,
   virtual = false,
@@ -80,8 +64,6 @@ export function BorderedTitleFooterDg({
     />
   )
 }
-
-// 示例 2：bordered + fixed 组合
 export function BorderedFixedDg({
   bordered = true,
   virtual = false,
@@ -100,8 +82,6 @@ export function BorderedFixedDg({
     />
   )
 }
-
-// 默认导出：div gap 堆叠两个示例。
 export default function BorderedDg({
   bordered = true,
   virtual = false,
@@ -116,3 +96,4 @@ export default function BorderedDg({
     </div>
   )
 }
+

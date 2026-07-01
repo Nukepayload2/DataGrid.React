@@ -1,8 +1,3 @@
-/**
- * grouping-columns 双栏对照 demo：多级表头（任意深度嵌套 children）+ 固定列（Name fixed 'start'、
- * Gender fixed 'end'）+ filters/sorter。共享 `Bordered` + `Size` + 行数 `Count` 控制条同步驱动
- * 左栏 data-grid 与右栏 antd Table。
- */
 
 import { useState } from 'react'
 import { Segmented, Space, Switch } from 'antd'
@@ -13,9 +8,7 @@ import { useVirtualization } from './VirtualizationContext'
 import GroupingColumnsDg from './grouping-columns.dg'
 import GroupingColumnsAntd from './grouping-columns.antd'
 
-// ---------------------------------------------------------------------------
 // Demo 根组件
-// ---------------------------------------------------------------------------
 
 type SizeOption = 'medium' | 'large'
 
@@ -143,3 +136,4 @@ export default function GroupingColumnsDemo() {
     </div>
   )
 }
+

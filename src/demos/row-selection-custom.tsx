@@ -1,37 +1,17 @@
-/**
- * row-selection-custom 双栏对照 demo：复刻 antd
- * `G:\Projects\ant-design\components\table\demo\row-selection-custom.tsx`。
- * 共享 selectedRowKeys（受控真理源）同时驱动左栏 data-grid 与右栏 antd Table 的
- * rowSelection.selections 菜单（3 内置哨兵 + 自定义 odd/even）。
- */
-
 import { useState } from 'react'
 import { theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
-// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
 import RowSelectionCustomDg from './row-selection-custom.dg'
 import RowSelectionCustomAntd from './row-selection-custom.antd'
 
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
-
 export default function RowSelectionCustomDemo() {
-  // 共享状态：同一个 state 同时驱动两侧表格 + 页面下方可视化区。
   const [selectedRowKeys, setSelectedRowKeys] = useState<Array<React.Key>>([])
-  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y。
   const { virtual } = useVirtualization()
-  // 主题 token：选中态可视化区文字色 token 化，暗主题自适应。
   const { token } = theme.useToken()
 
   return (
     <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/*
-        minPaneWidth=480（窄表，3 列 + 选择列=4 列，无 scroll.x）→ 横排阈值 ≈ 976。
-        常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。46 行全显（无分页），
-        SplitDemo pane body 内独立滚动。
-      */}
       <SplitDemo
         minPaneWidth={480}
         left={
@@ -87,7 +67,7 @@ export default function RowSelectionCustomDemo() {
         </div>
       </SplitDemo>
 
-      {/* 选中态可视化（antd demo 仅 console.log；这里额外页面展示便于无 console 验证）。 */}
+      {/* Extra readout for side-by-side verification without opening the console. */}
       <div style={{ padding: 12, background: token.colorFillQuaternary, borderRadius: 8 }}>
         <strong>selectedRowKeys:</strong>{' '}
         {selectedRowKeys.length === 0 ? (

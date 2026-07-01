@@ -1,28 +1,8 @@
-/**
- * head demo 的 data-grid 段（左栏）。
- *
- * - props 驱动 `{ bordered, virtual, remountKey }`（由父组件传）：
- *   bordered：表格边框开关（控制条驱动）；virtual：全局虚拟化开关；
- *   remountKey：Reset 按钮递增的 key，应用到内部 `<Table key=...>` 强制 remount 清空
- *   排序/筛选草稿与激活态（head demo 排序/筛选非受控，不能通过受控 setState 重置）。
- * - 自包含：含 `dgColumns`（Name sorter+filters+sortDirections / Age sorter+defaultSortOrder /
- *   Address filters）+ `<Table>` JSX + 共用 `onChange` console.log。
- * - Name 列 sorter 按名字长度 + sortDirections:['descend'] + filters（含 Submenu children，
- *   扁平化为顶层项）+ onFilter；Age 列 sorter + defaultSortOrder:'descend'；
- *   Address 列 filters（默认多选 Checkbox）+ onFilter。Table 级 showSorterTooltip:{target:'sorter-icon'}。
- *
- * 排序/筛选 state 自管（非受控）：head demo 排序/筛选是 antd 原生非受控语义（不传受控
- * sortOrder/filteredValue），状态由 Table 内部管理。Reset 通过 React key remount 强制重建，
- * 故子组件不需要排序/筛选 state props——列定义即非受控初始态（Age defaultSortOrder:'descend'
- * 是初始值而非受控值）。
- */
 import { Table } from '../table'
 import type { ColumnType, TableProps as DgTableProps } from '../table'
 import { data, type RecordType } from './_compare/head.shared'
 
-// ---------------------------------------------------------------------------
 // 列定义
-// ---------------------------------------------------------------------------
 
 const dgColumns: ColumnType<RecordType>[] = [
   {
@@ -66,9 +46,7 @@ const dgColumns: ColumnType<RecordType>[] = [
   },
 ]
 
-// ---------------------------------------------------------------------------
 // onChange（console.log 各参数）
-// ---------------------------------------------------------------------------
 
 const onChange: DgTableProps<RecordType>['onChange'] = (
   pagination,
@@ -80,9 +58,7 @@ const onChange: DgTableProps<RecordType>['onChange'] = (
   console.log('head demo onChange params:', { pagination, filters, sorter, extra })
 }
 
-// ---------------------------------------------------------------------------
 // 子组件
-// ---------------------------------------------------------------------------
 
 // props 默认值均为合理有效初值：bordered=false（antd head demo 原本无边框）；
 // virtual=false（OFF 回 undefined scroll）；remountKey=0（初始 key，正常挂载）。
@@ -112,3 +88,4 @@ export default function HeadDg({
     />
   )
 }
+

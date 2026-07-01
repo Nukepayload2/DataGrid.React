@@ -1,17 +1,10 @@
-/**
- * edit-row demo 的 antd 段（右栏）。
- * 行级编辑 state 全在子组件内自管，两栏各自独立。antd 原生 `components.body.cell` 返回
- * `<td>` + onCell + Form 外层 + `rowClassName='editable-row'` + 配套 CSS。
- */
 import React, { useEffect, useState } from 'react'
 import type { TableProps as AntdTableProps } from 'antd'
 import { Form, Input, InputNumber, Popconfirm, Table as AntdTable, Typography } from 'antd'
 import { originData, type RecordType } from './_compare/edit-row.shared'
 
-// ---------------------------------------------------------------------------
 // antd demo 配套 CSS（.editable-row .ant-form-item-explain 校验错误定位）。
 // 注入 document.head，两子组件共用同一 CSS；幂等（模块级标志 + DOM 存在性双重检查）。
-// ---------------------------------------------------------------------------
 
 let cssInjected = false
 function injectEditRowCss() {
@@ -34,9 +27,7 @@ function injectEditRowCss() {
   document.head.appendChild(style)
 }
 
-// ---------------------------------------------------------------------------
 // antd 原生：EditableCell（返回 <td>）
-// ---------------------------------------------------------------------------
 
 interface AntdEditableCellProps {
   editing: boolean
@@ -72,9 +63,7 @@ const AntdEditableCell: React.FC<
 
 type AntdColumnTypes = Exclude<AntdTableProps<RecordType>['columns'], undefined>
 
-// ---------------------------------------------------------------------------
 // 子组件（自管行级编辑 state）
-// ---------------------------------------------------------------------------
 
 export default function EditRowAntd({
   virtual = false,
@@ -181,3 +170,4 @@ export default function EditRowAntd({
     </Form>
   )
 }
+

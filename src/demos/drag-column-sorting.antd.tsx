@@ -1,11 +1,3 @@
-/**
- * drag-column-sorting demo 的 antd 段（右栏）。
- * 拖拽 columns + dragIndex 全在子组件内自管，两栏各自独立。忠实复刻 antd 官方
- * drag-column-sorting.tsx：@dnd-kit DndContext + restrictToHorizontalAxis + SortableContext
- * （horizontalListSortingStrategy）+ closestCenter + PointerSensor(distance:1) +
- * components.header.cell=TableHeaderCell(useSortable) + components.body.cell=TableBodyCell +
- * DragIndexContext borderInline 虚线指示 + DragOverlay 预览。
- */
 import type { DragEndEvent, DragOverEvent, UniqueIdentifier } from '@dnd-kit/core'
 import {
   closestCenter,
@@ -29,10 +21,6 @@ import type { FC, ReactNode } from 'react'
 import { createContext, useContext, useState } from 'react'
 import { data, type RecordType } from './_compare/drag-column-sorting.shared'
 
-// ---------------------------------------------------------------------------
-// 右栏（antd）列拖拽组件 —— 忠实复刻 antd 官方 drag-column-sorting.tsx
-// ---------------------------------------------------------------------------
-
 interface HeaderCellProps extends HTMLAttributes<HTMLTableCellElement> {
   id: string
 }
@@ -48,8 +36,6 @@ interface DragIndexState {
 }
 
 const DragIndexContext = createContext<DragIndexState>({ active: -1, over: -1 })
-
-/** 官方 dragActiveStyle：active 列灰底半透明、over 列 borderInline 虚线指示方向。 */
 function dragActiveStyle(dragState: DragIndexState, id: string): CSSProperties {
   const { active, over, direction } = dragState
   let style: CSSProperties = {}
@@ -81,10 +67,6 @@ const TableHeaderCell: FC<HeaderCellProps> = (props) => {
   return <th {...props} ref={setNodeRef} style={style} {...attributes} {...listeners} />
 }
 
-// ---------------------------------------------------------------------------
-// 右栏（antd）baseColumns —— 忠实复刻 antd demo
-// ---------------------------------------------------------------------------
-
 const antdBaseColumns: TableColumnsType<RecordType> = [
   { title: 'Name', dataIndex: 'name' },
   { title: 'Gender', dataIndex: 'gender' },
@@ -93,10 +75,6 @@ const antdBaseColumns: TableColumnsType<RecordType> = [
   { title: 'Address', dataIndex: 'address' },
 ]
 
-// ---------------------------------------------------------------------------
-// 子组件（自管拖拽排序 state）
-// ---------------------------------------------------------------------------
-
 export default function DragColumnSortingAntd({
   bordered = false,
   virtual = false,
@@ -104,7 +82,6 @@ export default function DragColumnSortingAntd({
   bordered: boolean
   virtual: boolean
 }) {
-  // 列拖拽各自独立（两栏对照时互不干扰）。
   const [dragIndex, setDragIndex] = useState<DragIndexState>({ active: -1, over: -1 })
 
   const [columns, setColumns] = useState(() =>
@@ -165,7 +142,6 @@ export default function DragColumnSortingAntd({
               header: { cell: TableHeaderCell },
               body: { cell: TableBodyCell },
             }}
-            /* 虚拟化开关：ON→virtual+scroll.y:300（antd 不认 true，数字像素高度）；OFF→回 undefined，非虚拟。 */
             virtual={virtual}
             scroll={virtual ? { y: 300 } : undefined}
           />
@@ -179,3 +155,4 @@ export default function DragColumnSortingAntd({
     </DndContext>
   )
 }
+

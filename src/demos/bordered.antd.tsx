@@ -1,9 +1,3 @@
-/**
- * bordered demo 的 antd 段（右栏）。
- * - `BorderedTitleFooterAntd`：示例1（bordered + title/footer，忠实复刻 antd 官方 bordered demo）。
- * - `BorderedFixedAntd`：示例2（bordered + fixed 组合，fixed:'left'/'right'）。
- * - 默认导出 `BorderedAntd`：div gap 堆叠两个示例。
- */
 import { Table as AntdTable } from 'antd'
 import type { TableProps } from 'antd'
 import {
@@ -12,9 +6,6 @@ import {
   type FixedRow,
   type RowType,
 } from './_compare/bordered.shared'
-
-// 示例 1 列定义：Name / Cash Assets(align right + className 'column-money') / Address，
-// 3 列 + title/footer。
 const antdColumnsExample1: NonNullable<TableProps<RowType>['columns']> = [
   {
     title: 'Name',
@@ -32,8 +23,6 @@ const antdColumnsExample1: NonNullable<TableProps<RowType>['columns']> = [
     dataIndex: 'address',
   },
 ]
-
-// 示例 2 列定义：bordered + fixed 组合，fixed 用 'left'/'right'（antd 原生）。
 const antdColumnsExample2: NonNullable<TableProps<FixedRow>['columns']> = [
   {
     title: 'Full Name',
@@ -55,8 +44,6 @@ const antdColumnsExample2: NonNullable<TableProps<FixedRow>['columns']> = [
     render: () => <a>action</a>,
   },
 ]
-
-// 示例 1：bordered + title/footer
 export function BorderedTitleFooterAntd({
   bordered = true,
   virtual = false,
@@ -76,8 +63,6 @@ export function BorderedTitleFooterAntd({
     />
   )
 }
-
-// 示例 2：bordered + fixed 组合
 export function BorderedFixedAntd({
   bordered = true,
   virtual = false,
@@ -90,16 +75,11 @@ export function BorderedFixedAntd({
       columns={antdColumnsExample2}
       dataSource={fixedData}
       bordered={bordered}
-      /* antd virtual 要求 scroll.x 为数字（字符串 'max-content' 会抛 "scroll.x must be
-         number"），故 ON 时改传数字 2000；OFF 时回 'max-content'。data-grid 左栏不受此限。
-         详见 docs/design-notes/virtualization.md */
       virtual={virtual}
       scroll={virtual ? { x: 2000, y: 280 } : { x: 'max-content' }}
     />
   )
 }
-
-// 默认导出：div gap 堆叠两个示例。
 export default function BorderedAntd({
   bordered = true,
   virtual = false,
@@ -114,3 +94,5 @@ export default function BorderedAntd({
     </div>
   )
 }
+
+

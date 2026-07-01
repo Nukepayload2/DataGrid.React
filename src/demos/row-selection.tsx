@@ -1,12 +1,3 @@
-/**
- * 复刻 antd row-selection demo：`G:\Projects\ant-design\components\table\demo\row-selection.tsx`。
- *
- * 双栏对照：左栏 data-grid Table（rowSelection type 切换 + getCheckboxProps 禁用行 + onChange），
- * 右栏忠实复刻 antd row-selection demo。
- * 共享 `Selection Type` Radio.Group 切换 type（同一个 state 驱动两侧），切换时同步清空 selectedKeys
- * （避免 checkbox→radio 残留多选）。共享数据见 `_compare/row-selection.shared.ts`。
- */
-
 import { useState } from 'react'
 import { Radio, Space, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
@@ -15,20 +6,14 @@ import { useVirtualization } from './VirtualizationContext'
 import RowSelectionDg from './row-selection.dg'
 import RowSelectionAntd from './row-selection.antd'
 
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
-
 type SelectionType = 'checkbox' | 'radio'
 
 export default function RowSelectionDemo() {
-  // 共享状态（提升到父）：顶部控制条需直接操作「切 type 时清空选择」。
   const [selectionType, setSelectionType] = useState<SelectionType>('checkbox')
   const [selectedKeys, setSelectedKeys] = useState<Array<React.Key>>([])
   const { virtual } = useVirtualization()
   const { token } = theme.useToken()
 
-  // 切换 type 时清空已选（避免 checkbox→radio 时残留多选），同步两侧。
   const handleTypeChange = (v: SelectionType) => {
     setSelectionType(v)
     setSelectedKeys([])
@@ -36,7 +21,6 @@ export default function RowSelectionDemo() {
 
   return (
     <div style={{ padding: 24 }}>
-      {/* 共享控制条：全宽，在 SplitDemo 上方。同一组 state 同时驱动两侧表格。 */}
       <DemoToolbar>
         <Space>
           <span style={{ color: token.colorTextSecondary }}>Selection Type:</span>
@@ -50,10 +34,6 @@ export default function RowSelectionDemo() {
         </Space>
       </DemoToolbar>
 
-      {/*
-        minPaneWidth=480（窄表，3 列无 scroll.x + 选择列=4 列）→ 横排阈值 ≈ 976。
-        常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。
-      */}
       <SplitDemo
         minPaneWidth={480}
         left={

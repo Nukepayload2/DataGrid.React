@@ -1,11 +1,3 @@
-/**
- * 复刻 antd ellipsis-custom-tooltip demo：
- *   `G:\Projects\ant-design\components\table\demo\ellipsis-custom-tooltip.tsx`。
- *
- * 双栏对照：左栏 data-grid Table，右栏忠实复刻 antd demo。
- * 共享 `Bordered` 开关 + 受控 `bordered` state 同时驱动两侧；共享数据见
- * `_compare/ellipsis-custom-tooltip.shared.ts`。
- */
 
 import { useState } from 'react'
 import { Space, Switch } from 'antd'
@@ -77,3 +69,4 @@ export default function EllipsisCustomTooltipDemo() {
     </div>
   )
 }
+

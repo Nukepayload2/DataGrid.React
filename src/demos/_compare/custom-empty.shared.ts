@@ -1,10 +1,3 @@
-/**
- * custom-empty 左右对比 demo 的共享配置。
- *
- * 提取两侧都复用的类型与数据生成函数。列定义因两侧类型不同（data-grid `ColumnType` vs antd
- * `TableProps['columns']`）且 Age 列 filters 随 dataSource 变化，保留在各自 demo 文件。
- */
-
 /** 记录类型。两侧共用。 */
 export interface RecordType {
   key: number

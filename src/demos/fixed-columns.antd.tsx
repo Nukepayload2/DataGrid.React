@@ -1,16 +1,8 @@
-/**
- * fixed-columns demo 的 antd 段（右栏）。
- *
- * props：`{ bordered, size, virtual }`（与左栏 dg 子组件同款）。忠实复刻 antd 官方 fixed-columns
- * demo：scroll.x + pagination:false。
- */
 import { Table as AntdTable } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { dataSource, type DataType } from './_compare/fixed-columns.shared'
 
-// ---------------------------------------------------------------------------
 // 右栏（antd）列定义 —— 忠实复刻 antd 官方 fixed-columns demo
-// ---------------------------------------------------------------------------
 
 const antdColumns: TableColumnsType<DataType> = [
   {
@@ -83,3 +75,4 @@ export default function FixedColumnsAntd({
     />
   )
 }
+

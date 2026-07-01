@@ -1,17 +1,8 @@
-/**
- * grouping-columns demo 的 antd 段（右栏）。
- *
- * props：`{ bordered, size, virtual, data }`（与左栏 dg 子组件同款）。忠实复刻 antd 官方
- * grouping-columns demo：filters + Age sorter + fixed:left/right + scroll={{x:'calc(700px + 50%)',
- * y:47*5}}（固定表头 5 行高纵滚）。
- */
 import { Table as AntdTable } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { type DataType, initialData } from './_compare/grouping-columns.shared'
 
-// ---------------------------------------------------------------------------
 // 右栏（antd）列定义 —— 忠实复刻 antd 官方 grouping-columns demo
-// ---------------------------------------------------------------------------
 
 const antdColumns: TableColumnsType<DataType> = [
   {
@@ -124,3 +115,4 @@ export default function GroupingColumnsAntd({
     />
   )
 }
+

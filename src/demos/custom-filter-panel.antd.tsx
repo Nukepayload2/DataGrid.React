@@ -1,17 +1,3 @@
-/**
- * custom-filter-panel demo 的 antd 段（右栏）。
- *
- * props 驱动 `{ bordered, virtual }`（与左栏 dg 子组件同款签名）。
- * 自包含：含 `useAntdColumnSearch` 工厂 hook + 内联 `SearchOutlined`（与左栏共用同一 SVG path）+
- * `antdColumns`（Name/Age/Address 三列均 `getColumnSearchProps`；Address 额外 sorter）+ `<AntdTable>` JSX。
- *
- * filterDropdown 内搜索词（searchText/searchedColumn/searchInput）属局部交互状态，子组件内自管
- * （`useAntdColumnSearch` hook 内部 useState/useRef）。
- *
- * 与左栏的代码差异：① SearchOutlined 两侧均用内联 SVG（避免 @ant-design/icons 直接依赖）；
- * ② Input ref 右栏用 antd `InputRef`（左栏 `HTMLInputElement`）；③ FilterDropdownProps/TableColumnType
- * 右栏从 `antd` 主入口导入（左栏从 `../table`），子路径 `antd/es/table/interface` 不在 scope，故改主入口。
- */
 import { useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Button, Input, Space, Table as AntdTable, theme } from 'antd'
@@ -19,11 +5,6 @@ import type { InputRef, TableColumnType, TableProps } from 'antd'
 import type { FilterDropdownProps } from 'antd/es/table/interface'
 import Highlighter from 'react-highlight-words'
 import { data, type DataIndex, type RecordType } from './_compare/custom-filter-panel.shared'
-
-/**
- * 内联 SearchOutlined（放大镜）图标——与左栏共用同一 SVG path（视觉零差异，避免 @ant-design/icons
- * 直接依赖）。size 跟随父节点 font-size（1em）。
- */
 function SearchOutlined({ style }: { style?: CSSProperties }): ReactNode {
   return (
     <svg
@@ -39,15 +20,10 @@ function SearchOutlined({ style }: { style?: CSSProperties }): ReactNode {
   )
 }
 
-// ---------------------------------------------------------------------------
-// getColumnSearchProps 工厂（搜索 state 内部自管）
-// ---------------------------------------------------------------------------
-
 function useAntdColumnSearch() {
   const [searchText, setSearchText] = useState('')
   const [searchedColumn, setSearchedColumn] = useState('')
   const searchInput = useRef<InputRef>(null)
-  // 主题 token：与左栏同款（filterIcon 激活态色 + react-highlight-words 高亮命中色 token 化）。
   const { token } = theme.useToken()
 
   const handleSearch = (
@@ -148,12 +124,6 @@ function useAntdColumnSearch() {
 
   return getColumnSearchProps
 }
-
-// ---------------------------------------------------------------------------
-// 子组件
-// ---------------------------------------------------------------------------
-
-// props 默认值同左栏 dg（见 dg 子文件注释）。
 export default function CustomFilterPanelAntd({
   bordered = false,
   virtual = false,
@@ -161,7 +131,6 @@ export default function CustomFilterPanelAntd({
   bordered: boolean
   virtual: boolean
 }) {
-  // 子组件内自管的搜索 state（局部交互）。
   const getColumnSearchProps = useAntdColumnSearch()
 
   const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
@@ -194,11 +163,10 @@ export default function CustomFilterPanelAntd({
       columns={antdColumns}
       dataSource={data}
       bordered={bordered}
-      /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:280（antd 不认 true，且表头/默认
-         分页画在 scroll.y 之外，需扣除表头~55 与分页条~64 → 约 280 才能塞进 pane 限高；
-         OFF 时回 undefined，无 scroll）。 */
       virtual={virtual}
       scroll={virtual ? { y: 280 } : undefined}
     />
   )
 }
+
+

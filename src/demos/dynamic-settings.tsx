@@ -1,11 +1,3 @@
-/**
- * 复刻 antd dynamic-settings demo：
- *   `G:\Projects\ant-design\components\table\demo\dynamic-settings.tsx`
- *
- * 全量动态面板（10 Switch + 5 Radio.Group）实时驱动 Table props，默认主题（无 ConfigProvider
- * theme token，区别于 component-token demo）。结构同 component-token demo，仅无 token 覆盖。
- */
-
 import { useState } from 'react'
 import type { RadioChangeEvent } from 'antd'
 import { Form, Radio, Switch } from 'antd'
@@ -195,3 +187,4 @@ export default function DynamicSettingsDemo() {
     </div>
   )
 }
+

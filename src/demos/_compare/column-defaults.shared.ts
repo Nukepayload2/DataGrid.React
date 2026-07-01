@@ -1,11 +1,3 @@
-/**
- * column-defaults 左右对比 demo 的共享配置。
- *
- * 提取两侧都复用的类型与数据。列定义因两侧类型不同（data-grid `ColumnType` Address 用
- * `align:'start'`；antd `TableProps['columns']` Address 用 `align:'left'`）且 width 字段各自
- * 保留在 demo 文件，仅共享 `RecordType` + `data`。
- */
-
 /** 记录类型。两侧共用。 */
 export interface RecordType {
   key: React.Key

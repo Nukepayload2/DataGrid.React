@@ -1,7 +1,3 @@
-/**
- * ellipsis-custom-tooltip demo 的 antd 段（右栏），忠实复刻 antd demo。
- * props 驱动 `{ bordered, virtual }`（由 ellipsis-custom-tooltip.tsx 父组件传）。
- */
 import { Table as AntdTable, Tooltip } from 'antd'
 import type { TableProps } from 'antd'
 import { data, type RecordType } from './_compare/ellipsis-custom-tooltip.shared'
@@ -93,3 +89,4 @@ export default function EllipsisCustomTooltipAntd({
     />
   )
 }
+

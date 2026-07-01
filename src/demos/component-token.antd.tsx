@@ -1,9 +1,3 @@
-/**
- * component-token demo 的 antd 段（右栏）。
- *
- * 忠实复刻 antd component-token demo（antd v6 cssinjs 原生消费 `:where(.ant-table)` component token）。
- * ConfigProvider theme token 由父级包裹提供。props 见 ComponentTokenAntdProps（与 dg 子组件同款）。
- */
 import type { TableProps as AntdTableProps } from 'antd'
 import { Space, Table as AntdTable } from 'antd'
 import {
@@ -12,8 +6,6 @@ import {
   defaultTitle,
   type RecordType,
 } from './_compare/component-token.shared'
-
-// 内联 DownOutlined（More 链接右侧小箭头）— 避免 @ant-design/icons 直接依赖。两侧各自声明。
 function DownOutlined() {
   return (
     <svg
@@ -121,8 +113,6 @@ export default function ComponentTokenAntd({
   const antdRowSelection: AntdTableProps<RecordType>['rowSelection'] = rowSelectionEnabled
     ? {}
     : undefined
-
-  // antd scroll.y 用数字（不认 true）。virtual ON → 300 填 400 区扣表头/分页；yScroll ON → 240。
   const antdScroll: { x?: number | string; y?: number } = {}
   if (yScroll) {
     antdScroll.y = 240
@@ -162,3 +152,4 @@ export default function ComponentTokenAntd({
     </div>
   )
 }
+

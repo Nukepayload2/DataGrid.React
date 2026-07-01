@@ -1,13 +1,3 @@
-/**
- * row-selection-fixed demo 的 antd 段（右栏）。
- *
- * - props 驱动 `{ selectionType, firstColFixed, selFixed, selectedKeys, onSelectedKeysChange, virtual }`
- *   （与左栏 dg 子组件同款签名）。
- * - 自包含：含 `buildAntdColumns(firstColFixed)`（首列 fixed 由开关控 + 中间 6 占位列 + 末列
- *   fixed 'right'）+ `<AntdTable>` JSX + `antdRowSelection` 派生。
- * - 忠实复刻 antd 行为：antd useSelection 原生继承逻辑（对照基准）；fixed 用 antd 原生
- *   'left'/'right'（selFixed 'start'→'left', 'end'→'right', 'auto'→undefined 走邻列继承）。
- */
 import { useMemo } from 'react'
 import { Table as AntdTable } from 'antd'
 import type { TableProps } from 'antd'
@@ -53,7 +43,6 @@ function buildAntdColumns(
 // 子组件
 // ---------------------------------------------------------------------------
 
-// props 默认值同左栏 dg（合理有效初值）。
 export default function RowSelectionFixedAntd({
   selectionType = 'checkbox',
   firstColFixed = true,
@@ -73,7 +62,7 @@ export default function RowSelectionFixedAntd({
     firstColFixed,
   ])
 
-  // rowSelection.fixed：'auto' = 不传（走邻列继承），其余 'start'→'left', 'end'→'right'。
+  // `auto` means "let antd inherit from neighboring fixed columns".
   const antdFixedProp =
     selFixed === 'start' ? 'left' : selFixed === 'end' ? 'right' : undefined
 
@@ -89,9 +78,6 @@ export default function RowSelectionFixedAntd({
       columns={antdColumns}
       rowSelection={antdRowSelection}
       dataSource={data}
-      /* 全局虚拟化开关接入：ON 时 virtual=true + 在原 scroll.x:1200 基础上合并 y:300
-         （本 demo 有分页条，antd 表头/分页画在 scroll.y 之外，扣除后约 300 塞进 pane 限高；
-         OFF 时回原 scroll={{x:1200}}）。 */
       virtual={virtual}
       scroll={virtual ? { x: 1200, y: 300 } : { x: 1200 }}
       pagination={false}

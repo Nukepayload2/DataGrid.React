@@ -1,9 +1,3 @@
-/**
- * expand-sticky demo 的 antd 段（右栏）。
- * 忠实复刻 antd expand-sticky demo：antd `<Table>` bordered + antd `Table.EXPAND_COLUMN`
- * 哨兵 + antd expandable，含 antd demo 原样的 `expandedRowOffset: 3`（已废弃，antd 本体
- * 内部转为 EXPAND_COLUMN 等效行为）。
- */
 import { Table as AntdTable } from 'antd'
 import type { TableProps } from 'antd'
 import { data, type RecordType } from './_compare/expand-sticky.shared'
@@ -56,3 +50,4 @@ export default function ExpandStickyAntd({
     />
   )
 }
+

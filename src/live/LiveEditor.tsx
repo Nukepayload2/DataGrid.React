@@ -1,27 +1,4 @@
-/**
- * LiveEditor：可编辑源码 + 应用/重置 + 错误展示。
- *
- * === 整体结构（仿 react-simple-code-editor / dumi）===
- * 一个 maxHeight + overflow:auto 的外层容器统一滚动，内部 display:grid 容器把
- *   - 底层 `<pre>`（prism Highlight 渲染高亮 token）——只读展示层。
- *   - 叠层 `<textarea>`（透明文字、透明背景、仅显示 caret）——真正接收输入。
- *   两者放进 grid 的 **同一格（gridArea:'1 / 1'）** 叠放，都用 overflow:hidden 不内部滚，
- *   随外层容器同步滚动。完全相同的 padding/fontSize/fontFamily/lineHeight/whiteSpace，
- *   使 textarea 的字符与 pre 的高亮字符像素级对齐（用户看到的颜色来自 pre，光标来自 textarea）。
- *   grid cell 高 = 代码全高，textarea stretch 到 cell 高，外层滚时两层一起滚（不再各自独立滚）。
- *
- * === 应用 / 重置 ===
- * - 「应用」：dynamic import ./compile + ./evalModule（**默认渲染路径不加载 sucrase**），
- *   编译 + 执行成功 → onApply(Comp, null)；失败 → onApply(null, error) 并把错误塞 Alert。
- * - 「重置」：恢复 initialCode、清 error、onApply(null, null)（null 信号 = 回退到默认渲染）。
- *
- * === 主题 ===
- * prism theme 跟随 useTheme().themeMode（dark→vsDark，light→oneLight），背景取 theme 自带
- * style.background，不硬编码颜色（遵循 demo token 化约定）。
- *
- * === 渲染期错误 ===
- * 本组件不渲染组件预览（预览由外层负责 + 包 LiveErrorBoundary）；只负责编译/执行错误的展示。
- */
+/** live 源码编辑器，负责编辑、应用、重置和编译/执行错误展示。 */
 import { useEffect, useState, type CSSProperties, type ComponentType } from 'react'
 import { Alert, Button } from 'antd'
 import { Highlight, themes } from 'prism-react-renderer'
@@ -44,7 +21,7 @@ export interface LiveEditorProps {
   onApply: (Comp: ComponentType<Record<string, unknown>> | null, error: string | null) => void
 }
 
-// textarea 与 pre 共享的排版样式（像素对齐的关键：必须逐字段一致）。
+// textarea 与高亮层必须共享排版字段，才能保持字符对齐。
 const editorTypeStyle: CSSProperties = {
   margin: 0,
   padding: '12px 12px',
@@ -66,9 +43,7 @@ export default function LiveEditor({
   const prismTheme = isDark ? themes.vsDark : themes.oneLight
 
   const [code, setCode] = useState(initialCode)
-  // 切 demo 时 useSplitDemoSource 返回新的 initialCode（App.tsx key 也变了但 rc-collapse
-  // 子树稳定化未触发 remount，useState 不重置）→ 显式同步 code state 避免显示旧 demo 源码。
-  // 重置按钮 setCode(initialCode) 不触发此 effect（initialCode 未变）；应用按钮不改 initialCode。
+  // 切换 demo 时同步编辑器内容，避免沿用上一个 demo 的本地 state。
   useEffect(() => {
     setCode(initialCode)
   }, [initialCode])
@@ -79,7 +54,7 @@ export default function LiveEditor({
     setApplying(true)
     setError(null)
     try {
-      // dynamic import：确保默认渲染路径不加载 sucrase（仅点「应用」才拉编译器 chunk）。
+      // 仅在点击“应用”时加载编译与执行模块。
       const { compile } = await import('./compile')
       const { evalModule } = await import('./evalModule')
       const compiled = compile(code)
@@ -107,7 +82,6 @@ export default function LiveEditor({
   function handleReset(): void {
     setCode(initialCode)
     setError(null)
-    // null 信号：回退到默认渲染（外层用真实组件，不再用编辑产物）。
     onApply(null, null)
   }
 
@@ -137,7 +111,6 @@ export default function LiveEditor({
         </div>
       </div>
 
-      {/* 编辑区：外层 maxHeight + overflow:auto 统一滚动；内部 grid 容器把 pre 与 textarea 放同一格叠放。 */}
       <div
         style={{
           position: 'relative',
@@ -149,7 +122,6 @@ export default function LiveEditor({
       >
         <Highlight code={code} language="tsx" theme={prismTheme}>
           {({ className, style, tokens, getLineProps, getTokenProps }) => (
-            /* grid 容器：pre 和 textarea 同格（gridArea 1/1）叠放，overflow:hidden 不内部滚，随外层同步滚 */
             <div style={{ display: 'grid' }}>
               {/* 高亮层（只读展示） */}
               <pre

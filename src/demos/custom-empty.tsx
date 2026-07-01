@@ -1,29 +1,15 @@
-/**
- * custom-empty demo：左右并排呈现 data-grid 与 antd 自定义空状态。
- *
- * Toggle Data 切换 dataSource（空 ↔ 有数据），同一状态同时驱动两侧；Age filters 随 dataSource 变化
- * （空时为 [] → 点 Age 漏斗看 'Table.filter' 占位）。
- */
-
 import { useState } from 'react'
 import { Button, Empty, Space, Switch, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
 import { genFakeData, type RecordType } from './_compare/custom-empty.shared'
-// ON 时叠加 virtual + scroll.y（split pane 自动限高）
 import { useVirtualization } from './VirtualizationContext'
 import CustomEmptyDg from './custom-empty.dg'
 import CustomEmptyAntd from './custom-empty.antd'
 
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
-
 export default function App() {
-  // 共享状态：同一个状态同时驱动两侧表格。初值空作为对照基线。
   const [dataSource, setDataSource] = useState<RecordType[]>([])
   const [bordered, setBordered] = useState(true)
-  // ON 时两栏叠加 virtual=true + scroll.y（空数据态无可见效果但不报错；有数据后正常虚拟）。
   const { virtual } = useVirtualization()
   const { token } = theme.useToken()
 
@@ -36,13 +22,11 @@ export default function App() {
       Toggle Data
     </Button>
   )
-
-  // 两侧共用的 locale.emptyText（含 toggleButton 子节点——antd 同款）。
   const emptyText = <Empty description="No Data">{toggleButton}</Empty>
 
   return (
     <div style={{ padding: 24 }}>
-      {/* 共享控制条：全宽，在 SplitDemo 上方。DemoToolbar 用 useToken 适配主题。 */}
+      
       <DemoToolbar>
         <Space wrap>
           {dataSource.length ? toggleButton : null}
@@ -59,10 +43,7 @@ export default function App() {
         </Space>
       </DemoToolbar>
 
-      {/*
-        minPaneWidth=480（窄表，3 列，无 scroll.x）→ 横排阈值 ≈ 976。
-        常规笔记本视口（≥1024）即可横排。
-      */}
+      
       <SplitDemo
         minPaneWidth={480}
         left={
@@ -74,7 +55,6 @@ export default function App() {
           />
         }
         right={
-          /* antd Table + ConfigProvider.renderEmpty（子组件自包）+ locale.emptyText（含 toggleButton 子节点）。 */
           <CustomEmptyAntd
             bordered={bordered}
             dataSource={dataSource}
@@ -116,3 +96,4 @@ export default function App() {
     </div>
   )
 }
+

@@ -1,13 +1,3 @@
-/**
- * 复刻 antd component-token demo：
- *   `G:\Projects\ant-design\components\table\demo\component-token.tsx`
- *
- * ConfigProvider `theme.components.Table`（27 token）主题定制 + 全量动态面板（10 Switch + 5 Radio.Group）。
- * 两侧 Table 共用同一 ConfigProvider：data-grid 经适配层 `theme.useToken()` 读取 →
- * `buildTableTokenCssVars` 映射为 `.dg-wrapper` inline `--ant-*` CSS variables 注入；antd v6 cssinjs
- * 原生消费 `:where(.ant-table)` component token。
- */
-
 import { useState } from 'react'
 import type { RadioChangeEvent } from 'antd'
 import { ConfigProvider, Form, Radio, Switch } from 'antd'
@@ -15,8 +5,6 @@ import { SplitDemo } from './_compare/SplitDemo'
 import { useVirtualization } from './VirtualizationContext'
 import ComponentTokenDg from './component-token.dg'
 import ComponentTokenAntd from './component-token.antd'
-
-// size 类型：data-grid 用 'medium'（= 'middle'）；antd v6 也接受 'medium' 别名。
 type SharedSize = 'large' | 'medium' | 'small'
 
 type TablePaginationPlacement =
@@ -129,7 +117,7 @@ export default function ComponentTokenDemo() {
         </Form.Item>
       </Form>
 
-      {/* 共享 ConfigProvider：两侧 Table 共用同一 theme.components.Table（27 token）。 */}
+      
       <ConfigProvider
         theme={{
           components: {
@@ -253,3 +241,4 @@ export default function ComponentTokenDemo() {
     </div>
   )
 }
+

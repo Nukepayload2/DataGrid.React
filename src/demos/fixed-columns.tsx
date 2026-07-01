@@ -1,8 +1,3 @@
-/**
- * fixed-columns 双栏对照 demo：左右固定列（Full Name + Age 固定 start，Action 固定 end）+
- * `scroll={{ x: 'max-content' }}` 横向滚动 + Age sorter。共享 `Bordered`（初值 false）+ `Size`
- * 控制条同步驱动左栏 data-grid 与右栏 antd Table。
- */
 
 import { useState } from 'react'
 import { Segmented, Space, Switch } from 'antd'
@@ -12,9 +7,7 @@ import { useVirtualization } from './VirtualizationContext'
 import FixedColumnsDg from './fixed-columns.dg'
 import FixedColumnsAntd from './fixed-columns.antd'
 
-// ---------------------------------------------------------------------------
 // Demo 根组件
-// ---------------------------------------------------------------------------
 
 type SizeOption = 'medium' | 'large'
 
@@ -105,3 +98,4 @@ export default function FixedColumnsDemo() {
     </div>
   )
 }
+

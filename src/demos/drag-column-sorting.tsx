@@ -1,37 +1,20 @@
-/**
- * drag-column-sorting 双栏对照 demo：列方向拖拽排序。两侧各自维护 columns。
- * - 左栏 data-grid：自研 pointer 列拖拽（`useColumnDragSort` 命中叶子表头格 + overlay + 离散让位 +
- *   垂直指示线 + arrayMoveColumns）。
- * - 右栏 antd：忠实复刻官方 drag-column-sorting（@dnd-kit + restrictToHorizontalAxis + useSortable +
- *   DragIndexContext borderInline 虚线 + DragOverlay 预览）。
- */
-
 import { useState } from 'react'
 import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（列拖拽命中表头，在虚拟窗口内）。
 import { useVirtualization } from './VirtualizationContext'
 import DragColumnSortingDg from './drag-column-sorting.dg'
 import DragColumnSortingAntd from './drag-column-sorting.antd'
 
-// ===========================================================================
-// Demo 根组件
-// ===========================================================================
-
 export default function DragColumnSortingDemo() {
-  // 共享状态：同一个状态同时驱动两侧表格。
   const [bordered, setBordered] = useState(false)
-  // autoScrollOnDrag 开关（仅驱动左栏 data-grid；antd 无对应概念）。
   const [autoScroll, setAutoScroll] = useState(true)
-  // columnReorder 全局开关（仅驱动左栏 data-grid）：关 → 所有列头不可拖（总闸，优先于单列 dragColumnLock）。
   const [columnReorder, setColumnReorder] = useState(true)
-  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y。
   const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* 共享控制条：Bordered + AutoScroll + ColumnReorder 开关。DemoToolbar 用 useToken 适配主题。 */}
+      
       <DemoToolbar>
         <Space>
           <Switch
@@ -40,14 +23,14 @@ export default function DragColumnSortingDemo() {
             checkedChildren="Bordered"
             unCheckedChildren="Bordered"
           />
-          {/* autoScrollOnDrag 开关（仅驱动左栏 data-grid）。 */}
+          
           <Switch
             checked={autoScroll}
             onChange={setAutoScroll}
             checkedChildren="AutoScroll"
             unCheckedChildren="AutoScroll"
           />
-          {/* columnReorder 全局开关（仅驱动左栏 data-grid）。 */}
+          
           <Switch
             checked={columnReorder}
             onChange={setColumnReorder}
@@ -57,10 +40,7 @@ export default function DragColumnSortingDemo() {
         </Space>
       </DemoToolbar>
 
-      {/*
-        minPaneWidth=480（5 列无 scroll.x，列窄但总宽不大）→ 横排阈值 ≈ 976。
-        常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。
-      */}
+      
       <SplitDemo
         minPaneWidth={480}
         left={
@@ -108,3 +88,4 @@ export default function DragColumnSortingDemo() {
     </div>
   )
 }
+

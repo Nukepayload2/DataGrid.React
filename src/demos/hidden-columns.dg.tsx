@@ -1,13 +1,3 @@
-/**
- * hidden-columns demo 的 data-grid 段（左栏）。
- *
- * props：`{ checkedList, virtual }`（由父组件传）：
- *   - checkedList：当前显示的列 key 列表（真理源在父）。
- *   - virtual：全局虚拟化开关。
- *
- * 隐藏列走引擎 grid track `0fr` + `dg-cell-hidden` 类占位（track 不删保线号稳定）—
- * 详见 `docs/design-notes/hidden-column.md`。
- */
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import {
@@ -46,3 +36,4 @@ export default function HiddenColumnsDg({
     />
   )
 }
+

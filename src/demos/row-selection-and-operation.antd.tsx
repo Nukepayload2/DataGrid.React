@@ -1,7 +1,3 @@
-/**
- * row-selection-and-operation demo 的 antd 段（右栏），忠实复刻 antd demo。
- * props 驱动 `{ selectedKeys, onSelectedKeysChange, virtual }`（由父组件传）。
- */
 import { Table as AntdTable } from 'antd'
 import type { TableProps } from 'antd'
 import { dataSource, type RecordType } from './_compare/row-selection-and-operation.shared'
@@ -27,7 +23,6 @@ export default function RowSelectionAndOperationAntd({
   onSelectedKeysChange: (keys: Array<React.Key>) => void
   virtual: boolean
 }) {
-  // 右栏（antd）rowSelection：与 antd demo 同款 + 受控 selectedRowKeys（父共享 state）。
   const antdRowSelection: TableProps<RecordType>['rowSelection'] = {
     selectedRowKeys: selectedKeys,
     onChange: (keys: React.Key[]) => {
@@ -42,8 +37,6 @@ export default function RowSelectionAndOperationAntd({
       rowSelection={antdRowSelection}
       columns={antdColumns}
       dataSource={dataSource}
-      /* pagination=false：取消 antd 默认分页（antd demo 默认 10/页），与左栏 data-grid 对齐
-         （data-grid 默认不分页）→ 两侧 46 行全显，选中/批量清空在 46 行全显场景下更直观 diff。 */
       pagination={false}
       virtual={virtual}
       scroll={virtual ? { y: 340 } : undefined}

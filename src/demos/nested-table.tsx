@@ -1,12 +1,3 @@
-/**
- * 复刻 antd `nested-table` demo：
- *   `G:\Projects\ant-design\components\table\demo\nested-table.tsx`
- *
- * 双栏对照：expandedRowRender 返回嵌套子 Table + defaultExpandedRowKeys: ['0'] + size 切换。
- * 顶部 `Segmented` size（large/medium/small）同时驱动两侧主表（antd demo 原本三表静态展示，
- * 双栏下改为单表 + size 切换，对照同一档 size 更直观）。共享数据见 `_compare/nested-table.shared.ts`。
- */
-
 import { useState } from 'react'
 import { Segmented, Space, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
@@ -15,16 +6,10 @@ import { useVirtualization } from './VirtualizationContext'
 import NestedTableDg from './nested-table.dg'
 import NestedTableAntd from './nested-table.antd'
 
-// 共享 size 类型：'large'/'medium'/'small' 在两侧都被接受
-// （data-grid 用 'medium'（= 'middle'）；antd v6 也接受 'medium' 别名（= 'middle'））。
 type SharedSize = 'large' | 'medium' | 'small'
 
-// Demo 根组件
-
 export default function NestedTableDemo() {
-  // 同一个 size 同时驱动两侧主表，父控制条直接读写。
   const [size, setSize] = useState<SharedSize>('large')
-  // virtual 仅加在外层主表；内层子表（expandedRowRender 返回的）是展开内容，保持非虚拟。
   const { virtual } = useVirtualization()
   const { token } = theme.useToken()
 

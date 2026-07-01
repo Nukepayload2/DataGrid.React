@@ -1,19 +1,3 @@
-/**
- * 虚拟列表 + 行拖拽排序 + autoScrollOnDrag demo。
- *
- * 行拖（`useRowDragSort`）的 hit-test 实时遍历**已渲染的** `[data-row-index]` 单元格算
- * over index。虚拟列表下只渲染可视区行；当用户把行拖到容器底部边缘下方时，可视区外的行没有 DOM，
- * hit-test 会"卡住"在可视区最后一行——drop 目标永远在末行，无法到达远处位置。
- *
- * `gridOptions.autoScrollOnDrag`（默认 true）解决此问题：拖拽近边缘 → 渐进加速滚动容器 →
- * 滚动事件触发虚拟引擎重算已渲染行 → DOM 行边界变化 → 下一帧 hit-test 自动跟随到新位置。
- *
- * 10000 行虚拟列表 + 手柄列拖拽；scroll.y=true 表体限高（容器 440px，每行 40px → 可视 ~10 行）。
- * autoScrollOnDrag 开关可对照开/关下的差异。auto-scroll 内部用
- * `containerRef.current.querySelector('.dg-scroll')` 找到真正的滚动容器
- * （GridTable 在 scroll.y=true 时自包一层 `.dg-scroll`）。
- */
-
 import { useEffect, useRef, useState } from 'react'
 import { Button, Space, Switch, theme } from 'antd'
 import type { CSSProperties, ReactNode } from 'react'
@@ -21,10 +5,6 @@ import { Table } from '../table'
 import { useRowDragSort } from '../table'
 import type { ColumnType } from '../table'
 import { DemoToolbar } from './_compare/DemoToolbar'
-
-// ---------------------------------------------------------------------------
-// 数据生成
-// ---------------------------------------------------------------------------
 
 interface VRow {
   key: number
@@ -41,10 +21,6 @@ function makeData(count: number): VRow[] {
     address: `Address ${i}, Some Park, City ${(i % 7)}`,
   }))
 }
-
-// ---------------------------------------------------------------------------
-// 内联 HolderOutlined SVG（避免 import @ant-design/icons，与 drag-sorting-handler 约定一致）
-// ---------------------------------------------------------------------------
 
 function InlineHolderOutlined({ style }: { style?: CSSProperties }): ReactNode {
   return (
@@ -73,10 +49,6 @@ function DgDragHandle() {
   )
 }
 
-// ---------------------------------------------------------------------------
-// 列定义（首列手柄 + Name/Age/Address）
-// ---------------------------------------------------------------------------
-
 const columns: ColumnType<VRow>[] = [
   { key: 'sort', align: 'center', width: 60, render: () => <DgDragHandle /> },
   { title: 'Key', dataIndex: 'key', key: 'key', width: 80 },
@@ -85,14 +57,9 @@ const columns: ColumnType<VRow>[] = [
   { title: 'Address', dataIndex: 'address', key: 'address' },
 ]
 
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
-
 export default function DragVirtualListDemo() {
   const { token } = theme.useToken()
   const [autoScroll, setAutoScroll] = useState(true)
-  // 重置数据用 key（点"Reset data"后变化 → useMemo 重生成，强制清掉拖拽 state）。
   const [resetTick, setResetTick] = useState(0)
   const [dataSource, setDataSource] = useState<VRow[]>(() => makeData(10000))
 
@@ -104,12 +71,8 @@ export default function DragVirtualListDemo() {
     onSort: setDataSource,
     containerRef,
     handleSelector: '.dg-drag-handle',
-    // autoScrollOnDrag 开关（默认 true，对齐 gridOptions.autoScrollOnDrag 默认）。
     autoScroll,
   })
-
-  // 监听滚动容器 scrollTop（仅用于显示，不影响行为）。.dg-scroll 在 first paint 后挂载，
-  // 用 useEffect 挂监听（容器 ref 稳定，drag hook 的 pointer capture 不受影响）。
   const [scrollTop, setScrollTop] = useState(0)
   useEffect(() => {
     const node = containerRef.current
@@ -127,7 +90,6 @@ export default function DragVirtualListDemo() {
         sc.addEventListener('scroll', onScrollSync, { passive: true })
         setScrollTop(sc.scrollTop)
       } else {
-        // .dg-scroll 可能还未挂载（首帧）；下一帧重试。
         requestAnimationFrame(tryAttach)
       }
     }
@@ -142,7 +104,7 @@ export default function DragVirtualListDemo() {
 
   return (
     <div style={{ padding: 24 }}>
-      {/* 控制条 */}
+      
       <DemoToolbar>
         <Space wrap>
           <Switch
@@ -160,7 +122,7 @@ export default function DragVirtualListDemo() {
         </Space>
       </DemoToolbar>
 
-      {/* 表格容器（外层相对定位：指示线作为其子元素绝对定位）。 */}
+      
       <div
         key={resetTick}
         ref={containerRef}
@@ -176,7 +138,7 @@ export default function DragVirtualListDemo() {
           pagination={false}
           gridOptions={{ rowHeight: 40, headerHeight: 40, autoScrollOnDrag: autoScroll }}
         />
-        {/* 行拖拽蓝色指示线（绝对定位横线，跨整行）。 */}
+        
         {indicator.visible ? (
           <div
             aria-hidden="true"
@@ -203,3 +165,4 @@ export default function DragVirtualListDemo() {
     </div>
   )
 }
+

@@ -1,10 +1,3 @@
-/**
- * responsive demo 的 antd 段（右栏）。
- *
- * 忠实复刻 antd responsive demo：原生 column.responsive（Name 无 responsive + Age `responsive:['md']`
- * + Address `responsive:['lg']`）。断点检测由 antd Table 内部 responsiveObserver 自动订阅。
- * props `{ bordered, virtual }` 由父组件传入。
- */
 import { Table as AntdTable } from 'antd'
 import type { TableProps } from 'antd'
 import { data, type RecordType } from './_compare/responsive.shared'

@@ -1,7 +1,3 @@
-/**
- * edit-cell demo 的 data-grid 段（左栏）。自管编辑/增删行 state（dataSource + count +
- * handleAdd/handleDelete/handleSave）。
- */
 import React, { useContext, useEffect, useRef, useState } from 'react'
 import type { GetRef, InputRef } from 'antd'
 import { Button, Form, Input, Popconfirm } from 'antd'
@@ -14,11 +10,9 @@ import {
   type RecordType,
 } from './_compare/edit-cell.shared'
 
-// ---------------------------------------------------------------------------
 // antd demo 配套 CSS（.editable-cell-value-wrap hover 边框），注入 document.head。
 // 两子组件共用同一 CSS，幂等：模块级 cssInjected 标志 + DOM [data-edit-cell-css] 双重检查
 // （Vite HMR 重置模块标志时 DOM 检查兜底）。
-// ---------------------------------------------------------------------------
 
 type FormInstance<T> = GetRef<typeof Form<T>>
 
@@ -49,10 +43,8 @@ function injectEditCellCss() {
   document.head.appendChild(style)
 }
 
-// ---------------------------------------------------------------------------
 // data-grid 适配：EditableRow（Form component={false} + Provider，不产生 DOM）
 // + EditableCell（返回内容 ReactNode，不包 td）
-// ---------------------------------------------------------------------------
 
 const DgEditableContext = React.createContext<FormInstance<any> | null>(null)
 
@@ -77,10 +69,6 @@ interface DgEditableCellProps {
   handleSave: (record: RecordType) => void
 }
 
-/**
- * data-grid 适配：返回**内容 ReactNode（不包 td）**。引擎把本组件渲染在 `.dg-cell-inner` 处。
- * editing 态 Form.Item+Input；展示态 div.editable-cell-value-wrap（onClick 进入编辑）。
- */
 const DgEditableCell: React.FC<React.PropsWithChildren<DgEditableCellProps>> = ({
   title,
   editable,
@@ -136,15 +124,13 @@ const DgEditableCell: React.FC<React.PropsWithChildren<DgEditableCellProps>> = (
     )
   }
 
-  // data-grid 适配：返回内容 ReactNode（不包 td），引擎渲染在 .dg-cell-inner 处。
+  // data-grid cell editors render inside `.dg-cell-inner`, so this component returns content only.
   return <>{childNode}</>
 }
 
 type DgColumnTypes = Exclude<TableProps<RecordType>['columns'], undefined>
 
-// ---------------------------------------------------------------------------
 // 子组件（自管编辑/增删行 state）
-// ---------------------------------------------------------------------------
 
 export default function EditCellDg({
   virtual = false,
@@ -240,3 +226,4 @@ export default function EditCellDg({
     </div>
   )
 }
+

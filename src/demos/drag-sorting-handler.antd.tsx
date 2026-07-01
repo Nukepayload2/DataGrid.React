@@ -1,9 +1,3 @@
-/**
- * drag-sorting-handler demo 的 antd 段（右栏）。
- * 拖拽 dataSource 全在子组件内自管，两栏各自独立。忠实复刻 antd 官方 drag-sorting-handler.tsx：
- * @dnd-kit DndContext + restrictToVerticalAxis + SortableContext + RowContext.Provider 透传
- * setActivatorNodeRef/listeners 到 DragHandle，仅手柄触发拖拽。
- */
 import type { DragEndEvent } from '@dnd-kit/core'
 import { DndContext } from '@dnd-kit/core'
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers'
@@ -20,16 +14,6 @@ import type { CSSProperties, HTMLAttributes } from 'react'
 import type { FC, ReactNode } from 'react'
 import { createContext, useContext, useMemo, useState } from 'react'
 import { initialData, type RecordType } from './_compare/drag-sorting-handler.shared'
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）内联 HolderOutlined SVG —— 避免 import @ant-design/icons
-// ---------------------------------------------------------------------------
-
-/**
- * 内联 HolderOutlined（拖拽手柄"七点"图标）。项目未直接声明 @ant-design/icons 依赖（仅 antd
- * 间接依赖，pnpm 严格隔离不可访问），故内联 SVG：viewBox + path 取自 @ant-design/icons-svg
- * HolderOutlined（viewBox "64 64 896 896"，7 个圆点），与官方逐字节一致；size 跟随父节点 1em。
- */
 function InlineHolderOutlined({ style }: { style?: CSSProperties }): ReactNode {
   return (
     <svg
@@ -44,12 +28,6 @@ function InlineHolderOutlined({ style }: { style?: CSSProperties }): ReactNode {
     </svg>
   )
 }
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）Row + RowContext + DragHandle —— 忠实复刻 antd 官方 drag-sorting-handler.tsx
-// ---------------------------------------------------------------------------
-
-// 从 useSortable 返回值推导 listeners 类型，避免引入 @dnd-kit 内部路径。
 type SyntheticListenerMap = ReturnType<typeof useSortable>['listeners']
 
 interface RowContextProps {
@@ -58,8 +36,6 @@ interface RowContextProps {
 }
 
 const RowContext = createContext<RowContextProps>({})
-
-/** 右栏 DragHandle：通过 RowContext 拿 setActivatorNodeRef + listeners（仅手柄触发拖拽）。 */
 const AntdDragHandle: FC = () => {
   const { setActivatorNodeRef, listeners } = useContext(RowContext)
   return (
@@ -108,20 +84,12 @@ const Row: FC<RowProps> = (props) => {
   )
 }
 
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd demo
-// ---------------------------------------------------------------------------
-
 const antdColumns: TableColumnsType<RecordType> = [
   { key: 'sort', align: 'center', width: 80, render: () => <AntdDragHandle /> },
   { title: 'Name', dataIndex: 'name' },
   { title: 'Age', dataIndex: 'age' },
   { title: 'Address', dataIndex: 'address' },
 ]
-
-// ---------------------------------------------------------------------------
-// 子组件（自管拖拽排序 state）
-// ---------------------------------------------------------------------------
 
 export default function DragSortingHandlerAntd({
   bordered = false,
@@ -130,7 +98,6 @@ export default function DragSortingHandlerAntd({
   bordered: boolean
   virtual: boolean
 }) {
-  // 拖拽 dataSource 各自独立（两栏对照时互不干扰）。
   const [dataSource, setDataSource] = useState<RecordType[]>(initialData)
 
   const onDragEnd = ({ active, over }: DragEndEvent) => {
@@ -152,7 +119,6 @@ export default function DragSortingHandlerAntd({
           columns={antdColumns}
           dataSource={dataSource}
           bordered={bordered}
-          // 虚拟化开关：ON→virtual+scroll.y:300（antd 不认 true，数字像素高度）；OFF→回 undefined，非虚拟。
           virtual={virtual}
           scroll={virtual ? { y: 300 } : undefined}
         />
@@ -160,3 +126,4 @@ export default function DragSortingHandlerAntd({
     </DndContext>
   )
 }
+

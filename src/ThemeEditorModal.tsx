@@ -1,9 +1,4 @@
-/**
- * ThemeEditorModal：顶栏「主题编辑器」按钮打开的 Modal。
- *
- * 内部渲染 ThemeEditorPanel（从 src/demos/theme-editor 抽出，行为零变化）。
- * Modal body 限高 80vh + 滚动（panel 内容较长，控制面板 + 双栏预览 + 折叠说明区）。
- */
+/** 顶栏主题编辑器的 Modal 壳层。 */
 import { Modal } from 'antd'
 import { ThemeEditorPanel } from './demos/theme-editor'
 

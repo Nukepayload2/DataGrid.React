@@ -1,9 +1,3 @@
-/**
- * expand demo：左右并排呈现 data-grid 与 antd 行展开。
- *
- * 共享 `expandedRowKeys` 受控（同一份 state 同时驱动两侧）+ 顶部「Expand All / Collapse All」
- * 一键展开/收起可展开行。第 3 行 "Not Expandable" 不可展开（rowExpandable 过滤）。
- */
 
 import { useState } from 'react'
 import { Button, Space, theme } from 'antd'
@@ -15,9 +9,7 @@ import { useVirtualization } from './VirtualizationContext'
 import ExpandDg from './expand.dg'
 import ExpandAntd from './expand.antd'
 
-// ---------------------------------------------------------------------------
 // Demo 根组件
-// ---------------------------------------------------------------------------
 
 export default function ExpandDemo() {
   // 共享状态：同一份 expandedRowKeys 同时驱动两侧表格（受控）。
@@ -112,3 +104,4 @@ export default function ExpandDemo() {
     </div>
   )
 }
+

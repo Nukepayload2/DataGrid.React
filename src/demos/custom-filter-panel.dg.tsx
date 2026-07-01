@@ -1,14 +1,3 @@
-/**
- * custom-filter-panel demo 的 data-grid 段（左栏）。
- *
- * props 驱动 `{ bordered, virtual }`（由 custom-filter-panel.tsx 父组件传）。
- * 自包含：含 `useDgColumnSearch` 工厂 hook + 内联 `SearchOutlined` + `dgColumns`（Name/Age/Address
- * 三列均 `getColumnSearchProps`；Address 额外 sorter）+ `<Table>` JSX。
- *
- * filterDropdown 内搜索词（searchText/searchedColumn/searchInput）属局部交互状态，子组件内自管
- * （`useDgColumnSearch` hook 内部 useState/useRef）。表格整体排序/筛选非受控（filterDropdown 内 confirm
- * 应用为该列 filteredValue，由引擎内部管理）。
- */
 import { useRef, useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { Button, Input, Space, theme } from 'antd'
@@ -21,12 +10,6 @@ import type {
   TableColumnType,
 } from '../table'
 import { data, type DataIndex, type RecordType } from './_compare/custom-filter-panel.shared'
-
-/**
- * 内联 SearchOutlined（放大镜）图标——避免 @ant-design/icons 直接依赖（仅 antd 间接依赖）。
- * 与 antd SearchOutlined 视觉一致（同一 SVG path）；size 跟随父节点 font-size（1em）。
- * 两侧共用：左栏 data-grid + 右栏 antd 均使用此组件，视觉零差异，仅 import 来源不同。
- */
 function SearchOutlined({ style }: { style?: CSSProperties }): ReactNode {
   return (
     <svg
@@ -42,16 +25,10 @@ function SearchOutlined({ style }: { style?: CSSProperties }): ReactNode {
   )
 }
 
-// ---------------------------------------------------------------------------
-// getColumnSearchProps 工厂（搜索 state 内部自管）
-// ---------------------------------------------------------------------------
-
 function useDgColumnSearch() {
   const [searchText, setSearchText] = useState('')
   const [searchedColumn, setSearchedColumn] = useState('')
-  // antd Input ref（透传到内部 input）；用 HTMLInputElement 兼容。
   const searchInput = useRef<HTMLInputElement>(null)
-  // 主题 token：filterIcon 激活态色 + react-highlight-words 高亮命中色 token 化（暗主题自适应）。
   const { token } = theme.useToken()
 
   const handleSearch = (
@@ -160,14 +137,6 @@ function useDgColumnSearch() {
 
   return getColumnSearchProps
 }
-
-// ---------------------------------------------------------------------------
-// 子组件
-// ---------------------------------------------------------------------------
-
-// props 默认值：bordered=false / virtual=false（OFF 回 undefined scroll）。
-// 搜索 state（searchText/searchedColumn/searchInput）子组件内自管（局部交互，见文件头说明）；
-// 排序/筛选非受控（confirm 应用为该列 filteredValue，由引擎内部管理）。
 export default function CustomFilterPanelDg({
   bordered = false,
   virtual = false,
@@ -175,7 +144,6 @@ export default function CustomFilterPanelDg({
   bordered: boolean
   virtual: boolean
 }) {
-  // 子组件内自管的搜索 state（局部交互）。
   const getColumnSearchProps = useDgColumnSearch()
 
   const dgColumns: ColumnType<RecordType>[] = [
@@ -209,11 +177,10 @@ export default function CustomFilterPanelDg({
       dataSource={data}
       bordered={bordered}
       pagination={{}}
-      /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
-         pane 限高，虚拟窗口才有滚动区；filterDropdown 下拉是表头 popover，不受虚拟化影响）；
-         OFF 时回 undefined，无 scroll。 */
       virtual={virtual}
       scroll={virtual ? { y: true } : undefined}
     />
   )
 }
+
+

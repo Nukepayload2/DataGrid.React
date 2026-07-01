@@ -1,12 +1,4 @@
-/**
- * tree-data 左右对比 demo 的共享配置。
- *
- * 提取两侧都复用的类型与数据。列定义（Name/Age/Address）为纯文本、两侧一致，
- * 也合并到此（按各 demo 文件本地类型 ColumnType<T> / TableColumnsType<T> 分别 cast 引用）。
- *
- * antd `tree-data` demo 数据：2 个顶层行（John Brown sr. 带多层嵌套子树 / Joe Black 无子），
- * 默认 childrenColumnName='children'。
- */
+/** tree-data 对照 demo 的共享数据与列骨架。 */
 
 /** 记录类型（含递归 children）。两侧共用。 */
 export interface RecordType {
@@ -17,10 +9,7 @@ export interface RecordType {
   children?: RecordType[]
 }
 
-/**
- * antd tree-data demo 的数据（2 顶层行）。
- * John Brown sr. 含 3 层嵌套子树；Joe Black 无子。两侧共用。
- */
+/** antd tree-data 的两棵顶层节点数据；其中一棵保留多层 children 子树。 */
 export const data: RecordType[] = [
   {
     key: 1,

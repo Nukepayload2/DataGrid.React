@@ -1,8 +1,3 @@
-/**
- * hidden-columns demo 的 antd 段（右栏）。
- *
- * props：`{ checkedList, virtual }`（与左栏 dg 子组件同款）。antd 原生 `column.hidden` + 默认分页。
- */
 import { Table as AntdTable } from 'antd'
 import type { TableProps } from 'antd'
 import {
@@ -42,3 +37,4 @@ export default function HiddenColumnsAntd({
     />
   )
 }
+

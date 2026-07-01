@@ -1,19 +1,3 @@
-/**
- * 复刻 antd `fixed-header` demo：
- *   `G:\Projects\ant-design\components\table\demo\fixed-header.tsx`
- *
- * antd 原版：3 列（Name/Age/Address）× 100 行，`scroll={{ y: 55 * 5 }}` 表头固定、表体纵向滚动，
- * `pagination={{ pageSize: 50 }}`。
- *
- * 双栏对照：
- * - 左栏（data-grid Table）：3 列 + `scroll={{ y: true }}`（数据区域模式，表头固定 + 表体滚动 +
- *   纵向悬浮滚动条）+ 父容器 height:394 + `pagination={{ pageSize: 50 }}`（对齐 antd 官方 demo）。
- * - 右栏（antd Table）：忠实复刻 antd 官方 fixed-header demo（同列结构 + `scroll={{ y:55*5 }}` +
- *   `pagination={{ pageSize:50 }}` + 100 行）。
- * - 共享控制条：`Bordered` 开关同时驱动两侧表格。共享数据见 `_compare/fixed-header.shared.ts`。
- *
- * 父容器高度换算 — 详见 docs/design-notes/layout.md
- */
 
 import { useState } from 'react'
 import { Space, Switch } from 'antd'
@@ -23,9 +7,7 @@ import { useVirtualization } from './VirtualizationContext'
 import FixedHeaderDg from './fixed-header.dg'
 import FixedHeaderAntd from './fixed-header.antd'
 
-// ---------------------------------------------------------------------------
 // Demo 根组件
-// ---------------------------------------------------------------------------
 
 export default function FixedHeaderDemo() {
   // 共享状态：同一个状态同时驱动两侧表格。
@@ -94,3 +76,4 @@ export default function FixedHeaderDemo() {
     </div>
   )
 }
+

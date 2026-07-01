@@ -1,20 +1,3 @@
-/**
- * 复刻 antd `fixed-columns-header` demo：
- *   `G:\Projects\ant-design\components\table\demo\fixed-columns-header.tsx`
- *
- * antd 原版用 `scroll={{ x: 'max-content', y: 55 * 5 }}` 同时实现固定列（横向 sticky）+
- * 固定表头（纵向 sticky，y 控制表体高度）。
- *
- * 双栏对照：
- * - 左栏（data-grid Table）：固定列（Name/Age fixed start + Action fixed end）+
- *   `scroll={{ x: 'max-content', y: true }}`（数据区域模式，表头固定 + 表体滚动 +
- *   纵/横悬浮滚动条）+ 父容器 height:330（CSS 自适应高度，对齐 antd y:55*5=275 表体 + 表头 ~55）。
- * - 右栏（antd Table）：忠实复刻 antd 官方 fixed-columns-header demo（同列结构 +
- *   `scroll={{ x:'max-content', y:55*5 }}` + 100 行）。
- * - 共享控制条：`Bordered` 开关同时驱动两侧表格。共享数据见 `_compare/fixed-columns-header.shared.ts`。
- *
- * corner cell 双 sticky — 详见 docs/design-notes/fixed-column.md
- */
 
 import { useState } from 'react'
 import { Space, Switch } from 'antd'
@@ -24,9 +7,7 @@ import { useVirtualization } from './VirtualizationContext'
 import FixedColumnsHeaderDg from './fixed-columns-header.dg'
 import FixedColumnsHeaderAntd from './fixed-columns-header.antd'
 
-// ---------------------------------------------------------------------------
 // Demo 根组件
-// ---------------------------------------------------------------------------
 
 export default function FixedColumnsHeaderDemo() {
   // 共享状态：同一个状态同时驱动两侧表格。
@@ -99,3 +80,4 @@ export default function FixedColumnsHeaderDemo() {
     </div>
   )
 }
+

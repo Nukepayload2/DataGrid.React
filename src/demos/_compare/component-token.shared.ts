@@ -1,15 +1,3 @@
-/**
- * component-token 左右对比 demo 的共享配置。
- *
- * 提取两侧都复用的数据、RecordType、title/footer。
- * 列定义因两侧类型不同（data-grid `ColumnType` vs antd `TableProps['columns']`，
- * render 实现也不同——antd 用 @ant-design/icons DownOutlined，data-grid 自绘 SVG）
- * + expandable（data-grid `Expandable` vs antd `ExpandableConfig` 字段不完全兼容）
- * 保留在各自 demo 文件；但 RecordType + dataSource + title/footer 共用。
- *
- * 对照源：`G:\Projects\ant-design\components\table\demo\component-token.tsx`。
- */
-
 /** component-token / dynamic-settings 共享记录类型。 */
 export interface RecordType {
   key: number

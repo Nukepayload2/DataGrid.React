@@ -1,14 +1,3 @@
-/**
- * 复刻 antd `bordered` demo：`G:\Projects\ant-design\components\table\demo\bordered.tsx`。
- *
- * 双栏对照，两个示例：
- * - 示例 1（antd 官方 bordered demo）：3 列 + title 'Header' + footer 'Footer'。
- * - 示例 2：bordered + fixed 组合，验证固定列在 bordered 模式下竖向边框完整。
- *
- * 顶部 `Bordered` 开关（初值 true）同一 state 同时驱动两侧 + 两示例。
- * 共享数据见 `_compare/bordered.shared.ts`。
- */
-
 import { useState } from 'react'
 import { Space, Switch, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
@@ -17,10 +6,7 @@ import { useVirtualization } from './VirtualizationContext'
 import { BorderedTitleFooterDg, BorderedFixedDg } from './bordered.dg'
 import { BorderedTitleFooterAntd, BorderedFixedAntd } from './bordered.antd'
 
-// Demo 根组件
-
 export default function BorderedDemo() {
-  // 同一个 bordered 同时驱动两侧 + 两示例，父控制条直接读写。
   const [bordered, setBordered] = useState(true)
   const { virtual } = useVirtualization()
   const { token } = theme.useToken()
@@ -41,7 +27,7 @@ export default function BorderedDemo() {
         </Space>
       </DemoToolbar>
 
-      {/* 示例 1：bordered + title/footer（复刻 antd 官方 bordered demo）*/}
+      
       <div>
         <h3 style={{ margin: '0 0 12px' }}>
           示例 1：bordered + title/footer（antd 官方 bordered demo）
@@ -83,7 +69,7 @@ export default function BorderedDemo() {
         </SplitDemo>
       </div>
 
-      {/* 示例 2：bordered + fixed 组合（验证固定列边框完整）*/}
+      
       <div>
         <h3 style={{ margin: '0 0 12px' }}>
           示例 2：bordered + fixed 组合（验证固定列边框完整）
@@ -124,3 +110,4 @@ export default function BorderedDemo() {
     </div>
   )
 }
+

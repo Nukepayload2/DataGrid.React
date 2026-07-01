@@ -1,14 +1,3 @@
-/**
- * 复刻 antd row-selection-and-operation demo：
- * `G:\Projects\ant-design\components\table\demo\row-selection-and-operation.tsx`。
- *
- * 双栏对照：左栏 data-grid Table（rowSelection.selectedRowKeys 受控 + 批量操作 Reload），
- * 右栏忠实复刻 antd demo。
- * 顶部操作区（Reload + Selected N items）作为共享控制条全宽置于 SplitDemo 上方，
- * 同一个 `selectedRowKeys` + `loading` state 同时驱动两侧 + 按钮。
- * 共享数据见 `_compare/row-selection-and-operation.shared.ts`。
- */
-
 import { useState } from 'react'
 import { Button, Flex } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
@@ -17,18 +6,11 @@ import { useVirtualization } from './VirtualizationContext'
 import RowSelectionAndOperationDg from './row-selection-and-operation.dg'
 import RowSelectionAndOperationAntd from './row-selection-and-operation.antd'
 
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
-
 export default function RowSelectionAndOperationDemo() {
-  // 共享状态（提升到父）：顶部 Reload 按钮需直接操作「批量清空选择」。
   const [selectedRowKeys, setSelectedRowKeys] = useState<Array<React.Key>>([])
   const { virtual } = useVirtualization()
-  // Reload 按钮的 loading 态（1s 模拟 ajax）。
   const [loading, setLoading] = useState(false)
 
-  // 模拟 ajax：点 Reload → loading 1s → 清空选中 + 取消 loading（两侧同步）。
   const start = () => {
     setLoading(true)
     // ajax request after empty completing
@@ -42,10 +24,6 @@ export default function RowSelectionAndOperationDemo() {
 
   return (
     <div style={{ padding: 24 }}>
-      {/*
-        顶部全宽操作区：antd 原始结构即"顶部操作区"（Reload + Selected N items），作为共享控制条
-        全宽置于 SplitDemo 上方——同一组 selectedRowKeys/loading state 同时驱动两侧表格与按钮态。
-      */}
       <DemoToolbar>
         <Flex align="center" gap="medium">
           <Button type="primary" onClick={start} disabled={!hasSelected} loading={loading}>
@@ -55,11 +33,6 @@ export default function RowSelectionAndOperationDemo() {
         </Flex>
       </DemoToolbar>
 
-      {/*
-        minPaneWidth=480（窄表，3 列 + 选择列=4 列，无 scroll.x）→ 横排阈值 ≈ 976。
-        常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。46 行全显（无分页），
-        SplitDemo pane body 内独立滚动。
-      */}
       <SplitDemo
         minPaneWidth={480}
         left={

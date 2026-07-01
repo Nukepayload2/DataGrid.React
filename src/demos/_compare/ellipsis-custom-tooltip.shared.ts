@@ -1,15 +1,3 @@
-/**
- * ellipsis-custom-tooltip 左右对比 demo 的共享配置。
- *
- * 提取两侧都复用的类型与数据。列定义因两侧类型/render 不同（data-grid `ColumnType` 与
- * antd `TableProps['columns']` 的 ellipsis/render 重载类型不兼容；两侧 render 均用 antd
- * `<Tooltip>` 但函数签名归属不同列类型），保留在各自 demo 文件，但均引用本文件的 `RecordType`
- * 与 `data`，且列字段逐字一致（6 列：Name render `<a>` width150 / Age width80 / Address ×4
- * `ellipsis:{showTitle:false}` + `<Tooltip>` render，title 长度递增）。
- *
- * 与 antd `components/table/demo/ellipsis-custom-tooltip.tsx` 逐字一致。
- */
-
 /** 记录类型。两侧共用。 */
 export interface RecordType {
   key: React.Key

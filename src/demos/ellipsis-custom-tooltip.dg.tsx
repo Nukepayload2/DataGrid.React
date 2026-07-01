@@ -1,7 +1,3 @@
-/**
- * ellipsis-custom-tooltip demo 的 data-grid 段（左栏）。
- * props 驱动 `{ bordered, virtual }`（由 ellipsis-custom-tooltip.tsx 父组件传）。
- */
 import { Tooltip } from 'antd'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
@@ -89,3 +85,4 @@ export default function EllipsisCustomTooltipDg({
     />
   )
 }
+

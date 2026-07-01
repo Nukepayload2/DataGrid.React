@@ -1,10 +1,3 @@
-/**
- * virtual-list demo 的 data-grid 段（左栏）。
- *
- * 强制虚拟 demo：自身永久 `virtual=true` + `scroll={{x:2000, y:true}}`，内部硬编码不接 virtual prop。
- *
- * props：`{ bordered, fixed, expanded, empty, merged, data, tableRef }`（由父组件传）。
- */
 import { useMemo } from 'react'
 import type { Ref } from 'react'
 import { Table } from '../table'
@@ -15,11 +8,7 @@ import { getData, type RecordType } from './_compare/virtual-list.shared'
 // 左栏（data-grid）列定义
 // ---------------------------------------------------------------------------
 
-// 含固定列 + 合并的列定义（对齐 antd virtual-list demo 的 fixedColumns）。
-// 合并语义：
-//   - Group 列：id % 4 === 0 的行 rowSpan=4（向下合并 4 行），其余 rowSpan=0（被覆盖）。
-//   - Age 列：id % 4 === 0 的行 colSpan=2（向右合并 2 列，吃掉 Address 1）。
-//   - Address 1 列：id % 4 === 0 的行 colSpan=0（被 Age 的 colSpan=2 覆盖）。
+// Merged variant of the wide virtual table.
 const dgMergedColumns: ColumnType<RecordType>[] = [
   {
     title: 'ID',
@@ -83,7 +72,7 @@ const dgMergedColumns: ColumnType<RecordType>[] = [
   },
 ]
 
-// 关闭合并后的列定义（对齐 antd demo "expanded 时清掉 onCell" 的等价路径）。
+// Plain variant used when merged cells are disabled.
 const dgPlainColumns: ColumnType<RecordType>[] = [
   { title: 'ID', dataIndex: 'id', width: 100, fixed: 'start' },
   { title: 'FirstName', dataIndex: 'firstName', width: 120, fixed: 'start' },

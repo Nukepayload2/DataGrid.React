@@ -1,8 +1,3 @@
-/**
- * expand-sticky demo 的 data-grid 段（左栏）。
- * bordered + Team 列每 2 行合并 + EXPAND_COLUMN 哨兵控展开列位置（Team 之后）
- * + expandable.expandedRowRender。
- */
 import { Table } from '../table'
 import type { ColumnOrSentinel, Expandable } from '../table'
 import { data, type RecordType } from './_compare/expand-sticky.shared'
@@ -59,3 +54,4 @@ export default function ExpandStickyDg({
     />
   )
 }
+

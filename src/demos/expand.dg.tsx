@@ -1,17 +1,8 @@
-/**
- * expand demo 的 data-grid 段（左栏）。
- *
- * props：`{ expandedRowKeys, onExpandedRowsChange, virtual }`（由父组件传）。
- * expandable.expandedRowRender 渲染 description + rowExpandable 禁用 "Not Expandable" 行
- * + grid 0fr↔1fr 过渡 + expandRowByClick（点击行体切换展开）+ expandedRowClassName（展开行加 class）。
- */
 import { Table } from '../table'
 import type { ColumnType, Expandable } from '../table'
 import { data, type RecordType } from './_compare/expand.shared'
 
-// ---------------------------------------------------------------------------
 // 左栏（data-grid）列定义
-// ---------------------------------------------------------------------------
 
 const dgColumns: ColumnType<RecordType>[] = [
   { title: 'Name', dataIndex: 'name', key: 'name' },
@@ -59,3 +50,4 @@ export default function ExpandDg({
     />
   )
 }
+

@@ -1,10 +1,3 @@
-/**
- * style-class demo 的 data-grid 段（左栏）。
- *
- * 两块 Table 同栏展示：对象 styles（root/pagination/body.row/body.cell）+ 函数 stylesFn
- * （size=medium 时自定义 root/title/footer/header.cell/pagination）。深色主题逐字复刻 antd 官方 demo。
- * props `{ virtual, scrollY }` 由父组件传入。
- */
 import { Table } from '../table'
 import type {
   ColumnType,
@@ -25,7 +18,7 @@ const dgClassNames: TableClassNames<RecordType> = {
   root: 'dg-style-class-root',
 }
 
-// 对象 styles（深色主题逐字复刻 antd 官方 style-class demo）。
+// Static dark-theme slot styles.
 const dgStyles: TableStyles<RecordType> = {
   root: {
     padding: 10,
@@ -46,7 +39,7 @@ const dgStyles: TableStyles<RecordType> = {
   },
 }
 
-// 函数 stylesFn：按 info.props.size 求值（size='medium' 时返回自定义深色样式）。
+// Function styles vary by table size.
 const dgStylesFn: TableStyles<RecordType> = (info) => {
   if (info?.props?.size === 'medium') {
     return {

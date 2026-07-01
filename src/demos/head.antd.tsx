@@ -1,24 +1,8 @@
-/**
- * head demo 的 antd 段（右栏）。
- *
- * - props 驱动 `{ bordered, virtual, remountKey }`（与左栏 dg 子组件同款签名）：
- *   remountKey：Reset 按钮递增的 key，应用到内部 `<AntdTable key=...>` 强制 remount 清空
- *   排序/筛选草稿与激活态（head demo 排序/筛选非受控，不能通过受控 setState 重置）。
- * - 自包含：含 `antdColumns`（Name sorter+filters+sortDirections / Age sorter+defaultSortOrder /
- *   Address filters）+ `<AntdTable>` JSX + 共用 `onChange` console.log。
- * - 忠实复刻 antd head demo：antd 原生 sorter/filters/onFilter/filterMultiple + antd 原生 filter
- *   下拉 Checkbox/Radio + 确定/重置。Table 级 showSorterTooltip:{target:'sorter-icon'}。
- *
- * 排序/筛选 state 自管（非受控）：同左栏 dg 子组件，排序/筛选是 antd 原生非受控语义，
- * 状态由 Table 内部管理。Reset 通过 React key remount 强制重建，子组件不需要排序/筛选 state props。
- */
 import { Table as AntdTable } from 'antd'
 import type { TableProps } from 'antd'
 import { data, type RecordType } from './_compare/head.shared'
 
-// ---------------------------------------------------------------------------
 // 列定义 —— 忠实复刻 antd head demo（逐字一致）
-// ---------------------------------------------------------------------------
 
 const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
   {
@@ -59,9 +43,7 @@ const antdColumns: NonNullable<TableProps<RecordType>['columns']> = [
   },
 ]
 
-// ---------------------------------------------------------------------------
 // onChange（与 dg 子组件共用同一个 console.log 形态）
-// ---------------------------------------------------------------------------
 
 const onChange: TableProps<RecordType>['onChange'] = (
   pagination,
@@ -73,9 +55,7 @@ const onChange: TableProps<RecordType>['onChange'] = (
   console.log('head demo onChange params:', { pagination, filters, sorter, extra })
 }
 
-// ---------------------------------------------------------------------------
 // 子组件
-// ---------------------------------------------------------------------------
 
 // props 默认值同左栏 dg（合理有效初值）。
 export default function HeadAntd({
@@ -103,3 +83,4 @@ export default function HeadAntd({
     />
   )
 }
+

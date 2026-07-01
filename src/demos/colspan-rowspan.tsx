@@ -1,17 +1,3 @@
-/**
- * colspan-rowspan 双栏对照 demo：表头列合并（column.colSpan）+ 单元格行/列合并
- * （onCell 返回 {rowSpan, colSpan}，含 =0 不渲染）。共享 `Bordered` 开关同步驱动左栏
- * data-grid 与右栏 antd Table。
- *
- * 预期渲染结果（5 行 × 6 列，两侧同）：
- *   - 表头：5 个可见格（RowHead | Name | Home phone 跨 2 列 | Address）。Phone 表头被 Home phone 覆盖。
- *   - 第 1 行：正常 6 格。
- *   - 第 2 行（index===1）：Name 跨 5 列（覆盖 Age/Home phone/Phone/Address），共 2 格。
- *   - 第 3 行：正常 6 格。
- *   - 第 4 行（index===3）：Home phone 向下合并 2 行（覆盖第 5 行同列）。共 6 格。
- *   - 第 5 行（index===4）：Home phone 被覆盖（rowSpan:0），共 5 格。
- */
-
 import { useState } from 'react'
 import { Space, Switch, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
@@ -21,10 +7,8 @@ import ColspanRowspanDg from './colspan-rowspan.dg'
 import ColspanRowspanAntd from './colspan-rowspan.antd'
 
 export default function ColspanRowspanDemo() {
-  // 共享状态：同一个 bordered 同时驱动两侧（初值 true 对齐 antd demo）。
   const [bordered, setBordered] = useState(true)
   const { virtual } = useVirtualization()
-  // 控制条文字色 token 化（colorTextSecondary），暗主题自适应。
   const { token } = theme.useToken()
 
   return (
@@ -43,10 +27,7 @@ export default function ColspanRowspanDemo() {
         </Space>
       </DemoToolbar>
 
-      {/*
-        minPaneWidth=480（窄表 6 列、无 scroll.x）→ 横排阈值 ≈ 480×2 + 16 = 976。
-        常规笔记本视口（≥1024）横排；窄视口竖排。
-      */}
+      
       <SplitDemo
         minPaneWidth={480}
         left={<ColspanRowspanDg bordered={bordered} virtual={virtual} />}
@@ -111,3 +92,4 @@ export default function ColspanRowspanDemo() {
     </div>
   )
 }
+

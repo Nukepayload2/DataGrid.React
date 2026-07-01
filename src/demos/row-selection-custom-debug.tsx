@@ -1,35 +1,13 @@
-/**
- * row-selection-custom-debug 双栏对照 demo：复刻 antd
- *   `G:\Projects\ant-design\components\table\demo\row-selection-custom-debug.tsx`。
- * 共享数据驱动左栏 data-grid 与右栏 antd Table 的 `rowSelection.renderCell`
- * 自定义勾选格内容 + 返回 `props.rowSpan`（合并行）。46 行单列 Name。
- *
- * renderCell 两侧逻辑逐字一致（`index % 2 === 0 ? 2 : 0` 合并 +
- * `<>{String(checked)}: {node}</>` 渲染）。无控制条（renderCell 逻辑固定，两侧同款）。
- */
-
 import { SplitDemo } from './_compare/SplitDemo'
-// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
 import RowSelectionCustomDebugDg from './row-selection-custom-debug.dg'
 import RowSelectionCustomDebugAntd from './row-selection-custom-debug.antd'
 
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
-
 export default function RowSelectionCustomDebugDemo() {
-  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y。
-  // 注：本 demo 含 rowSpan 合并行，合并 × 虚拟属已知简化（不在此处理）。
   const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
-      {/*
-        minPaneWidth=480（窄表，单列 Name + 选择列=2 列，无 scroll.x）→ 横排阈值 ≈ 976。
-        常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。46 行全显（无分页），
-        SplitDemo pane body 内独立滚动。
-      */}
       <SplitDemo
         minPaneWidth={480}
         left={<RowSelectionCustomDebugDg virtual={virtual} />}

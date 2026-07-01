@@ -1,12 +1,3 @@
-/**
- * 复刻 antd `column-defaults` demo：
- *   `G:\Projects\ant-design\components\table\demo\column-defaults.tsx`。
- *
- * 双栏对照：左栏 data-grid Table（Table 级 `column={{ align:'center', ellipsis }}` 设列默认属性），
- * 右栏忠实复刻 antd column-defaults demo。共享 `Ellipsis` 开关切换 Table 级 column.ellipsis（两侧同步）；
- * 共享数据见 `_compare/column-defaults.shared.ts`。
- */
-
 import { useState } from 'react'
 import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
@@ -15,17 +6,13 @@ import { useVirtualization } from './VirtualizationContext'
 import ColumnDefaultsDg from './column-defaults.dg'
 import ColumnDefaultsAntd from './column-defaults.antd'
 
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
-
 export default function ColumnDefaultsDemo() {
   const [ellipsis, setEllipsis] = useState(true)
   const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。 */}
+      
       <DemoToolbar>
         <Space>
           <Switch
@@ -37,10 +24,7 @@ export default function ColumnDefaultsDemo() {
         </Space>
       </DemoToolbar>
 
-      {/*
-        minPaneWidth=480（窄表，3 列，无 scroll.x）→ 横排阈值 ≈ 976。
-        常规笔记本视口（≥1024）即可横排。
-      */}
+      
       <SplitDemo
         minPaneWidth={480}
         left={<ColumnDefaultsDg ellipsis={ellipsis} virtual={virtual} />}
@@ -90,3 +74,4 @@ export default function ColumnDefaultsDemo() {
     </div>
   )
 }
+

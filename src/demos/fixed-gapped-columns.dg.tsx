@@ -1,18 +1,10 @@
-/**
- * fixed-gapped-columns demo 的 data-grid 段（左栏）。
- *
- * props：`{ bordered, size, virtual }`（由父组件传）。分散固定列堆叠：start 侧 FullName + Column1
- * 不相邻、end 侧 Action1 + Action3 不相邻。
- */
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { dataSource, type DataType } from './_compare/fixed-gapped-columns.shared'
 
-// ---------------------------------------------------------------------------
 // 左栏（data-grid）列定义 —— 与 antd demo 列结构逐字一致。
 // 分散固定列堆叠：start 侧 FullName + Column1（不相邻），end 侧 Action1 + Action3（不相邻）。
 // useStickyColumns 按列顺序累加偏移：start 从左扫遇 fixed=start 累加；end 从右扫遇 fixed=end 累加。
-// ---------------------------------------------------------------------------
 
 const dgColumns: ColumnType<DataType>[] = [
   {
@@ -86,3 +78,4 @@ export default function FixedGappedColumnsDg({
     />
   )
 }
+

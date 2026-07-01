@@ -1,25 +1,12 @@
-/**
- * 复刻 antd tree-table-preserveSelectedRowKeys demo：
- * `G:\Projects\ant-design\components\table\demo\tree-table-preserveSelectedRowKeys.tsx`。
- * 双栏对照 demo：树形 × 分页 × checkStrictly × preserveSelectedRowKeys（覆盖跨页保留、
- * 折叠保留、联动跨页/折叠三场景）。共享 CheckStrictly + Preserve 两开关同时驱动两侧。
- */
-
 import { useState } from 'react'
 import { Space, Switch, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-// 虚拟化开关接入：顶栏 Switch ON 时两侧 Table 叠加 virtual + scroll.y。
 import { useVirtualization } from './VirtualizationContext'
 import TreeTablePreserveSelectedRowKeysDg from './tree-table-preserveSelectedRowKeys.dg'
 import TreeTablePreserveSelectedRowKeysAntd from './tree-table-preserveSelectedRowKeys.antd'
 
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
-
 export default function TreeTablePreserveSelectedRowKeysDemo() {
-  // 共享 state（驱动顶部两 Switch + 两侧 rowSelection），默认 checkStrictly=false + preserve=true，对齐 antd demo。
   const [checkStrictly, setCheckStrictly] = useState(false)
   const [preserveSelectedRowKeys, setPreserveSelectedRowKeys] = useState(true)
   const { virtual } = useVirtualization()
@@ -27,7 +14,6 @@ export default function TreeTablePreserveSelectedRowKeysDemo() {
 
   return (
     <div style={{ padding: 24 }}>
-      {/* 共享控制条：两开关同时驱动两侧表格。 */}
       <DemoToolbar>
         <Space>
           <Switch
@@ -49,10 +35,6 @@ export default function TreeTablePreserveSelectedRowKeysDemo() {
         </Space>
       </DemoToolbar>
 
-      {/*
-        minPaneWidth=480（窄表，3 列 + 选择列 = 4 列，无 scroll.x；分页 5/页）→ 横排阈值 ≈ 976。
-        常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。
-      */}
       <SplitDemo
         minPaneWidth={480}
         left={

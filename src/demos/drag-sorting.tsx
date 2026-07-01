@@ -1,33 +1,19 @@
-/**
- * drag-sorting 双栏对照 demo：行拖拽排序。两侧各自维护 dataSource。
- * - 左栏 data-grid：自研 pointer 行拖拽（`useRowDragSort` + 蓝色指示线 + arrayMove）。
- * - 右栏 antd：忠实复刻官方 drag-sorting（@dnd-kit + restrictToVerticalAxis + useSortable + transform）。
- */
-
 import { useState } from 'react'
 import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y。
 import { useVirtualization } from './VirtualizationContext'
 import DragSortingDg from './drag-sorting.dg'
 import DragSortingAntd from './drag-sorting.antd'
 
-// ===========================================================================
-// Demo 根组件
-// ===========================================================================
-
 export default function DragSortingDemo() {
-  // 共享状态：同一个状态同时驱动两侧表格。
   const [bordered, setBordered] = useState(false)
-  // autoScrollOnDrag 开关（仅驱动左栏 data-grid；antd 无对应概念）。
   const [autoScroll, setAutoScroll] = useState(true)
-  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y。
   const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* 共享控制条：Bordered + AutoScroll 开关。DemoToolbar 用 useToken 适配主题。 */}
+      
       <DemoToolbar>
         <Space>
           <Switch
@@ -36,7 +22,7 @@ export default function DragSortingDemo() {
             checkedChildren="Bordered"
             unCheckedChildren="Bordered"
           />
-          {/* autoScrollOnDrag 开关（仅驱动左栏 data-grid）。 */}
+          
           <Switch
             checked={autoScroll}
             onChange={setAutoScroll}
@@ -46,10 +32,7 @@ export default function DragSortingDemo() {
         </Space>
       </DemoToolbar>
 
-      {/*
-        minPaneWidth=480（窄表，3 列无 scroll.x）→ 横排阈值 ≈ 976。
-        常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。
-      */}
+      
       <SplitDemo
         minPaneWidth={480}
         left={<DragSortingDg bordered={bordered} autoScroll={autoScroll} virtual={virtual} />}
@@ -87,3 +70,4 @@ export default function DragSortingDemo() {
     </div>
   )
 }
+

@@ -1,37 +1,18 @@
-/**
- * data-grid 对外 antd Table 兼容接口。
- *
- * 类型尽量与 antd `TableProps` 子集保持同名同语义，便于直接替换。
- */
+/** data-grid 对外暴露的 antd Table 兼容类型。 */
 
 import type { ReactElement, ReactNode } from 'react'
 import type { DropdownProps, SpinProps } from 'antd'
-// antd `Breakpoint`（'xs'|'sm'|'md'|'lg'|'xl'|'xxl'|'xxxl'，7 个断点；对齐 antd
-// `components/_util/responsiveObserver.ts` responsiveArray）。
 import type { Breakpoint } from 'antd/es/_util/responsiveObserver'
-// SelectionItem 类型从引擎层 import（type-only，避免循环依赖）+ re-export 供对外 API 使用。
+// type-only import，避免运行时循环依赖。
 import type { SelectionItem } from './engine/useRowSelection'
 export type { SelectionItem }
 
 export type Align = 'start' | 'center' | 'end'
 
-/**
- * 固定列方向输入。
- *
- * antd v6 接受 `'left' | 'right' | boolean`（`true` 等价 `'left'`）。data-grid 内部归一化为
- * `'start' | 'end'`。`true` 在适配层 normalizeFixed 中映射为 `'start'`（对齐 antd：
- * antd `fixed: true` 默认固定到左侧）。
- *
- * 详见 `docs/design-notes/fixed-column.md`。
- */
+/** 固定列方向输入；布尔值在适配层归一化。 */
 export type FixedInput = 'left' | 'right' | 'start' | 'end' | boolean
 
-/**
- * 行选择类型：'checkbox'（多选）/ 'radio'（单选）。
- * 对齐 antd `RowSelectionType`。
- *
- * 详见 `docs/design-notes/selection.md`。
- */
+/** 行选择类型。 */
 export type RowSelectionType = 'checkbox' | 'radio'
 
 /**
@@ -76,19 +57,7 @@ export interface FilterResetProps {
   confirm?: boolean
 }
 
-/**
- * `filterDropdown` 渲染回调收到的 props（对齐 antd `FilterDropdownProps`）。
- *
- * 自定义筛选面板（`column.filterDropdown`）取代内置 Checkbox/Radio 下拉；
- * 调用方按 antd 兼容签名实现搜索框、自定义勾选 UI 等，并通过 `confirm`/`clearFilters`/`close`
- * 与引擎交互。
- *
- * 与 antd 的差异：
- *   - `prefixCls` 本实现恒定为 `'dg-filter'`（data-grid 自有样式前缀），保留字段以兼容 antd demo 原样拷贝。
- *   - `filters` 在自定义面板下恒为 `[]`（自定义面板不消费内置筛选项；onFilter 由调用方在 column 上提供）。
- *
- * 详见 `docs/design-notes/filter-sorter.md`。
- */
+/** `filterDropdown` 渲染回调收到的 props。 */
 export interface FilterDropdownProps {
   /** 样式前缀（兼容字段；恒定 `'dg-filter'`）。 */
   prefixCls: string
@@ -101,32 +70,17 @@ export interface FilterDropdownProps {
    * @param param `{ closeDropdown?: boolean }`：true 时同时关闭下拉（默认 false）。
    */
   confirm: (param?: FilterConfirmProps) => void
-  /**
-   * 清空该列 filteredValue（重置）。
-   * @param param `{ closeDropdown?, confirm? }`：
-   *   - `closeDropdown: true`：清空后关闭下拉。
-   *   - `confirm: true`：清空后立即应用（默认 false 仅清草稿——但本实现因无草稿概念，clearFilters 直接清空并应用）。
-   */
+  /** 清空该列 filteredValue。 */
   clearFilters?: (param?: FilterResetProps) => void
-  /** 内置筛选项（自定义面板下恒为 `[]`；保留字段兼容 antd demo 原样拷贝）。 */
+  /** 内置筛选项；自定义面板场景下通常为空。 */
   filters?: Array<ColumnFilterItem>
-  /** 关闭下拉（不改变已应用的 filteredValue）。等价 `confirm({ closeDropdown: true })` 中只关闭不应用的部分。 */
+  /** 关闭下拉，不改变已应用的 filteredValue。 */
   close: () => void
   /** 下拉是否打开。 */
   visible: boolean
 }
 
-/**
- * 透传给筛选下拉 antd `Dropdown` 的 props（对齐 antd `filterDropdownProps`）。
- *
- * 用于受控打开（`open`）、`onOpenChange`、`triggerClassName` 等覆盖。与内置 Dropdown 集成：
- * 引擎把这些 props 合并到 antd Dropdown（菜单 popupRender 由引擎统一渲染）。
- *
- * 与 antd 的差异：`onOpenChange` 被引擎消费（驱动 filterOnClose 语义），允许调用方同时订阅；
- * `open` 受控时调用方负责开合，引擎的 filterOnClose 内部行为仍生效但 open 真理源在外部。
- *
- * 详见 `docs/design-notes/filter-sorter.md`。
- */
+/** 透传给筛选下拉 antd `Dropdown` 的 props。 */
 export interface ColumnFilterDropdownProps {
   /** 受控打开状态（与 antd `Dropdown.open` 一致）。 */
   open?: boolean
@@ -144,19 +98,7 @@ export interface ColumnFilterDropdownProps {
   getPopupContainer?: (triggerNode: HTMLElement) => HTMLElement
 }
 
-/**
- * 单个筛选项（对齐 antd `ColumnFilterItem`）。
- *
- * 仅消费顶层项（不实现 `children` 子菜单——属树形筛选 `filterMode='tree'`）：
- *   - `text`：筛选项展示文案（任意 ReactNode）。
- *   - `value`：筛选项取值（boolean / React.Key；用于 `onFilter` 第一个参数 + onChange 的 filters 形态）。
- *
- * antd 还支持 `children: ColumnFilterItem[]`（子菜单筛选，对应 `filterMode='tree'`）；
- * menu 模式下保留字段但**不消费**（出现时会被 `flattenKeys` 扁平化为单个筛选项列表参与勾选；
- * 行为与 antd 默认 menu 模式下的二级菜单相近，但不做二级菜单 UI——属 tree 模式消费）。
- *
- * 详见 `docs/design-notes/filter-sorter.md`。
- */
+/** 单个筛选项。 */
 export interface ColumnFilterItem {
   /** 筛选项展示文案。 */
   text: ReactNode
@@ -169,45 +111,14 @@ export interface ColumnFilterItem {
 }
 
 /**
- * antd `rowSelection` 接口子集。
- *
- * 覆盖：`type`、`selectedRowKeys`（受控）、`defaultSelectedRowKeys`、
- *   `onChange(keys, rows, info)`、`getCheckboxProps`、`columnWidth`、`fixed`、`hideSelectAll`、
- *   `selections`、`preserveSelectedRowKeys`（跨页保留勾选）、`renderCell`（自定义勾选格内容，见下）。
- *
- * 未覆盖（后续按需补）：`onSelect*` 系列、`onCell`、`columnTitle`（表头格自定义内容）。
- *
- * 与 antd 同名字段保持同语义，便于直接替换。
- */
-
-/**
  * `rowSelection.renderCell` 的返回值（对齐 antd `RenderCellInfo`）。
- *
- * - **对象形态** `{ props: { rowSpan?, colSpan?, ... }, children }`：
- *     * `props` 透传给底层单元格（含 `rowSpan` 接入 cellMerge——被覆盖格不渲染）。
- *     * `children`：该勾选格的渲染内容（替代默认 `<SelectionInput>`）。
- * - **ReactNode 形态**：直接作为勾选格内容（无 props 合并；等价 `{ children: <ReactNode> }`）。
  */
 export type SelectionRenderCellResult =
   | { props?: Record<string, any>; children?: ReactNode }
   | ReactNode
 
 export interface TableRowSelection<RecordType = any> {
-  /**
-   * 父子勾选是否严格独立（树形数据，对齐 antd `rowSelection.checkStrictly`，默认 `true`）。
-   *
-   * **仅在树形数据模式**（dataSource record 含 `childrenColumnName` 子字段，见 `TableProps.childrenColumnName`）
-   * 下有意义；非树形数据时本字段无效果（无父子关系）。
-   *
-   * - `true`（默认）：父子勾选**独立**——勾选父行不影响子行，反之亦然；半选态不计算。
-   * - `false`：父子勾选**联动**（antd tree-data demo 默认行为）：
-   *     * 勾父行 → 自动勾选其全部子孙行（含已禁用的子行不强制勾选，与 antd 一致）。
-   *     * 勾全部子行 → 自动勾选父行；部分子行选中 → 父行半选（indeterminate）。
-   *     * 取消勾父 → 取消全部子孙；取消某子 → 若父曾全选则降为半选，若该子是最后一个选中则取消父。
-   *     * 全选/全不选（表头勾选）按"所有可选叶子行"集合操作（与 antd 一致）。
-   *
-   * 实现由 `useRowSelection` 内部 parent→children 映射驱动（与 antd `conductCheck` 同语义）。
-   */
+  /** 树形数据下是否启用父子联动；默认 `true` 表示严格独立。 */
   checkStrictly?: boolean
   /** 'checkbox'（默认）/ 'radio'。 */
   type?: RowSelectionType
@@ -245,75 +156,11 @@ export interface TableRowSelection<RecordType = any> {
   hideSelectAll?: boolean
   /** 选择列对齐（默认 'center'，与 antd 一致）。 */
   align?: Align
-  /**
-   * 自定义选择项菜单（对齐 antd `rowSelection.selections`）。
-   *
-   * **语义**：
-   *   - `undefined`（缺省）：不渲染表头下拉箭头（零回归）。
-   *   - `true`：用默认 `[SELECTION_ALL, SELECTION_INVERT, SELECTION_NONE]`。
-   *   - 数组：自定义项列表，可混用内置哨兵（`Table.SELECTION_ALL/NONE/INVERT`）与自定义项
-   *     `{ key, text, onSelect(changeableRowKeys) }`。
-   *
-   * **渲染**：表头全选 checkbox 旁渲染一个下拉箭头（antd Dropdown + Menu），点开列出 selections 项。
-   *
-   * **点击行为**（对齐 antd）：
-   *   - 内置哨兵（ALL/INVERT/NONE）：引擎直接计算新 selectedRowKeys 并走 onChange（受控回填）。
-   *   - 自定义项：调用其 `onSelect(changeableRowKeys)`，返回 void——demo 内自行 `setSelectedRowKeys`
-   *     （与 antd row-selection-custom demo 的 odd/even 写法一致；changeableRowKeys = 当前所有可选行 key）。
-   *
-   * 仅 checkbox 模式有意义（radio 模式下表头无全选框，selections 不渲染）。
-   *
-   * 详见 `docs/design-notes/selection.md`。
-   */
+  /** 选择列表头下拉菜单配置；仅 checkbox 模式有效。 */
   selections?: true | Array<SelectionItem>
-  /**
-   * 跨页/跨数据源保留已选 key（对齐 antd `rowSelection.preserveSelectedRowKeys`）。
-   *
-   * **语义**：当数据源发生变化（如分页翻页、服务端 ajax 切页、筛选/排序导致当前页数据变化）时，
-   * 已选中但**不在当前数据源**中的 key 是否保留在 `selectedRowKeys` 中。
-   *   - `true`：保留。翻页后回原页，之前选中的行仍是选中态（典型 ajax 远程数据场景）。
-   *   - `false`（默认）：antd v6 默认行为。**受控** `selectedRowKeys` 下，真理源在外部，本字段
-   *     主要影响非受控内部状态 + 引擎派生 `selectedRows`（onChange 第二参）的回填逻辑：
-   *     * 受控（`selectedRowKeys` 传入）：selectedRowKeys 数组本身由调用方维护，天然保留所有 key
-   *       （不受本字段影响——但引擎在计算 onChange 的 selectedRows 时，preserveSelectedRowKeys=false
-   *       会清掉不在当前 dataSource 中的 key，true 则保留原数组）。
-   *     * 非受控（用 `defaultSelectedRowKeys`）：本字段控制翻页/切数据源时是否清除"不在当前页"的 key。
-   *
-   * 引擎 `useRowSelection` 读取本字段，在数据源变化时据此决定是否过滤 selectedRowKeys。
-   *
-   * 与 antd 一致：默认 false（不保留）。ajax demo 通常显式设 true。
-   */
+  /** 数据源变化后是否保留当前页外的已选 key。 */
   preserveSelectedRowKeys?: boolean
-  /**
-   * 自定义勾选格渲染（对齐 antd `rowSelection.renderCell`）。
-   *
-   * **签名**：`(checked, record, index, node) => SelectionRenderCellResult | ReactNode`
-   *   - `checked`：该行是否选中（boolean）。
-   *   - `record`：该行数据。
-   *   - `index`：该行在 dataSource 中的索引。
-   *   - `node`：默认勾选格的 ReactNode（即 `<SelectionInput>`，可原样展示或包裹）。
-   *
-   * **返回值**（`SelectionRenderCellResult`）：
-   *   - 对象 `{ props: { rowSpan?, colSpan? }, children }`：
-   *       * `props.rowSpan` 接入 cellMerge（行合并——被覆盖格不渲染；典型合并行场景）。
-   *       * `props.colSpan` 同理接入 cellMerge（横向合并）。
-   *       * `children`：勾选格内容（替代默认 `<SelectionInput>`）。
-   *   - ReactNode：直接作为勾选格内容（无 rowSpan/colSpan 合并）。
-   *
-   * **典型用法**（antd row-selection-custom-debug demo）：
-   * ```ts
-   * renderCell: (checked, _record, index, node) => ({
-   *   props: { rowSpan: index % 2 === 0 ? 2 : 0 },
-   *   children: <>{String(checked)}: {node}</>,
-   * })
-   * ```
-   * 偶数行渲染合并 2 行的勾选格（含 `checked:node` 文本），奇数行被覆盖不渲染。
-   *
-   * **与默认 SelectionInput 的关系**：renderCell 返回值**完全替代**默认勾选 UI（不渲染默认
-   * `<SelectionInput>`）；如需保留勾选交互，请在 children 中包含 `node` 参数（默认 SelectionInput）。
-   *
-   * **radio 模式**：renderCell 同样生效（`node` 是 radio 版 SelectionInput）。
-   */
+  /** 自定义勾选格渲染；返回 ReactNode 或带 cell props 的对象。 */
   renderCell?: (
     checked: boolean,
     record: RecordType,

@@ -1,11 +1,3 @@
-/**
- * 复刻 antd `size` demo：`G:\Projects\ant-design\components\table\demo\size.tsx`。
- *
- * 双栏对照：`Segmented` size（large/medium/small）同一 state 同时驱动两侧，对照同一档 size
- * 下两侧行高/padding 差异（antd demo 原本双表静态展示，双栏下改为单表 + size 切换）。
- * 共享数据/列见 `_compare/size.shared.ts`。
- */
-
 import { useState } from 'react'
 import { Segmented, Space } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
@@ -14,8 +6,7 @@ import { useVirtualization } from './VirtualizationContext'
 import SizeDg from './size.dg'
 import SizeAntd from './size.antd'
 
-// 共享 size 类型：'large'/'medium'/'small' 在两侧都被接受
-// （data-grid 用 'medium'（= 'middle'）；antd v6 也接受 'medium' 别名（= 'middle'））。
+// Share one middle-size spelling across both panes.
 type SharedSize = 'large' | 'medium' | 'small'
 
 // Demo 根组件

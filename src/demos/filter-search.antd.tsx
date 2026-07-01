@@ -1,18 +1,8 @@
-/**
- * filter-search demo 的 antd 段（右栏）。
- *
- * props 驱动 `{ bordered, virtual }`（与左栏 dg 子组件同款签名）。
- * 自包含：含 `antdColumns`（Name filterMode:'tree' + filterSearch:true + filters 扁平 3 项
- * [Joe/Category 1/Category 2] / Age sorter / Address filterSearch:true + filters [London/New York]）
- * + 共用 `onChange` console.log + `<AntdTable>` JSX。筛选非受控，由 antd Table 内部管理。
- */
 import { Table as AntdTable } from 'antd'
 import type { TableColumnsType, TableProps } from 'antd'
 import { data, type RecordType } from './_compare/filter-search.shared'
 
-// ---------------------------------------------------------------------------
 // 列定义 —— 复刻 antd filter-search demo（Name 带 filterMode:'tree'）
-// ---------------------------------------------------------------------------
 
 const antdColumns: TableColumnsType<RecordType> = [
   {
@@ -62,18 +52,14 @@ const antdColumns: TableColumnsType<RecordType> = [
   },
 ]
 
-// ---------------------------------------------------------------------------
 // onChange（与 dg 子组件共用同一个 console.log 形态）
-// ---------------------------------------------------------------------------
 
 const onChange: TableProps<RecordType>['onChange'] = (pagination, filters, sorter, extra) => {
   // eslint-disable-next-line no-console
   console.log('filter-search demo onChange params:', { pagination, filters, sorter, extra })
 }
 
-// ---------------------------------------------------------------------------
 // 子组件
-// ---------------------------------------------------------------------------
 
 // props 默认值同左栏 dg（见 dg 子文件注释）。
 export default function FilterSearchAntd({
@@ -97,3 +83,4 @@ export default function FilterSearchAntd({
     />
   )
 }
+

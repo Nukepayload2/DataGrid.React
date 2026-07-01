@@ -1,9 +1,3 @@
-/**
- * dynamic-settings demo 的 antd 段（右栏）。
- *
- * 忠实复刻 antd dynamic-settings demo（默认主题，无 ConfigProvider token 覆盖）。
- * props 见 DynamicSettingsAntdProps（与 dg 子组件同款）。
- */
 import type { TableProps as AntdTableProps } from 'antd'
 import { Space, Table as AntdTable } from 'antd'
 import {
@@ -12,8 +6,6 @@ import {
   defaultTitle,
   type RecordType,
 } from './_compare/dynamic-settings.shared'
-
-// 内联 DownOutlined（More 链接右侧小箭头）— 避免 @ant-design/icons 直接依赖。两侧各自声明。
 function DownOutlined() {
   return (
     <svg
@@ -121,15 +113,12 @@ export default function DynamicSettingsAntd({
   const antdRowSelection: AntdTableProps<RecordType>['rowSelection'] = rowSelectionEnabled
     ? {}
     : undefined
-
-  // antd scroll.y 用数字（不认 true）。virtual ON → 300 填 400 区扣表头/分页；yScroll ON → 240。
   const antdScroll: { x?: number | string; y?: number } = {}
   if (yScroll) {
     antdScroll.y = 240
   } else if (virtual) {
     antdScroll.y = 300
   }
-  // scroll.x 两侧统一为 '120vw'（对齐 antd 官方 dynamic-settings 原值）。
   if (xScroll !== 'unset') {
     antdScroll.x = '120vw'
   }
@@ -163,3 +152,4 @@ export default function DynamicSettingsAntd({
     </div>
   )
 }
+

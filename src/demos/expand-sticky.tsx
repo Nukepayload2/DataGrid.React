@@ -1,11 +1,3 @@
-/**
- * 参考 antd `expand-sticky` demo：
- *   `G:\Projects\ant-design\components\table\demo\expand-sticky.tsx`
- *
- * 双栏对照：bordered + Team 列每 2 行合并 + EXPAND_COLUMN 哨兵控制展开列位置。
- * `expandedRowKeys` 受控（同一份 state 同时驱动两侧）+ 顶部「Expand All / Collapse All」
- * 按钮组一键展开/收起。共享数据见 `_compare/expand-sticky.shared.ts`。
- */
 
 import { useState } from 'react'
 import { Button, Space, theme } from 'antd'
@@ -96,3 +88,4 @@ export default function ExpandStickyDemo() {
     </div>
   )
 }
+

@@ -1,8 +1,3 @@
-/**
- * nested-table demo 的 antd 段（右栏）。
- * 忠实复刻 antd nested-table demo：antd `<Table>` 主表 + antd `<Table>` 子表 +
- * antd `<DownOutlined>`（@ant-design/icons）。
- */
 import { Badge, Dropdown, Space, Table as AntdTable } from 'antd'
 import type { TableColumnsType, TableProps } from 'antd'
 import { DownOutlined } from '@ant-design/icons'
@@ -50,9 +45,7 @@ const antdColumns: TableColumnsType<RecordType> = [
   { title: 'Action', key: 'operation', render: () => <a>Publish</a> },
 ]
 
-// defaultExpandedRowKeys 是配置型初值（非受控），随 expandable 派生即可。
 const antdExpandable: NonNullable<TableProps<RecordType>['expandable']> = {
-  // 嵌套子 Table 是真实 antd <Table>。
   expandedRowRender: () => (
     <AntdTable<ExpandedDataType>
       columns={antdExpandColumns}

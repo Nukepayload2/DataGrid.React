@@ -1,18 +1,8 @@
-/**
- * fixed-columns-header demo 的 antd 段（右栏）。
- *
- * props 驱动 `{ bordered, virtual }`（由 fixed-columns-header.tsx 父组件传）。
- * 自包含：含 `antdColumns`（Full Name/Age fixed start + Column 1-20 + Action fixed end）+
- * `<AntdTable>` JSX。
- * 忠实复刻 antd 官方 fixed-columns-header demo：scroll x max-content + y 55*5 + pagination false。
- */
 import { Table as AntdTable } from 'antd'
 import type { TableColumnsType } from 'antd'
 import { dataSource, type DataType } from './_compare/fixed-columns-header.shared'
 
-// ---------------------------------------------------------------------------
 // 右栏（antd）列定义 —— 忠实复刻 antd 官方 fixed-columns-header demo
-// ---------------------------------------------------------------------------
 
 const antdColumns: TableColumnsType<DataType> = [
   { title: 'Full Name', width: 100, dataIndex: 'name', key: 'name', fixed: 'start' },
@@ -66,3 +56,4 @@ export default function FixedColumnsHeaderAntd({
     />
   )
 }
+

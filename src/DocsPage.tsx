@@ -1,14 +1,4 @@
-/**
- * DocsPage（Part 2）—— data-grid 类 antd 文档页（实质内容）。
- *
- * 左 Affix + Anchor TOC（6 章 id 锚点），右内容区（maxWidth ~900）。
- * 内容来源：`src/table/types.ts` 公开类型（TableProps / ColumnType / Expandable /
- * TableRowSelection / TablePaginationConfig / TableComponents 等导出注释），
- * 以及 `src/demos/index.ts` 各 demo description 反映的能力面。
- *
- * App.tsx 用默认导入：`import DocsPage from './DocsPage'`。
- * 可选 props.section（来自路由 `#/docs/<section>`）—— 挂载后滚到对应 id。
- */
+/** docs 视图：左侧目录，右侧正文。 */
 
 import { useEffect, useRef } from 'react'
 import type { CSSProperties } from 'react'

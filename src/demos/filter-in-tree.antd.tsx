@@ -1,18 +1,8 @@
-/**
- * filter-in-tree demo 的 antd 段（右栏）。
- *
- * props 驱动 `{ bordered, virtual }`（与左栏 dg 子组件同款签名）。
- * 自包含：含 `antdColumns`（Name filterMode:'tree' + filters 含 children + filterSearch +
- * onFilter name.includes / Age sorter / Address menu filters + filterSearch startsWith）+
- * `<AntdTable>` JSX + 共用 `onChange` console.log。筛选/排序瞬时态非受控，由 Table 内部管理。
- */
 import { Table as AntdTable } from 'antd'
 import type { TableColumnsType, TableProps } from 'antd'
 import { data, type RecordType } from './_compare/filter-in-tree.shared'
 
-// ---------------------------------------------------------------------------
 // 列定义 —— 复刻 antd filter-in-tree demo
-// ---------------------------------------------------------------------------
 
 const antdColumns: TableColumnsType<RecordType> = [
   {
@@ -81,9 +71,7 @@ const antdColumns: TableColumnsType<RecordType> = [
   },
 ]
 
-// ---------------------------------------------------------------------------
 // onChange（与 dg 子组件共用同一个 console.log 形态）
-// ---------------------------------------------------------------------------
 
 const onChange: TableProps<RecordType>['onChange'] = (
   pagination,
@@ -100,9 +88,7 @@ const onChange: TableProps<RecordType>['onChange'] = (
   })
 }
 
-// ---------------------------------------------------------------------------
 // 子组件
-// ---------------------------------------------------------------------------
 
 // props 默认值同左栏 dg（见 dg 子文件注释）。
 export default function FilterInTreeAntd({
@@ -126,3 +112,4 @@ export default function FilterInTreeAntd({
     />
   )
 }
+

@@ -1,8 +1,3 @@
-/**
- * nest-table-border-debug demo 的 data-grid 段（左栏）。
- * 主表 + expandedRowRender 返回嵌套子 data-grid `<Table>`（独立 grid 上下文，与主表正交），
- * 子 Table bordered 由 childTableBordered 驱动。内联 `DgDownOutlined`（避免直接依赖 @ant-design/icons）。
- */
 import { Badge, Dropdown, Space } from 'antd'
 import { Table } from '../table'
 import type { ColumnType, Expandable } from '../table'
@@ -56,8 +51,6 @@ const dgColumns: ColumnType<RecordType>[] = [
   { title: 'Action', key: 'operation', render: () => <a>Publish</a> },
 ]
 
-// 内联 DownOutlined（More 链接右侧的小箭头）——避免直接依赖 @ant-design/icons
-// （仅 antd 间接依赖）。SVG 路径取自 ant-design-icons DownOutlined。
 function DgDownOutlined() {
   return (
     <svg
@@ -82,8 +75,6 @@ export default function NestTableBorderDebugDg({
   childTableBordered: boolean
   virtual: boolean
 }) {
-  // expandedRowRender 闭包捕获 childTableBordered——切换 Switch 时主表 columnTree 重建，
-  // 子 Table 用新 bordered 重新渲染。
   const dgExpandable: Expandable<RecordType> = {
     expandedRowRender: () => (
       <Table<ExpandedDataType>

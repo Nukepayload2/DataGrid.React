@@ -1,11 +1,3 @@
-/**
- * 复刻 antd `jsx` demo：`G:\Projects\ant-design\components\table\demo\jsx.tsx`。
- *
- * 双栏对照：左栏 data-grid Table（用 JSX `<Table.Column>`/`<Table.ColumnGroup>` 子元素声明列），
- * 右栏忠实复刻 antd jsx demo。共享 `Bordered` 开关 + 受控 `bordered` state 同时驱动两侧；
- * 共享数据见 `_compare/jsx.shared.ts`。
- */
-
 import { useState } from 'react'
 import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
@@ -14,17 +6,12 @@ import { useVirtualization } from './VirtualizationContext'
 import JsxDg from './jsx.dg'
 import JsxAntd from './jsx.antd'
 
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
-
 export default function JsxDemo() {
   const [bordered, setBordered] = useState(false)
   const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。 */}
       <DemoToolbar>
         <Space>
           <Switch
@@ -35,11 +22,6 @@ export default function JsxDemo() {
           />
         </Space>
       </DemoToolbar>
-
-      {/*
-        minPaneWidth=480（窄表，5 列含 Name 分组 → 6 叶子列，无 scroll.x）→ 横排阈值 ≈ 976。
-        常规笔记本视口（≥1024）即可横排。
-      */}
       <SplitDemo
         minPaneWidth={480}
         left={<JsxDg bordered={bordered} virtual={virtual} />}

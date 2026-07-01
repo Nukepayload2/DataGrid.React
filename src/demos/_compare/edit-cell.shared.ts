@@ -1,19 +1,3 @@
-/**
- * edit-cell 左右对比 demo 的共享配置。
- *
- * 提取两侧都复用的类型与初始数据。单元格组件（EditableCell）/ 行组件（EditableRow）/
- * Form context 因两侧实现不同（data-grid div 渲染适配 vs antd td/tr 原生），保留在各自 demo
- * 文件，但均引用本文件的 `RecordType` 与 `defaultData`/`defaultCount`。
- *
- * === antd demo 共享要素 ===
- *
- * - `components.body.row = EditableRow`：每行独立 Form（`Form.useForm()`）+ EditableContext.Provider。
- * - `components.body.cell = EditableCell`：editing 态 Form.Item+Input，展示态 div.editable-cell-value-wrap。
- * - `column.onCell(record)` 返回 `{ record, editable, dataIndex, title, handleSave }`。
- * - 增删行：Add button（count 递增）+ Delete Popconfirm（>=1 行显示）。
- * - rowClassName='editable-row' + CSS（editable-cell-value-wrap padding/border on hover）。
- */
-
 /** 记录类型。两侧共用。 */
 export interface RecordType {
   key: React.Key

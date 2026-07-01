@@ -1,38 +1,18 @@
-/**
- * custom-filter-panel 双栏对照 demo：复刻 antd custom-filter-panel demo。
- *
- * 左栏 data-grid / 右栏 antd Table 均用 `getColumnSearchProps` 工厂注入 `filterDropdown`（antd Input 搜索框 +
- * Search/Reset/Filter/close 四按钮）+ `filterIcon`（放大镜，激活态 colorPrimary）+ `onFilter` +
- * `filterDropdownProps.onOpenChange`（打开时聚焦 Input）+ `render`（react-highlight-words 命中高亮）。
- * Address 列额外带 `sorter`。
- *
- * filterDropdown 内搜索词（searchText/searchedColumn/searchInput）属局部交互状态，两侧各自独立维护
- * （点左栏搜索不影响右栏，对照价值在于看两栏独立操作下行为是否一致）。共享 Bordered 开关 + 共享数据
- * （`RecordType` + `data` + `DataIndex` 见 `_compare/custom-filter-panel.shared.ts`）。
- */
-
 import { useState } from 'react'
 import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（SplitDemo pane 自动限高，虚拟窗口才有滚动区）
 import { useVirtualization } from './VirtualizationContext'
 import CustomFilterPanelDg from './custom-filter-panel.dg'
 import CustomFilterPanelAntd from './custom-filter-panel.antd'
 
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
-
 export default function CustomFilterPanelDemo() {
-  // 共享 Bordered 开关同时驱动两侧。
   const [bordered, setBordered] = useState(false)
-  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y。
   const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* 共享控制条：全宽，在 SplitDemo 上方。DemoToolbar 用 useToken 适配主题。 */}
+      
       <DemoToolbar>
         <Space>
           <Switch
@@ -44,10 +24,7 @@ export default function CustomFilterPanelDemo() {
         </Space>
       </DemoToolbar>
 
-      {/*
-        minPaneWidth=480（窄表，3 列；Name/Age 有 width 百分比 + Address 自适应）→ 横排阈值 ≈ 976。
-        常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。
-      */}
+      
       <SplitDemo
         minPaneWidth={480}
         left={
@@ -95,3 +72,4 @@ export default function CustomFilterPanelDemo() {
     </div>
   )
 }
+

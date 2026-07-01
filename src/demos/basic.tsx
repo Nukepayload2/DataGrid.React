@@ -1,8 +1,3 @@
-/**
- * basic 双栏对照 demo：同一 `Bordered` 开关 + 虚拟化开关同步驱动左栏 data-grid 与右栏 antd
- * Table，对照「有/无边框」两侧行为是否一致。
- */
-
 import { useState } from 'react'
 import { Space, Switch } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
@@ -12,7 +7,6 @@ import BasicDg from './basic.dg'
 import BasicAntd from './basic.antd'
 
 export default function BasicDemo() {
-  // 共享状态：同一个 bordered 同时驱动两侧表格。
   const [bordered, setBordered] = useState(false)
   const { virtual } = useVirtualization()
 
@@ -29,10 +23,7 @@ export default function BasicDemo() {
         </Space>
       </DemoToolbar>
 
-      {/*
-        minPaneWidth=480（窄表，3-5 列无 scroll.x）→ 横排阈值 ≈ 480×2 + 16 = 976。
-        常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。
-      */}
+      
       <SplitDemo
         minPaneWidth={480}
         left={<BasicDg bordered={bordered} virtual={virtual} />}
@@ -69,3 +60,4 @@ export default function BasicDemo() {
     </div>
   )
 }
+

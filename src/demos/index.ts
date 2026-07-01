@@ -1,8 +1,4 @@
 import type { DemoMeta } from './registry'
-
-/**
- * demo 注册表。后续任务把自己的 demo 加到这里即可挂到路由。
- */
 export const demos: DemoMeta[] = [
   {
     name: 'basic',
@@ -478,6 +474,5 @@ export const demos: DemoMeta[] = [
     compare: true,
     category: '尺寸响应与样式',
   },
-  // theme-editor 已从注册表移除（门户重构）：通过顶栏 Modal（src/ThemeEditorModal.tsx）
-  // 打开，不再走 #/demos/theme-editor 路由。ThemeEditorPanel 仍在 src/demos/theme-editor.tsx。
+  // Theme editor now opens from the top-bar modal instead of a demo route.
 ]

@@ -1,10 +1,3 @@
-/**
- * ellipsis demo 的 data-grid 段（左栏）。
- *
- * props 驱动 `{ bordered, virtual }`（由 ellipsis.tsx 父组件传）。
- * 自包含：含 `dgColumns` + `<Table>` JSX。
- * `column.ellipsis: true` → data-grid ellipsis CSS 类（对齐 antd `genEllipsisStyle`）+ 默认 native title 提示。
- */
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { data, type RecordType } from './_compare/ellipsis.shared'
@@ -70,3 +63,4 @@ export default function EllipsisDg({
     />
   )
 }
+

@@ -1,8 +1,3 @@
-/**
- * edit-row 双栏对照 demo：行级 editingKey + Edit/Save/Cancel + InputNumber(age)/Input +
- * 100 行分页 + Form 外层。两侧各自维护 form/data/editingKey state（初始数据相同，
- * 见 `_compare/edit-row.shared.ts`）。
- */
 
 import { SplitDemo } from './_compare/SplitDemo'
 // 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y。
@@ -10,9 +5,7 @@ import { useVirtualization } from './VirtualizationContext'
 import EditRowDg from './edit-row.dg'
 import EditRowAntd from './edit-row.antd'
 
-// ===========================================================================
 // Demo 根组件
-// ===========================================================================
 
 export default function EditRowDemo() {
   // 虚拟化开关接入：顶栏 Switch ON 时两侧 Table 叠加 virtual + scroll.y。
@@ -63,3 +56,4 @@ export default function EditRowDemo() {
     </div>
   )
 }
+

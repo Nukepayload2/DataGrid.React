@@ -1,41 +1,21 @@
-/**
- * order-column 双栏对照 demo：复刻 antd
- *   `G:\Projects\ant-design\components\table\demo\order-column.tsx`。
- * 共享数据驱动左栏 data-grid 与右栏 antd Table 的 `EXPAND_COLUMN` +
- * `SELECTION_COLUMN` 哨兵控制展开/选择列位置（Name → 展开 → Age → 选择 → Address）。
- */
-
 import { useState } from 'react'
 import { theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
-// 全局虚拟化开关接入：开关 ON 时叠加 virtual + scroll.y（split pane 自动限高 400px）
 import { useVirtualization } from './VirtualizationContext'
 import OrderColumnDg from './order-column.dg'
 import OrderColumnAntd from './order-column.antd'
 
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
-
 export default function OrderColumnDemo() {
-  // 左栏 rowSelection 受控（便于页面下方显示 selectedKeys）。
   const [selectedKeys, setSelectedKeys] = useState<Array<React.Key>>([])
-  // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y。
   const { virtual } = useVirtualization()
-  // 主题 token：选中态可视化区文字色 token 化，暗主题自适应。
   const { token } = theme.useToken()
 
-  // 左栏 dg 选择变化写回父 state（驱动父底部 selectedKeys 可视化区刷新）。
   const onSelectedKeysChange = (keys: Array<React.Key>) => {
     setSelectedKeys(keys)
   }
 
   return (
     <div style={{ padding: 24 }}>
-      {/*
-        minPaneWidth=480（5 列含展开/选择哨兵，无 scroll.x）→ 横排阈值 ≈ 976。
-        常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。
-      */}
       <SplitDemo
         minPaneWidth={480}
         left={
@@ -87,7 +67,6 @@ export default function OrderColumnDemo() {
         </div>
       </SplitDemo>
 
-      {/* 左栏选中态可视化区（data-grid 受控 selectedKeys，antd demo 无此区）。 */}
       <div
         style={{
           marginTop: 16,

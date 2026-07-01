@@ -1,14 +1,4 @@
-/**
- * theme-editor demo 的共享配置。
- *
- * 与 component-token.shared 同款结构（RecordType + dataSource），但数据行更丰富
- * （含可排序列 Age 数值差异 + 可筛选列 Address 取值分布），用于触发：
- *   - 排序 caret（headerSortHoverBg / headerSortActiveBg 视觉变化）
- *   - 筛选下拉（filterDropdownBg / filterDropdownMenuBg）
- *   - 行选择 checkbox（rowSelectedBg / rowSelectedHoverBg）
- *
- * 两侧（data-grid + antd）共用同一份，列定义因类型不同保留在各 demo 文件。
- */
+/** theme-editor 对照 demo 的共享数据。 */
 
 /** 共享记录类型。两侧共用。 */
 export interface RecordType {
@@ -19,7 +9,7 @@ export interface RecordType {
   description: string
 }
 
-/** 12 行数据（Address 取值分布在 London/New York 两类，便于 filters 演示）。两侧复用同一份。 */
+/** 12 行对照数据，覆盖排序、筛选和选中态相关的可视状态。 */
 export const dataSource: RecordType[] = Array.from({ length: 12 }).map<
   RecordType
 >((_, i) => ({

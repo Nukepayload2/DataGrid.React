@@ -1,23 +1,11 @@
-/**
- * virtual-list demo 的 antd 段（右栏），忠实复刻 antd 官方 virtual-list demo。
- *
- * 强制虚拟 demo：自身永久 `virtual=true` + `scroll={{x:2000, y:400}}` + `pagination={false}`，
- * 内部硬编码不接 virtual prop。
- *
- * props：`{ bordered, fixed, expanded, empty, data, tableRef }`（由父组件传）。
- */
 import { useMemo } from 'react'
 import type { Ref } from 'react'
 import { Space, Table as AntdTable, Typography } from 'antd'
 import type { GetRef, TableProps } from 'antd'
 import { getData, type RecordType } from './_compare/virtual-list.shared'
 
-/** antd Table 的 ref 实例类型（含 scrollTo）。antd 顶层未导出 TableRef，用 GetRef 取得。 */
+/** antd Table ref type with `scrollTo`. */
 type AntdTableRef = GetRef<typeof AntdTable>
-
-// ---------------------------------------------------------------------------
-// 右栏（antd）列定义 —— 忠实复刻 antd 官方 virtual-list demo
-// ---------------------------------------------------------------------------
 
 const antdFixedColumns: NonNullable<TableProps<RecordType>['columns']> = [
   {

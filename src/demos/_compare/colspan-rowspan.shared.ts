@@ -1,16 +1,3 @@
-/**
- * colspan-rowspan 左右对比 demo 的共享配置。
- *
- * 提取两侧都复用的类型、数据、合并 onCell 共享函数：
- *   - `DataType`：6 字段记录（key/name/age/tel/phone/address）。
- *   - `data`：5 行固定数据（antd 官方 demo 同字面量，合并边界依赖 index===1/3/4）。
- *   - `sharedOnCell`：第 2 行（index===1）Age/Home phone/Phone/Address 列被 Name 的 colSpan:5
- *     覆盖 → 返回 colSpan:0。两侧共用同一函数（合并语义对齐）。
- *
- * 列定义因两侧类型差异（data-grid `ColumnType` vs antd `TableProps['columns']`，render
- * 重载签名不同）保留在各自 demo 文件，但 colSpan/onCell/rowScope 字段逐字一致。
- */
-
 /** 记录类型。两侧共用。 */
 export interface DataType {
   key: string

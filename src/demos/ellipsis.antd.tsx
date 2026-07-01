@@ -1,10 +1,3 @@
-/**
- * ellipsis demo 的 antd 段（右栏）。
- *
- * props 驱动 `{ bordered, virtual }`（由 ellipsis.tsx 父组件传）。
- * 自包含：含 `antdColumns` + `<AntdTable>` JSX。
- * 忠实复刻 antd ellipsis demo：antd 原生 `column.ellipsis: true` + antd 默认 title 提示。
- */
 import { Table as AntdTable } from 'antd'
 import type { TableProps } from 'antd'
 import { data, type RecordType } from './_compare/ellipsis.shared'
@@ -68,3 +61,4 @@ export default function EllipsisAntd({
     />
   )
 }
+

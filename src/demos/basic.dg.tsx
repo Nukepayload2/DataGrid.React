@@ -1,16 +1,6 @@
-/**
- * basic demo 的 data-grid 段（左栏）。
- *
- * props：`{ bordered, virtual }`（由父组件传）。左栏用内联最小 Tag、Action 用 `<span>` + flex
- * （避免引入 antd Tag/Space）。
- */
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { data, tagColor, type RecordType } from './_compare/basic.shared'
-
-/**
- * 左栏内联最小 Tag：data-grid 不依赖 antd Tag，用手写预设色色板 + 边框/背景还原外观。
- */
 const inlineTagColorMap: Record<string, string> = {
   geekblue: '#2f54eb',
   green: '#389e0d',
@@ -106,11 +96,11 @@ export default function BasicDg({
       columns={dgColumns}
       dataSource={data}
       bordered={bordered}
-      /* pagination={{}}：对齐 antd 默认分页条（antd 对任意行数都渲染分页条；data-grid 不传=不渲染）。
-         详见 docs/design-notes/pagination.md */
       pagination={{}}
       virtual={virtual}
       scroll={virtual ? { y: true } : undefined}
     />
   )
 }
+
+

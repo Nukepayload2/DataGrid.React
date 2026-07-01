@@ -1,12 +1,3 @@
-/**
- * 复刻 antd ellipsis demo：`G:\Projects\ant-design\components\table\demo\ellipsis.tsx`。
- *
- * 双栏对照：
- * - 左栏（data-grid Table）：`column.ellipsis: true` → ellipsis CSS 类 + 默认 native title 提示。
- * - 右栏（antd Table）：忠实复刻 antd ellipsis demo（antd 原生 `column.ellipsis: true` + antd 默认 title 提示）。
- * - 共享控制条：`Bordered` 开关同时驱动两侧表格，对照「有/无边框」下省略号视觉是否一致。
- *   共享数据见 `_compare/ellipsis.shared.ts`。
- */
 
 import { useState } from 'react'
 import { Space, Switch } from 'antd'
@@ -74,3 +65,4 @@ export default function EllipsisDemo() {
     </div>
   )
 }
+

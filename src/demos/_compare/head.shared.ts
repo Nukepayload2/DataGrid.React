@@ -1,14 +1,3 @@
-/**
- * head 左右对比 demo 的共享配置。
- *
- * 提取两侧都复用的类型与数据。列定义因两侧类型/render 不同（data-grid `ColumnType` 与
- * antd `TableProps['columns']` 的 sorter/filters 类型归属不同；filter 下拉控件 data-grid
- * 引擎自绘 vs antd 原生），保留在各自 demo 文件，但均引用本文件的 `RecordType` 与 `data`，
- * 且列字段逐字一致（Name sorter+filters / Age sorter+defaultSortOrder / Address filters+filterMultiple:false）。
- *
- * 与 antd `components/table/demo/head.tsx` 逐字一致。
- */
-
 /** 记录类型。两侧共用。 */
 export interface RecordType {
   key: React.Key

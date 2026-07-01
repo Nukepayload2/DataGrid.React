@@ -1,25 +1,3 @@
-/**
- * 复刻 antd `sticky` demo：
- *   `G:\Projects\ant-design\components\table\demo\sticky.tsx`
- *
- * antd 原版要素：
- *   - 100 行（Edward 0..99，age 32，address London Park no. i）。
- *   - 11 列：Full Name（fixed start, 100）/ Age（fixed start, 100）/ Column 1..8（address，150/.../auto）/
- *     Action（fixed end, 100，render `<a>action</a>`）。
- *   - `scroll={{ x: 1500 }}` 横向滚动。
- *   - `summary`：单行，Switch 切换 fixed top/bottom + "Scroll Context" + "Fix Right"。
- *
- * 双栏对照（容器内固定表头，适配 app-shell）：
- * - 左栏（data-grid Table）：容器内固定表头（`scroll={{ x: 1500, y: true }}`，父容器 height:500）+
- *   fixed 列 + summary fixed（Switch on/off）。
- * - 右栏（antd Table）：忠实复刻 antd 官方 sticky demo 的列结构与 summary（同列结构 + summary
- *   fixed top/bottom Switch + 100 行），用 `scroll={{ x: 1500, y: 400 }}`（antd 接受数字 y）。
- * - 共享控制条：`Summary Fixed` 开关（同一状态）同时驱动两侧 summary 的 fixed 行为。共享数据见
- *   `_compare/sticky.shared.ts`。
- *
- * 容器内固定表头由页面级 sticky 改造 — 详见 docs/design-notes/sticky.md
- */
-
 import { useState } from 'react'
 import { Space, Switch, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
@@ -27,20 +5,12 @@ import { DemoToolbar } from './_compare/DemoToolbar'
 import StickyDg from './sticky.dg'
 import StickyAntd from './sticky.antd'
 
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
-
 export default function StickyDemo() {
-  // 共享状态：同一个状态同时驱动两侧 summary 的 fixed 行为。
-  // 左栏 data-grid：summaryFixed true/false（on/off）。
-  // 右栏 antd：fixedTop true→'top' / false→'bottom'（忠实 antd demo 顶/底切换）。
   const [summaryFixed, setSummaryFixed] = useState(false)
   const { token } = theme.useToken()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* 顶部说明区：讲解容器内固定表头行为，适配 app-shell（Content 内滚，无页面滚动）。 */}
       <p style={{ color: token.colorTextSecondary }}>
         容器内固定表头（适配 app-shell）：滚动<strong>表格内部</strong>，两侧表头都会钉在表格容器顶部
         （左栏 data-grid <code>scroll.y: true</code> + 父容器 <code>height:500</code>；右栏 antd
@@ -62,16 +32,8 @@ export default function StickyDemo() {
         </Space>
       </DemoToolbar>
 
-      {/*
-        minPaneWidth=900 → 横排阈值 ≈ 900×2 + 16 = 1816px。纯 CSS flex-wrap 自适应（无 JS）。
-        本 demo 含 scroll.x:1500 的宽表（11 列），半宽（~960px at 1920 视口）下每栏仅 ~480px
-        太挤、横滚严重；取大阈值使常规笔记本视口（1440–1920）下 **竖排**（每栏全宽，对 1500px
-        宽表 + 容器内固定表头更友好），仅超宽屏（≥2200）才横排。
-      */}
       <SplitDemo
         minPaneWidth={900}
-        // virtualizable={false}：聚焦容器内固定表头演示，不接入全局「Virtual」开关，
-        // 避免虚拟化引入额外变量干扰 sticky 表头对照。
         virtualizable={false}
         left={
           <StickyDg
@@ -126,7 +88,6 @@ export default function StickyDemo() {
         </div>
       </SplitDemo>
 
-      {/* 底部说明区：表格内部滚动到底部时表头仍钉在容器顶部。 */}
       <p style={{ padding: '16px 0', color: token.colorTextSecondary }}>
         表格内部滚动到底部 — 两侧表头均钉在表格容器顶部（容器内固定表头，适配 app-shell）。
       </p>

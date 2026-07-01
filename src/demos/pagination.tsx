@@ -1,8 +1,3 @@
-/**
- * 分页 placement 双栏对照 demo：顶部一个 `Radio.Group`（6 位置 + none 互斥选一）
- * 同步驱动左栏 data-grid 与右栏 antd Table 的分页器位置（placement 单元素数组 = 单翻页器）。
- */
-
 import { useState } from 'react'
 import { Radio } from 'antd'
 import type { CheckboxOptionType } from 'antd'
@@ -16,21 +11,12 @@ import { useVirtualization } from './VirtualizationContext'
 import PaginationDg from './pagination.dg'
 import PaginationAntd from './pagination.antd'
 
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
-
 export default function PaginationDemo() {
-  // 共享 placement（驱动顶部 Radio.Group + 两侧分页器位置），默认 bottomEnd（antd Table 真实默认）。
   const [placement, setPlacement] = useState<TablePaginationPlacement>('bottomEnd')
   const { virtual } = useVirtualization()
 
   return (
     <div style={{ padding: 24 }}>
-      {/*
-        顶部全宽控制条：Radio.Group（6 位置 + none 互斥），同一 state 驱动两侧 pagination.placement。
-        DemoToolbar 用 useToken 适配主题。
-      */}
       <DemoToolbar>
         <Radio.Group
           options={placementOptions as CheckboxOptionType[]}
@@ -38,11 +24,6 @@ export default function PaginationDemo() {
           onChange={(e) => setPlacement(e.target.value)}
         />
       </DemoToolbar>
-
-      {/*
-        minPaneWidth=480（窄表，5 列无 scroll.x）→ 横排阈值 ≈ 480×2 + 16 = 976。
-        常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。
-      */}
       <SplitDemo
         minPaneWidth={480}
         left={<PaginationDg placement={placement} virtual={virtual} />}

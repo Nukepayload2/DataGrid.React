@@ -1,14 +1,3 @@
-/**
- * filter-in-tree 双栏对照 demo：复刻 antd filter-in-tree demo。
- *
- * 左栏 data-grid / 右栏 antd Table 均演示 `filterMode:'tree'` 树形筛选：Name 列 `filterMode:'tree'` +
- * filters 含 children（Joe / Category 1→[Yellow,Pink] / Category 2→[Green,Black]）+ filterSearch（tree 模式
- * 搜索高亮命中节点，不隐藏）；Address 列默认 menu + filterSearch。tree/menu 共存（互不影响）。两侧均用
- * antd `<Tree checkable>` 父子联动，行为一致。
- *
- * 共享 Bordered 开关 + 共享数据（`RecordType` + `data` 见 `_compare/filter-in-tree.shared.ts`）。
- * 筛选/排序瞬时态非受控，由 Table 内部管理。
- */
 
 import { useState } from 'react'
 import { Space, Switch } from 'antd'
@@ -19,9 +8,7 @@ import { useVirtualization } from './VirtualizationContext'
 import FilterInTreeDg from './filter-in-tree.dg'
 import FilterInTreeAntd from './filter-in-tree.antd'
 
-// ---------------------------------------------------------------------------
 // Demo 根组件
-// ---------------------------------------------------------------------------
 
 export default function FilterInTreeDemo() {
   // 共享 Bordered 开关同时驱动两侧。
@@ -74,3 +61,4 @@ export default function FilterInTreeDemo() {
     </div>
   )
 }
+

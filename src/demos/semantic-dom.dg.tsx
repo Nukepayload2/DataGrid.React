@@ -1,9 +1,3 @@
-/**
- * semantic-dom demo 的 data-grid 段（左栏）。
- *
- * 列定义（Personal Info 分组表头 + Name rowScope + Age sorter）+ 13 槽位 classNames/styles 染色。
- * 内部 sortOrder 态点击 Age 表头排序后显示在表格下方。props `{ bordered, virtual }` 仅作兜底。
- */
 import { useState } from 'react'
 import type { CSSProperties } from 'react'
 import { Table } from '../table'
@@ -14,8 +8,6 @@ import type {
 } from '../table'
 import { semanticData, type SemanticRecord } from './_compare/semantic-dom.shared'
 
-// 13 槽位 classNames（与 antd 子组件逐字同款）。header.wrapper / body.wrapper 在 dg 渲染层
-// 无对应 DOM，引擎忽略——这正是要演示的架构限制差异。详见 docs/design-notes/layout.md。
 const dgClassNames: TableClassNames<SemanticRecord> = {
   root: 'dg-semi-slot-root',
   section: 'dg-semi-slot-section',
@@ -23,13 +15,13 @@ const dgClassNames: TableClassNames<SemanticRecord> = {
   title: 'dg-semi-slot-title',
   footer: 'dg-semi-slot-footer',
   header: {
-    wrapper: 'dg-semi-slot-header-wrapper', // dg 无 thead 容器 → 不渲染
-    row: 'dg-semi-slot-header-row', // 透传到表头行所有 cell
+    wrapper: 'dg-semi-slot-header-wrapper',
+    row: 'dg-semi-slot-header-row',
     cell: 'dg-semi-slot-header-cell',
   },
   body: {
-    wrapper: 'dg-semi-slot-body-wrapper', // dg 无 tbody 容器 → 不渲染
-    row: 'dg-semi-slot-body-row', // 透传到表体行所有 cell
+    wrapper: 'dg-semi-slot-body-wrapper',
+    row: 'dg-semi-slot-body-row',
     cell: 'dg-semi-slot-body-cell',
   },
   pagination: {
@@ -38,7 +30,6 @@ const dgClassNames: TableClassNames<SemanticRecord> = {
   },
 }
 
-// 每槽一种霓虹色 outline（用 inline style 确保 demo 自包含，无 CSS 文件依赖）。
 const slotOutline = (color: string): CSSProperties => ({
   outline: `2px dashed ${color}`,
   outlineOffset: -2,
@@ -65,7 +56,6 @@ const dgStyles: TableStyles<SemanticRecord> = {
   },
 }
 
-// Age 可排序（aria-sort 专项）+ Name rowScope（行表头语义演示）。
 const dgColumns: ColumnType<SemanticRecord>[] = [
   {
     title: 'Personal Info',
@@ -90,7 +80,6 @@ export default function SemanticDomDg({
   bordered?: boolean
   virtual?: boolean
 }) {
-  // sortOrder 态由子组件内部自管（非受控），onChange 回写显示在表格下方便于 devtools 对照 aria-sort。
   const [dgSortOrder, setDgSortOrder] = useState<'ascend' | 'descend' | null>(
     null,
   )

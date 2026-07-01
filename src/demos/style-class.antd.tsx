@@ -1,9 +1,3 @@
-/**
- * style-class demo 的 antd 段（右栏）。
- *
- * 忠实复刻 antd style-class demo（antd-style `createStaticStyles` 改为 antd v6 原生 `classNames` +
- * `styles`，视觉等价、零额外依赖）。两块 Table 同栏展示。props `{ virtual, scrollY }` 由父组件传入。
- */
 import type { TableProps as AntdTableProps } from 'antd'
 import { Table as AntdTable } from 'antd'
 import { dataSource as sharedData, type RecordType } from './_compare/style-class.shared'
@@ -20,7 +14,7 @@ const antdClassNames: NonNullable<AntdTableProps<RecordType>['classNames']> = {
   root: 'dg-style-class-root',
 }
 
-// 对象 styles（深色主题逐字复刻 antd 官方 style-class demo）。
+// Static dark-theme slot styles.
 const antdStyles: NonNullable<AntdTableProps<RecordType>['styles']> = {
   root: {
     padding: 10,
@@ -41,7 +35,7 @@ const antdStyles: NonNullable<AntdTableProps<RecordType>['styles']> = {
   },
 }
 
-// 函数 stylesFn：按 info.props.size 求值（size='medium' 时返回自定义深色样式）。
+// Function styles vary by table size.
 const antdStylesFn: NonNullable<AntdTableProps<RecordType>['styles']> = (info) => {
   if (info?.props?.size === 'medium') {
     return {

@@ -1,15 +1,3 @@
-/**
- * fixed-columns-header 左右对比 demo 的共享配置。
- *
- * 提取两侧都复用的类型与数据：
- *   - `DataType`：antd 官方 fixed-columns-header demo 的记录类型（4 字段）。
- *   - `dataSource`：100 行 demo 数据（对齐 antd demo `Edward King ${i}`）。
- *
- * 列定义因两侧类型差异（data-grid `ColumnType` 与 antd `TableColumnsType` 字段同名但
- * 类型来源不同），保留在各自 demo 文件，但字段（title/dataIndex/key/width/fixed/render）
- * 逐字一致。scroll 差异：data-grid 用 `scroll.y:true`（数据区域模式，CSS 自适应高度）；
- * antd 用数字 `scroll.y:55*5`（忠实官方）。
- */
 export interface DataType {
   key: string | number
   name: string

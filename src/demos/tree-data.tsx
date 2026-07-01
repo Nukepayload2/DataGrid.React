@@ -1,27 +1,18 @@
-/**
- * 复刻 antd tree-data demo：`G:\Projects\ant-design\components\table\demo\tree-data.tsx`。
- * 双栏对照 demo：树形数据（childrenColumnName='children'）+ 首列缩进 + 展开图标 +
- * checkStrictly 父子联动（共享 Switch 切换，默认 false = 父子联动）。
- */
-
 import { useState } from 'react'
 import { Space, Switch, theme } from 'antd'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
-// 虚拟化开关接入：顶栏 Switch ON 时两侧 Table 叠加 virtual + scroll.y。
 import { useVirtualization } from './VirtualizationContext'
 import TreeDataDg from './tree-data.dg'
 import TreeDataAntd from './tree-data.antd'
 
 export default function TreeDataDemo() {
-  // 共享 checkStrictly（驱动顶部 Switch + 两侧 rowSelection），默认 false（父子联动），对齐 antd demo。
   const [checkStrictly, setCheckStrictly] = useState(false)
   const { virtual } = useVirtualization()
   const { token } = theme.useToken()
 
   return (
     <div style={{ padding: 24 }}>
-      {/* 共享控制条：同一个 checkStrictly state 同时驱动两侧。 */}
       <DemoToolbar>
         <Space>
           <Switch
@@ -38,10 +29,6 @@ export default function TreeDataDemo() {
         </Space>
       </DemoToolbar>
 
-      {/*
-        minPaneWidth=480（窄表，3 列 + 选择列 = 4 列，无 scroll.x）→ 横排阈值 ≈ 976。
-        常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。
-      */}
       <SplitDemo
         minPaneWidth={480}
         left={<TreeDataDg checkStrictly={checkStrictly} virtual={virtual} />}

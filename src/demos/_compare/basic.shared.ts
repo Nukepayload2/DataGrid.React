@@ -1,11 +1,3 @@
-/**
- * basic 左右对比 demo 的共享配置。
- *
- * 提取两侧都复用的类型与数据。列定义因两侧类型/render 不同（data-grid `ColumnType` 用内联
- * 最小 Tag；antd `TableProps['columns']` 用 antd `<Tag>`/`<Flex>`/`<Space>`），保留在各自
- * demo 文件，但均引用本文件的 `RecordType` 与 `data`。
- */
-
 /** 记录类型。两侧共用。 */
 export interface RecordType {
   key: string

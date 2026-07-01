@@ -1,7 +1,3 @@
-/**
- * hidden-columns 双栏对照 demo：顶部 Checkbox.Group 控制列显隐，同一 checkedList
- * 同步驱动左栏 data-grid 与右栏 antd Table 的 `column.hidden`。
- */
 
 import { useState } from 'react'
 import { Checkbox, Divider } from 'antd'
@@ -23,9 +19,7 @@ const options = rawColumns.map(({ key, title }) => ({
   value: key,
 }))
 
-// ---------------------------------------------------------------------------
 // Demo 根组件
-// ---------------------------------------------------------------------------
 
 export default function HiddenColumnsDemo() {
   // 共享状态：同一个 checkedList 同时驱动两侧表格 + 顶部 Checkbox.Group。
@@ -87,3 +81,4 @@ export default function HiddenColumnsDemo() {
     </div>
   )
 }
+

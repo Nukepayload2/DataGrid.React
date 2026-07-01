@@ -1,13 +1,3 @@
-/**
- * filter-search 双栏对照 demo：复刻 antd filter-search demo。
- *
- * 左栏 data-grid / 右栏 antd Table 均演示 `filterSearch`：Name 列 `filterMode:'tree'` +
- * filterSearch（tree 模式搜索高亮命中节点，不隐藏）；Address 列默认 menu + filterSearch（顶部搜索框实时
- * 过滤筛选项列表）。两侧 tree/menu 行为完全对齐（data-grid FilterDropdown 用 antd `<Tree>`）。
- *
- * 共享 Bordered 开关 + 共享数据（`RecordType` + `data` 见 `_compare/filter-search.shared.ts`）。
- * 筛选非受控（不传受控 filteredValue），filterSearch 渲染的顶部搜索框由 FilterDropdown 内部管理。
- */
 
 import { useState } from 'react'
 import { Space, Switch } from 'antd'
@@ -18,9 +8,7 @@ import { useVirtualization } from './VirtualizationContext'
 import FilterSearchDg from './filter-search.dg'
 import FilterSearchAntd from './filter-search.antd'
 
-// ---------------------------------------------------------------------------
 // Demo 根组件
-// ---------------------------------------------------------------------------
 
 export default function FilterSearchDemo() {
   // 共享 Bordered 开关同时驱动两侧。
@@ -70,3 +58,4 @@ export default function FilterSearchDemo() {
     </div>
   )
 }
+

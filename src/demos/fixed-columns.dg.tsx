@@ -1,17 +1,9 @@
-/**
- * fixed-columns demo 的 data-grid 段（左栏）。
- *
- * props：`{ bordered, size, virtual }`（由父组件传）。Full Name/Age fixed start + Age sorter:true +
- * Column 1-20 + Action fixed end。
- */
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { dataSource, type DataType } from './_compare/fixed-columns.shared'
 
-// ---------------------------------------------------------------------------
 // 左栏（data-grid）列定义 —— 与 antd demo 列结构逐字一致（含 Age sorter:true）。
 // fixed 用 antd v6 逻辑属性 'start'/'end'（等价 'left'/'right'，RTL 自动适配）。
-// ---------------------------------------------------------------------------
 
 const dgColumns: ColumnType<DataType>[] = [
   {
@@ -81,3 +73,4 @@ export default function FixedColumnsDg({
     />
   )
 }
+

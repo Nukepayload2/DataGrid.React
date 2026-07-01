@@ -1,21 +1,9 @@
-/**
- * grouping-columns demo 的 data-grid 段（左栏）。
- *
- * props：`{ bordered, size, virtual, data }`（由父组件传）。多级表头任意深度嵌套 children +
- * Name fixed 'start' + filters/onFilter + Age sorter + Gender fixed 'end'。
- */
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { type DataType, initialData } from './_compare/grouping-columns.shared'
 
-// ---------------------------------------------------------------------------
 // 左栏（data-grid）列定义
-// ---------------------------------------------------------------------------
 
-// 多级表头列定义（任意深度嵌套 children）+ 固定列 + filters/sorter。
-// 与 antd 官方 demo 的列结构逐字一致（title/dataIndex/key/width/children 嵌套，
-// 含 Name filters/onFilter、Age sorter）。
-// fixed 用 data-grid 逻辑属性 'start'/'end'（等价 antd 'left'/'right'，RTL 自动适配）。
 const dgColumns: ColumnType<DataType>[] = [
   {
     title: 'Name',
@@ -132,3 +120,4 @@ export default function GroupingColumnsDg({
     </div>
   )
 }
+

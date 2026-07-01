@@ -1,21 +1,8 @@
-/**
- * filter-search demo 的 data-grid 段（左栏）。
- *
- * props 驱动 `{ bordered, virtual }`（由 filter-search.tsx 父组件传）。
- * 自包含：含 `dgColumns`（Name filterMode:'tree' + filterSearch:true + filters 扁平 3 项
- * [Joe/Category 1/Category 2] / Age sorter / Address filterSearch:true + filters [London/New York]）
- * + 共用 `onChange` console.log + `<Table>` JSX。
- *
- * 筛选非受控（不传受控 filteredValue），filterSearch 渲染的顶部搜索框由 FilterDropdown 内部管理
- * （输入实时过滤/高亮筛选项，关闭下拉清空搜索值）。
- */
 import { Table } from '../table'
 import type { ColumnType, TableProps as DgTableProps } from '../table'
 import { data, type RecordType } from './_compare/filter-search.shared'
 
-// ---------------------------------------------------------------------------
 // 列定义 —— 对齐 antd（Name 带 filterMode:'tree'）
-// ---------------------------------------------------------------------------
 
 const dgColumns: ColumnType<RecordType>[] = [
   {
@@ -50,18 +37,14 @@ const dgColumns: ColumnType<RecordType>[] = [
   },
 ]
 
-// ---------------------------------------------------------------------------
 // onChange（与 antd 子组件共用同一个 console.log 形态）
-// ---------------------------------------------------------------------------
 
 const onChange: DgTableProps<RecordType>['onChange'] = (pagination, filters, sorter, extra) => {
   // eslint-disable-next-line no-console
   console.log('filter-search demo onChange params:', { pagination, filters, sorter, extra })
 }
 
-// ---------------------------------------------------------------------------
 // 子组件
-// ---------------------------------------------------------------------------
 
 // props 默认值：bordered=false / virtual=false（OFF 回 undefined scroll）。
 // 筛选非受控（filterSearch 渲染的顶部搜索框由 FilterDropdown 内部管理），无子组件内部 state。
@@ -87,3 +70,4 @@ export default function FilterSearchDg({
     />
   )
 }
+
