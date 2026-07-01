@@ -196,6 +196,6 @@
 | `gridOptions.autoScrollOnDrag` | 表级（规划）| 拖到边缘自动滚动。见 `docs/ag-grid-drag-candidates.md`。 | 无 |
 | `gridOptions.dragToPinColumn` / `hideColumnOnDragAway` / `rowDropTargets` / `dragPreview` / `multiRowReorder` | 表级（规划）| 拖拽增强候选。 | 无 |
 | `gridOptions.columnReorder` | 表级（规划）| 列重排总开关。 | 无 |
-| `gridColumnOptions.movable` / `lockPosition` / `cellDragSource` | 列级（规划）| 列级拖拽选项。 | 无 |
+| `gridColumnOptions.dragColumnLock` / `cellDragSource` | 列级（规划）| 列级拖拽选项。 | 无 |
 
 > 注：顶层 `rowHeight`/`headerHeight`/`resizable*` 在历史版本中位于 `TableProps` 顶层，正在硬迁移到 `gridOptions`（删顶层、更新 demo），详见 `docs/grid-options-namespace.md`。

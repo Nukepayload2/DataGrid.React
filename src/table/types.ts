@@ -382,41 +382,27 @@ export interface ColumnType<RecordType = any> {
   /**
    * data-grid 列级专属选项命名空间。
    *
-   * **与 antd 不兼容**：antd `ColumnType` 没有 movable / lockPosition 等概念，
+   * **与 antd 不兼容**：antd `ColumnType` 没有 dragColumnLock 等概念，
    * 故 dg 列级专属字段一律归入此命名空间（顶层 `ColumnType` 只保留与 antd 同名同义字段）。
    *
-   *   - `movable`：列是否可拖拽换位（列拖拽排序）。
-   *   - `lockPosition`：锁定列位置（拖拽换位不可移动此列）。
+   *   - `dragColumnLock`：列拖拽锁定模式（列拖拽排序）。
    */
   gridColumnOptions?: {
     /**
-     * 该列是否可拖拽换位（列拖拽排序）。
+     * 列拖拽锁定模式。
      *
-     * **语义（对齐 ag-grid `colDef.suppressMovable`，取反；默认 true）**：
-     *   - `true` / undefined：该列可拖（默认行为，与列拖拽 demo 总是可拖一致）。
-     *   - `false`：该列**不可发起拖拽**（pointerdown 命中此列表头格不启动拖；其它列仍可拖）。
+     * **语义**：
+     *   - `undefined`：不锁定（默认），该列可发起拖拽，也可被其它列重排影响。
+     *   - `'lockDrag'`：锁定拖拽发起。该列**不可发起拖拽**，但其它列拖拽时它仍可被动让位 /
+     *     换位。
+     *   - `'lockPosition'`：锁定拖拽发起 + 锁定 index。该列不可发起拖拽，且重排算法保持其
+     *     columns index 恒定；拖拽动画中可临时位移以预览 drop 后真实位置。
      *
-     * 仅控制"能否发起"列拖，不影响此列在其它列拖拽重排时被动让位。
-     * 与 `lockPosition` 互补：movable=false 仅禁发起，lockPosition=true 还禁止被动移位。
-     *
-     * 全局还要受 `gridOptions.columnReorder`（默认 true）约束——三者组合见 `useColumnDragSort`。
+     * 全局还要受 `gridOptions.columnReorder`（默认 true）约束。
+     * 发起拖拽条件见 `useColumnDragSort`：
+     * `columnReorder !== false && dragColumnLock === undefined`。
      */
-    movable?: boolean
-    /**
-     * 锁定列位置——拖拽换位时该列自身位置固定不变。
-     *
-     * **语义（对齐 ag-grid `colDef.lockPosition`）**：
-     *   - `true`：该列**自身不可被重排**（拖拽发起判定时此列头不触发拖；重排算法跳过此列的 index，
-     *     即其它列可在锁定列前后重排但锁定列自身 index 不变）。
-     *   - `false` / undefined：不锁定（默认）。
-     *
-     * 与 `movable=false` 的区别：movable=false 仅禁发起拖（此列仍会被其它列拖拽时被动挤开）；
-     * lockPosition=true 则锁定列自身 index（重排算法对此列"透明"——其它列在剩余可动列之间重排，
-     * 锁定列位置由其在原 columns 数组中的位置决定，不参与 arrayMove）。
-     *
-     * 实现见 `useColumnDragSort`（拖拽发起前判定 + arrayMoveLockedColumns 重排算法）。
-     */
-    lockPosition?: boolean
+    dragColumnLock?: 'lockDrag' | 'lockPosition'
   }
   width?: number | string
   align?: Align
@@ -1528,12 +1514,11 @@ export interface TableProps<RecordType = any> {
      *
      * **语义（对齐 ag-grid `suppressMovableColumns`，取反；默认 true）**：
      *   - `true` / undefined：允许列拖拽换位（默认行为——所有列头可拖）。
-     *   - `false`：**全局禁用列拖拽**（任何列头 pointerdown 都不启动拖；与 `gridColumnOptions.movable`
-     *     无关——全局关等于总闸）。
+     *   - `false`：**全局禁用列拖拽**（任何列头 pointerdown 都不启动拖；与
+     *     `gridColumnOptions.dragColumnLock` 无关——全局关等于总闸）。
      *
-     * 单列粒度由 `gridColumnOptions.movable`（默认 true）/ `gridColumnOptions.lockPosition`（默认 false）控制。
-     * 三者关系（对齐 ag-grid `workOutDraggable = !suppressMovableColumns && !colDef.suppressMovable
-     * && !colDef.lockPosition`）：某列可发起拖 ⟺ `columnReorder !== false && movable !== false && !lockPosition`。
+     * 单列粒度由 `gridColumnOptions.dragColumnLock` 控制：
+     * 某列可发起拖 ⟺ `columnReorder !== false && dragColumnLock === undefined`。
      *
      * **透传**：drag-column-sorting demo 从此 option 透传到 `useColumnDragSort({ reorder: ... })`。
      * 默认 true 保证非该 demo 的其它列拖场景零回归。

@@ -33,7 +33,7 @@
 | 2 | **列拖到固定区切换固定态**（含停留即固定） | community | `moveColumnFeature.ts` 三实例 left/center/right（构造点见 `bodyDropTarget.ts:52-60`：`buildMoveFeature('left'/'right')` + `buildDropTarget('left'/'right')`）；判定 `bodyDropTarget.ts:147-152, 165-176`（`getPinnedSection`：用 `clientX` 相对 rect + 左右 sticky 区宽度判定 `'left'/'right'`）；停留即固定靠 `failedMoveAttempts`（移动失败计数 → 达阈值改 pinned）。 | **未实现**。dg 列重排有，但拖入固定区切换 `fixed` 没有。 | `gridOptions.dragToPinColumn` | 中 |
 | 3 | **列拖出网格即隐藏 / 拖回恢复** | community | `columnMoveService.ts:213`（`hideColumnOnExit = !gos.get('suppressDragLeaveHidesColumns')`，默认 true）+ `:222` 默认图标 `'hide'` + `:231-244`（`onGridEnter` 恢复、`onGridExit` 隐藏）。 | **未实现**。 | `gridOptions.hideColumnOnDragAway` | 中 |
 | 5 | **行拖到外部 drop zone**（跨网格 / 看板 / 回收站） | community | `dragApi.ts:9-10, 21`（`addRowDropZone(params)` / `getRowDropZoneParams(events)`）；底层注册：`rowDragFeature.ts:579-604`（`addRowDropZone` → 注册外部 `DropZone`，拖出网格触发外部 `onDragStop`）。 | **未实现**。dg 行重排仅在网格内。 | `gridOptions.rowDropTargets` + `onRowDrop` 回调 | 中 |
-| 1 | **列重排开关**（全局禁 / 单列禁 / 锁位置） | community | `headerCellCtrl.ts:387`（`this.draggable = this.workOutDraggable()`）+ `:454-458`（`workOutDraggable`：`!suppressMovableColumns && !colDef.suppressMovable && !colDef.lockPosition`）；suppressMovableColumns 在网格选项清单 `:133`。 | **已有重排**（S19 `useColumnDragSort`），**缺开关**：无全局禁用、无单列禁用、无锁位置。 | 表级 `gridOptions.columnReorder` + 列级 `gridColumnOptions.movable` / `lockPosition` | 低 |
+| 1 | **列重排开关**（全局禁 / 单列禁 / 锁位置） | community | `headerCellCtrl.ts:387`（`this.draggable = this.workOutDraggable()`）+ `:454-458`（`workOutDraggable`：`!suppressMovableColumns && !colDef.suppressMovable && !colDef.lockPosition`）；suppressMovableColumns 在网格选项清单 `:133`。 | **已有重排**（S19 `useColumnDragSort`），**缺开关**：无全局禁用、无单列禁用、无锁位置。 | 表级 `gridOptions.columnReorder` + 列级 `gridColumnOptions.dragColumnLock` | 低 |
 | 4 | **行多选连拖** | community | `rowDragFeature.ts:141`（`if (this.gos.get('rowDragMultiRow'))`）+ `:148` 多行拖拽路径。 | **已有重排**（S17/18），**缺多行**：当前一次拖一行。 | `gridOptions.multiRowReorder` | 低 |
 | 8 | **拖拽预览 + 语义图标** | community | `dragAndDropImageComponent.ts`（拖拽预览组件）+ `dragModule.ts:55-77`（注册 + 图标语义：`hide`/`move`/`left`/`right`/…）。 | **仅指示线**（dg 重排目前靠插入位置指示线，无自定义预览、无语义图标）。 | `gridOptions.dragPreview` | 中 |
 | 6 | **单元格 HTML5 dndSource**（拖到外部应用） | community | `rendering\dndSourceComp.ts:38-40`（`dataTransfer.setDragImage(eCell,0,0)`）+ `:51-54`（`JSON.stringify(rowNode.data)` → `dataTransfer.setData('application/json', …)` + `text/plain`）。 | **未实现**。 | 列级 `gridColumnOptions.cellDragSource` | 低 |
@@ -62,7 +62,7 @@
 |---|------|----------|------|
 | 7 | 拖到边缘自动滚动 | `gridOptions.autoScrollOnDrag` | 表级 |
 | 1 | 列重排总开关 | `gridOptions.columnReorder` | 表级 |
-| 1 | 单列可拖动 / 锁位置 | `gridColumnOptions.movable` / `gridColumnOptions.lockPosition` | 列级 |
+| 1 | 单列拖拽锁定 | `gridColumnOptions.dragColumnLock` | 列级 |
 | 4 | 行多选连拖 | `gridOptions.multiRowReorder` | 表级 |
 
 **Backlog（后续批次再做）**：
@@ -75,4 +75,4 @@
 | 8 | 拖拽预览 + 语义图标 | `gridOptions.dragPreview` | P3 |
 | 6 | 单元格 dndSource | `gridColumnOptions.cellDragSource` | P4 |
 
-> 命名风格说明：本批次确认的 4 个名字均采用「**中性动词短语**」风格，不与 ag-grid 任何商标/字段名重合（ag-grid 用 `suppressMovableColumns`/`rowDragMultiRow`/`colDef.suppressMovable`/`colDef.lockPosition`，data-grid 用反向正向词 `columnReorder`/`multiRowReorder`/`movable`/`lockPosition`，且收入 `gridOptions`/`gridColumnOptions` 命名空间，与 antd 兼容 API 物理隔离）。
+> 命名风格说明：本批次确认的名字均采用「**中性动词短语**」风格，不与 ag-grid 任何商标/字段名重合（ag-grid 用 `suppressMovableColumns`/`rowDragMultiRow`/`colDef.suppressMovable`/`colDef.lockPosition`，data-grid 用 `columnReorder`/`multiRowReorder`/`dragColumnLock`，且收入 `gridOptions`/`gridColumnOptions` 命名空间，与 antd 兼容 API 物理隔离）。

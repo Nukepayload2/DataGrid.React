@@ -24,7 +24,7 @@ export default function DragColumnSortingDemo() {
   const [bordered, setBordered] = useState(false)
   // autoScrollOnDrag 开关（仅驱动左栏 data-grid；antd 无对应概念）。
   const [autoScroll, setAutoScroll] = useState(true)
-  // columnReorder 全局开关（仅驱动左栏 data-grid）：关 → 所有列头不可拖（总闸，优先于单列 movable/lockPosition）。
+  // columnReorder 全局开关（仅驱动左栏 data-grid）：关 → 所有列头不可拖（总闸，优先于单列 dragColumnLock）。
   const [columnReorder, setColumnReorder] = useState(true)
   // 全局虚拟化开关接入：开关 ON 时两栏叠加 virtual=true + scroll.y。
   const { virtual } = useVirtualization()
@@ -93,8 +93,9 @@ export default function DragColumnSortingDemo() {
             <li>
               <strong>列标志（仅 data-grid）</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 的 Gender 列 <code>movable:false</code>
-                  （不可发起拖但被动让位）、Email 列 <code>lockPosition:true</code>（位置固定）；antd
+                <li><strong>差异行为</strong>：data-grid 的 Gender 列 <code>dragColumnLock:'lockDrag'</code>
+                  （不可发起拖但被动让位）、Email 列 <code>dragColumnLock:'lockPosition'</code>
+                  （不可发起拖且 index 固定）；antd
                   忠实复刻官方，无此单列约束。</li>
                 <li><strong>触发条件</strong>：尝试拖动 Gender/Email 列，或拖动其它列让其让位。</li>
                 <li><strong>差异原因</strong>：data-grid 列方向拖拽支持 per-column 标志

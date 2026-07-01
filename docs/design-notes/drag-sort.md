@@ -63,7 +63,7 @@ data-grid 的"行"/"列"不是单一 DOM 元素：
 
 - **被拖列视觉**：pointerdown 时克隆当前可见列单元格到 fixed overlay，overlay 只跟随指针水平位移。
 - **被拖列源格**：源格保留在表内参与占位 / hit-test，有 overlay 时加 `dg-drag-column-source` 隐藏。
-- **让位列**：根据 lock-aware 最终列顺序和当前实测列宽，计算每个可见列从当前 x 坐标到最终 x 坐标的 `translateX(...)` + `dg-drag-column-yield` 类（`transition: transform 150ms ease`）。`lockPosition:true` 列不能发起拖拽且最终 index 恒定；但若列宽不同导致该 index 的最终 x 坐标变化，锁定列也允许在拖拽动画中临时位移，以匹配 drop 后的真实位置。
+- **让位列**：根据 lock-aware 最终列顺序和当前实测列宽，计算每个可见列从当前 x 坐标到最终 x 坐标的 `translateX(...)` + `dg-drag-column-yield` 类（`transition: transform 150ms ease`）。`dragColumnLock:'lockPosition'` 列不能发起拖拽且最终 index 恒定；但若列宽不同导致该 index 的最终 x 坐标变化，锁定列也允许在拖拽动画中临时位移，以匹配 drop 后的真实位置。
 - **其余列**：清 inline transform + 清拖拽类。
 
 ### 为何用 transform 而非改 grid track
@@ -118,12 +118,18 @@ dnd-kit 的 autoscroll 与其 DndContext/useDraggable 强耦合——data-grid �
 - 成块移动用 `arrayMoveBlock`：先把 block 行按原顺序抽出（剩余行自动收拢），再把整块插到目标位置（位置以"剔除 block 后的剩余数组"坐标修正：to 减去其左侧已被抽走的 block 行数）。
 - 目标位置语义转换：单行 `arrayMove` 的 overIndex 是"目标行 index"（先删 from 再插）；成块 `arrayMoveBlock` 的 toIndex 是"插入位置"（0..len），需把 overIndex 还原成插入位置（over <= from 时插入位置=over；over > from 时插入位置=over+1）。
 
-## 列拖：锁定列（lockPosition）
+## 列拖：锁定列（dragColumnLock）
 
-`useColumnDragSort` 的 `arrayMoveColumnsRespectLocks` 算法让锁定列（`gridColumnOptions.lockPosition === true`）保持原 index 不动——只在非锁定列子序列上做 arrayMove，再把结果按原位填回（锁定列保持原 index 不动）：
+`gridColumnOptions.dragColumnLock` 是列拖拽锁定三态：
+
+- `undefined`：不锁定；该列可发起拖拽，也可被其它列重排影响。
+- `'lockDrag'`：不可发起拖拽；其它列拖拽时该列仍可被动让位 / 换位。
+- `'lockPosition'`：不可发起拖拽，且最终 columns index 恒定。
+
+`useColumnDragSort` 的 `arrayMoveColumnsRespectLocks` 算法让 `dragColumnLock:'lockPosition'` 列保持原 index 不动——只在非锁定列子序列上做 arrayMove，再把结果按原位填回：
 
 1. 把原 columns 分成两组索引：`movableIdxs`（非锁定列的原 index 列表，按原顺序）+ `lockedIdxs`（锁定列的原 index 集合）。
-2. 在 movableIdxs 上找到 from 对应的可动列序号（`fromMovable`）+ to 对应的可动列序号（`toMovable`）。toIndex 落在锁定列上时，根据拖拽方向取最近的可动列序号（避免把可动列"插入"到锁定列的固定槽位之间错乱）。
+2. 在 movableIdxs 上找到 from 对应的可动列序号（`fromMovable`）+ to 对应的可动列序号（`toMovable`）。toIndex 落在锁定列上时，根据拖拽方向取锁定列另一侧最近的可动列序号。
 3. 对 `movableIdxs` 做 arrayMove（fromMovable → toMovable）得到新的可动列 index 序列。
 4. 重建数组：锁定列保持原位（按 lockedIdxs 的原 index），可动列按重排后的顺序依次填入剩余槽位。
 
@@ -131,7 +137,7 @@ dnd-kit 的 autoscroll 与其 DndContext/useDraggable 强耦合——data-grid �
 
 ## 列重排 / 行重排粒度开关
 
-- **列拖**：`gridOptions.columnReorder`（默认 true）是全局总闸（对齐 ag-grid `suppressMovableColumns`）；单列粒度 `gridColumnOptions.movable === false`（suppressMovable）+ `gridColumnOptions.lockPosition === true`。某列可发起拖 ⟺ `reorder !== false && movable !== false && !lockPosition`。
+- **列拖**：`gridOptions.columnReorder`（默认 true）是全局总闸；单列粒度由 `gridColumnOptions.dragColumnLock` 控制。某列可发起拖 ⟺ `reorder !== false && dragColumnLock === undefined`。
 - **行拖**：`gridOptions.autoScrollOnDrag`（默认 true）控制边缘自动滚动；`gridOptions.multiRowReorder`（默认 true）控制多行成块。
 
 ## 与 antd 差异
@@ -141,7 +147,7 @@ dnd-kit 的 autoscroll 与其 DndContext/useDraggable 强耦合——data-grid �
 | 行拖视觉 | fixed overlay 跟手 + 中间行离散让位 + 指示线（横线） | dnd-kit `useSortable` transform 跟随指针平移整行 |
 | 列拖视觉 | fixed overlay 跟手 + 中间列离散让位 + 垂直指示线（竖线） | dnd-kit `useSortable` transform 跟随指针平移整列 + body cell 虚线边 + DragOverlay 预览 |
 | 手势挂载 | 事件委托（外层容器 onPointerDown，命中 data 属性） | `<tr>`/`<th>` 挂 listeners（drag-sorting）或手柄 setActivatorNodeRef（drag-sorting-handler） |
-| 锁定列 | `lockPosition` + 可动列子序列重排算法 | dnd-kit 的 `disabled` / restrict |
+| 锁定列 | `dragColumnLock` + 可动列子序列重排算法 | dnd-kit 的 `disabled` / restrict |
 
 视觉与 antd 略异（antd 整行/整列跟手指针；data-grid 被拖行抬起 + 中间行让位 + 指示线），但功能等价（行/列重排），且不破坏 CSS Grid 布局。
 

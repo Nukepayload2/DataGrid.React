@@ -5,7 +5,7 @@
 > `gridOptions`（`types.ts` + `engine/types.ts` 同步）。引擎从 `gridOptions` 解构读取，
 > 适配层 `Table.tsx` 直接透传 `gridOptions`。Demo：`resizable.tsx` / `virtual-list.tsx`
 > 已改写为 `gridOptions={{ ... }}` 形式。列级 `gridColumnOptions` 已建最小 scaffolding
-> （`movable` / `lockPosition` 占位，T10 填充）。**列级 `resizable` 不存在**（无现成列级
+> （`dragColumnLock`，T10 填充）。**列级 `resizable` 不存在**（无现成列级
 > 拖拽开关字段；M7 拖拽由表级 `gridOptions.resizable` 统一控制，列级无需独立开关）。
 
 > **目的**：把 data-grid 中「**与 antd 不兼容 / data-grid 专属**」的 API 从主接口剥离，收进 `gridOptions`（表级）/ `gridColumnOptions`（列级）命名空间，与 antd 兼容 API **物理分离**。
@@ -54,17 +54,15 @@ interface ColumnType<RecordType> {
 }
 
 interface GridColumnOptions<RecordType> {
-  /** 该列是否可被拖动重排（默认跟随 gridOptions.columnReorder）。借鉴 ag-grid colDef.suppressMovable（反向）。 */
-  movable?: boolean
-  /** 该列位置锁定，不参与重排（即便全局开启 columnReorder）。借鉴 ag-grid colDef.lockPosition。 */
-  lockPosition?: boolean
+  /** 列拖拽锁定：undefined=不锁定；lockDrag=不可发起拖；lockPosition=不可发起拖且 index 恒定。 */
+  dragColumnLock?: 'lockDrag' | 'lockPosition'
   /** 单元格作为 HTML5 拖拽源（拖到外部应用，dataTransfer JSON）。借鉴 ag-grid dndSource（后续批次）。 */
   cellDragSource?: boolean | ((record: RecordType, index: number) => RecordType | string)
   // …后续列级专属选项
 }
 ```
 
-> 命名约束：`gridColumnOptions` 内字段名沿用「中性动词短语」风格（见 `docs/ag-grid-drag-candidates.md`），**不照抄 ag-grid**（`suppressMovable` → 反向为 `movable`，正名化）。
+> 命名约束：`gridColumnOptions` 内字段名沿用「中性动词短语」风格（见 `docs/ag-grid-drag-candidates.md`），**不照抄 ag-grid**。列拖拽锁定统一收敛为 `dragColumnLock` 三态字段，不保留旧布尔拆分字段。
 
 ---
 
@@ -106,4 +104,4 @@ interface GridColumnOptions<RecordType> {
 ## 与其它文档的关系
 
 - `docs/compat-matrix.md`：判定每个字段属于「antd 兼容」还是「dg 专属」。dg 专属字段在矩阵末尾「data-grid 专属 → gridOptions/gridColumnOptions」一节列出，本文档是其命名空间归属的策略依据。
-- `docs/ag-grid-drag-candidates.md`：拖拽增强的中性建议名最终落点为 `gridOptions.*` / `gridColumnOptions.*`（本批次选定 `autoScrollOnDrag`/`columnReorder`/列级 `movable`·`lockPosition`/`multiRowReorder`），本文档定义其挂载结构。
+- `docs/ag-grid-drag-candidates.md`：拖拽增强的中性建议名最终落点为 `gridOptions.*` / `gridColumnOptions.*`（本批次选定 `autoScrollOnDrag`/`columnReorder`/列级 `dragColumnLock`/`multiRowReorder`），本文档定义其挂载结构。

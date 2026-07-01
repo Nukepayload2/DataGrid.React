@@ -20,16 +20,16 @@ const dgBaseColumns: ColumnType<RecordType>[] = [
     title: 'Gender',
     dataIndex: 'gender',
     key: 'gender',
-    // 此列不可发起拖（movable:false）。其它列仍可拖——拖别的列时此列会被被动让位。
-    gridColumnOptions: { movable: false },
+    // 此列不可发起拖（dragColumnLock:'lockDrag'）。其它列仍可拖——拖别的列时此列会被被动让位。
+    gridColumnOptions: { dragColumnLock: 'lockDrag' },
   },
   { title: 'Age', dataIndex: 'age', key: 'age' },
   {
     title: 'Email',
     dataIndex: 'email',
     key: 'email',
-    // 此列锁定位置（lockPosition:true）——自身 index 不变，重排算法跳过；其它列可在其前后重排。
-    gridColumnOptions: { lockPosition: true },
+    // 此列锁定位置（dragColumnLock:'lockPosition'）——自身 index 不变，重排算法跳过。
+    gridColumnOptions: { dragColumnLock: 'lockPosition' },
   },
   { title: 'Address', dataIndex: 'address', key: 'address' },
 ]
@@ -61,8 +61,7 @@ export default function DragColumnSortingDg({
       columns.map((column) => {
         const draggable =
           columnReorder &&
-          column.gridColumnOptions?.movable !== false &&
-          column.gridColumnOptions?.lockPosition !== true
+          column.gridColumnOptions?.dragColumnLock === undefined
         return {
           ...column,
           onHeaderCell: (col, index) => {
@@ -86,7 +85,7 @@ export default function DragColumnSortingDg({
     containerRef,
     // 拖到左右边缘横向自动滚动（此 demo 5 列无 scroll.x，auto-scroll 为 no-op；开关用于对照）。
     autoScroll,
-    // columnReorder 全局开关（false→所有列头不可拖，优先于单列 movable/lockPosition）。
+    // columnReorder 全局开关（false→所有列头不可拖，优先于单列 dragColumnLock）。
     reorder: columnReorder,
   })
 
@@ -127,9 +126,9 @@ export default function DragColumnSortingDg({
         {dragState ? `from #${dragState.fromIndex + 1} → 目标 #${dragState.overIndex + 1}` : '无'}
         ；当前列顺序：{columns.map((c) => c.title).join(' / ')}
         <br />
-        {/* 列标志提示：Gender 不可发起拖（movable:false），Email 锁定位置（lockPosition:true）。columnReorder 全局关 → 所有列头不可拖。 */}
+        {/* 列标志提示：Gender 不可发起拖（lockDrag），Email 锁定位置（lockPosition）。columnReorder 全局关 → 所有列头不可拖。 */}
         <span style={{ color: token.colorPrimary }}>
-          Gender: 不可发起拖(movable:false)；Email: 锁定位置(lockPosition:true)；ColumnReorder
+          Gender: 不可发起拖(lockDrag)；Email: 锁定位置(lockPosition)；ColumnReorder
           全局开关：{columnReorder ? '开' : '关（所有列头不可拖）'}
         </span>
       </div>

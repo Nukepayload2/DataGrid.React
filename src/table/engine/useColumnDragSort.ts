@@ -23,7 +23,7 @@ export function arrayMoveColumns<T>(arr: Array<T>, from: number, to: number): Ar
 }
 
 /**
- * 判断某列是否锁定位置（`gridColumnOptions.lockPosition === true`）。
+ * 判断某列是否锁定位置（`gridColumnOptions.dragColumnLock === 'lockPosition'`）。
  *
  * 锁定列自身不可被重排——其它列可在其周围重排，但锁定列自身 index（相对原 columns 数组）
  * 不变。实现采用"可动列子序列重排"算法：从 columns 中抽出所有可动列（按原顺序），在可动列子序列
@@ -31,8 +31,13 @@ export function arrayMoveColumns<T>(arr: Array<T>, from: number, to: number): Ar
  */
 function isColumnLocked<ColumnType>(col: ColumnType): boolean {
   // 兼容：列定义上 gridColumnOptions 可能不存在（与 antd 顶层 ColumnType 同名字段保留兼容）。
-  const opts = (col as { gridColumnOptions?: { lockPosition?: boolean } }).gridColumnOptions
-  return opts?.lockPosition === true
+  const opts = (col as { gridColumnOptions?: { dragColumnLock?: string } }).gridColumnOptions
+  return opts?.dragColumnLock === 'lockPosition'
+}
+
+function isColumnDragLocked<ColumnType>(col: ColumnType): boolean {
+  const opts = (col as { gridColumnOptions?: { dragColumnLock?: string } }).gridColumnOptions
+  return opts?.dragColumnLock === 'lockDrag' || opts?.dragColumnLock === 'lockPosition'
 }
 
 function getColumnKey<ColumnType>(columns: Array<ColumnType>, index: number): string | null {
@@ -152,8 +157,8 @@ function getUntransformedRect(el: HTMLElement): { left: number; width: number } 
  * 锁定列友好的列重排算法 — 详见 docs/design-notes/drag-sort.md（「列拖：锁定列」节）。
  *
  * 给定原 columns、被拖列 fromIndex、目标插入位置 toIndex（@dnd-kit 语义：to = 目标列 index，
- * 即 arrayMove 把 from 移到 to），返回重排后的新数组。锁定列（`lockPosition:true`）保持原 index
- * 不动——只在非锁定列子序列上做 arrayMove，再把结果按原位填回锁定列之间的空隙。
+ * 即 arrayMove 把 from 移到 to），返回重排后的新数组。`dragColumnLock:'lockPosition'` 列保持
+ * 原 index 不动——只在非锁定列子序列上做 arrayMove，再把结果按原位填回锁定列之间的空隙。
  *
  * 算法：
  *   1. 把原 columns 分成两组索引：`movableIdxs`（非锁定列的原 index 列表，按原顺序）+
@@ -283,12 +288,11 @@ export interface UseColumnDragSortOptions<ColumnType> {
    * 列重排全局开关（对齐 `gridOptions.columnReorder`，默认 true）。
    *
    * - `true` / undefined：允许列拖拽。
-   * - `false`：全局禁用——任何列头 pointerdown 都不启动拖（总闸，优先于单列 movable/lockPosition）。
+   * - `false`：全局禁用——任何列头 pointerdown 都不启动拖（总闸，优先于单列 dragColumnLock）。
    *
-   * 单列粒度：`gridColumnOptions.movable === false` 的列不可发起拖（其它列仍可拖）；
-   * `gridColumnOptions.lockPosition === true` 的列自身不可发起拖 + 重排算法跳过其 index。
-   * 三者组合：某列可发起拖 ⟺ `reorder !== false && movable !== false && !lockPosition`
-   * （对齐 ag-grid `workOutDraggable`）。
+   * 单列粒度：`gridColumnOptions.dragColumnLock === 'lockDrag'` 的列不可发起拖（其它列仍可拖）；
+   * `'lockPosition'` 的列自身不可发起拖 + 重排算法跳过其 index。
+   * 组合：某列可发起拖 ⟺ `reorder !== false && dragColumnLock === undefined`。
    */
   reorder?: boolean
 }
@@ -563,17 +567,10 @@ export function useColumnDragSort<ColumnType>(
       if (idxAttr === null) return
       const index = Number.parseInt(idxAttr, 10)
       if (!Number.isFinite(index)) return
-      // 单列粒度判定（对齐 ag-grid workOutDraggable：
-      //   !suppressMovableColumns && !colDef.suppressMovable && !colDef.lockPosition）。
-      //   movable=false（suppressMovable）→ 此列不可发起拖；
-      //   lockPosition=true → 此列自身不可发起拖（且重排算法跳过其 index，见 arrayMoveColumnsRespectLocks）。
-      //   两者任一禁用 → 该列头 no-op（不捕获、不变光标）。
-      const colDef = columns[index] as
-        | { gridColumnOptions?: { movable?: boolean; lockPosition?: boolean } }
-        | undefined
-      const colOpts = colDef?.gridColumnOptions
-      if (colOpts?.movable === false) return
-      if (colOpts?.lockPosition === true) return
+      // 单列粒度判定：
+      //   dragColumnLock='lockDrag' → 此列不可发起拖，但仍可被其它列拖拽影响；
+      //   dragColumnLock='lockPosition' → 此列不可发起拖，且重排算法保持其 index。
+      if (isColumnDragLocked(columns[index])) return
 
       if (dragRef.current) {
         cleanupDragSession()
