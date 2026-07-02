@@ -26,6 +26,7 @@ data-grid 把“与 antd Table 不同语义或完全不存在”的表格能力�
 | `resizable` | `TableProps.resizable`（顶层） | `gridOptions.resizable` | 无（**antd v6 核查无 `resizable`**） | antd `interface.ts:151-195`（ColumnType 无 resizable）+ rc-table 无；dg 顶层 `types.ts:1404` |
 | `resizableMinWidth` | `TableProps.resizableMinWidth`（顶层） | `gridOptions.resizableMinWidth` | 无 | dg 顶层 `types.ts:1409` |
 | `resizableMaxWidth` | `TableProps.resizableMaxWidth`（顶层） | `gridOptions.resizableMaxWidth` | 无 | dg 顶层 `types.ts:1414` |
+| `selection` | 无 | `gridOptions.selection` | 无 | antd 只有 `rowSelection` 兼容层；`gridOptions.selection` 承载 data-grid 原生 `selectionMode/showSelectionColumn/selectedValues` |
 
 ### 与现有 `gridOptions.rowHeight` 的合并
 
@@ -72,6 +73,7 @@ interface GridColumnOptions<RecordType> {
 ## 调用约定
 
 - 表级专属能力统一写成 `gridOptions={{ ... }}`。
+- 原生选择写成 `gridOptions={{ selection: { ... } }}`；`rowSelection` 继续作为 antd 兼容层保留。
 - 列级专属能力统一写成 `column.gridColumnOptions={{ ... }}`。
 - 列宽拖拽当前只提供表级 `gridOptions.resizable` / `resizableMinWidth` / `resizableMaxWidth`，不再引入列级 `resizable`。
 - 需要判断某字段是否应留在顶层时，先对照 ADR [`../decisions/0008-api-namespace-separation.md`](../decisions/0008-api-namespace-separation.md)。

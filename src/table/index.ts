@@ -36,6 +36,9 @@ export type {
   FixedInput,
   TableRef,
   TableRowSelection,
+  GridSelectionOptions,
+  GridSelectionMode,
+  GridSelectionValue,
   RowSelectionType,
   RowSelectMethod,
   RowCheckboxProps,
@@ -61,6 +64,7 @@ export type {
   TableClassNames,
   TableStyles,
   StickyConfig,
+  TableLocale,
 } from './types'
 
 /** `ColumnType` 的 antd 风格别名。 */

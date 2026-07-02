@@ -9,6 +9,22 @@
 
 `custom-empty` demo 同时保留这两条通道，用来验证 data-grid 不把它们混成同一个占位。
 
+## locale 优先级
+
+data-grid 自研文案统一接入 antd `useLocale('Table')`：
+
+1. `TableProps.locale`
+2. `ConfigProvider locale.Table`
+3. antd 默认英文
+
+当前已接入：
+
+- 表体空态 `emptyText`
+- FilterDropdown 文案
+- 自研选择菜单文案
+- 排序 hover title
+- 展开按钮 aria
+
 ## loading
 
 - `loading` 继续复用 antd Spin。
@@ -17,7 +33,7 @@
 
 ## 需要注意的兼容边界
 
-- data-grid 当前 `locale` 的公开字段比 antd 少，特别是筛选下拉里的 i18n 仍有已知差异。
+- `locale` 类型已对齐 antd TableLocale 子集，但排序 tooltip 仍先用原生 `title`，不是 antd Tooltip。
 - `scroll.y: true` 与 Spin 包裹链路的高度关系是已记录的布局限制之一。
 
 ## 相关文档

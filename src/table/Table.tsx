@@ -29,6 +29,7 @@ import {
 } from 'react'
 import { Dropdown, Empty, Pagination, Spin } from 'antd'
 import type { SpinProps as SpinPropsInput } from 'antd'
+import { useLocale } from 'antd/es/locale'
 // 响应式断点检测：antd Grid.useBreakpoint 返回 ScreenMap（{ xs?, sm?, md?, lg?, xl?, xxl?, xxxl? }），
 // screens[bp]===true 表示当前视口 >= bp（antd responsiveObserver 语义）。
 import Grid from 'antd/es/grid'
@@ -89,8 +90,12 @@ import {
   type ColumnType,
   type Expandable,
   type FilterValue,
+  type GridSelectionMode,
+  type GridSelectionOptions,
+  type GridSelectionValue,
   type RowSelectMethod,
   type SizeType,
+  type TableLocale,
   type TablePaginationConfig,
   type TablePaginationState,
   type TableProps,
@@ -102,6 +107,13 @@ import {
 } from './types'
 import './style/tokens.css'
 import './style/table.css'
+
+type SelectionChangeTrigger<RecordType> =
+  | {
+      record?: RecordType
+      nativeEvent?: Event
+    }
+  | undefined
 
 /**
  * 主题注入辅助：parse antd transformToken 产出的 cssVarsStr 为 `--k:v` 字典。
@@ -255,6 +267,47 @@ function normalizeFixed(fixed: ColumnType['fixed']): FixedSide | undefined {
   if (fixed === 'left' || fixed === 'start') return 'start'
   if (fixed === 'right' || fixed === 'end') return 'end'
   return undefined
+}
+
+function toSelectionValues(
+  values: ReadonlyArray<GridSelectionValue> | undefined,
+): Array<GridSelectionValue> {
+  return values ? Array.from(values) : []
+}
+
+function getRangeKeys(
+  keys: Array<React.Key>,
+  anchorKey: React.Key,
+  currentKey: React.Key,
+): Array<React.Key> {
+  const start = keys.indexOf(anchorKey)
+  const end = keys.indexOf(currentKey)
+  if (start < 0 || end < 0) return [currentKey]
+  const from = Math.min(start, end)
+  const to = Math.max(start, end)
+  return keys.slice(from, to + 1)
+}
+
+function shouldSkipRowSelectionClick(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false
+  return !!target.closest(
+    [
+      'a',
+      'button',
+      'input',
+      'label',
+      'select',
+      'textarea',
+      '[role="button"]',
+      '[role="checkbox"]',
+      '[role="radio"]',
+      '.dg-selection-input',
+      '.dg-selection-dropdown-trigger',
+      '.dg-expand-icon',
+      '.dg-drag-handle',
+      '[aria-label="drag handle"]',
+    ].join(','),
+  )
 }
 
 /**
@@ -801,8 +854,13 @@ function SelectionsDropdown({
 function buildSelectionColumnNode<RecordType>(
   rowSel: TableRowSelection<RecordType>,
   selection: UseRowSelectionResult<RecordType>,
-  fireSelectionChange: (nextKeys: Array<React.Key>, method: RowSelectMethod) => void,
+  fireSelectionChange: (
+    nextKeys: Array<React.Key>,
+    method: RowSelectMethod,
+    trigger?: SelectionChangeTrigger<RecordType>,
+  ) => void,
   rowKeyResolved: string | ((record: RecordType) => string | number),
+  locale: TableLocale,
 ): EngineColumnNode<RecordType> {
   const { columnWidth, fixed, hideSelectAll = false, align = 'center', renderCell } = rowSel
   const isRadio = selection.isRadio
@@ -813,7 +871,18 @@ function buildSelectionColumnNode<RecordType>(
 
   // 表头下拉箭头（仅当 resolvedSelections 非空 + 非 radio + 非 hideSelectAll 时渲染）。
   // 对齐 antd `${prefixCls}-selection-extra`：表头全选 checkbox 旁的小下拉，点击弹出 selections 菜单。
-  const resolvedSelections = selection.resolvedSelections
+  const resolvedSelections = selection.resolvedSelections?.map((item) => {
+    if (item.key === SELECTION_ALL.key) {
+      return { ...item, text: locale.selectionAll ?? item.text }
+    }
+    if (item.key === SELECTION_INVERT.key) {
+      return { ...item, text: locale.selectInvert ?? item.text }
+    }
+    if (item.key === SELECTION_NONE.key) {
+      return { ...item, text: locale.selectNone ?? item.text }
+    }
+    return item
+  })
   const showSelectionDropdown =
     !isRadio && !hideSelectAll && resolvedSelections && resolvedSelections.length > 0
 
@@ -826,7 +895,7 @@ function buildSelectionColumnNode<RecordType>(
         type="checkbox"
         checked={selection.allSelected}
         indeterminate={selection.intermediate}
-        aria-label="Select all"
+        aria-label={typeof locale.selectionAll === 'string' ? locale.selectionAll : 'Select all'}
         onChange={() => {
           const next = selection.toggleAll()
           const method: RowSelectMethod = selection.allSelected ? 'none' : 'all'
@@ -909,10 +978,13 @@ function buildSelectionColumnNode<RecordType>(
             disabled={disabled}
             name={name}
             aria-label={typeof name === 'string' && name ? name : undefined}
-            onChange={() => {
+            onChange={(_checked, event) => {
               if (disabled) return
               const next = selection.toggleRow(key)
-              fireSelectionChange(next, 'single')
+              fireSelectionChange(next, 'single', {
+                record,
+                nativeEvent: event.nativeEvent ?? event,
+              })
             }}
           />
         )
@@ -942,10 +1014,13 @@ function buildSelectionColumnNode<RecordType>(
           disabled={disabled}
           name={name}
           aria-label={typeof name === 'string' && name ? name : undefined}
-          onChange={() => {
+          onChange={(_checked, event) => {
             if (disabled) return
             const next = selection.toggleRow(key)
-            fireSelectionChange(next, 'single')
+            fireSelectionChange(next, 'single', {
+              record,
+              nativeEvent: event.nativeEvent ?? event,
+            })
           }}
         />
       )
@@ -964,7 +1039,11 @@ function buildDefaultSelectionInput<RecordType>(
   checked: boolean,
   selection: UseRowSelectionResult<RecordType>,
   rowSel: TableRowSelection<RecordType>,
-  fireSelectionChange: (nextKeys: Array<React.Key>, method: RowSelectMethod) => void,
+  fireSelectionChange: (
+    nextKeys: Array<React.Key>,
+    method: RowSelectMethod,
+    trigger?: SelectionChangeTrigger<RecordType>,
+  ) => void,
   _rowKeyResolved: string | ((record: RecordType) => string | number),
 ) {
   const disabled = selection.isDisabled(record)
@@ -978,10 +1057,13 @@ function buildDefaultSelectionInput<RecordType>(
       disabled={disabled}
       name={name}
       aria-label={typeof name === 'string' && name ? name : undefined}
-      onChange={() => {
+      onChange={(_checked, event) => {
         if (disabled) return
         const next = selection.toggleRow(key)
-        fireSelectionChange(next, 'single')
+        fireSelectionChange(next, 'single', {
+          record,
+          nativeEvent: event.nativeEvent ?? event,
+        })
       }}
     />
   )
@@ -1013,6 +1095,7 @@ function buildExpandColumnNode<RecordType>(
     toggleExpand: (key: React.Key, record: RecordType) => void
   },
   rowKeyResolved: string | ((record: RecordType) => string | number),
+  locale: TableLocale,
 ): EngineColumnNode<RecordType> {
   const { columnWidth, expandIcon } = expandable
   // 列宽默认：antd 展开列默认宽度 48px（token tableExpandColumnWidth）。用户传 columnWidth 覆盖。
@@ -1048,6 +1131,15 @@ function buildExpandColumnNode<RecordType>(
         <ExpandIcon
           expanded={expanded}
           disabled={!expandable_}
+          aria-label={
+            expanded
+              ? typeof locale.collapse === 'string'
+                ? locale.collapse
+                : undefined
+              : typeof locale.expand === 'string'
+                ? locale.expand
+                : undefined
+          }
           onExpand={() => {
             if (!expandable_) return
             expand.toggleExpand(key, record)
@@ -1176,6 +1268,14 @@ function TableInner<RecordType = any>(
   }, [props.columns, props.children, column])
 
   const rowKeyResolved = rowKey as string | ((record: RecordType) => string | number)
+  const [contextTableLocale] = useLocale('Table')
+  const mergedLocale = useMemo<TableLocale>(
+    () => ({
+      ...(contextTableLocale as TableLocale),
+      ...locale,
+    }),
+    [contextTableLocale, locale],
+  )
 
   // === 响应式 responsive：按当前视口断点过滤列（对齐 antd InternalTable.tsx:235-246）===
   // 实现位置：在所有列派生（排序/筛选/选择/展开/列树构建）之前过滤 columns，保证被移除的列
@@ -1326,19 +1426,117 @@ function TableInner<RecordType = any>(
   const flattenedDataSource = tree.flattenedData
 
   // === 行选择 ===
-  // 非受控默认值：仅当 rowSelection.selectedRowKeys 未传时使用 defaultSelectedRowKeys。
-  // 内部用 useState 持有"非受控当前值"，受控模式（selectedRowKeys 传入）下此 state 不参与。
   const rowSel = rowSelection as TableRowSelection<RecordType> | undefined
-  const isControlledSelection = rowSel ? rowSel.selectedRowKeys !== undefined : false
+  const gridSelection = gridOptions?.selection as GridSelectionOptions<RecordType> | undefined
+  const nativeSelectionConfigured = gridSelection !== undefined
+  const resolvedSelectionMode: GridSelectionMode = nativeSelectionConfigured
+    ? (gridSelection.selectionMode ?? (rowSel?.type === 'radio' ? 'single' : 'multiple'))
+    : 'disabled'
+  const selectionEnabled = nativeSelectionConfigured ? resolvedSelectionMode !== 'disabled' : !!rowSel
+  const showSelectionColumn = selectionEnabled && (gridSelection?.showSelectionColumn ?? true)
+  const resolvedSelectionType: 'checkbox' | 'radio' = nativeSelectionConfigured
+    ? resolvedSelectionMode === 'single'
+      ? 'radio'
+      : 'checkbox'
+    : rowSel?.type === 'radio'
+      ? 'radio'
+      : 'checkbox'
+  const resolvedRowSel: TableRowSelection<RecordType> | undefined = selectionEnabled
+    ? {
+        ...rowSel,
+        type: resolvedSelectionType,
+      }
+    : undefined
+  const getSelectionValue = useCallback(
+    (record: RecordType, index: number): GridSelectionValue => {
+      const value = gridSelection?.getSelectionValue?.(record, index)
+      return value ?? (getRowKey(record, rowKeyResolved) as GridSelectionValue)
+    },
+    [gridSelection?.getSelectionValue, rowKeyResolved],
+  )
+  const selectionLookup = useMemo(() => {
+    const keyToValue = new Map<React.Key, GridSelectionValue>()
+    const valueToKey = new Map<GridSelectionValue, React.Key>()
+    for (let index = 0; index < flattenedDataSource.length; index += 1) {
+      const record = flattenedDataSource[index]
+      const key = getRowKey(record, rowKeyResolved)
+      const value = getSelectionValue(record, index)
+      if (!keyToValue.has(key)) keyToValue.set(key, value)
+      if (!valueToKey.has(value)) valueToKey.set(value, key)
+    }
+    return { keyToValue, valueToKey }
+  }, [flattenedDataSource, getSelectionValue, rowKeyResolved])
+  const mapKeysToValues = useCallback(
+    (keys: ReadonlyArray<React.Key> | undefined) => {
+      if (!keys) return []
+      const next: Array<GridSelectionValue> = []
+      const seen = new Set<GridSelectionValue>()
+      for (const key of keys) {
+        const value = selectionLookup.keyToValue.get(key)
+        if (value === undefined || seen.has(value)) continue
+        seen.add(value)
+        next.push(value)
+      }
+      return next
+    },
+    [selectionLookup],
+  )
+  const mapValuesToKeys = useCallback(
+    (values: ReadonlyArray<GridSelectionValue> | undefined) => {
+      if (!values) return []
+      const next: Array<React.Key> = []
+      const seen = new Set<React.Key>()
+      for (const value of values) {
+        const key = selectionLookup.valueToKey.get(value)
+        if (key === undefined || seen.has(key)) continue
+        seen.add(key)
+        next.push(key)
+      }
+      return next
+    },
+    [selectionLookup],
+  )
+  const isControlledSelection = !nativeSelectionConfigured && rowSel
+    ? rowSel.selectedRowKeys !== undefined
+    : false
   const [uncontrolledKeys, setUncontrolledKeys] = useState<Array<React.Key>>(
     () => rowSel?.defaultSelectedRowKeys ?? [],
   )
-  // 受控：用 rowSel.selectedRowKeys；非受控：用 uncontrolledKeys。
-  const effectiveSelectedKeys: Array<React.Key> = rowSel
-    ? isControlledSelection
-      ? (rowSel.selectedRowKeys as Array<React.Key>)
-      : uncontrolledKeys
+  const [uncontrolledSelectedValues, setUncontrolledSelectedValues] = useState<Array<GridSelectionValue>>(
+    () => {
+      if (!nativeSelectionConfigured) return []
+      if (gridSelection?.defaultSelectedValues !== undefined) {
+        return toSelectionValues(gridSelection.defaultSelectedValues)
+      }
+      if (rowSel?.defaultSelectedRowKeys !== undefined) {
+        return mapKeysToValues(rowSel.defaultSelectedRowKeys)
+      }
+      return []
+    },
+  )
+  const [selectionAnchorKey, setSelectionAnchorKey] = useState<React.Key | null>(null)
+  const isNativeValuesControlled =
+    nativeSelectionConfigured && gridSelection?.selectedValues !== undefined
+  const isNativeCompatKeysControlled =
+    nativeSelectionConfigured &&
+    gridSelection?.selectedValues === undefined &&
+    gridSelection?.defaultSelectedValues === undefined &&
+    rowSel?.selectedRowKeys !== undefined
+  const effectiveSelectedValues: Array<GridSelectionValue> = nativeSelectionConfigured
+    ? isNativeValuesControlled
+      ? toSelectionValues(gridSelection?.selectedValues)
+      : isNativeCompatKeysControlled
+        ? mapKeysToValues(rowSel?.selectedRowKeys)
+        : uncontrolledSelectedValues
     : []
+  // 受控：用 selectedValues / selectedRowKeys；非受控：用对应内部 state。
+  const effectiveSelectedKeys: Array<React.Key> = nativeSelectionConfigured
+    ? mapValuesToKeys(effectiveSelectedValues)
+    : rowSel
+      ? isControlledSelection
+        ? (rowSel.selectedRowKeys as Array<React.Key>)
+        : uncontrolledKeys
+      : []
 
   // 状态机：从 effectiveSelectedKeys + flattenedDataSource + rowKey + getCheckboxProps 派生。
   // 用排序后的顺序 + 筛选后的数据源（与引擎实际渲染顺序一致）。
@@ -1348,13 +1546,13 @@ function TableInner<RecordType = any>(
   // 返回 isSelected/allSelected/intermediate/isDisabled/isIndeterminate 与 toggle* 操作。
   // 详见 `docs/design-notes/selection.md`。
   const selection = useRowSelection<RecordType>({
-    type: rowSel?.type,
+    type: resolvedRowSel?.type,
     selectedRowKeys: effectiveSelectedKeys,
     dataSource: flattenedDataSource,
     rowKey: rowKeyResolved,
-    getCheckboxProps: rowSel?.getCheckboxProps,
-    selections: rowSel?.selections,
-    checkStrictly: rowSel?.checkStrictly,
+    getCheckboxProps: resolvedRowSel?.getCheckboxProps,
+    selections: resolvedRowSel?.selections,
+    checkStrictly: resolvedRowSel?.checkStrictly,
     parentChildrenMap: tree.parentChildrenMap,
   })
 
@@ -1368,9 +1566,13 @@ function TableInner<RecordType = any>(
   //     典型 ajax 场景：翻页后回原页，之前选的仍是选中态。
   //   受控/非受控都过滤（antd 的 setMergedSelectedKeys 对两者都写过滤后的值）。
   const fireSelectionChange = useCallback(
-    (nextKeysInput: Array<React.Key>, method: RowSelectMethod) => {
-      if (!rowSel) return
-      const preserve = rowSel.preserveSelectedRowKeys === true
+    (
+      nextKeysInput: Array<React.Key>,
+      method: RowSelectMethod,
+      trigger?: SelectionChangeTrigger<RecordType>,
+    ) => {
+      if (!selectionEnabled) return
+      const preserve = resolvedRowSel?.preserveSelectedRowKeys === true
       // 非 preserve 模式过滤掉不在数据源中的 key（对齐 antd）。preserve=true 则保留全部
       //   （含跨页/跨数据源的 key）。
       // 树形模式下用**全树**（filteredDataSource，未扁平化）做存在性判定——折叠的子孙 key 仍在全树中
@@ -1393,7 +1595,12 @@ function TableInner<RecordType = any>(
             walk(existenceSource)
             return nextKeysInput.filter((k) => existSet.has(k))
           })()
-      if (!isControlledSelection) {
+      if (nativeSelectionConfigured) {
+        if (!isNativeValuesControlled && !isNativeCompatKeysControlled) {
+          const nextValues = mapKeysToValues(nextKeys)
+          setUncontrolledSelectedValues(nextValues)
+        }
+      } else if (!isControlledSelection) {
         setUncontrolledKeys(nextKeys)
       }
       // 按 selectableKeys 顺序构造 selectedRows（disabled 行不会出现在 nextKeys 的 selectable 子集里）。
@@ -1406,9 +1613,52 @@ function TableInner<RecordType = any>(
         const k = getRowKey(rec, rowKeyResolved)
         if (keySet.has(k)) rows.push(rec)
       }
-      rowSel.onChange?.(nextKeys, rows, { type: method })
+      const prevKeySet = new Set<React.Key>(effectiveSelectedKeys)
+      const changeRows: Array<RecordType> = []
+      for (const rec of flattenedDataSource) {
+        const key = getRowKey(rec, rowKeyResolved)
+        if (prevKeySet.has(key) !== keySet.has(key)) {
+          changeRows.push(rec)
+        }
+      }
+      if (nativeSelectionConfigured) {
+        gridSelection?.onSelectedValuesChange?.(mapKeysToValues(nextKeys), rows, { type: method })
+      }
+      if (!resolvedRowSel) return
+      resolvedRowSel.onChange?.(nextKeys, rows, { type: method })
+      if (trigger?.record) {
+        const key = getRowKey(trigger.record, rowKeyResolved)
+        resolvedRowSel.onSelect?.(
+          trigger.record,
+          keySet.has(key),
+          rows,
+          trigger.nativeEvent ?? new Event('change'),
+        )
+      } else if (method === 'all' || method === 'none') {
+        resolvedRowSel.onSelectAll?.(method === 'all', rows, changeRows)
+      } else if (method === 'invert') {
+        resolvedRowSel.onSelectInvert?.(nextKeys)
+      }
+      if (method === 'none') {
+        resolvedRowSel.onSelectNone?.()
+      }
     },
-    [rowSel, isControlledSelection, flattenedDataSource, filteredDataSource, treeEnabled, childrenColumnName, rowKeyResolved],
+    [
+      rowKeyResolved,
+      selectionEnabled,
+      resolvedRowSel,
+      treeEnabled,
+      filteredDataSource,
+      flattenedDataSource,
+      childrenColumnName,
+      isControlledSelection,
+      effectiveSelectedKeys,
+      nativeSelectionConfigured,
+      isNativeCompatKeysControlled,
+      isNativeValuesControlled,
+      gridSelection,
+      mapKeysToValues,
+    ],
   )
 
   // === 行展开状态（useRowExpand hook 派生；引擎 + 展开列 render 闭包共同消费）===
@@ -1436,17 +1686,23 @@ function TableInner<RecordType = any>(
   // === Table.EXPAND_COLUMN / Table.SELECTION_COLUMN 哨兵（order-column demo）===
   // 若 columns 数组含哨兵对象，选择列 / 展开列插在哨兵位置（而非默认最前）。
   // 不含哨兵时按默认位置：选择列最前，展开列在选择列之后。
-  const selectionNode = rowSel
+  const selectionNode = resolvedRowSel && showSelectionColumn
     ? buildSelectionColumnNode<RecordType>(
-        rowSel,
+        resolvedRowSel,
         selection,
         fireSelectionChange,
         rowKeyResolved,
+        mergedLocale,
       )
     : null
   const expandNode =
     expandEnabled && showExpandColumn
-      ? buildExpandColumnNode<RecordType>(expandable as Expandable<RecordType>, expand, rowKeyResolved)
+      ? buildExpandColumnNode<RecordType>(
+          expandable as Expandable<RecordType>,
+          expand,
+          rowKeyResolved,
+          mergedLocale,
+        )
       : null
 
   const columnTree = useMemo(() => {
@@ -1899,27 +2155,78 @@ function TableInner<RecordType = any>(
   const expandRowByClick = expandEnabled ? expandable?.expandRowByClick === true : false
   const expandedRowClassNameFn = expandEnabled ? expandable?.expandedRowClassName : undefined
 
-  // 包装后的 onRow（expandRowByClick=true 时叠加 toggle；否则原样）。
+  // 包装后的 onRow：原生 selection 行点击 + expandRowByClick 叠加；用户 onRow.onClick 继续保留。
   const onRowWithExpand = useMemo<typeof onRow>(() => {
-    if (!expandRowByClick) return onRow
+    const rowClickSelectionEnabled =
+      nativeSelectionConfigured && resolvedSelectionMode !== 'disabled'
+    if (!expandRowByClick && !rowClickSelectionEnabled) return onRow
     return (record, index) => {
       const userProps = onRow?.(record, index) ?? {}
       const key = getRowKey(record, rowKeyResolved)
-      // 仅可展开行点击才 toggle（不可展开行点击无反应，对齐 antd）。
-      if (expand.expandableKeySet.has(key)) {
-        const userOnClick = userProps.onClick
-        return {
-          ...userProps,
-          onClick: (e: React.MouseEvent<HTMLElement>) => {
-            // 先 toggle 再调用户 onClick（不阻止、不互斥——antd 同款共存语义）。
+      const userOnClick = userProps.onClick
+      const expandableRecord = expand.expandableKeySet.has(key)
+      return {
+        ...userProps,
+        onClick: (e: React.MouseEvent<HTMLElement>) => {
+          const skipInteraction = shouldSkipRowSelectionClick(e.target)
+          if (
+            rowClickSelectionEnabled &&
+            !skipInteraction &&
+            !selection.isDisabled(record)
+          ) {
+            let nextKeys: Array<React.Key> | null = null
+            let method: RowSelectMethod = 'single'
+            if (resolvedSelectionMode === 'single') {
+              nextKeys = selection.selectRow(key)
+              setSelectionAnchorKey(key)
+            } else if (resolvedSelectionMode === 'multiple') {
+              nextKeys = selection.toggleRow(key)
+              method = 'multiple'
+              setSelectionAnchorKey(key)
+            } else if (resolvedSelectionMode === 'extended') {
+              const additive = e.ctrlKey || e.metaKey
+              if (e.shiftKey && selectionAnchorKey !== null) {
+                const rangeKeys = getRangeKeys(selection.selectableKeys, selectionAnchorKey, key)
+                if (additive) {
+                  nextKeys = Array.from(new Set<React.Key>([...effectiveSelectedKeys, ...rangeKeys]))
+                } else {
+                  nextKeys = rangeKeys
+                }
+                method = rangeKeys.length > 1 || additive ? 'multiple' : 'single'
+              } else if (additive) {
+                nextKeys = selection.toggleRow(key)
+                method = 'multiple'
+              } else {
+                nextKeys = selection.selectRow(key)
+              }
+              setSelectionAnchorKey(key)
+            }
+            if (nextKeys) {
+              fireSelectionChange(nextKeys, method, {
+                record,
+                nativeEvent: e.nativeEvent ?? e,
+              })
+            }
+          }
+          if (expandRowByClick && expandableRecord && !skipInteraction) {
             expand.toggleExpand(key, record)
-            userOnClick?.(e)
-          },
-        }
+          }
+          userOnClick?.(e)
+        },
       }
-      return userProps
     }
-  }, [expandRowByClick, onRow, expand, rowKeyResolved])
+  }, [
+    expandRowByClick,
+    onRow,
+    expand,
+    rowKeyResolved,
+    nativeSelectionConfigured,
+    resolvedSelectionMode,
+    selection,
+    selectionAnchorKey,
+    effectiveSelectedKeys,
+    fireSelectionChange,
+  ])
 
   // 包装后的 rowClassName（expandedRowClassName 存在时追加；否则原样）。
   const rowClassNameWithExpand = useMemo(() => {
@@ -2068,15 +2375,17 @@ function TableInner<RecordType = any>(
     // pagedDataSource 非空 → 不需要 empty（引擎渲染数据行）。
     if (pagedDataSource.length > 0) return null
     // 1. Table 级 locale.emptyText 优先（antd 同款门：typeof !== 'undefined'）。
-    if (locale?.emptyText !== undefined) {
-      return typeof locale.emptyText === 'function' ? locale.emptyText() : locale.emptyText
+    if (mergedLocale.emptyText !== undefined) {
+      return typeof mergedLocale.emptyText === 'function'
+        ? mergedLocale.emptyText()
+        : mergedLocale.emptyText
     }
     // 2. ConfigProvider.renderEmpty('Table')（表体 empty 统一用 'Table'，不区分空数据 vs 筛选无结果）。
     const rendered = (renderEmpty as RenderEmptyHandler | undefined)?.('Table')
     if (rendered !== undefined && rendered !== null && rendered !== false) return rendered
     // 3. 默认 antd Empty（无描述）。
     return <Empty />
-  }, [pagedDataSource.length, locale?.emptyText, renderEmpty])
+  }, [pagedDataSource.length, mergedLocale, renderEmpty])
 
   // 解析 placement → top/bottom 对齐（未启用分页 → 两侧均 null，不渲染）。
   const placement = paginationEnabled
@@ -2268,13 +2577,13 @@ function TableInner<RecordType = any>(
             getPopupContainer={getPopupContainer}
             rowHoverable={rowHoverable}
             isRowSelected={
-              rowSel
+              selectionEnabled
                 ? (record: RecordType) => selection.isSelected(getRowKey(record, rowKeyResolved))
                 : undefined
             }
             // Table 级 locale 透传到引擎 → FilterDropdown（filterConfirm/Reset/EmptyText/
             //   SearchPlaceholder/CheckAll）。locale 为 undefined 时引擎/FilterDropdown 回退到内置默认值。
-            filterLocale={locale}
+            filterLocale={mergedLocale}
           />
         </div>
       ) : (
@@ -2306,13 +2615,13 @@ function TableInner<RecordType = any>(
           //   --ant-table-row-selected-bg / row-selected-hover-bg）。仅 rowSelection 启用时提供
           //   （无选择 demo 零回归，避免每 cell 多一次回调）；record→key 用 canonical getRowKey（与引擎一致）。
           isRowSelected={
-            rowSel
+            selectionEnabled
               ? (record: RecordType) => selection.isSelected(getRowKey(record, rowKeyResolved))
               : undefined
           }
           // Table 级 locale 透传到引擎 → FilterDropdown（filterConfirm/Reset/EmptyText/
           //   SearchPlaceholder/CheckAll）。locale 为 undefined 时引擎/FilterDropdown 回退到内置默认值。
-          filterLocale={locale}
+          filterLocale={mergedLocale}
         />
       )}
       {footer ? (
@@ -2363,8 +2672,12 @@ export type {
   ColumnType,
   ColumnProps,
   ColumnGroupProps,
+  GridSelectionOptions,
+  GridSelectionMode,
+  GridSelectionValue,
   SizeType,
   TableRef,
+  TableLocale,
   TablePaginationConfig,
   TablePaginationPlacement,
   TablePaginationState,

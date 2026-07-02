@@ -99,6 +99,15 @@ export const demos: DemoMeta[] = [
     category: '行选择',
   },
   {
+    name: 'row-selection-native',
+    title: 'Row Selection Native',
+    description:
+      'gridOptions.selection（selectedValues、showSelectionColumn=false、extended 行点击）+ rowSelection 兼容回调并存。',
+    element: () => import('./row-selection-native'),
+    compare: false,
+    category: '行选择',
+  },
+  {
     name: 'hidden-columns',
     title: 'Hidden Columns',
     description:

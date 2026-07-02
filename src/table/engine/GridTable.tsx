@@ -2428,10 +2428,10 @@ function HeaderCell<RecordType>({
           ? headerTitle
           : sortable && cell.showSorterTooltip !== false
             ? sortOrder === 'ascend'
-              ? 'Click to sort descending'
+              ? filterLocale?.triggerDesc ?? 'Click to sort descending'
               : sortOrder === 'descend'
-                ? 'Cancel sorting'
-                : 'Click to sort ascending'
+                ? filterLocale?.cancelSort ?? 'Click to cancel sorting'
+                : filterLocale?.triggerAsc ?? 'Click to sort ascending'
             : undefined
       }
       style={{

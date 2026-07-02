@@ -841,10 +841,12 @@ export interface EngineTableProps<RecordType = any> {
    */
   getPopupContainer?: (triggerNode: HTMLElement) => HTMLElement
   /**
-   * Table 级 `locale` i18n（来自 TableProps.locale）。引擎透传给 FilterDropdown，
-   * 消费 filterConfirm/filterReset/filterEmptyText/filterSearchPlaceholder/filterCheckAll
-   * （+ @deprecated filterCheckall）。未提供（undefined）时 FilterDropdown 回退到内置默认值
-   * （antd en_US 同款英文），零回归。
+   * Table 级 `locale` i18n（来自 TableProps.locale / ConfigProvider locale 合并结果）。
+   * 引擎当前消费：
+   * - FilterDropdown：filterConfirm/filterReset/filterEmptyText/filterSearchPlaceholder/
+   *   filterCheckAll（+ @deprecated filterCheckall）
+   * - 排序 hover title：triggerDesc/triggerAsc/cancelSort
+   * 未提供（undefined）时各消费处回退到 antd en_US 同款英文，零回归。
    */
   filterLocale?: {
     filterConfirm?: ReactNode
@@ -853,6 +855,9 @@ export interface EngineTableProps<RecordType = any> {
     filterSearchPlaceholder?: string
     filterCheckall?: ReactNode
     filterCheckAll?: ReactNode
+    triggerDesc?: string
+    triggerAsc?: string
+    cancelSort?: string
   }
   /**
    * 行是否可 hover 高亮（对齐 antd v6 `TableProps.rowHoverable`），默认 true。

@@ -15,6 +15,12 @@ export type FixedInput = 'left' | 'right' | 'start' | 'end' | boolean
 /** 行选择类型。 */
 export type RowSelectionType = 'checkbox' | 'radio'
 
+/** `gridOptions.selection` 的业务选中值类型。建议使用 string/number。 */
+export type GridSelectionValue = string | number | boolean | symbol
+
+/** data-grid 原生行选择模式（高于 antd `rowSelection.type` 的语义层）。 */
+export type GridSelectionMode = 'disabled' | 'single' | 'multiple' | 'extended'
+
 /**
  * getCheckboxProps 返回的勾选相关 props 子集（antd `CheckboxProps` 子集，
  * 去掉 `checked`/`defaultChecked`——这两个由状态机驱动）。
@@ -137,6 +143,23 @@ export interface TableRowSelection<RecordType = any> {
     selectedRows: Array<RecordType>,
     info: { type: RowSelectMethod },
   ) => void
+  /** 选中/取消某一行时触发（对齐 antd `rowSelection.onSelect`）。 */
+  onSelect?: (
+    record: RecordType,
+    selected: boolean,
+    selectedRows: Array<RecordType>,
+    nativeEvent: Event,
+  ) => void
+  /** 全选/全不选时触发（对齐 antd `rowSelection.onSelectAll`）。 */
+  onSelectAll?: (
+    selected: boolean,
+    selectedRows: Array<RecordType>,
+    changeRows: Array<RecordType>,
+  ) => void
+  /** 反选时触发（对齐 antd `rowSelection.onSelectInvert`）。 */
+  onSelectInvert?: (selectedRowKeys: Array<React.Key>) => void
+  /** 清空时触发（对齐 antd `rowSelection.onSelectNone`）。 */
+  onSelectNone?: () => void
   /**
    * 返回某 record 的勾选相关 props（antd 签名）。
    * `disabled: true` 的行不可勾选、不参与全选/半选。
@@ -167,6 +190,48 @@ export interface TableRowSelection<RecordType = any> {
     index: number,
     node: ReactNode,
   ) => SelectionRenderCellResult
+}
+
+export interface GridSelectionOptions<RecordType = any> {
+  /**
+   * data-grid 原生行选择模式。
+   *
+   * - `disabled`：禁用选择。
+   * - `single`：点击替换单选。
+   * - `multiple`：点击 toggle 多选。
+   * - `extended`：普通点击单选，Ctrl/Meta toggle，Shift 连续范围，Ctrl+Shift 范围并入现有集合。
+   *
+   * 未传时：若声明了 `gridOptions.selection`，默认按 `rowSelection.type` 推导（radio→single，
+   * 其余→multiple）；未声明 `gridOptions.selection` 时保持现有 antd 兼容层行为。
+   */
+  selectionMode?: GridSelectionMode
+  /**
+   * 是否显示选择列 UI。
+   *
+   * `false` 时不插入选择列，但仍保留行点击选中、受控值驱动和 `dg-row-selected` 视觉。
+   */
+  showSelectionColumn?: boolean
+  /**
+   * 业务选中值提取器。
+   *
+   * 未传时回退到 `rowKey`（推荐仍传稳定业务值，避免依赖可变 index）。
+   */
+  getSelectionValue?: (record: RecordType, index: number) => GridSelectionValue
+  /** 受控业务选中值数组（优先级高于 rowSelection.selectedRowKeys）。 */
+  selectedValues?: ReadonlyArray<GridSelectionValue>
+  /** 非受控初始业务选中值数组（优先级高于 rowSelection.defaultSelectedRowKeys）。 */
+  defaultSelectedValues?: ReadonlyArray<GridSelectionValue>
+  /**
+   * 业务选中值变化回调。
+   * @param selectedValues 新的业务选中值数组。
+   * @param selectedRows 新的选中 record 数组（按当前渲染顺序）。
+   * @param info 操作类型（'all'/'none'/'invert'/'single'/'multiple'）。
+   */
+  onSelectedValuesChange?: (
+    selectedValues: Array<GridSelectionValue>,
+    selectedRows: Array<RecordType>,
+    info: { type: RowSelectMethod },
+  ) => void
 }
 
 /**
@@ -1328,6 +1393,18 @@ export interface TableProps<RecordType = any> {
     resizableMinWidth?: number | ((key: string) => number)
     resizableMaxWidth?: number | ((key: string) => number)
     /**
+     * data-grid 原生行选择配置。
+     *
+     * 与 antd `rowSelection` 的关系：
+     * - `gridOptions.selection` 是 data-grid 原生能力命名空间，优先级高于兼容层。
+     * - `rowSelection` 仍保留 antd 兼容 API（renderCell/getCheckboxProps/selections/onChange...）。
+     * - 选中真理源优先级：`selectedValues` > `defaultSelectedValues` >
+     *   `rowSelection.selectedRowKeys` > `rowSelection.defaultSelectedRowKeys`。
+     * - 同时传 `selectedValues` 与 `selectedRowKeys`：UI 以 `selectedValues` 为准；触发时仍尽量同时
+     *   调 `onSelectedValuesChange` 与 `rowSelection.onChange`。
+     */
+    selection?: GridSelectionOptions<RecordType>
+    /**
      * 拖拽行/列到容器边缘时自动滚动容器（虚拟列表下尤其关键）。
      *
      * **语义**：拖拽中（行拖 / 列拖）指针接近**滚动容器**（`.dg-scroll`）的边缘时，按距边缘
@@ -1567,11 +1644,10 @@ export interface TableProps<RecordType = any> {
   /**
    * 本地化文案（对齐 antd `TableProps.locale` 子集）。
    *
-   * **覆盖**：`emptyText`（表体空状态——空数据或筛选无结果时的占位文案或自定义节点）。
-   *
-   * **未覆盖**（后续按需补）：`filterConfirm`/`filterReset`/`filterEmptyText`/`selectAll`/
-   * `selectInvert`/`selectNone`/`selectionAll`/`sortTitle`/`triggerDesc`/`triggerAsc`/`cancelSort`
-   * 等其它 locale 字段。
+   * data-grid 自研文案统一接入 antd `useLocale('Table')`：
+   * - `TableProps.locale` 覆盖 `ConfigProvider locale`。
+   * - `ConfigProvider locale` 覆盖默认英文。
+   * - 已消费：表体 empty、FilterDropdown、自研选择菜单、自研排序 hover title、自研展开按钮 aria。
    *
    * === emptyText 语义（对齐 antd v6 `locale.emptyText`）===
    *

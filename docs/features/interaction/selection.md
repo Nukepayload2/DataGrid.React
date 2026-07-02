@@ -1,6 +1,59 @@
 # 行选择（selection）
 
-`<Table rowSelection>` 启用行选择。data-grid 的勾选框（Checkbox/Radio）改用 antd 原生组件（非核心用 antd），由 antd 主题接管所有视觉。本文说明勾选框 wrapper margin、选中行背景色、选择列 padding、selections 下拉触发器，以及与 antd 的差异。
+`<Table rowSelection>` 仍是 antd 兼容层；`gridOptions.selection` 是 data-grid 原生选择配置，优先级更高。data-grid 的勾选框（Checkbox/Radio）改用 antd 原生组件（非核心用 antd），由 antd 主题接管所有视觉。本文说明 value-based 选中、行点击选择、隐藏选择列、勾选框 wrapper margin、选中行背景色、选择列 padding、selections 下拉触发器，以及与 antd 的差异。
+
+## 两层 API
+
+- `rowSelection`：antd 兼容层，继续承载 `selectedRowKeys`、`onChange`、`getCheckboxProps`、`selections`、`renderCell` 等字段。
+- `gridOptions.selection`：data-grid 原生层，新增：
+  - `selectionMode?: 'disabled' | 'single' | 'multiple' | 'extended'`
+  - `showSelectionColumn?: boolean`
+  - `getSelectionValue?: (record, index) => string | number | boolean | symbol`
+  - `selectedValues?` / `defaultSelectedValues?`
+  - `onSelectedValuesChange?`
+
+选中真理源优先级：
+
+1. `gridOptions.selection.selectedValues`
+2. `gridOptions.selection.defaultSelectedValues`
+3. `rowSelection.selectedRowKeys`
+4. `rowSelection.defaultSelectedRowKeys`
+
+同时传 `selectedValues` 和 `selectedRowKeys` 时，UI 以 `selectedValues` 为准；触发时 data-grid 会同时尽量调用 `onSelectedValuesChange` 与 `rowSelection.onChange`。
+
+## 业务值选中（selectedValues）
+
+`selectedValues` 不是 React row key。data-grid 用 `getSelectionValue(record, index)` 提取业务值，再在 Table 层映射成内部 `selectedRowKeys` 复用既有 `useRowSelection` 状态机。
+
+- 推荐值类型：`string | number`
+- 允许：`string | number | boolean | symbol`
+- 未传 `getSelectionValue` 时回退到 `rowKey`
+- `getSelectionValue(record, index)` 的 `index` 取当前 `flattenedDataSource` 顺序（排序/筛选/树展开后的可见顺序）
+- 值应稳定且唯一；不要依赖会随排序/筛选/树展开变化的 `index`
+- 重复值只会命中第一条可见记录；缺失值会被忽略，不会产生选中视觉
+
+## 行点击选择
+
+仅在声明了 `gridOptions.selection` 时启用原生行点击语义：
+
+- `single`：点击替换单选
+- `multiple`：点击 toggle 多选
+- `extended`：
+  - 普通点击：单选当前行
+  - `Ctrl` / `Meta`：toggle 当前行
+  - `Shift`：按当前可选行顺序做连续范围选择
+  - `Ctrl+Shift`：把范围并入现有集合
+
+为避免重复触发，点击 `input` / `button` / `a` / 选择控件 / 展开图标 / drag handle 时会跳过行点击选择。
+
+## 隐藏选择列
+
+`showSelectionColumn=false` 只影响 UI，不影响选择能力：
+
+- 不插入选择列
+- 仍可行点击选中
+- 仍响应 `selectedValues` / `selectedRowKeys`
+- 选中行继续带 `dg-row-selected`
 
 ## 勾选框（改用 antd Checkbox/Radio）
 
@@ -84,6 +137,8 @@ data-grid 之前选择列沿用普通 cell padding（large 16/16、middle 8/8、
 | 勾选框 | 内部渲染 antd `<Checkbox>`/`<Radio>`（非核心用 antd） | antd 原生 |
 | 选中行标记 | JS 加 `dg-row-selected` 类 | `<tr class="ant-table-row-selected">` |
 | selections 箭头位置 | inline-flex gap:4（列宽 32px） | absolute（列宽 48px） |
+| 业务值真理源 | `gridOptions.selection.selectedValues` | 无 |
+| 行点击 range 选择 | `selectionMode='extended'` | 无内建等价层 |
 
 ## 引擎状态机（自研核心）
 
@@ -128,9 +183,9 @@ antd `getCheckboxProps(record)` 返回 `{ disabled, ... }`。**禁用的行不�
 
 自定义项：调 `item.onSelect(changeableRowKeys)`（返回 void）；引擎不改变 selectedRowKeys，返回 null（调用方据此不触发 onChange——demo 内自行 setState 后受控回填会刷新 UI）。
 
-### 内置文案对齐 antd enUS
+### 内置文案
 
-`SELECTION_ALL.text = 'Select all data'`、`SELECTION_INVERT.text = 'Invert current page'`、`SELECTION_NONE.text = 'Clear all data'`，对齐 antd 6.4.4 默认文案（`ant-design/components/locale/en_US.ts`）。**已知简化**：data-grid 暂未把 Table locale 透传到 selections（与 filter-in-tree `Select all items`/filter-search `Search in filters` 同款 enUS 硬编码处理）；后续若接入 locale 需同步替换三处 text。
+`SELECTION_ALL` / `SELECTION_INVERT` / `SELECTION_NONE` 的默认文案继续对齐 antd enUS，但现在会优先消费 `useLocale('Table')` 的 `selectionAll` / `selectInvert` / `selectNone`。`TableProps.locale` 覆盖 `ConfigProvider locale`，`ConfigProvider locale` 覆盖默认英文。
 
 注：antd `SELECTION_INVERT` 文案用 "current page" 字眼但实际作用于 changeableRowKeys（全数据范围），属 antd 历史文案，data-grid 对齐文案而不改语义。
 
