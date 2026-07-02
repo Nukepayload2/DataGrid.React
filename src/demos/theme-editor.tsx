@@ -1,42 +1,3 @@
-/**
- * 顶栏 Modal 内的 ThemeEditorPanel（不再作路由 demo）。
- *
- * 交互式 ConfigProvider token 编辑器，证明 data-grid 主题注入**全覆盖**（与 antd
- * 原生消费 cssinjs 对照）。主题注入与 token 派生机制详见
- * `docs/design-notes/theme-tokens.md`。
- *
- * dark bug 语义：未编辑的 token 绝不进 ConfigProvider → 让 antd algorithm +
- * prepareComponentToken 派生 → dark 下自动变暗。只有用户显式编辑过的 token 才作为
- * override 传入。
- * - state 全部在 `src/theme/ThemeContext.tsx`（全局 store）：themeMode + globalOverrides
- *   + tableOverrides。ConfigProvider 由 ThemeProvider 内化，本 panel 不再自渲染。
- * - 顶栏 Segmented 是 dark/light 单一真理源（本 panel 内的 dark Segmented 仅作镜像）。
- *
- * 派生默认值：
- * - `useToken`（`antd/es/theme/internal`）6 元组的 index 1 = realToken（alias 派生后原值）。
- * - Table 默认：`prepareTableComponentToken(realToken)`（`antd/es/table/style/index`）
- *   派生 headerBg/headerColor/headerSplitColor/rowHoverBg/rowSelectedBg/rowSelectedHoverBg
- *   /borderColor/cellPaddingBlock/cellPaddingInline/headerBorderRadius 等（随 algorithm
- *   dark/light 实时变）。
- * - 全局默认：直接 `realToken.colorPrimary / realToken.borderRadius / realToken.fontSize
- *   / realToken.colorBgContainer`。
- * - 每控件当前值 = `overrides[key] ?? derivedDefault[key]`。
- *
- * 编辑/未编辑 UI：
- * - 已编辑 label 加 ●（主色）+"已编辑" tag；仅此 key 在 overrides 对象里时显示。
- * - 未编辑加灰"默认" tag。
- * - 每项旁小"重置"按钮，仅 `key in overrides`（已编辑）时显示；点击 resetXxxToken(key)。
- * - Card 顶"重置全部"按钮，仅任一 overrides 非空时显示；点击 resetAll()。
- *
- * 本 panel 自渲染双栏（不复用 SplitDemo）：需要在同一作用域内同时显示「编辑器 Card +
- * 双栏表格 + 说明区」，自渲染布局更直接。token 覆盖来自全局 store（ThemeProvider 顶层
- * ConfigProvider），故两侧表格（data-grid + antd）都自动响应。
- *
- * 已从 src/demos/index.ts 注册表移除，通过顶栏「主题编辑器」按钮打开的
- * ThemeEditorModal（src/ThemeEditorModal.tsx）渲染本 panel。外层 padding:24 已去掉
- * （Modal body 提供滚动容器）。
- */
-
 import { useState, type ComponentProps, type CSSProperties } from 'react'
 import type { TableProps as AntdTableProps } from 'antd'
 import {
@@ -67,42 +28,22 @@ import {
   type TableTokenKey,
   type ThemeMode,
 } from '../theme/ThemeContext'
-// 派生默认：useToken realToken（index 1）+ antd Table 真实派生函数。详见 docs/design-notes/theme-tokens.md
 import { useToken } from 'antd/es/theme/internal'
 import { prepareComponentToken as antdTablePrepareComponentToken } from 'antd/es/table/style/index'
 
-// ---------------------------------------------------------------------------
-// 类型 & 派生默认
-// ---------------------------------------------------------------------------
-
-/** 共享 size 类型：'large'/'medium'/'small' 在两侧都被接受。 */
+/** 两侧共享的表格尺寸档位。 */
 type SharedSize = 'large' | 'medium' | 'small'
 
-/**
- * antd `useToken` 6 元组 index 1 = realToken（alias 派生后原值，随 algorithm dark/light 变）。
- * Table.tsx 同样用法（src/table/Table.tsx:82）。
- *
- * 类型上 useToken 返回 UseTokenProps（含 theme 等），realToken 是 GlobalToken 的子集。
- * 这里只取我们需要的几个 key，cast 为索引签名以便读取。
- */
+/** 按 key 读取的 antd realToken 视图。 */
 type RealToken = Record<string, unknown>
 
-/**
- * prepareComponentToken 的公开类型是 union，运行时始终是函数（antd 源码
- * `export const prepareComponentToken = (token) => {...}`）。cast 为确定性签名。
- * Table.tsx 同样 cast（src/table/Table.tsx:99-103）。
- */
+/** antd Table token 派生函数的稳定签名。 */
 type AntdTablePrepareComponentTokenFn = (
   token: RealToken,
 ) => Record<string, unknown>
 const prepareTableComponentToken: AntdTablePrepareComponentTokenFn =
   antdTablePrepareComponentToken as unknown as AntdTablePrepareComponentTokenFn
 
-// ---------------------------------------------------------------------------
-// 两侧共享 columns（可排序 + 可筛选 + Action）
-// ---------------------------------------------------------------------------
-
-// data-grid 列定义：Age 可排序，Address 可筛选。
 const dgColumns: ColumnType<RecordType>[] = [
   { title: 'Name', dataIndex: 'name' },
   {
@@ -132,7 +73,6 @@ const dgColumns: ColumnType<RecordType>[] = [
   },
 ]
 
-// antd 列定义（与 data-grid 结构一致，类型独立）。
 const antdColumns: NonNullable<AntdTableProps<RecordType>['columns']> = [
   { title: 'Name', dataIndex: 'name' },
   {
@@ -162,10 +102,6 @@ const antdColumns: NonNullable<AntdTableProps<RecordType>['columns']> = [
   },
 ]
 
-// ---------------------------------------------------------------------------
-// 小工具：ColorPicker 取值（toHexString 统一 hex 字符串）
-// ---------------------------------------------------------------------------
-
 type ColorPickerChangeComplete = NonNullable<
   ComponentProps<typeof ColorPicker>['onChangeComplete']
 >
@@ -175,15 +111,7 @@ function colorToString(color: ColorValue): string {
   return color.toHexString()
 }
 
-// ---------------------------------------------------------------------------
-// 编辑/未编辑标记小组件
-// ---------------------------------------------------------------------------
-
-/**
- * label 旁的编辑状态标记。
- * - edited=true：主色 ● + "已编辑" tag（colorPrimary 由 ThemeProvider ConfigProvider 提供）。
- * - edited=false：灰"默认" tag。
- */
+/** label 旁的编辑状态标记。 */
 function EditMark({ edited }: { edited: boolean }) {
   return edited ? (
     <Tag color="processing" style={{ marginInlineStart: 8, fontSize: 11 }}>
@@ -196,12 +124,7 @@ function EditMark({ edited }: { edited: boolean }) {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Demo 根组件
-// ---------------------------------------------------------------------------
-
 export function ThemeEditorPanel() {
-  // 全局主题 store（单一真理源）：themeMode + globalOverrides + tableOverrides + 写/重置 API。
   const {
     themeMode,
     setThemeMode,
@@ -215,24 +138,15 @@ export function ThemeEditorPanel() {
     hasAnyOverride,
   } = useTheme()
 
-  // 派生默认：useToken realToken（index 1）随 algorithm dark/light 变。
-  //   antd useToken 在 ConfigProvider 作用域内调用，读当前 theme（含 dark algorithm 派生）。
-  //   index 1 = realToken（alias 派生后原值；与 Table.tsx src/table/Table.tsx:1778 同款用法）。
-  //   dark algorithm → realToken 暗值 → prepareTableComponentToken 派生暗默认。
+  // useToken()[1] 是 algorithm 派生后的 realToken。
   const antdTokenTuple = useToken()
   const realToken = (antdTokenTuple[1] ?? {}) as unknown as RealToken
 
-  // Table 组件 token 默认值：直接调用 antd 真实派生函数（与 Table.tsx 同源）。
-  //   输入 realToken（alias 派生后），输出 headerBg/headerColor/... 等 30+ 派生默认。
-  //   dark algorithm → realToken 暗值 → prepareTableComponentToken 派生暗默认（headerBg ≈ #1d1d1d）。
   const tableDefaults = prepareTableComponentToken(realToken)
 
-  // size + scroll.y 仍是本 demo 本地 UI state（与主题无关）。
   const [size, setSize] = useState<SharedSize>('large')
   const [yScroll, setYScroll] = useState(false)
 
-  // ----- 当前值 helper：overrides[key] ?? derivedDefault[key] -----
-  // 类型 cast：realToken/tableDefaults 是 unknown 索引签名，按 key 取后断言为期望类型。
   const getGlobalValue = (key: GlobalTokenKey): string | number => {
     if (key in globalOverrides) {
       return globalOverrides[key] as string | number
@@ -246,22 +160,18 @@ export function ThemeEditorPanel() {
     return tableDefaults[key] as string | number
   }
 
-  // rowSelection：checkbox 多选开启（触发 rowSelectedBg / rowSelectedHoverBg）。
   const dgRowSelection: TableRowSelection<RecordType> | undefined = {}
   const antdRowSelection: AntdTableProps<RecordType>['rowSelection'] = {}
 
-  // scroll：data-grid 用 true（CSS 自适应高度），antd 用 240 数字。
   const dgScroll: { y?: true } = yScroll ? { y: true } : {}
   const antdScroll: { y?: number } = yScroll ? { y: 240 } : {}
 
-  // 全局 token 配置（key + min/max for slider）
   const globalColorKeys: GlobalTokenKey[] = ['colorPrimary', 'colorBgContainer']
   const globalSliderKeys: { key: GlobalTokenKey; min: number; max: number }[] = [
     { key: 'borderRadius', min: 0, max: 16 },
     { key: 'fontSize', min: 12, max: 32 },
   ]
 
-  // Table 颜色 token keys
   const tableColorKeys: TableTokenKey[] = [
     'headerBg',
     'headerColor',
@@ -272,7 +182,6 @@ export function ThemeEditorPanel() {
     'borderColor',
   ]
 
-  // Table 数值 token keys
   const tableSliderKeys: { key: TableTokenKey; min: number; max: number }[] = [
     { key: 'cellPaddingBlock', min: 4, max: 24 },
     { key: 'cellPaddingInline', min: 4, max: 24 },
@@ -281,21 +190,10 @@ export function ThemeEditorPanel() {
 
   return (
     <>
-      {/*
-        不再自渲染 ConfigProvider：token 覆盖来自 ThemeProvider 顶层（src/main.tsx 包
-        ThemeProvider → ConfigProvider(themeMode algorithm + globalOverrides token +
-        tableOverrides components.Table)。两侧表格（data-grid + antd）都在此作用域内，
-        自动响应主题编辑器与顶栏 dark/light 切换。
-        外层 padding:24 去掉（Modal body 提供滚动容器与内边距）。
-      */}
-      {/* ============================================================
-          控制面板（全宽，antd Card 分组）
-          ============================================================ */}
       <Card
         size="small"
         title="主题编辑器"
         extra={
-          // 全量重置：仅任一 overrides 非空时显示。点击 resetAll() 清空两 overrides。
           hasAnyOverride ? (
             <Button size="small" onClick={resetAll} danger>
               重置全部
@@ -304,7 +202,6 @@ export function ThemeEditorPanel() {
         }
         style={{ marginBottom: 16 }}
       >
-        {/* 主题模式（镜像顶栏）+ size + scroll.y */}
         <Form layout="inline" style={{ marginBottom: 8 }}>
           <Form.Item label="主题模式（镜像顶栏）">
             <Segmented
@@ -339,7 +236,6 @@ export function ThemeEditorPanel() {
           </Form.Item>
         </Form>
 
-        {/* 全局 token + Table 组件 token 双栏控件 */}
         <div
           style={{
             display: 'flex',
@@ -348,7 +244,6 @@ export function ThemeEditorPanel() {
             rowGap: 12,
           }}
         >
-          {/* ---- 全局 token ---- */}
           <div style={{ flex: '1 1 480px', minWidth: 480 }}>
             <div
               style={{
@@ -361,7 +256,6 @@ export function ThemeEditorPanel() {
               全局 token（theme.token）
             </div>
             <Form layout="horizontal" labelCol={{ span: 8 }} wrapperCol={{ span: 16 }}>
-              {/* 颜色 */}
               {globalColorKeys.map((key) => {
                 const edited = key in globalOverrides
                 const value = getGlobalValue(key) as string
@@ -397,7 +291,6 @@ export function ThemeEditorPanel() {
                   </Form.Item>
                 )
               })}
-              {/* 数值 */}
               {globalSliderKeys.map(({ key, min, max }) => {
                 const edited = key in globalOverrides
                 const value = getGlobalValue(key) as number
@@ -436,7 +329,6 @@ export function ThemeEditorPanel() {
             </Form>
           </div>
 
-          {/* ---- Table 组件 token：颜色 ---- */}
           <div style={{ flex: '1 1 480px', minWidth: 480 }}>
             <div
               style={{
@@ -487,7 +379,6 @@ export function ThemeEditorPanel() {
             </Form>
           </div>
 
-          {/* ---- Table 组件 token：数值 ---- */}
           <div style={{ flex: '1 1 480px', minWidth: 480 }}>
             <div
               style={{
@@ -548,9 +439,6 @@ export function ThemeEditorPanel() {
         </div>
       </Card>
 
-      {/* ============================================================
-          双栏预览：自渲染（不用 SplitDemo），共享全局 token store
-          ============================================================ */}
       <div
         style={{
           display: 'flex',
@@ -559,7 +447,6 @@ export function ThemeEditorPanel() {
           alignItems: 'flex-start',
         }}
       >
-        {/* 左栏：data-grid */}
         <div
           style={{
             flex: '1 1 560px',
@@ -577,7 +464,7 @@ export function ThemeEditorPanel() {
           >
             data-grid（useToken → .dg-wrapper --ant-* 注入）
           </div>
-          {/* scroll.y:true 需父容器有明确 height，与 component-token demo 一致。 */}
+          {/* scroll.y:true 需要父容器有明确高度。 */}
           <div style={yScroll ? { height: 240 } : undefined}>
             <Table<RecordType>
               size={size}
@@ -590,7 +477,6 @@ export function ThemeEditorPanel() {
           </div>
         </div>
 
-        {/* 右栏：antd */}
         <div
           style={{
             flex: '1 1 560px',
@@ -621,9 +507,6 @@ export function ThemeEditorPanel() {
         </div>
       </div>
 
-      {/* ============================================================
-          说明区：覆盖度对照（默认收起，行为零变化，仅外层改为 Collapse）
-          ============================================================ */}
       <Collapse
         style={{ marginTop: 16 }}
         items={[

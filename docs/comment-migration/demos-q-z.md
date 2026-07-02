@@ -132,6 +132,18 @@
 - 右栏示例 2 保留官方 `scroll.y: 500`。
 - 开启虚拟化时，示例 2 只加 `virtual`，不改原有 `scroll`。
 
+## `src/demos/theme-editor.tsx`
+
+- `theme-editor` 已从路由 demo 注册表移除；当前入口是顶栏按钮打开的 `src/ThemeEditorModal.tsx`，这里保留的是 Modal 内部的 `ThemeEditorPanel` 实现。
+- 主题状态的唯一真理源在 `src/theme/ThemeContext.tsx`：`themeMode`、`globalOverrides`、`tableOverrides` 以及对应写入/重置 API 都由 `ThemeProvider` 持有，panel 本身不再自渲染 `ConfigProvider`。
+- “未编辑 token 不进入 overrides” 是这个 demo 的关键约束。当前值读取规则是 `overrides[key] ?? derivedDefault[key]`，这样 dark 模式下未覆盖项仍会继续走 antd `algorithm` 和 `prepareComponentToken` 的暗色派生。
+- 默认值来源分两层：
+  - 全局 token 直接读取 `useToken()[1]` 的 `realToken`
+  - Table 组件 token 通过 `prepareTableComponentToken(realToken)` 派生
+- “已编辑”的判定规则是 `key in overrides`。只有已编辑项显示单项“重置”，只有任一 override 非空时才显示卡片顶部“重置全部”。
+- 该 panel 不复用 `SplitDemo`，而是自行渲染“控制面板 + 左右预览 + 说明区”，以便在同一作用域内同步驱动 data-grid 与 antd 两张表。
+- 本地 state 只保留与主题系统无关的 demo 控件：`size` 和 `scroll.y`。其中 data-grid 侧用 `scroll={{ y: true }}`，因此需要外层固定高度；antd 侧使用数字 `scroll.y`。
+
 ## `src/demos/semantic-dom.tsx`
 
 - 该 demo 的核心对照包含三部分：
