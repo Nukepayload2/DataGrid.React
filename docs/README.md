@@ -1,26 +1,37 @@
-# Docs Overview
+# data-grid docs
 
-`docs/` is organized by document role rather than by workstream.
+`docs/` 按功能和长期决策组织，不保留任务批次、迁移批次或按字母分组的阅读路径。
 
-## Directories
+## 阅读入口
 
-- [`design-notes/`](design-notes) - Long-lived design notes about the table engine, layout model, and compatibility decisions. These are topic-oriented references that should stay useful after a task is over.
-- [`tasks/`](tasks) - Working documents for planning, alignment, cleanup passes, and next-session handoff. These are process documents and may become stale as execution moves on.
-- [`migration-log/comment-migration/`](migration-log/comment-migration) - Audit-style notes produced while moving long source comments into docs. These preserve migration context but are not meant to be the primary reading path.
-- [`reference/`](reference) - Reference material, compatibility matrices, namespace strategy notes, and external capability comparisons.
+- [`architecture/overview.md`](architecture/overview.md): 项目目标、分层和文档导航。
+- [`features/`](features): 按功能域查看列、布局、滚动、交互、样式和 API 行为。
+- [`decisions/0008-api-namespace-separation.md`](decisions/0008-api-namespace-separation.md): 了解兼容 API 与 data-grid 专属 API 的分层原则。
+- [`reference/compat-matrix.md`](reference/compat-matrix.md): data-grid 与 antd Table 的 API 兼容矩阵。
+- [`reference/known-limitations.md`](reference/known-limitations.md): 当前确认的架构边界、兼容缺口和视觉对齐遗留项。
+- [`contributing/documentation-style.md`](contributing/documentation-style.md): 文档写法、源码注释迁移和目录落点约定。
 
-## Entry Points
+## 目录
 
-- [`tasks/task-plan.md`](tasks/task-plan.md) - Main project task ledger and historical execution record.
-- [`tasks/next-session-alignment.md`](tasks/next-session-alignment.md) - Current handoff note for the next deep alignment pass.
-- [`design-notes/summary.md`](design-notes/summary.md) - One design-note entry point when browsing engine topics.
-- [`reference/compat-matrix.md`](reference/compat-matrix.md) - API compatibility audit against antd Table.
-- [`reference/grid-options-namespace.md`](reference/grid-options-namespace.md) - Namespace policy for data-grid-specific APIs.
-- [`reference/semantic-dom-compat.md`](reference/semantic-dom-compat.md) - Semantic DOM compatibility analysis against antd Table.
-- [`migration-log/comment-migration/table-live-root.md`](migration-log/comment-migration/table-live-root.md) - Main audit entry for source-comment migration into docs.
+- [`architecture/`](architecture): 架构总览、渲染模型、demo 站点和 live editor。
+- [`decisions/`](decisions): 关键设计决策 ADR。
+- [`features/`](features): 按功能域拆分的说明文档。
+- [`reference/`](reference): 兼容矩阵、命名空间策略、外部能力借鉴和限制清单。
+- [`contributing/`](contributing): 文档维护和验证约定。
 
-## Classification Notes
+## 功能分组
 
-- `design-notes` stays intentionally granular. Topic files were kept separate instead of being merged into a larger handbook.
-- `migration-log/comment-migration` is retained as historical audit output because it explains where migrated source comments landed, but it is not treated as canonical long-term design documentation.
-- Some historical documents still mention repo-root-style `docs/...` paths in code spans. These point at current locations or archived artifact paths, not signs that files still belong at the old paths.
+- [`features/columns/`](features/columns): 列宽、固定列、隐藏列、响应式列、列默认值。
+- [`features/layout/`](features/layout): 整体布局、表头与合并、行高、边框、sticky、summary。
+- [`features/scrolling/`](features/scrolling): 滚动条与虚拟化。
+- [`features/interaction/`](features/interaction): 选择、展开、树形、筛选排序、分页与数据、拖拽、编辑。
+- [`features/display/`](features/display): ellipsis、空态与 loading。
+- [`features/styling/`](features/styling): theme tokens、semantic DOM。
+- [`features/api/`](features/api): JSX API、components 和行级钩子。
+
+## 使用约定
+
+- 设计思想和重要取舍进入 [`decisions/`](decisions)。
+- 功能行为、差异和源码落点进入对应的 [`features/`](features) 文档。
+- 兼容边界、命名空间策略和外部参考进入 [`reference/`](reference)。
+- 中间任务过程、迁移批次说明、交接清单和会话进度不再作为主文档保留。

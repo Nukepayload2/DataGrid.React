@@ -193,9 +193,8 @@
 | `gridOptions.rowHeight` / `minRowHeight` / `maxRowHeight` | 表级 | 行高约定：非虚拟路径作 grid track（不测）；虚拟路径作 RO 测量的未测兜底/初值（measured-first，antd 行高随内容）。 | 无 |
 | `gridOptions.headerHeight` | 表级 | 表头高度约定。 | 无 |
 | `gridOptions.resizable` / `resizableMinWidth` / `resizableMaxWidth` | 表级 | 列宽拖拽调整（antd v6 核查无 resizable）。 | 无 |
-| `gridOptions.autoScrollOnDrag` | 表级（规划）| 拖到边缘自动滚动。见 [ag-grid-drag-candidates.md](ag-grid-drag-candidates.md)。 | 无 |
-| `gridOptions.dragToPinColumn` / `hideColumnOnDragAway` / `rowDropTargets` / `dragPreview` / `multiRowReorder` | 表级（规划）| 拖拽增强候选。 | 无 |
-| `gridOptions.columnReorder` | 表级（规划）| 列重排总开关。 | 无 |
-| `gridColumnOptions.dragColumnLock` / `cellDragSource` | 列级（规划）| 列级拖拽选项。 | 无 |
+| `gridOptions.columnReorder` | 表级 | 列重排总开关。 | 无 |
+| `gridOptions.autoScrollOnDrag` / `multiRowReorder` | 表级 | 当前采用命名的拖拽增强项。 | 无 |
+| `gridColumnOptions.dragColumnLock` | 列级 | 列级拖拽锁定选项。 | 无 |
 
-> 注：顶层 `rowHeight`/`headerHeight`/`resizable*` 在历史版本中位于 `TableProps` 顶层，正在硬迁移到 `gridOptions`（删顶层、更新 demo），详见 [grid-options-namespace.md](grid-options-namespace.md)。
+> 注：`dragToPinColumn` / `hideColumnOnDragAway` / `rowDropTargets` / `dragPreview` / `cellDragSource` 等名称仍属于候选扩展，放在 [ag-grid-drag-candidates.md](ag-grid-drag-candidates.md) 作为外部能力参考，不计入当前兼容矩阵。
