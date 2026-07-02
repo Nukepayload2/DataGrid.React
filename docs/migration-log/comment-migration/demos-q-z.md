@@ -151,7 +151,7 @@
   - a11y 属性兼容矩阵
   - `Age` 列排序带来的 `aria-sort` 变化
 - data-grid 的结构是 `div + CSS Grid`，没有原生 `table/thead/tbody/tr` 层级，因此不可能完整等价于原生表格语义，这个架构限制不再写成长注释放在源码顶部。
-- 完整兼容矩阵以 `docs/semantic-dom-compat.md` 为主，demo 内只保留必要的数据常量与展示代码。
+- 完整兼容矩阵以 [../../reference/semantic-dom-compat.md](../../reference/semantic-dom-compat.md) 为主，demo 内只保留必要的数据常量与展示代码。
 - 本 demo 不接入全局虚拟化，避免影响 DOM 检视。
 
 ## `src/demos/semantic-dom.dg.tsx`

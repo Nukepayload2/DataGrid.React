@@ -6,7 +6,7 @@ This file records substantive source comments migrated out of the `src/demos` i-
 
 - Worker scope: direct child files under `src/demos` whose basename starts with `i` through `p`.
 - Excluded by assignment: `src/demos/_compare`.
-- Takeover status: I did not find an existing `docs/comment-migration/demos-i-p.md`, so this pass started from an empty docs file rather than extending a prior half-finished draft.
+- Takeover status: this pass did not find an existing in-place `demos-i-p.md` migration note, so it started from an empty audit file rather than extending a prior half-finished draft.
 
 ## `src/demos/index.ts`
 

@@ -4,7 +4,7 @@
 data-grid = 用 **CSS Grid 重做 antd Table**，兼容 **antd v6** 的 CSS variables（`--ant-*`）+ React 接口；49 个 demo 用 SplitDemo 左右对比（左 data-grid / 右 antd 6.x 官方同名 demo）。非表格核心控件（pagination / filter 下拉 / tooltip 等）复用 antd；表格核心（grid 渲染 / 列树 / 固定列 / 合并 / 虚拟 / 排序筛选选择展开状态机）自研。
 
 ## 本会话已完成（勿重复）
-- **demo 配置等价大修**：49 demo 左右对齐（pagination / filter / sorter / action 链接色 / 可见高度）。详见 memory `demo-config-equivalence` + `docs/align-demo-config-tasks.md`。
+- **demo 配置等价大修**：49 demo 左右对齐（pagination / filter / sorter / action 链接色 / 可见高度）。详见 memory `demo-config-equivalence` + [align-demo-config-tasks.md](align-demo-config-tasks.md)。
 - **门户改造**：antd Layout 顶导 + 首页按类别分组卡片网格 + 搜索 + 类 antd 文档页（`HomePage.tsx` / `DocsPage.tsx` / `App.tsx`）。
 - **虚拟化对齐 react-virtuoso**：AATree/offsetTree 动态行高 + `gridOptions`（rowHeight/min/max 有界）+ flushSync/isScrolling + smooth scrollTo（JS RAF easing）+ FillerRow。详见 memory `virtualization-virtuoso-aligned`。
 - **滚动条修复**：thumb min 32px + 单路径 transform + hit 区 8px + 真实滚轮 bug（measureHeaderHeight 参照容器 / FillerRow 消闪烁 / 拖动 release 修复）。
@@ -64,4 +64,4 @@ data-grid 专属（antd 无或语义不同）的 API 统一收进命名空间，
 - antd 官方（只读对照 + API 真相）：`G:\Projects\ant-design\components\table`。
 - react-virtuoso（虚拟化参考，已授权）：`G:\Projects\react-virtuoso`。
 - ag-grid（能力借鉴，已授权）：`G:\Projects\ag-grid`。★ **enterprise 模块只研究行为不抄码；community 模块可抄；API 名用户自定、绝不照抄 ag-grid 名**。
-- task-plan：`docs/task-plan.md`；本清单：`docs/next-session-alignment.md`。
+- task-plan：[task-plan.md](task-plan.md)；本清单：[next-session-alignment.md](next-session-alignment.md)。

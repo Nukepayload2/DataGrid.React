@@ -196,8 +196,8 @@ Agent({
 ---
 
 ## 参考文件（必读）
-- **本任务清单**：`docs/align-polish-tasks.md`（本文件）
-- **§11 原始规格 + 工作模式 + 决策**：`docs/task-plan.md` §11 + §工作模式 + §1.5 + §8 + §9
+- **本任务清单**：[align-polish-tasks.md](align-polish-tasks.md)（本文件）
+- **§11 原始规格 + 工作模式 + 决策**：[task-plan.md](task-plan.md) §11 + §工作模式 + §1.5 + §8 + §9
 - **共享修复现状**（§11 已落地，勿重做）：memory `theme-injection-antd`（§11 轮共享修复 + getComponentToken 剪枝坑）
 - **列宽策略 C1**：memory `data-grid-project`「列宽策略（C1）」+ task-plan §当前进度 C1 收尾
 - **调度者不改代码**：memory `orchestrator-no-direct-code-edits`
