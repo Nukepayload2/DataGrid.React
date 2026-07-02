@@ -2197,7 +2197,7 @@ function TableInner<RecordType = any>(
                 nextKeys = selection.toggleRow(key)
                 method = 'multiple'
               } else {
-                nextKeys = selection.selectRow(key)
+                nextKeys = [key]
               }
               setSelectionAnchorKey(key)
             }
@@ -2277,14 +2277,10 @@ function TableInner<RecordType = any>(
   }, [sticky])
 
   // === 分页集成 ===
-  // ★ 默认不分页：pagination 为 undefined/false → 不启用分页，pagedDataSource = filteredDataSource（全显），
-  //   保持所有现有 demo 行为不变（零回归）。
-  //   显式传 TablePaginationConfig 对象才启用分页：切片 + 渲染 antd Pagination。
-  //   详见 `docs/design-notes/pagination.md`。
-  const paginationEnabled = pagination !== undefined && pagination !== false
-  const paginationConfig = (pagination === undefined || pagination === false
-    ? {}
-    : pagination) as TablePaginationConfig
+  // antd 兼容默认：pagination 未传时等价 `{}`，默认 pageSize=10 + bottomEnd 分页器。
+  // 仅 `pagination={false}` 明确关闭分页并全量渲染。
+  const paginationEnabled = pagination !== false
+  const paginationConfig = (pagination === false ? {} : (pagination ?? {})) as TablePaginationConfig
 
   const paginationInfo = usePagination({
     pagination: paginationConfig,

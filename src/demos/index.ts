@@ -102,7 +102,7 @@ export const demos: DemoMeta[] = [
     name: 'row-selection-native',
     title: 'Row Selection Native',
     description:
-      'gridOptions.selection（selectedValues、showSelectionColumn=false、extended 行点击）+ rowSelection 兼容回调并存。',
+      'gridOptions.selection（selectedValues、showSelectionColumn、extended：普通点击单选、Ctrl 多选、Shift 连续选择）+ rowSelection 兼容回调并存。',
     element: () => import('./row-selection-native'),
     compare: false,
     category: '行选择',

@@ -199,7 +199,8 @@ export interface GridSelectionOptions<RecordType = any> {
    * - `disabled`：禁用选择。
    * - `single`：点击替换单选。
    * - `multiple`：点击 toggle 多选。
-   * - `extended`：普通点击单选，Ctrl/Meta toggle，Shift 连续范围，Ctrl+Shift 范围并入现有集合。
+   * - `extended`：普通点击单选，Ctrl/Meta toggle，Shift 从上一次行点击锚点到当前行连续选择，
+   *   Ctrl+Shift 把范围并入现有集合。
    *
    * 未传时：若声明了 `gridOptions.selection`，默认按 `rowSelection.type` 推导（radio→single，
    * 其余→multiple）；未声明 `gridOptions.selection` 时保持现有 antd 兼容层行为。
@@ -742,9 +743,8 @@ export type TablePaginationPlacement =
 /**
  * 分页配置（对齐 antd v6 `TablePaginationConfig extends PaginationProps`）。
  *
- * **★ data-grid 默认不分页**：`pagination` 为 `undefined` 或 `false` 时**不渲染分页器、数据全显**
- * （与 antd 默认 `pagination: {}` 开启分页不同——此差异保留给"接口全兼容阶段"对齐）。
- * **显式传 `pagination` 对象**才启用分页。
+ * **默认分页对齐 antd**：`pagination` 为 `undefined` 时等价 `{}`，默认 pageSize=10 并渲染
+ * bottomEnd 分页器；`pagination={false}` 才关闭分页、数据全显。
  *
  * 覆盖 antd demo 实际用到的子集 + 常用字段：
  *   - 受控：`current` / `pageSize`（传入即受控）。
@@ -1503,8 +1503,10 @@ export interface TableProps<RecordType = any> {
   /**
    * 分页配置。
    *
-   * **★ data-grid 默认不分页**（与 antd 默认开启分页不同，此差异保留给"接口全兼容阶段"对齐）：
-   *   - `undefined` / `false`：**不渲染分页器，数据全显**（保持所有现有 demo 行为不变）。
+   * **默认分页对齐 antd**：
+   *   - `undefined`：等价 `{}`，默认 `defaultCurrent=1`、`defaultPageSize=10`、
+   *     `placement=['bottomEnd']`。
+   *   - `false`：关闭分页器，数据全显。
    *   - `TablePaginationConfig` 对象：启用分页（受控/非受控 current/pageSize，total 派生）。
    *
    * 启用后：

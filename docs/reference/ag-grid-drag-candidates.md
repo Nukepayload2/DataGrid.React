@@ -28,12 +28,12 @@
 
 | # | 能力 | 版本 | ag-grid 行为（file:line） | dg 现状 | 建议中性名 | 难度 |
 |---|------|------|---------------------------|---------|------------|------|
-| 7 | **拖到边缘自动滚动**（虚拟化硬伤） | community | `moveColumnFeature.ts:23-24`（`SCROLL_MOVE_WIDTH=100` / `SCROLL_GAP_NEEDED_BEFORE_MOVE`）+ `moveInterval`（`:582, :597-604`，按距离加速、上限 `SCROLL_MOVE_WIDTH`）；行拖同款：`rowDragFeature.ts:66-111`（`AutoScrollService` 实例 + `:178-190` `check(draggingEvent)`）。 | **未实现**。dg 现有 hit-test 仅遍历已渲染 cell，拖到视口边缘不会触发滚动，长表拖拽体验断。 | `gridOptions.autoScrollOnDrag` | 中 |
+| 7 | **拖到边缘自动滚动**（虚拟化硬伤） | community | `moveColumnFeature.ts:23-24`（`SCROLL_MOVE_WIDTH=100` / `SCROLL_GAP_NEEDED_BEFORE_MOVE`）+ `moveInterval`（`:582, :597-604`，按距离加速、上限 `SCROLL_MOVE_WIDTH`）；行拖同款：`rowDragFeature.ts:66-111`（`AutoScrollService` 实例 + `:178-190` `check(draggingEvent)`）。 | **已采用**。dg 已以 `gridOptions.autoScrollOnDrag` 作为行/列拖拽边缘自动滚动总开关，默认开启。 | `gridOptions.autoScrollOnDrag` | 已完成 |
 | 2 | **列拖到固定区切换固定态**（含停留即固定） | community | `moveColumnFeature.ts` 三实例 left/center/right（构造点见 `bodyDropTarget.ts:52-60`：`buildMoveFeature('left'/'right')` + `buildDropTarget('left'/'right')`）；判定 `bodyDropTarget.ts:147-152, 165-176`（`getPinnedSection`：用 `clientX` 相对 rect + 左右 sticky 区宽度判定 `'left'/'right'`）；停留即固定靠 `failedMoveAttempts`（移动失败计数 → 达阈值改 pinned）。 | **未实现**。dg 列重排有，但拖入固定区切换 `fixed` 没有。 | `gridOptions.dragToPinColumn` | 中 |
 | 3 | **列拖出网格即隐藏 / 拖回恢复** | community | `columnMoveService.ts:213`（`hideColumnOnExit = !gos.get('suppressDragLeaveHidesColumns')`，默认 true）+ `:222` 默认图标 `'hide'` + `:231-244`（`onGridEnter` 恢复、`onGridExit` 隐藏）。 | **未实现**。 | `gridOptions.hideColumnOnDragAway` | 中 |
 | 5 | **行拖到外部 drop zone**（跨网格 / 看板 / 回收站） | community | `dragApi.ts:9-10, 21`（`addRowDropZone(params)` / `getRowDropZoneParams(events)`）；底层注册：`rowDragFeature.ts:579-604`（`addRowDropZone` → 注册外部 `DropZone`，拖出网格触发外部 `onDragStop`）。 | **未实现**。dg 行重排仅在网格内。 | `gridOptions.rowDropTargets` + `onRowDrop` 回调 | 中 |
-| 1 | **列重排开关**（全局禁 / 单列禁 / 锁位置） | community | `headerCellCtrl.ts:387`（`this.draggable = this.workOutDraggable()`）+ `:454-458`（`workOutDraggable`：`!suppressMovableColumns && !colDef.suppressMovable && !colDef.lockPosition`）；suppressMovableColumns 在网格选项清单 `:133`。 | **已有重排**（现有 `useColumnDragSort`），**缺开关**：无全局禁用、无单列禁用、无锁位置。 | 表级 `gridOptions.columnReorder` + 列级 `gridColumnOptions.dragColumnLock` | 低 |
-| 4 | **行多选连拖** | community | `rowDragFeature.ts:141`（`if (this.gos.get('rowDragMultiRow'))`）+ `:148` 多行拖拽路径。 | **已有重排**（现有行拖拽能力），**缺多行**：当前一次拖一行。 | `gridOptions.multiRowReorder` | 低 |
+| 1 | **列重排开关**（全局禁 / 单列禁 / 锁位置） | community | `headerCellCtrl.ts:387`（`this.draggable = this.workOutDraggable()`）+ `:454-458`（`workOutDraggable`：`!suppressMovableColumns && !colDef.suppressMovable && !colDef.lockPosition`）；suppressMovableColumns 在网格选项清单 `:133`。 | **已采用**。表级 `gridOptions.columnReorder` 是列重排总闸；列级 `gridColumnOptions.dragColumnLock` 支持 `lockDrag` / `lockPosition`。 | 表级 `gridOptions.columnReorder` + 列级 `gridColumnOptions.dragColumnLock` | 已完成 |
+| 4 | **行多选连拖** | community | `rowDragFeature.ts:141`（`if (this.gos.get('rowDragMultiRow'))`）+ `:148` 多行拖拽路径。 | **已采用**。`gridOptions.multiRowReorder` 控制选中行成块重排，默认开启。 | `gridOptions.multiRowReorder` | 已完成 |
 | 8 | **拖拽预览 + 语义图标** | community | `dragAndDropImageComponent.ts`（拖拽预览组件）+ `dragModule.ts:55-77`（注册 + 图标语义：`hide`/`move`/`left`/`right`/…）。 | **仅指示线**（dg 重排目前靠插入位置指示线，无自定义预览、无语义图标）。 | `gridOptions.dragPreview` | 中 |
 | 6 | **单元格 HTML5 dndSource**（拖到外部应用） | community | `rendering\dndSourceComp.ts:38-40`（`dataTransfer.setDragImage(eCell,0,0)`）+ `:51-54`（`JSON.stringify(rowNode.data)` → `dataTransfer.setData('application/json', …)` + `text/plain`）。 | **未实现**。 | 列级 `gridColumnOptions.cellDragSource` | 低 |
 
@@ -41,12 +41,11 @@
 
 ## 优先级建议
 
-按「价值 / 依赖 / 难度」排序：
+按「价值 / 依赖 / 难度」排序；已采用项不再进入候选优先级。
 
-- **P0 — `#7 拖到边缘自动滚动`**：虚拟化场景的硬体验项，没它长表拖列/拖行都断。其它拖拽增强都依赖滚动正常。**先做**。
 - **P1 — `#2 拖到固定区切换固定态` + `#3 拖出隐藏/拖回恢复`**：列管理高价值，两者共享「拖到网格边界判定」基础设施，宜同期做。
-- **P2 — `#5 外部 drop zone` + `#1 列重排开关`**：跨网格拖拽（看板/回收站场景）+ 给现有重排加上开关/锁位置（小改动、收益直接）。
-- **P3 — `#4 行多选连拖` + `#8 拖拽预览/语义图标`**：体验增强，非阻塞。
+- **P2 — `#5 外部 drop zone`**：跨网格拖拽（看板/回收站场景），需要明确外部 drop target 生命周期和回调形态。
+- **P3 — `#8 拖拽预览/语义图标`**：体验增强，非阻塞。
 - **P4 — `#6 单元格 dndSource`**：长尾，HTML5 原生拖到外部应用，按需。
 
 > **不借鉴（明确排除）**：enterprise 的三个 drop zone 面板（`packages\ag-grid-enterprise\src\rowGrouping\columnDropZones\` 下的 rowGroupDropZonePanel / pivotDropZonePanel / valueDropZonePanel），全部依赖 tree-data / row-grouping / pivot，命中约束 2，**整体排除**。

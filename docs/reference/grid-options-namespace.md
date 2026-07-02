@@ -27,6 +27,9 @@ data-grid 把“与 antd Table 不同语义或完全不存在”的表格能力�
 | `resizableMinWidth` | `TableProps.resizableMinWidth`（顶层） | `gridOptions.resizableMinWidth` | 无 | dg 顶层 `types.ts:1409` |
 | `resizableMaxWidth` | `TableProps.resizableMaxWidth`（顶层） | `gridOptions.resizableMaxWidth` | 无 | dg 顶层 `types.ts:1414` |
 | `selection` | 无 | `gridOptions.selection` | 无 | antd 只有 `rowSelection` 兼容层；`gridOptions.selection` 承载 data-grid 原生 `selectionMode/showSelectionColumn/selectedValues` |
+| `autoScrollOnDrag` | 无 | `gridOptions.autoScrollOnDrag` | 无 | data-grid 拖拽增强：行/列拖到滚动容器边缘时自动滚动 |
+| `columnReorder` | 无 | `gridOptions.columnReorder` | 无 | data-grid 列拖拽重排总开关 |
+| `multiRowReorder` | 无 | `gridOptions.multiRowReorder` | 无 | data-grid 行拖拽增强：选中多行成块重排 |
 
 ### 与现有 `gridOptions.rowHeight` 的合并
 

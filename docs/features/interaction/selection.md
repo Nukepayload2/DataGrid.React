@@ -41,8 +41,8 @@
 - `extended`：
   - 普通点击：单选当前行
   - `Ctrl` / `Meta`：toggle 当前行
-  - `Shift`：按当前可选行顺序做连续范围选择
-  - `Ctrl+Shift`：把范围并入现有集合
+  - `Shift`：从上一次行点击锚点到当前行，按当前可选行顺序做连续范围选择
+  - `Ctrl+Shift`：把上述连续范围并入现有集合
 
 为避免重复触发，点击 `input` / `button` / `a` / 选择控件 / 展开图标 / drag handle 时会跳过行点击选择。
 

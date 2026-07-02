@@ -1,6 +1,7 @@
 # 已知限制
 
 本页只保留仍有长期价值的限制、兼容缺口和视觉对齐遗留项，不记录任务批次或会话过程。
+能通过局部 API 适配补齐的项目不再描述为架构限制，而归入“可实施兼容 backlog”。
 
 ## 架构边界
 
@@ -10,10 +11,34 @@
 
 ## 兼容缺口
 
-- `locale` 当前只完整覆盖表体 `emptyText`；筛选下拉相关 i18n 仍不完整。
-- `rowSelection` 仍有一部分 antd 字段未实现，例如 `onSelect`、`columnTitle`、`onCell`、`getTitleCheckboxProps`。
+- `rowSelection` 仍有一部分 antd 字段未实现，例如 `columnTitle`、`onCell`、`getTitleCheckboxProps`、`onSelectMultiple`。
 - `expandable` 仍缺少部分字段，例如 `columnTitle` 和 `fixed`。
 - `components` 仍缺少原生表格 wrapper 级槽位和 `body` 函数形态。
+
+## 可实施兼容 backlog
+
+这些项目此前容易被误记为“限制”，但本质上是 API 适配或局部渲染增强，可以按优先级补齐：
+
+- `rowSelection.columnTitle`、`rowSelection.onCell`、`rowSelection.getTitleCheckboxProps`、`rowSelection.onSelectMultiple`。
+- `expandable.columnTitle`、`expandable.fixed`。
+- `scroll.scrollToFirstRowOnChange`。
+- `column.filtered`、`column.sortIcon`、`column.filterResetToDefaultFilteredValue`。
+- `filterDropdownProps` 更完整透传。
+- `dataIndex` 的 `DeepNamePath` 类型增强。
+- `sticky.offsetSummary`。
+
+以下项目能做，但需要先确认设计取舍或回归范围：
+
+- `scroll.y = number|string` 的 antd max-height 语义：可以和当前 `scroll.y: true` 的数据区模式并存，但需要明确优先级。
+- pagination 默认开启：可以对齐 antd 默认 10/页，但会改变现有不传 `pagination` 的默认行为。
+- RTL：可实现，但需要系统性处理 fixed、sticky、滚动条、拖拽方向和阴影方向。
+- `components.header.row`、`components.body.wrapper`、`components.body` 函数形态：可提供 data-grid 语义下的适配，但不能等价替换原生 table DOM。
+
+## 已实现，不再作为限制
+
+- `locale` 已接入 antd `useLocale('Table')`：`TableProps.locale` 覆盖 ConfigProvider locale，ConfigProvider locale 覆盖默认英文；FilterDropdown、selection 内置项、排序/展开文案已纳入当前兼容面。
+- `rowSelection.onSelect`、`onSelectAll`、`onSelectInvert`、`onSelectNone` 已实现。
+- 拖拽相关的 `gridOptions.autoScrollOnDrag`、`gridOptions.columnReorder`、`gridColumnOptions.dragColumnLock`、`gridOptions.multiRowReorder` 已作为当前采用的 data-grid 原生能力记录。
 
 ## 行为和布局限制
 

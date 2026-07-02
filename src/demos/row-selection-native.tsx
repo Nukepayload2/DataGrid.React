@@ -1,14 +1,13 @@
 import { useMemo, useState } from 'react'
-import { Button, Space, Tag, Typography } from 'antd'
+import { Button, Segmented, Space, Switch, Typography } from 'antd'
 import { Table } from '../table'
-import type { ColumnType, TableProps } from '../table'
+import type { ColumnType, GridSelectionMode, TableProps } from '../table'
 import { data, type RecordType } from './_compare/row-selection.shared'
 
 const columns: ColumnType<RecordType>[] = [
   {
     title: 'Name',
     dataIndex: 'name',
-    render: (text: string) => <a>{text}</a>,
   },
   {
     title: 'Age',
@@ -21,6 +20,8 @@ const columns: ColumnType<RecordType>[] = [
 ]
 
 export default function RowSelectionNativeDemo() {
+  const [selectionMode, setSelectionMode] = useState<GridSelectionMode>('extended')
+  const [showSelectionColumn, setShowSelectionColumn] = useState(false)
   const [selectedValues, setSelectedValues] = useState<Array<string>>(['John Brown'])
   const [compatSelectedKeys, setCompatSelectedKeys] = useState<Array<React.Key>>(['4'])
 
@@ -41,8 +42,24 @@ export default function RowSelectionNativeDemo() {
   return (
     <Space direction="vertical" size={16} style={{ width: '100%' }}>
       <Space wrap>
+        <Segmented
+          options={[
+            { label: 'Disabled', value: 'disabled' },
+            { label: 'Single', value: 'single' },
+            { label: 'Multiple', value: 'multiple' },
+            { label: 'Extended', value: 'extended' },
+          ]}
+          value={selectionMode}
+          onChange={(value) => setSelectionMode(value as GridSelectionMode)}
+        />
+        <Switch
+          checked={showSelectionColumn}
+          onChange={setShowSelectionColumn}
+          checkedChildren="Column"
+          unCheckedChildren="No column"
+        />
         <Button onClick={() => setSelectedValues(['John Brown'])}>Select John</Button>
-        <Button onClick={() => setSelectedValues(['John Brown', 'Joe Black'])}>Select Range Seed</Button>
+        <Button onClick={() => setSelectedValues(['John Brown', 'Joe Black'])}>Select John + Joe</Button>
         <Button
           onClick={() => {
             setSelectedValues([])
@@ -51,13 +68,11 @@ export default function RowSelectionNativeDemo() {
         >
           Clear
         </Button>
-        <Tag color="blue">selectionMode=extended</Tag>
-        <Tag>showSelectionColumn=false</Tag>
       </Space>
 
       <Typography.Text>
-        `selectedValues` drives UI. The compat `selectedRowKeys` state starts from `['4']`, but the
-        first selected row is still `John Brown`.
+        `selectedValues` drives UI. In extended mode, normal row click replaces selection, Ctrl/Meta
+        toggles, and Shift ranges from the last row click to the current row.
       </Typography.Text>
 
       <div>
@@ -80,8 +95,8 @@ export default function RowSelectionNativeDemo() {
         pagination={false}
         gridOptions={{
           selection: {
-            selectionMode: 'extended',
-            showSelectionColumn: false,
+            selectionMode,
+            showSelectionColumn,
             getSelectionValue: (record) => record.name,
             selectedValues,
             onSelectedValuesChange: (nextValues) => {

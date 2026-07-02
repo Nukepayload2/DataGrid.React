@@ -27,7 +27,6 @@
 | `scroll.y = number\|string`（max-height 语义） | TableProps.scroll | 未实现 | dg 的 `scroll.y` 仅接受 `true`（启用容器内纵向滚动 + sticky 表头），不把 number 当作 max-height。antd/rc-table 把 number 当作表体 `max-height`。决策 7。 | antd `InternalTable.tsx:177`；rc-table `Table.d.ts:55` (`y?: number \| string`)；dg `types.ts:990, 1313`（`y?: true`）|
 | `scroll.scrollToFirstRowOnChange` | TableProps.scroll | 未实现 | antd 默认 `true`（分页/排序/筛选切换时滚回首行）。dg 无此字段。 | antd `InternalTable.tsx:178, 426-427`；dg `types.ts:990, 1313`（无此键）|
 | `direction: 'rtl'`（RTL 布局） | ConfigProvider | 未实现 | dg 无 RTL 支持；`direction` 通过 ConfigProvider 注入，dg 未消费。 | antd `ConfigProvider` direction；dg 全仓无 `direction`/`RTL` 字段（types.ts 无命中）|
-| `rowSelection.onSelect` | rowSelection | 未实现 | antd 非废弃字段，单行勾选回调。dg 用 `onChange` 的 `info.type` 表达操作粒度，未单独实现 `onSelect`。 | antd `interface.ts:230`；dg `types.ts:192-318`（无 `onSelect` 字段）|
 | `rowSelection.columnTitle` | rowSelection | 未实现 | 自定义选择列表头格内容（ReactNode 或 `(checkboxNode) => ReactNode`）。dg 无此字段。 | antd `interface.ts:243`；dg `types.ts:192-318`（无 `columnTitle`）|
 | `rowSelection.onCell` | rowSelection | 未实现 | 选择列单元格 props 注入。dg 无此字段。 | antd `interface.ts:253`；dg `types.ts:192-318`（无 `onCell`）|
 | `rowSelection.getTitleCheckboxProps` | rowSelection | 未实现 | 表头勾选框的 props（v6 新增）。dg 无此字段。 | antd `interface.ts:254-255`；dg `types.ts:192-318`（无此字段）|
@@ -45,7 +44,6 @@
 | `column.filterResetToDefaultFilteredValue` | ColumnType | 未实现 | 重置时回到默认筛选。dg 未实现。 | antd `interface.ts:179`；dg `types.ts`（无此字段）|
 | `dataIndex = DeepNamePath`（深层路径类型） | ColumnType | 未实现 | antd `dataIndex` 支持 `DeepNamePath`（嵌套路径强类型）。dg 仅 `string \| number \| Array<string\|number>`（运行时已支持路径数组，但类型不深）。 | antd rc-table `DataIndex`/`DeepNamePath`；dg `types.ts:376` |
 | `sticky.offsetSummary` | TableProps.sticky | 未实现 | summary 跟随 sticky 表头时的偏移。dg 的 `sticky` 仅 `offsetHeader`/`offsetScroll`/`getContainer`，缺 `offsetSummary`。 | antd rc-table `interface.d.ts:199`（`offsetSummary`）；dg `types.ts:1658`（`sticky?: boolean \| StickyConfig`，StickyConfig 无 offsetSummary）|
-| `locale.filterTitle/filterConfirm/filterReset/filterEmptyText/filterSearchPlaceholder/filterCheckAll/selectAll/selectNone/selectInvert/selectionAll/sortTitle/expand/collapse/triggerDesc/triggerAsc/cancelSort` | locale | 未实现 | dg `locale` 仅暴露 `emptyText`（17 个字段缺失）。**FilterDropdown 内部硬编码英文**（OK/Reset/Select all items/Search in filters/No filters），导致 i18n 失效。 | antd `interface.ts:41-63`（18 字段）；dg `types.ts:1586`（仅 `emptyText`）；dg `engine\FilterDropdown.tsx:420("No filters"), 539("Search in filters"), 568("Select all items"), 633("Reset"), 636("OK")` |
 | `transformCellText` | ColumnType | 未实现（无回归） | antd 6 已删除此字段，dg 也无。**无兼容负担**。 | antd v6 `interface.ts` 已无；dg 无 |
 | `onRowClick`/`onRowDoubleClick`/…（rc-table 行级事件系列） | event | 未实现（无回归） | rc-table 已删除这些独立事件，统一并入 `onRow`。dg 仅支持 `onRow`。**无兼容负担**。 | rc-table `interface.d.ts`（无该系列）；dg `types.ts:1693`（`onRow`）|
 
@@ -55,7 +53,7 @@
 
 | API | 归类 | 支持度 | 差异/说明 | 证据 |
 |-----|------|--------|-----------|------|
-| `locale.emptyText` | locale | 名兼义异 | antd `emptyText` = **表体**空数据/筛选无结果的占位（数据网格区）。**注意区分** `filterEmptyText`（FilterDropdown 下拉内空筛选项占位，dg 硬编码 "No filters"）。dg 的 `emptyText` 已正确对齐 antd 表体语义。 | antd `interface.ts:52`；dg `types.ts:1561-1586`（注释详述 emptyText 语义边界）|
+| `locale.emptyText` | locale | 名兼义异 | antd `emptyText` = **表体**空数据/筛选无结果的占位（数据网格区）。**注意区分** `filterEmptyText`（FilterDropdown 下拉内空筛选项占位，走 Table locale / ConfigProvider locale 链路）。dg 的 `emptyText` 已正确对齐 antd 表体语义。 | antd `interface.ts:52`；dg `types.ts:1561-1586`（注释详述 emptyText 语义边界）|
 | `components.body.cell` | components | 名兼义异 | antd 替换**整个 `<td>`**；dg 替换的是 `.dg-cell-inner` 处的**内容**（grid item div 由引擎维持）。返回值是 ReactNode（单元格内容），而非整个 td。 | antd rc-table body.cell；dg `types.ts:759-764` |
 | `components.body.row` | components | 名兼义异 | antd 替换 `<tr>`；dg 因 grid 布局无单一 `<tr>`，实现为**包裹层组件**（每行一个 wrapper，内部仍按 grid 定位渲染单元格）。提供时启用包裹层，未提供时维持现有布局（cell 直接 grid item）。 | dg `types.ts:753-757` |
 | `column.className` / `column.style` | ColumnType | 名兼义异 | antd 作用于 `<td>`/`<th>`；dg 直接合并到 dg-cell div 的 `className`/`style`（grid item）。视觉等价，DOM 形态不同。 | dg `types.ts:381-400` |
@@ -73,6 +71,7 @@
 | `expandable`（整体） | expandable | 部分兼容 | 覆盖：`expandedRowRender/expandedRowOffset/rowExpandable/expandedRowKeys/defaultExpandedRowKeys/onExpand/onExpandedRowsChange/columnWidth/expandIcon/defaultExpandAllRows/showExpandColumn/childrenColumnName/indentSize/expandRowByClick/expandedRowClassName`。缺：`columnTitle/fixed`。 | antd `ExpandableConfig`；dg `types.ts:1078-1158` |
 | `components`（整体） | components | 部分兼容 | 覆盖：`header.cell`/`body.cell`/`body.row`。缺：`table/header.table/header.wrapper/header.row/body.wrapper/body 函数形态`。语义有适配（cell/row 见「名兼义异」）。 | antd rc-table components；dg `types.ts:742-769` |
 | `sticky`（整体） | TableProps | 部分兼容 | 覆盖：`boolean \| { offsetHeader?, offsetScroll?, getContainer? }`，页面级 sticky 表头 + 底部 fake scrollbar。缺：`offsetSummary`。 | antd rc-table `interface.d.ts:199`；dg `types.ts:1017-1054, 1658` |
+| `locale`（整体） | locale | 部分兼容 | 已接入 `useLocale('Table')`，优先级为 `TableProps.locale > ConfigProvider locale.Table > 默认英文`。已消费：`emptyText`、FilterDropdown 的 `filterConfirm/filterReset/filterEmptyText/filterSearchPlaceholder/filterCheckAll`、selection 内置菜单、排序 hover title、展开按钮 aria。未完整消费：`filterTitle/selectAll/sortTitle` 等边缘字段。 | antd `interface.ts:41-63`；dg `types.ts` / `Table.tsx` / `engine\FilterDropdown.tsx` / `engine\GridTable.tsx` |
 | `filterDropdownProps` | ColumnType | 部分兼容 | dg 仅透传子集（`open`/`onOpenChange` 等被消费），antd 完整 `CoverableDropdownProps`（Omit DropdownProps 一组字段）。 | antd `interface.ts:138-149, 178`；dg `engine\FilterDropdown.tsx:452-471`（仅消费 onOpenChange 等）|
 | `dataIndex` | ColumnType | 部分兼容 | 运行时支持路径数组；类型不深（`string \| number \| Array<string\|number>`，非 `DeepNamePath`）。 | antd rc-table `DeepNamePath`；dg `types.ts:376` |
 | `ref`（Reference） | ref | 部分兼容 | antd/rc-table `Reference` 仅 `nativeElement + scrollTo`（**antd 也没有 `getColumns`**，澄清无回归）。dg 在此基础上**扩展** `scrollTo` 支持 `index/key/scrollTop/align/behavior`（超集）。 | antd rc-table `interface.d.ts:41-44`；dg `types.ts:1778-1823` |
@@ -172,14 +171,20 @@
 
 按「迁移影响面 × 实现成本」排序：
 
-1. **P0：FilterDropdown i18n**（TOP #2）—— 把 5 处硬编码英文接到 `locale.filterConfirm/Reset/filterEmptyText/filterSearchPlaceholder/filterCheckAll`。i18n 项目硬需求，改动局部。
-2. **P0：`pagination` 默认开**（TOP #3）—— 与 antd 默认一致（默认 10/页），避免迁移时漏分页条。需评估对现有 demo 的回归。
-3. **P1：`rowSelection.onSelect/columnTitle/onCell/getTitleCheckboxProps`**（TOP #4）—— 都是 antd 在用、非 deprecated 的字段，迁移真实业务会立刻踩到。
-4. **P1：`scroll.y` 支持 `number`（max-height）+ `scrollToFirstRowOnChange`**（TOP #1）—— 表体限高是常见诉求。
-5. **P2：`expandable` 缺字段补齐**（TOP #5）—— `expandRowByClick`/`expandedRowClassName` 用得多。
-6. **P2：`components` 缺槽位补齐**（TOP #6）—— 至少 `header.row`/`body.wrapper`。
-7. **P3：`column.sortIcon`/`filtered`/`filterResetToDefaultFilteredValue`/`filterDropdownProps` 全透传**（TOP #10）。
+1. **P0：`scroll.scrollToFirstRowOnChange`**（TOP #1）—— 分页/排序/筛选后滚回首行是 antd 常见默认行为，实现面相对局部。
+2. **P0：`rowSelection.columnTitle/onCell/getTitleCheckboxProps/onSelectMultiple`**（TOP #4）—— 都是 antd 在用、非 deprecated 的字段，迁移真实业务会立刻踩到；`onSelect` 系列中的常用项已实现，不再列为缺口。
+3. **P1：`scroll.y` 支持 `number|string` max-height 语义**（TOP #1）—— 表体限高是常见诉求，但需要和 data-grid 当前 `scroll.y: true` 数据区模式明确优先级。
+4. **P1：`pagination` 默认开**（TOP #3）—— 与 antd 默认一致（默认 10/页），但会改变现有不传 `pagination` 的默认行为，需单独评估回归。
+5. **P2：`expandable.columnTitle/fixed`**（TOP #5）—— API 适配面清楚，和现有展开列构造逻辑直接相关。
+6. **P2：`components` 缺槽位补齐**（TOP #6）—— 至少 `header.row`/`body.wrapper` 可以提供 data-grid 语义下的适配；完整 table DOM 替换仍受架构限制。
+7. **P3：`column.sortIcon/filtered/filterResetToDefaultFilteredValue` 与 `filterDropdownProps` 全透传**（TOP #10）。
 8. **P3：`sticky.offsetSummary`、`dataIndex` 深类型、RTL**（TOP #7/#9）—— 长尾，按需。
+
+已不再作为优先缺口：
+
+- FilterDropdown i18n 已接入 `locale.filterConfirm/filterReset/filterEmptyText/filterSearchPlaceholder/filterCheckAll`。
+- `rowSelection.onSelect/onSelectAll/onSelectInvert/onSelectNone` 已实现。
+- `gridOptions.autoScrollOnDrag`、`gridOptions.columnReorder`、`gridColumnOptions.dragColumnLock`、`gridOptions.multiRowReorder` 已作为 data-grid 原生能力采用。
 
 ---
 
@@ -193,6 +198,7 @@
 | `gridOptions.rowHeight` / `minRowHeight` / `maxRowHeight` | 表级 | 行高约定：非虚拟路径作 grid track（不测）；虚拟路径作 RO 测量的未测兜底/初值（measured-first，antd 行高随内容）。 | 无 |
 | `gridOptions.headerHeight` | 表级 | 表头高度约定。 | 无 |
 | `gridOptions.resizable` / `resizableMinWidth` / `resizableMaxWidth` | 表级 | 列宽拖拽调整（antd v6 核查无 resizable）。 | 无 |
+| `gridOptions.selection` | 表级 | data-grid 原生选择行为：`selectionMode/showSelectionColumn/selectedValues/getSelectionValue` 等；优先级高于 antd 兼容层 `rowSelection`，但不污染兼容 API。 | 无 |
 | `gridOptions.columnReorder` | 表级 | 列重排总开关。 | 无 |
 | `gridOptions.autoScrollOnDrag` / `multiRowReorder` | 表级 | 当前采用命名的拖拽增强项。 | 无 |
 | `gridColumnOptions.dragColumnLock` | 列级 | 列级拖拽锁定选项。 | 无 |

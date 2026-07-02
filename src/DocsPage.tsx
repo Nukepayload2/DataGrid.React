@@ -214,7 +214,7 @@ const FEATURE_LIST: Array<{ title: string; desc: string }> = [
   { title: '万行虚拟滚动', desc: 'virtual + scroll.y；只渲染可视区+overscan；ref.scrollTo({index|key|scrollTop})。' },
   { title: '单列 / 多列排序', desc: 'sorter（boolean|fn|{compare,multiple}）；sortOrder 受控/非受控；sortDirections 循环。' },
   { title: '菜单 / 树形 / 自定义筛选', desc: 'filters+onFilter；filterMode=menu|tree；filterDropdown 自定义面板；filterSearch 搜索项。' },
-  { title: '行选择 + 原生 selection', desc: 'rowSelection 兼容层 + gridOptions.selection（selectedValues、隐藏选择列、extended 行点击、多选范围）。' },
+  { title: '行选择 + 原生 selection', desc: 'rowSelection 兼容层 + gridOptions.selection（selectedValues、隐藏选择列、extended：普通点击单选、Ctrl 多选、Shift 连续选择）。' },
   { title: '行展开与嵌套表', desc: 'expandable（0fr↔1fr CSS 过渡 track）；EXPAND_COLUMN 哨兵控位置。' },
   { title: '树形数据', desc: 'childrenColumnName；缩进展开；checkStrictly 父子勾选联动。' },
   { title: '单元格 / 行编辑', desc: 'components.body.cell/row + onCell 注入编辑 props；shouldCellUpdate 性能优化。' },

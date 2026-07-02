@@ -1,5 +1,5 @@
 /**
- * 分页状态机 — 详见 docs/design-notes/pagination.md（引擎状态机 usePagination）
+ * 分页状态机 — 详见 docs/features/interaction/pagination-and-data.md（引擎状态机 usePagination）
  *
  * 受控/非受控 current/pageSize（各字段独立判定）；total 派生（数据源长度或外部覆盖）；
  * 越界回退仅影响派生值；切片 + 服务端模式检测；onChange 经适配层组装 Table onChange。
@@ -18,7 +18,7 @@ export const DEFAULT_PLACEMENT: Array<NonNullable<TablePaginationConfig['placeme
 ]
 
 export interface UsePaginationOptions {
-  /** 分页配置（`undefined`/`false` 时不启用——适配层应在调本 hook 前判定）。 */
+  /** 分页配置；适配层把未传 pagination 归一为 `{}`，仅 `pagination={false}` 不启用。 */
   pagination: TablePaginationConfig
   /**
    * 当前页数据源长度（排序+筛选后），用于派生 total（当 pagination.total 未传时）。
@@ -149,7 +149,7 @@ export function usePagination(
 }
 
 /**
- * 计算分页切片（不改原数组；越界/空安全）— 详见 docs/design-notes/pagination.md（服务端模式检测）
+ * 计算分页切片（不改原数组；越界/空安全）— 详见 docs/features/interaction/pagination-and-data.md（服务端模式检测）
  *
  * 服务端模式检测（对齐 antd `InternalTable.tsx`）：
  *   - `pageSize <= 0` 或 `dataSource` 为空 → 空切片。
