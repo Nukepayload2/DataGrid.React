@@ -14,8 +14,13 @@
 
 /* 页面级 sticky 需要放开 wrapper 的 overflow/width 约束。 */
 .dg-wrapper.dg-sticky {
-  overflow: visible;
+  overflow: clip;
   width: auto;
+}
+
+.dg-sticky-scroll-viewport {
+  width: 100%;
+  overflow: clip;
 }
 
 /* `.dg-wrapper` 不是 antd 组件根，这里补一层链接色 reset。 */
@@ -922,23 +927,43 @@
   background: var(--ant-color-text-placeholder);
   border-radius: var(--ant-table-sticky-scroll-bar-border-radius);
   cursor: pointer;
+  opacity: 1;
   pointer-events: auto;
   transition:
     width 0.2s ease,
-    background-color 0.2s ease;
+    background-color 0.2s ease,
+    opacity 0.2s ease;
   will-change: transform, height;
+}
+
+/* showOnTableHover 模式：表格未 hover/触摸时隐藏细指示条。 */
+.dg-wrapper.dg-scrollbar-table-hover .dg-floating-scrollbar-thumb {
+  opacity: 0;
+}
+
+.dg-wrapper.dg-scrollbar-table-hover:hover .dg-floating-scrollbar-thumb,
+.dg-wrapper.dg-scrollbar-table-hover.dg-scrollbar-touched .dg-floating-scrollbar-thumb,
+.dg-floating-scrollbar-v:hover .dg-floating-scrollbar-thumb {
+  opacity: 1;
 }
 
 /* 纵向 thumb hover。 */
 .dg-floating-scrollbar-thumb:hover {
   width: 8px;
   background: var(--ant-color-text-heading);
+  opacity: 1;
 }
 
 /* 纵向 hit 容器 hover。 */
 .dg-floating-scrollbar-v:hover .dg-floating-scrollbar-thumb {
   width: 8px;
   background: var(--ant-color-text-heading);
+  opacity: 1;
+}
+
+/* expandOnHover=false：不折叠成 2px 指示器，始终保持展开尺寸。 */
+.dg-wrapper.dg-scrollbar-no-expand .dg-floating-scrollbar-thumb {
+  width: 8px;
 }
 
 /* 横向悬浮条 hit 容器。 */
@@ -956,23 +981,55 @@
   background: var(--ant-color-text-placeholder);
   border-radius: var(--ant-table-sticky-scroll-bar-border-radius);
   cursor: pointer;
+  opacity: 1;
   pointer-events: auto;
   transition:
     height 0.2s ease,
-    background-color 0.2s ease;
+    background-color 0.2s ease,
+    opacity 0.2s ease;
   will-change: transform, width;
+}
+
+/* showOnTableHover 模式：表格未 hover/触摸时隐藏细指示条。 */
+.dg-wrapper.dg-scrollbar-table-hover .dg-floating-scrollbar-thumb-h {
+  opacity: 0;
+}
+
+.dg-wrapper.dg-scrollbar-table-hover:hover .dg-floating-scrollbar-thumb-h,
+.dg-wrapper.dg-scrollbar-table-hover.dg-scrollbar-touched .dg-floating-scrollbar-thumb-h,
+.dg-floating-scrollbar-h:hover .dg-floating-scrollbar-thumb-h {
+  opacity: 1;
 }
 
 /* 横向 thumb hover。 */
 .dg-floating-scrollbar-thumb-h:hover {
   height: 8px;
   background: var(--ant-color-text-heading);
+  opacity: 1;
 }
 
 /* 横向 hit 容器 hover。 */
 .dg-floating-scrollbar-h:hover .dg-floating-scrollbar-thumb-h {
   height: 8px;
   background: var(--ant-color-text-heading);
+  opacity: 1;
+}
+
+/* expandOnHover=false：不折叠成 2px 指示器，始终保持展开尺寸。 */
+.dg-wrapper.dg-scrollbar-no-expand .dg-floating-scrollbar-thumb-h {
+  height: 8px;
+}
+
+/* 页面级 StickyScrollBar 也消费 showOnTableHover。 */
+.dg-wrapper.dg-scrollbar-table-hover .dg-sticky-scroll-bar {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.dg-wrapper.dg-scrollbar-table-hover:hover .dg-sticky-scroll-bar,
+.dg-wrapper.dg-scrollbar-table-hover.dg-scrollbar-touched .dg-sticky-scroll-bar,
+.dg-wrapper.dg-scrollbar-table-hover .dg-sticky-scroll-bar:hover {
+  opacity: 1;
 }
 
 /* 页面级 StickyScrollBar thumb hover。 */

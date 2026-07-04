@@ -290,24 +290,38 @@ export interface GridTableHandle {
   }) => void
 }
 
+function scrollLeftValue(value: number | undefined): number {
+  return Number.isFinite(value) ? (value as number) : 0
+}
+
+function clampScrollLeft(value: number, maxScroll: number): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.max(0, Math.min(value, Math.max(0, maxScroll)))
+}
+
+function getStickyMaxScroll(
+  viewport: HTMLDivElement | null,
+  grid: HTMLDivElement | null,
+): number {
+  if (!viewport || !grid) return 0
+  return Math.max(0, (grid.scrollWidth || grid.clientWidth || 0) - (viewport.clientWidth || 0))
+}
+
 /**
  * 页面级 sticky 的底部横向滚动条（对齐 antd `StickyScrollBar`）。详见 docs/design-notes/sticky.md。
  *
- * 背景：sticky 模式下 `.dg-grid` 不包 overflow 容器（避免拦截表头 sticky 上下文），grid 的
- * `min-width: scrollX` 撑宽页面，**页面（document）作为横向滚动源**（原生横向滚动条）。
- * 本组件提供"底部固定的横向滚动条"增强体验：`position: sticky; bottom: offsetScroll`，
- * 页面纵向滚动时钉在视口底部；内部 thumb 反映页面当前横向滚动位置，拖动 thumb 驱动页面 scrollTo。
+ * 背景：sticky 模式下不能用普通 `overflow-x:auto` 包住 grid，否则该 overflow 祖先会拦截表头
+ * sticky 的纵向参照。这里用 `overflow: clip` 只裁剪宽表，再用 transform 模拟横向位移。
+ * 本组件提供"底部固定的横向滚动条"：`position: sticky; bottom: offsetScroll`，
+ * 页面纵向滚动时钉在视口底部；内部 thumb 反映 sticky 视口的虚拟横向 scrollLeft。
  *
- * 与 antd 差异：antd 的 StickyScrollBar 是 fake scrollbar（表体滚动容器无原生横向滚动条，
- * 完全用 fake thumb 替代）；data-grid 简化为"页面原生横向滚动条 + 增强 sticky thumb"——
- * 页面本身已有原生横向滚动条，本组件额外提供一个钉在视口底部的同步 thumb（视觉对齐 antd
- * "底部固定滚动条"，功能等价：长表格滚动到底部视口时仍可横向滚动）。
+ * 与 antd 差异：antd 的 StickyScrollBar 同步表体滚动容器；data-grid sticky 模式没有横向
+ * overflow 容器，本组件直接维护虚拟 scrollLeft，并驱动 grid transform。
  *
  * 实现：
- * - 监听 `getContainer()`（默认 window）的 scroll 事件，按 `scrollLeft / (scrollWidth - clientWidth)`
- *   计算 thumb 在 bar 内的 left 比例 + thumb 宽度比例（clientWidth / scrollWidth）。
- * - 拖动 thumb（pointer 事件）：按 pointer 移动量换算 scrollLeft，调 `container.scrollTo`。
- * - bar 宽度 = grid 宽度（与 grid 对齐，sticky bottom 时横向随页面滚动）。
+ * - sticky 视口模式按 `virtualScrollLeft / (grid.scrollWidth - viewport.clientWidth)` 计算 thumb。
+ * - 拖动 thumb（pointer 事件）：按 pointer 移动量换算虚拟 scrollLeft。
+ * - 旧的非视口分支保留给 window/HTMLElement 同步场景。
  *
  * 仅 sticky 启用时渲染（GridTable 在 sticky 分支调用）；其余路径不渲染。
  */
@@ -315,10 +329,16 @@ function StickyScrollBar({
   offsetScroll,
   getContainer,
   gridRef,
+  viewportRef,
+  scrollLeft,
+  onScrollLeftChange,
 }: {
   offsetScroll: number
   getContainer?: () => HTMLElement | Window | undefined
   gridRef: React.RefObject<HTMLDivElement | null>
+  viewportRef?: React.RefObject<HTMLDivElement | null>
+  scrollLeft?: number
+  onScrollLeftChange?: (next: number) => void
 }) {
   const barRef = useRef<HTMLDivElement | null>(null)
   const thumbRef = useRef<HTMLDivElement | null>(null)
@@ -347,28 +367,45 @@ function StickyScrollBar({
     if (!bar || !thumb) return
     // 容器滚动几何：window 用 scrollX/innerWidth/document.scrollWidth；
     // HTMLElement 用 scrollLeft/clientWidth/scrollWidth。
-    let scrollLeft: number
+    let currentScrollLeft: number
     let clientWidth: number
     let scrollWidth: number
-    if (container instanceof Window) {
-      scrollLeft = container.scrollX || 0
+    if (viewportRef?.current && gridRef.current) {
+      currentScrollLeft = scrollLeftValue(scrollLeft)
+      clientWidth = viewportRef.current.clientWidth || 0
+      scrollWidth = gridRef.current.scrollWidth || gridRef.current.clientWidth || 0
+    } else if (container instanceof Window) {
+      currentScrollLeft = container.scrollX || 0
       clientWidth = container.innerWidth || 0
       scrollWidth = container.document?.documentElement?.scrollWidth || 0
     } else {
-      scrollLeft = container.scrollLeft || 0
+      currentScrollLeft = container.scrollLeft || 0
       clientWidth = container.clientWidth || 0
       scrollWidth = container.scrollWidth || 0
     }
     const maxScroll = scrollWidth - clientWidth
-    const ratio = maxScroll > 0 ? scrollLeft / maxScroll : 0
+    if (maxScroll <= 1) {
+      bar.style.display = 'none'
+      if (scrollLeftValue(scrollLeft) !== 0) onScrollLeftChange?.(0)
+      return
+    }
+    bar.style.display = 'block'
+    if (viewportRef?.current && onScrollLeftChange) {
+      const clamped = clampScrollLeft(scrollLeftValue(scrollLeft), maxScroll)
+      if (clamped !== scrollLeftValue(scrollLeft)) {
+        onScrollLeftChange(clamped)
+        return
+      }
+    }
+    const ratio = maxScroll > 0 ? currentScrollLeft / maxScroll : 0
     const thumbRatio = scrollWidth > 0 ? clientWidth / scrollWidth : 1
     // thumb 宽度 = bar 宽度 × (clientWidth / scrollWidth)（至少 20px，避免太窄）。
-    const barWidth = bar.clientWidth || 0
+    const barWidth = bar.clientWidth || clientWidth
     const thumbWidth = Math.max(20, barWidth * thumbRatio)
     const thumbMaxLeft = Math.max(0, barWidth - thumbWidth)
     thumb.style.width = `${thumbWidth}px`
     thumb.style.transform = `translateX(${ratio * thumbMaxLeft}px)`
-  }, [resolveContainer])
+  }, [resolveContainer, gridRef, viewportRef, scrollLeft, onScrollLeftChange])
 
   // 监听 container scroll + resize 更新 thumb。
   useEffect(() => {
@@ -378,6 +415,9 @@ function StickyScrollBar({
     if (container instanceof Window) {
       container.addEventListener('resize', updateThumb)
     }
+    const resizeObserver = new ResizeObserver(updateThumb)
+    if (viewportRef?.current) resizeObserver.observe(viewportRef.current)
+    if (gridRef.current) resizeObserver.observe(gridRef.current)
     // 初始更新。
     updateThumb()
     return () => {
@@ -385,8 +425,9 @@ function StickyScrollBar({
       if (container instanceof Window) {
         container.removeEventListener('resize', updateThumb)
       }
+      resizeObserver.disconnect()
     }
-  }, [resolveContainer, updateThumb])
+  }, [resolveContainer, updateThumb, gridRef, viewportRef])
 
   // thumb pointer 拖动：换算 pointer 移动量 → container scrollLeft。
   const onThumbPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
@@ -399,7 +440,11 @@ function StickyScrollBar({
     let clientWidth: number
     let scrollWidth: number
     let currentScrollLeft: number
-    if (container instanceof Window) {
+    if (viewportRef?.current && gridRef.current) {
+      clientWidth = viewportRef.current.clientWidth || 0
+      scrollWidth = gridRef.current.scrollWidth || gridRef.current.clientWidth || 0
+      currentScrollLeft = scrollLeftValue(scrollLeft)
+    } else if (container instanceof Window) {
       clientWidth = container.innerWidth || 0
       scrollWidth = container.document?.documentElement?.scrollWidth || 0
       currentScrollLeft = container.scrollX || 0
@@ -413,6 +458,7 @@ function StickyScrollBar({
     const thumbWidth = Math.max(20, barWidth * thumbRatio)
     const thumbMaxLeft = Math.max(0, barWidth - thumbWidth)
     const maxScroll = scrollWidth - clientWidth
+    if (maxScroll <= 1) return
     dragStateRef.current = {
       pointerId: e.pointerId,
       startPointerX: e.clientX,
@@ -426,7 +472,9 @@ function StickyScrollBar({
       const dx = ev.clientX - ds.startPointerX
       const scrollDelta = geometry.thumbMaxLeft > 0 ? (dx / geometry.thumbMaxLeft) * geometry.maxScroll : 0
       const next = ds.startScrollLeft + scrollDelta
-      if (container instanceof Window) {
+      if (viewportRef?.current && onScrollLeftChange) {
+        onScrollLeftChange(clampScrollLeft(next, geometry.maxScroll))
+      } else if (container instanceof Window) {
         container.scrollTo(next, container.scrollY || 0)
       } else {
         ;(container as HTMLElement).scrollLeft = next
@@ -461,8 +509,7 @@ function StickyScrollBar({
         // 用 --ant-table-border-color（= #f0f0f0，与 antd tableBorderColor 一致）。
         borderTop: 'var(--ant-line-width, 1px) var(--ant-line-type, solid) var(--ant-table-border-color, #f0f0f0)',
         // bar 宽度与 grid 对齐：grid 多宽 bar 多宽（gridRef 提供 grid 宽度参考）。
-        // sticky 元素横向随页面滚动（默认行为），故 bar 始终覆盖"当前视口横向可见区域"对齐 grid。
-        minWidth: gridRef.current?.style.minWidth || undefined,
+        // sticky 元素宽度保持为当前表格视口宽，不再用宽表 min-width 撑宽文档流。
       }}
     >
       <div
@@ -540,6 +587,8 @@ function GridTableInner<RecordType = any>(
   } = gridOptions ?? {}
 
   const gridRef = useRef<HTMLDivElement | null>(null)
+  const stickyViewportRef = useRef<HTMLDivElement | null>(null)
+  const [stickyScrollLeft, setStickyScrollLeft] = useState(0)
 
   // === 页面级粘性表头（区别于容器内固定）— 详见 docs/design-notes/sticky.md ===
   // sticky prop 启用时：表头相对**页面 viewport** 固定（position:sticky; top:offsetHeader），
@@ -1100,15 +1149,42 @@ function GridTableInner<RecordType = any>(
   // 虚拟：FloatingScrollBar 内部 .dg-scroll overflow-y:auto 双向（虚拟路径）。
   const scrollX = scroll?.x
   const scrollMinWidth = scrollX !== undefined ? (typeof scrollX === 'number' ? `${scrollX}px` : scrollX) : undefined
+  const stickyTranslateStyle: CSSProperties | null =
+    stickyEnabled && stickyScrollLeft > 0
+      ? {
+          transform: `translateX(${-stickyScrollLeft}px)`,
+          willChange: 'transform',
+        }
+      : null
   const gridFinalStyle: CSSProperties = scrollMinWidth
-    ? { ...gridStyle, minWidth: scrollMinWidth }
-    : gridStyle
+    ? { ...gridStyle, minWidth: scrollMinWidth, ...(stickyTranslateStyle ?? null) }
+    : { ...gridStyle, ...(stickyTranslateStyle ?? null) }
   // 语义化 content 部位 style（合并到 grid 根容器 style）。
   const semanticContentStyle = semantic?.content?.style
   // semantic content style 合并到 grid 根 style（gridFinalStyle 之后覆盖）。
   const gridFinalStyleWithSemantic: CSSProperties = semanticContentStyle
     ? { ...gridFinalStyle, ...semanticContentStyle }
     : gridFinalStyle
+
+  const onStickyViewportWheel = useCallback(
+    (event: React.WheelEvent<HTMLDivElement>) => {
+      if (!stickyEnabled) return
+      const maxScroll = getStickyMaxScroll(stickyViewportRef.current, gridRef.current)
+      if (maxScroll <= 1) return
+      const rawDelta = Math.abs(event.deltaX) > 0
+        ? event.deltaX
+        : event.shiftKey
+          ? event.deltaY
+          : 0
+      if (Math.abs(rawDelta) <= 0.5) return
+      const current = clampScrollLeft(stickyScrollLeft, maxScroll)
+      const next = clampScrollLeft(current + rawDelta, maxScroll)
+      if (next === current) return
+      event.preventDefault()
+      setStickyScrollLeft(next)
+    },
+    [stickyEnabled, stickyScrollLeft],
+  )
 
   const gridClassName = [
     'dg-grid',
@@ -1369,17 +1445,16 @@ function GridTableInner<RecordType = any>(
   }
 
   // === 页面级粘性表头（区别于容器内固定）— 详见 docs/design-notes/sticky.md ===
-  // sticky 启用时：grid **不包** overflow 容器（避免 overflow 祖先拦截表头 sticky 上下文），
-  // grid 直接渲染 + min-width: scrollX 撑宽页面；表头 grid item 用 stickyHeaderOffset 驱动
+  // sticky 启用时：grid 只包一层 `overflow: clip` 视口，裁剪宽表但不创建滚动容器；
+  // 横向位移由虚拟 scrollLeft + transform 驱动。表头 grid item 用 stickyHeaderOffset 驱动
   // （position: sticky; top: offsetHeader，相对 viewport 固定，已在上游 HeaderCell/ColumnCells 应用）。
   // grid 之后渲染 StickyScrollBar（position: sticky; bottom: offsetScroll）作为底部固定横向滚动条。
   //
-  // 关键：grid 不包 overflow 容器 → grid 的最近可滚动祖先是 window（页面）→ 表头 sticky 相对
-  //   viewport 固定（页面纵向滚动时表头钉在视口顶部 offsetHeader 处）。这是 sticky 与容器内固定表头
+  // 关键：`overflow: clip` 不提供滚动机制，表头 sticky 仍相对外层页面/内容滚动容器固定
+  //   （页面纵向滚动时表头钉在视口顶部 offsetHeader 处）。这是 sticky 与容器内固定表头
   //   的本质区别（容器内固定表头相对 .dg-fixed-header-scroll 容器固定，容器内滚动）。
   //
-  // 横向滚动：依赖页面原生滚动条（页面横向滚动）。StickyScrollBar 额外提供"底部固定"的同步 thumb
-  //   （视觉对齐 antd fake scrollbar）。
+  // 横向滚动：StickyScrollBar 与横向 wheel 更新同一份虚拟 scrollLeft，避免宽表撑宽外层文档流。
   //
   // 与固定列组合：固定列 grid item 的 position: sticky; left/right 与表头的 position: sticky; top
   //   在同一元素上叠加（corner cell 双 sticky，浏览器原生支持）。
@@ -1402,8 +1477,9 @@ function GridTableInner<RecordType = any>(
             display: 'grid',
             gridTemplateRows: summaryOnlyRows || 'none',
             gridTemplateColumns,
-            // 与主 grid 同宽（scroll.x 撑宽页面时 summary grid 跟随，列对齐）。
+            // 与主 grid 同宽；外层 sticky clip 视口负责裁剪，不撑宽文档流。
             ...(scrollMinWidth ? { minWidth: scrollMinWidth } : null),
+            ...(stickyTranslateStyle ?? null),
           }}
         >
           {summaryParsed.rows.map((row, rowIndex) =>
@@ -1420,14 +1496,27 @@ function GridTableInner<RecordType = any>(
     }
     return (
       <>
-        {renderGrid()}
+        <div
+          ref={stickyViewportRef}
+          className="dg-sticky-scroll-viewport"
+          onWheel={onStickyViewportWheel}
+        >
+          {renderGrid()}
+        </div>
         <StickyScrollBar
           offsetScroll={stickyOffsetScroll}
           getContainer={stickyGetContainer}
           gridRef={gridRef}
+          viewportRef={stickyViewportRef}
+          scrollLeft={stickyScrollLeft}
+          onScrollLeftChange={setStickyScrollLeft}
         />
         {/* summary 提取到 StickyScrollBar 之后 → 横向滚动条落在 summary 上方。 */}
-        {extractSummary ? renderExtractedSummary() : null}
+        {extractSummary ? (
+          <div className="dg-sticky-scroll-viewport" onWheel={onStickyViewportWheel}>
+            {renderExtractedSummary()}
+          </div>
+        ) : null}
       </>
     )
   }
@@ -1450,8 +1539,8 @@ function GridTableInner<RecordType = any>(
   //   - 表头 sticky top（HeaderCell 的 headerStickyTop 标志驱动）钉顶，表体限高滚动。
   //   - 纵向悬浮滚动条（FloatingScrollBar 组件 vertical）。
   //
-  // **sticky 例外**：stickyEnabled → 页面级滚动（.dg-wrapper.dg-sticky overflow:visible），
-  //   直接 renderGrid()，不走 FloatingScrollBar。
+  // **sticky 例外**：stickyEnabled 已在上方返回 sticky clip 视口 + StickyScrollBar，
+  //   不走 FloatingScrollBar。
   //
   // 虚拟滚动：scrollContainerRef 必须传入（virtualScrollRef）。
 
@@ -1459,7 +1548,7 @@ function GridTableInner<RecordType = any>(
   // 注意：无论 scrollXEnabled 是否为 true，非 sticky 模式下横向悬浮条始终启用——不溢出时 thumb 隐藏。
   const scrollXEnabled = scrollX !== undefined
 
-  // sticky 模式：页面级滚动，.dg-wrapper.dg-sticky overflow:visible，不走滚动容器。
+  // sticky 模式已在上方返回；这里保留兜底，不走 FloatingScrollBar。
   if (stickyEnabled) {
     return renderGrid()
   }

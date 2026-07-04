@@ -4,6 +4,7 @@ import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
 import { getData, type RecordType } from './_compare/virtual-list.shared'
 import type { TableRef } from '../table'
+import type { ScrollBarFoldMode } from '../table'
 import type { GetRef } from 'antd'
 import { Table as AntdTable } from 'antd'
 import VirtualListDg from './virtual-list.dg'
@@ -19,11 +20,17 @@ export default function VirtualListDemo() {
   const [empty, setEmpty] = useState(false)
   const [count, setCount] = useState<number>(10000)
   const [merged, setMerged] = useState(true)
+  const [showOnTableHover, setShowOnTableHover] = useState(false)
+  const [expandOnHover, setExpandOnHover] = useState(true)
 
   const dgRef = useRef<TableRef>(null)
   const antdRef = useRef<AntdTableRef | null>(null)
 
   const data = useMemo<RecordType[]>(() => getData(count), [count])
+  const scrollBarFoldMode = useMemo<ScrollBarFoldMode>(
+    () => ({ showOnTableHover, expandOnHover }),
+    [showOnTableHover, expandOnHover],
+  )
 
   const scrollToBoth = (opts: { index?: number; key?: import('react').Key }) => {
     dgRef.current?.scrollTo(opts)
@@ -66,6 +73,18 @@ export default function VirtualListDemo() {
             checkedChildren="Merged (data-grid only)"
             unCheckedChildren="Merged (data-grid only)"
           />
+          <Switch
+            checked={showOnTableHover}
+            onChange={setShowOnTableHover}
+            checkedChildren="showOnTableHover"
+            unCheckedChildren="showOnTableHover"
+          />
+          <Switch
+            checked={expandOnHover}
+            onChange={setExpandOnHover}
+            checkedChildren="expandOnHover"
+            unCheckedChildren="expandOnHover"
+          />
           <Segmented
             value={count}
             onChange={(val) => setCount(val as number)}
@@ -103,6 +122,7 @@ export default function VirtualListDemo() {
             merged={merged}
             data={data}
             tableRef={dgRef}
+            scrollBarFoldMode={scrollBarFoldMode}
           />
         }
         right={

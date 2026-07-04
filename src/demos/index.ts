@@ -451,7 +451,7 @@ export const demos: DemoMeta[] = [
     name: 'sticky',
     title: 'Sticky',
     description:
-      'sticky 页面级表头固定 + offsetHeader + 横向滚动条 + 双栏对照。',
+      '文档流页面级 sticky 表头 + gridOptions.scrollBarFoldMode 滚动条折叠模式。',
     element: () => import('./sticky'),
     compare: true,
     category: '固定列与表头',

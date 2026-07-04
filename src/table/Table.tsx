@@ -20,12 +20,14 @@ import {
   isValidElement,
   useCallback,
   useContext,
+  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
   useState,
   type ReactElement,
   type ReactNode,
+  type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { Dropdown, Empty, Pagination, Spin } from 'antd'
 import type { SpinProps as SpinPropsInput } from 'antd'
@@ -1886,14 +1888,40 @@ function TableInner<RecordType = any>(
     return sem
   }, [classNamesResolved, stylesResolved])
 
+  const scrollBarFoldMode = gridOptions?.scrollBarFoldMode
+  const scrollBarShowOnTableHover = scrollBarFoldMode?.showOnTableHover === true
+  const scrollBarExpandOnHover = scrollBarFoldMode?.expandOnHover !== false
+  const [scrollBarTouchedActive, setScrollBarTouchedActive] = useState(false)
+  const scrollBarTouchTimerRef = useRef<number | undefined>(undefined)
+  const activateScrollBarByTouch = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (!scrollBarShowOnTableHover || event.pointerType === 'mouse') return
+      setScrollBarTouchedActive(true)
+      if (scrollBarTouchTimerRef.current !== undefined) {
+        window.clearTimeout(scrollBarTouchTimerRef.current)
+      }
+      scrollBarTouchTimerRef.current = window.setTimeout(() => {
+        setScrollBarTouchedActive(false)
+        scrollBarTouchTimerRef.current = undefined
+      }, 1600)
+    },
+    [scrollBarShowOnTableHover],
+  )
+
+  useEffect(() => {
+    return () => {
+      if (scrollBarTouchTimerRef.current !== undefined) {
+        window.clearTimeout(scrollBarTouchTimerRef.current)
+      }
+    }
+  }, [])
+
   // sticky 启用时给 .dg-wrapper 加 dg-sticky 修饰类。
   //   table.css 的 .dg-wrapper 默认 overflow:hidden + width:100%（圆角裁剪 + 容器约束），
   //   但 overflow:hidden 使 .dg-wrapper 成为表头 sticky 的非 visible 溢出祖先（CSS 规范），
-  //   拦截 sticky 上下文，导致页面级 sticky 表头相对 viewport 永不触发；同时 width:100%
-  //   裁切 .dg-grid min-width:scrollX，使页面横向不滚动（fixed-end/StickyScrollBar 失效）。
-  //   故 sticky 启用时切到 .dg-sticky：overflow:visible 放开 sticky 上下文到 viewport，
-  //   width:auto 不约束宽度让 grid 撑宽页面横向滚动。
-  //   圆角降级：sticky 模式下 .dg-wrapper 不裁剪，圆角视觉降级（优先 sticky 功能正确）。
+  //   拦截 sticky 上下文，导致页面级 sticky 表头相对 viewport 永不触发。
+  //   sticky 模式改用 .dg-sticky：overflow:clip 裁剪宽表但不创建滚动容器，横向位移由
+  //   GridTable 内部的 StickyScrollBar + transform 驱动，避免撑宽外层文档流。
   //   详见 `docs/design-notes/sticky.md`。
   const stickyClassEnabled = sticky !== undefined && sticky !== false
   // scroll.y===true 数据区域模式 → .dg-wrapper 加 dg-data-area 修饰类
@@ -1907,6 +1935,9 @@ function TableInner<RecordType = any>(
     bordered ? 'dg-bordered' : '',
     stickyClassEnabled ? 'dg-sticky' : '',
     dataAreaClassEnabled ? 'dg-data-area' : '',
+    scrollBarShowOnTableHover ? 'dg-scrollbar-table-hover' : '',
+    scrollBarExpandOnHover ? '' : 'dg-scrollbar-no-expand',
+    scrollBarTouchedActive ? 'dg-scrollbar-touched' : '',
     className ?? '',
     // 语义化 root 部位 className（合并到根容器）。
     classNamesResolved?.root ?? '',
@@ -2633,7 +2664,12 @@ function TableInner<RecordType = any>(
   )
 
   return (
-    <div className={finalWrapperClass} style={wrapperStyle} ref={rootRef}>
+    <div
+      className={finalWrapperClass}
+      style={wrapperStyle}
+      ref={rootRef}
+      onPointerDownCapture={scrollBarShowOnTableHover ? activateScrollBarByTouch : undefined}
+    >
       {spinProps !== undefined ? (
         <Spin spinning={false} {...spinProps}>
           {tableContent}
@@ -2677,4 +2713,5 @@ export type {
   TablePaginationConfig,
   TablePaginationPlacement,
   TablePaginationState,
+  ScrollBarFoldMode,
 } from './types'

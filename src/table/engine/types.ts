@@ -14,6 +14,7 @@
  */
 
 import type { ReactNode } from 'react'
+import type { ScrollBarFoldMode } from '../types'
 
 /** 对齐方式（antd column.align 子集）。 */
 export type Align = 'start' | 'center' | 'end'
@@ -630,6 +631,8 @@ export interface EngineTableProps<RecordType = any> {
     resizableMinWidth?: number | ((key: string) => number)
     /** 列宽拖拽最大宽度（px）。默认 Infinity。 */
     resizableMaxWidth?: number | ((key: string) => number)
+    /** 悬浮滚动条折叠/显示策略。 */
+    scrollBarFoldMode?: ScrollBarFoldMode
   }
   /** 是否显示表头。 */
   showHeader?: boolean
@@ -773,9 +776,9 @@ export interface EngineTableProps<RecordType = any> {
    *   - `offsetScroll`：底部 StickyScrollBar 的 sticky bottom 值。
    *   - `getContainer`：StickyScrollBar 同步监听的滚动容器（默认 window）。
    *
-   * **引擎行为切换**：sticky 启用时，`.dg-grid` 外**不包** overflow 容器（避免拦截 sticky 上下文），
-   * grid 直接渲染 + `min-width: scrollX` 撑宽；表头 grid item 加 `position: sticky; top: offsetHeader`；
-   * grid 之后渲染一个 `StickyScrollBar`（`position: sticky; bottom: offsetScroll`）同步页面横向滚动。
+   * **引擎行为切换**：sticky 启用时，`.dg-grid` 外包 `overflow: clip` 视口（裁剪宽表但不创建滚动容器），
+   * 表头 grid item 加 `position: sticky; top: offsetHeader`；grid 之后渲染一个 `StickyScrollBar`
+   * （`position: sticky; bottom: offsetScroll`）维护虚拟横向 scrollLeft 并驱动 transform。
    *
    * 未提供（undefined）时不启用（所有现有渲染路径不变，零回归）。
    */

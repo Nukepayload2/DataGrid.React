@@ -1,19 +1,28 @@
 export interface DataType {
-  key: string | number
-  name: string
-  age: number
-  address: string
+  key: string
+  initiative: string
+  owner: string
+  status: 'On track' | 'At risk' | 'Blocked'
+  impact: string
+  target: string
+  notes: string
 }
 
-/**
- * demo 数据（对齐 antd 官方 sticky demo 的 100 行）。
- * 两侧共用同一引用。
- */
-export const dataSource: DataType[] = Array.from({ length: 100 }).map<DataType>(
+const owners = ['Avery Chen', 'Mina Park', 'Jon Bell', 'Sofia Rossi', 'Noah Smith']
+const statuses: DataType['status'][] = ['On track', 'At risk', 'On track', 'Blocked']
+const impacts = ['Revenue', 'Reliability', 'Compliance', 'Operations', 'Customer']
+
+export const dataSource: DataType[] = Array.from({ length: 48 }).map<DataType>(
   (_, i) => ({
-    key: i,
-    name: `Edward ${i}`,
-    age: 32,
-    address: `London Park no. ${i}`,
+    key: `initiative-${i + 1}`,
+    initiative: `Quarterly control review ${i + 1}`,
+    owner: owners[i % owners.length],
+    status: statuses[i % statuses.length],
+    impact: impacts[i % impacts.length],
+    target: `2026-Q${(i % 4) + 1}`,
+    notes:
+      i % 4 === 3
+        ? 'Waiting for dependent team sign-off before the evidence packet can close.'
+        : 'Evidence, owner notes, and follow-up actions are tracked in this review page.',
   }),
 )

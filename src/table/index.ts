@@ -64,6 +64,7 @@ export type {
   TableClassNames,
   TableStyles,
   StickyConfig,
+  ScrollBarFoldMode,
   TableLocale,
 } from './types'
 

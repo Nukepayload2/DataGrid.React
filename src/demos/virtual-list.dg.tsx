@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import type { Ref } from 'react'
 import { Table } from '../table'
-import type { ColumnType, TableRef } from '../table'
+import type { ColumnType, ScrollBarFoldMode, TableRef } from '../table'
 import { getData, type RecordType } from './_compare/virtual-list.shared'
 
 // ---------------------------------------------------------------------------
@@ -117,6 +117,8 @@ export interface VirtualListDgProps {
   data: RecordType[]
   /** 父组件持有的 data-grid Table ref（用于双侧 scrollTo 对照）。 */
   tableRef?: Ref<TableRef>
+  /** data-grid 专属：悬浮滚动条折叠/显示策略。 */
+  scrollBarFoldMode?: ScrollBarFoldMode
 }
 
 export default function VirtualListDg({
@@ -127,6 +129,7 @@ export default function VirtualListDg({
   merged = true,
   data = getData(10000),
   tableRef,
+  scrollBarFoldMode,
 }: VirtualListDgProps) {
   // 列选择：非 fixed 时只显示前 3 列；展开时强制 plainColumns（合并与展开互斥）。
   const dgColumns = useMemo<ColumnType<RecordType>[]>(() => {
@@ -165,7 +168,7 @@ export default function VirtualListDg({
         rowSelection={expanded ? undefined : { type: 'radio', columnWidth: 48 }}
         pagination={false}
         // 每行 40px 作未测兜底；虚拟窗口由 RO 实测真实高驱动。
-        gridOptions={{ rowHeight: 40, headerHeight: 40 }}
+        gridOptions={{ rowHeight: 40, headerHeight: 40, scrollBarFoldMode }}
       />
     </div>
   )

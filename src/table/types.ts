@@ -974,14 +974,11 @@ export type TableStyles<RecordType = any> =
  * **实现要点（data-grid CSS Grid 一体化渲染下的折中）**：
  *   - antd 把表头拆为独立元素（FixedHolder）放在页面流中 `position: sticky; top: offsetHeader`；
  *     data-grid 用 CSS Grid 一体渲染（表头行 + 数据行同属 `.dg-grid`），无法拆分表头为独立元素。
- *   - data-grid 方案：`sticky` 启用时，`.dg-grid` 外**不包** overflow 容器（避免 overflow 祖先
- *     拦截 sticky 上下文——CSS 规范：`overflow` 非 `visible` 的祖先会成为 sticky 的滚动祖先，
- *     把表头 sticky 限制在容器内，退化为容器内固定）。grid 的 `min-width: scrollX` 让其撑宽，
- *     **页面（document）作为纵向 + 横向滚动源**。表头 grid item `position: sticky; top: offsetHeader`
- *     相对 viewport 固定（页面纵向滚动时钉在视口顶部）。
- *   - 横向滚动：依赖页面原生滚动条（页面横向滚动时表头 sticky 仍保持视口顶部，固定列 sticky left/right
- *     仍保持）。额外渲染一个 `StickyScrollBar`（`position: sticky; bottom: offsetScroll`）作为
- *     "底部固定横向滚动条"——同步页面横向滚动 + 拖动 thumb 驱动页面 scrollTo（视觉对齐 antd fake scrollbar）。
+ *   - data-grid 方案：`sticky` 启用时，`.dg-grid` 外只包一层 `overflow: clip` 视口。clip 会裁剪宽表，
+ *     但不创建滚动容器，避免普通 `overflow-x:auto` 拦截 sticky 上下文。表头 grid item
+ *     `position: sticky; top: offsetHeader` 相对 viewport 固定（页面纵向滚动时钉在视口顶部）。
+ *   - 横向滚动：不让宽表撑宽页面；`StickyScrollBar`（`position: sticky; bottom: offsetScroll`）
+ *     维护虚拟 scrollLeft，并用 transform 驱动 grid 横向位移（视觉对齐 antd fake scrollbar）。
  *
  * **取值**：
  *   - `undefined` / `false`：不启用页面级 sticky（所有现有 demo 行为不变，零回归）。
@@ -996,8 +993,8 @@ export type TableStyles<RecordType = any> =
  *   - 虚拟 / 容器内固定：与 sticky 互斥（sticky 是页面级，容器内是页面级优先；同时传时 sticky 优先，
  *     因为 sticky 不包 overflow 容器，容器内滚动不生效）。
  *
- * **getContainer 说明**：对齐 antd，允许自定义"判定 sticky 生效的滚动容器"。data-grid 的简化实现：
- *   `getContainer` 主要用于 StickyScrollBar 的滚动同步监听（监听该容器的 scroll 事件更新 thumb 位置）；
+ * **getContainer 说明**：对齐 antd，允许自定义"判定 sticky 生效的滚动容器"。data-grid 中
+ *   `getContainer` 主要用于 StickyScrollBar 的纵向滚动/resize 同步监听；
  *   表头 sticky 本身靠 CSS（无 overflow 祖先 → 相对 viewport），不直接消费 getContainer。
  *   默认 `() => window`。
  *
@@ -1272,6 +1269,23 @@ export interface ColumnGroupProps<RecordType = any> extends Omit<ColumnType<Reco
     | Array<ReactElement<ColumnProps<RecordType>>>
 }
 
+export interface ScrollBarFoldMode {
+  /**
+   * 是否仅在表格 hover / 触摸激活后显示滚动条或滚动条指示器。
+   *
+   * - `false` / undefined（默认）：滚动条指示器按现有行为常驻可见。
+   * - `true`：未 hover 表格时隐藏；hover 表格、hover 滚动条 hit 区或触摸表格后显示。
+   */
+  showOnTableHover?: boolean
+  /**
+   * 是否 hover 滚动条 hit 区时从 2px 指示器展开为 8px 滚动条。
+   *
+   * - `true` / undefined（默认）：常态 2px，hover hit 区展开。
+   * - `false`：始终以展开尺寸显示。
+   */
+  expandOnHover?: boolean
+}
+
 export interface TableProps<RecordType = any> {
   /**
    * 列默认值（对齐 antd v6 `TableProps.column`，见 `InternalTable.tsx:159`）。
@@ -1392,6 +1406,13 @@ export interface TableProps<RecordType = any> {
     columnResizeMode?: 'Disabled' | 'ResizeLeft' | 'ResizeSibling'
     resizableMinWidth?: number | ((key: string) => number)
     resizableMaxWidth?: number | ((key: string) => number)
+    /**
+     * 悬浮滚动条折叠/显示策略。
+     *
+     * 默认保持滚动条指示器可见，并在 hover hit 区时展开；打开 `showOnTableHover` 后，
+     * 仅 hover 表格、hover 滚动条 hit 区或触摸表格后显示滚动条/指示器。
+     */
+    scrollBarFoldMode?: ScrollBarFoldMode
     /**
      * data-grid 原生行选择配置。
      *

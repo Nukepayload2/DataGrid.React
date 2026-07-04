@@ -1,96 +1,180 @@
-import { useState } from 'react'
-import { Space, Switch, theme } from 'antd'
-import { SplitDemo } from './_compare/SplitDemo'
-import { DemoToolbar } from './_compare/DemoToolbar'
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { Space, Switch, Tag, theme } from 'antd'
+import type { ScrollBarFoldMode } from '../table'
 import StickyDg from './sticky.dg'
 import StickyAntd from './sticky.antd'
 
+function SectionTitle({
+  children,
+  kicker,
+}: {
+  children: ReactNode
+  kicker: string
+}) {
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div
+        style={{
+          color: 'inherit',
+          opacity: 0.45,
+          fontSize: 12,
+          fontWeight: 600,
+          letterSpacing: 0,
+          textTransform: 'uppercase',
+          marginBottom: 6,
+        }}
+      >
+        {kicker}
+      </div>
+      <h2 style={{ margin: 0, fontSize: 22, lineHeight: 1.35 }}>
+        {children}
+      </h2>
+    </div>
+  )
+}
+
 export default function StickyDemo() {
-  const [summaryFixed, setSummaryFixed] = useState(false)
   const { token } = theme.useToken()
+  const [showOnTableHover, setShowOnTableHover] = useState(true)
+  const [expandOnHover, setExpandOnHover] = useState(true)
+  const scrollBarFoldMode = useMemo<ScrollBarFoldMode>(
+    () => ({ showOnTableHover, expandOnHover }),
+    [showOnTableHover, expandOnHover],
+  )
+
+  const pageStyle: CSSProperties = {
+    margin: -24,
+    padding: '32px 24px 64px',
+    background: token.colorFillQuaternary,
+  }
+
+  const articleStyle: CSSProperties = {
+    maxWidth: 1180,
+    margin: '0 auto',
+    padding: '40px 48px 64px',
+    background: token.colorBgContainer,
+    border: `1px solid ${token.colorBorderSecondary}`,
+    borderRadius: token.borderRadius,
+    color: token.colorText,
+  }
+
+  const paragraphStyle: CSSProperties = {
+    margin: '0 0 12px',
+    color: token.colorTextSecondary,
+    fontSize: 14,
+    lineHeight: 1.8,
+  }
+
+  const dividerStyle: CSSProperties = {
+    height: 1,
+    margin: '40px 0',
+    background: token.colorBorderSecondary,
+  }
+
+  const controlBarStyle: CSSProperties = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 16,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    margin: '12px 0 16px',
+    padding: '10px 12px',
+    background: token.colorFillQuaternary,
+    border: `1px solid ${token.colorBorderSecondary}`,
+    borderRadius: token.borderRadius,
+  }
 
   return (
-    <div style={{ padding: 24 }}>
-      <p style={{ color: token.colorTextSecondary }}>
-        容器内固定表头（适配 app-shell）：滚动<strong>表格内部</strong>，两侧表头都会钉在表格容器顶部
-        （左栏 data-grid <code>scroll.y: true</code> + 父容器 <code>height:500</code>；右栏 antd
-        <code>scroll.y: 400</code>；表体在容器内滚动）；横向滚动表格内部查看 fixed 列。
-        共享「Summary Fixed」开关同时驱动两侧 summary 的 fixed 行为。
-      </p>
+    <div style={pageStyle}>
+      <article style={articleStyle}>
+        <header style={{ marginBottom: 32 }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+            <Tag color="blue">Controls review</Tag>
+            <Tag>Document flow</Tag>
+            <Tag>External scroll</Tag>
+          </div>
+          <h1 style={{ margin: 0, fontSize: 32, lineHeight: 1.25 }}>
+            Sticky table headers in a long workspace document
+          </h1>
+          <p style={{ ...paragraphStyle, marginTop: 16, maxWidth: 860 }}>
+            This page mimics a team review note: narrative text, long tables, and follow-up
+            sections all live in the same scroll container. The tables do not create their
+            own vertical scroll areas; the app content scrolls as one document.
+          </p>
+        </header>
 
-      <DemoToolbar>
-        <Space wrap>
-          <Switch
-            checkedChildren="Summary Fixed"
-            unCheckedChildren="Summary Fixed"
-            checked={summaryFixed}
-            onChange={setSummaryFixed}
-          />
-          <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>
-            左栏 data-grid：on/off；右栏 antd：top/bottom（功能等价）
-          </span>
-        </Space>
-      </DemoToolbar>
+        <section style={{ marginBottom: 24 }}>
+          <h2 style={{ margin: '0 0 12px', fontSize: 20 }}>Context</h2>
+          <p style={paragraphStyle}>
+            Product, support, and compliance teams often review table-heavy pages inside a
+            document workspace. The sticky header needs to remain useful while the reader
+            moves through the rows and adjacent narrative sections, instead of being trapped
+            inside a fixed-height table viewport.
+          </p>
+          <p style={paragraphStyle}>
+            The first table uses data-grid page-level sticky mode. The second table keeps the
+            same document structure with antd for comparison.
+          </p>
+        </section>
 
-      <SplitDemo
-        minPaneWidth={900}
-        virtualizable={false}
-        left={
-          <StickyDg
-            summaryFixed={summaryFixed}
-            onSummaryFixedChange={setSummaryFixed}
-          />
-        }
-        right={
-          <StickyAntd
-            summaryFixed={summaryFixed}
-            onSummaryFixedChange={setSummaryFixed}
-          />
-        }
-      >
-        <div>
-          <strong>对照说明：</strong>左右并排呈现 data-grid 与 antd 表格。
-          <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
-            <li>
-              <strong>scroll.y 取值差异</strong>
-              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：左栏 data-grid 用 <code>{'scroll={{ x: 1500, y: true }}'}</code>
-                  （布尔，需父容器明确高度，故外包 <code>{'<div style={{ height: 500 }}>'}</code>）；
-                  右栏 antd 用 <code>{'scroll={{ x: 1500, y: 400 }}'}</code>（数字，max-height 语义）。
-                  两侧视觉等价（表头钉容器顶 + 表体内部滚动）。</li>
-                <li><strong>触发条件</strong>：表格进入容器内固定表头模式（表体在容器内滚动）即出现。</li>
-                <li><strong>差异原因</strong>：app-shell 下无页面滚动，原 antd 页面级 sticky
-                  （表头相对 viewport 固定、靠 window scroll 驱动）失效，故两侧均改为容器内固定表头。
-                  data-grid 用纯 CSS flex 自适应高度（<code>y:true</code> 仅支持布尔），antd 用 rc-table
-                  max-height。详见 <code>docs/design-notes/sticky.md</code>。</li>
-              </ul>
-            </li>
-            <li>
-              <strong>summary fixed 取值差异</strong>
-              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：右栏 antd 用
-                  <code>fixed: fixedTop ? 'top' : 'bottom'</code>（顶/底切换）；左栏 data-grid 的
-                  <code>fixed</code> 仅 boolean（on/off，仅 sticky bottom，不支持 'top'）。</li>
-                <li><strong>触发条件</strong>：切换共享「Summary Fixed」开关时。</li>
-                <li><strong>差异原因</strong>：data-grid summary 的 <code>fixed</code> 类型简化为 boolean，
-                  antd 支持 'top'/'bottom' 字符串。功能等价（summary fixed 在 grid 内，与容器内固定表头共存）。</li>
-              </ul>
-            </li>
-            <li>
-              <strong>虚拟化开关未接入</strong>
-              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：本 demo 不响应全局「Virtual」开关，两侧始终非虚拟。</li>
-                <li><strong>触发条件</strong>：切换全局虚拟化开关时（本 demo 不变）。</li>
-                <li><strong>差异原因</strong>：聚焦容器内固定表头对照，避免虚拟化引入额外变量干扰。</li>
-              </ul>
-            </li>
-          </ul>
-        </div>
-      </SplitDemo>
+        <section>
+          <SectionTitle kicker="Data grid">
+            Quarterly controls register
+          </SectionTitle>
+          <p style={paragraphStyle}>
+            The table below is part of the article flow. Its header hangs against the app
+            content viewport while the surrounding document continues to scroll.
+          </p>
+          <div style={controlBarStyle}>
+            <span style={{ color: token.colorTextSecondary, fontSize: 13 }}>
+              gridOptions.scrollBarFoldMode
+            </span>
+            <Space wrap>
+              <Switch
+                checkedChildren="showOnTableHover"
+                unCheckedChildren="showOnTableHover"
+                checked={showOnTableHover}
+                onChange={setShowOnTableHover}
+              />
+              <Switch
+                checkedChildren="expandOnHover"
+                unCheckedChildren="expandOnHover"
+                checked={expandOnHover}
+                onChange={setExpandOnHover}
+              />
+            </Space>
+          </div>
+          <StickyDg scrollBarFoldMode={scrollBarFoldMode} />
+        </section>
 
-      <p style={{ padding: '16px 0', color: token.colorTextSecondary }}>
-        表格内部滚动到底部 — 两侧表头均钉在表格容器顶部（容器内固定表头，适配 app-shell）。
-      </p>
+        <div style={dividerStyle} />
+
+        <section style={{ marginBottom: 32 }}>
+          <h2 style={{ margin: '0 0 12px', fontSize: 20 }}>Review notes</h2>
+          <p style={paragraphStyle}>
+            Teams add notes between tables after each review pass. In a real document this
+            region might contain decisions, linked tickets, exceptions, and follow-up owners.
+            Keeping the table in the outer scroll flow makes the sticky header behave like a
+            document affordance instead of a widget affordance.
+          </p>
+          <p style={paragraphStyle}>
+            The content between the two tables is intentionally in the same flow so the
+            transition from one sticky table region to the next is visible when scrolling.
+          </p>
+        </section>
+
+        <section>
+          <SectionTitle kicker="Ant Design">
+            Reference table in the same document
+          </SectionTitle>
+          <p style={paragraphStyle}>
+            This reference table uses the same rows, columns, and external vertical scroll
+            pattern. It is stacked below the data-grid table rather than placed in a separate
+            pane.
+          </p>
+          <StickyAntd />
+        </section>
+      </article>
     </div>
   )
 }
