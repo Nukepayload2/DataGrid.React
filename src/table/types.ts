@@ -755,7 +755,7 @@ export type TablePaginationPlacement =
  *   - `placement`：v6 数组语义（见 TablePaginationPlacement）。
  *   - `onChange(page, pageSize)` / `onShowSizeChange(current, size)`：透传 antd Pagination（在 Table onChange 之外独立）。
  *
- * 非核心控件用 antd `<Pagination>`，不自研。详见 `docs/design-notes/pagination.md`。
+ * 非核心控件用 antd `<Pagination>`，不自研。详见 `docs/features/interaction/pagination-and-data.md`。
  */
 export interface TablePaginationConfig {
   /** 受控当前页（1-based）。传入即受控。 */
@@ -1516,7 +1516,7 @@ export interface TableProps<RecordType = any> {
    *
    * 分页器用 antd `<Pagination>`。
    *
-   * 详见 `docs/design-notes/pagination.md`。
+   * 详见 `docs/features/interaction/pagination-and-data.md`。
    */
   pagination?: false | TablePaginationConfig
   /**
@@ -1578,7 +1578,7 @@ export interface TableProps<RecordType = any> {
    * 对齐 antd `TableProps.onChange(pagination, filters, sorter, extra)`：
    *   - `pagination`：当前实际分页状态 `{ current, pageSize, total }`（注入实际值；
    *     对齐 antd：onChange 的 pagination 始终反映当前分页，无论触发源是 sort/filter/paginate）。
-   *     未启用分页（`pagination` 为 undefined/false）时传 `{ current: 1, pageSize: <全量>, total: <长度> }`。
+   *     未启用分页（`pagination={false}`）时传 `{ current: 1, pageSize: <全量>, total: <长度> }`。
    *   - `filters`：筛选状态。形态 `{ [columnKey/dataIndex]: filteredValue[] | null }`：
    *     * **可筛选列**（有 `filters` + `onFilter`）出现为 key；值为当前激活的筛选值数组（命中任一保留）。
    *     * 无激活筛选的列值为 `null`（对齐 antd：未筛选列在 filters 对象里值为 null）。

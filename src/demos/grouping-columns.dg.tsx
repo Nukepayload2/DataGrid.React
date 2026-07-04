@@ -114,7 +114,7 @@ export default function GroupingColumnsDg({
            （data-grid 接受字符串 x + y:true 数据区域模式，已有 473px 父高限高，虚拟滚动区生效）。 */
         virtual={virtual}
         scroll={{ x: 'calc(700px + 50%)', y: true }}
-        /* pagination={{}}：对齐 antd 默认分页条（antd 对任意行数都渲染 .ant-pagination）。 */
+        /* 显式采用默认分页配置；不传 pagination 时也会按 antd 默认开启。 */
         pagination={{}}
       />
     </div>

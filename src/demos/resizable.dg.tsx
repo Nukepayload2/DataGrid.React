@@ -93,6 +93,7 @@ export default function ResizableDg({
       dataSource={data}
       virtual={virtual}
       scroll={virtual ? { y: true } : undefined}
+      pagination={false}
       gridOptions={{
         columnResizeMode,
         resizableMinWidth: minWidth,

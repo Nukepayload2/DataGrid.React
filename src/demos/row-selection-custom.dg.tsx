@@ -74,6 +74,7 @@ export default function RowSelectionCustomDg({
       dataSource={dataSource}
       virtual={virtual}
       scroll={virtual ? { y: true } : undefined}
+      pagination={false}
     />
   )
 }

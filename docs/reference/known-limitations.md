@@ -30,13 +30,13 @@
 以下项目能做，但需要先确认设计取舍或回归范围：
 
 - `scroll.y = number|string` 的 antd max-height 语义：可以和当前 `scroll.y: true` 的数据区模式并存，但需要明确优先级。
-- pagination 默认开启：可以对齐 antd 默认 10/页，但会改变现有不传 `pagination` 的默认行为。
 - RTL：可实现，但需要系统性处理 fixed、sticky、滚动条、拖拽方向和阴影方向。
 - `components.header.row`、`components.body.wrapper`、`components.body` 函数形态：可提供 data-grid 语义下的适配，但不能等价替换原生 table DOM。
 
 ## 已实现，不再作为限制
 
 - `locale` 已接入 antd `useLocale('Table')`：`TableProps.locale` 覆盖 ConfigProvider locale，ConfigProvider locale 覆盖默认英文；FilterDropdown、selection 内置项、排序/展开文案已纳入当前兼容面。
+- `pagination` 默认开启已对齐 antd：未传等价 `{}`，默认 10/页；`pagination={false}` 才关闭。
 - `rowSelection.onSelect`、`onSelectAll`、`onSelectInvert`、`onSelectNone` 已实现。
 - 拖拽相关的 `gridOptions.autoScrollOnDrag`、`gridOptions.columnReorder`、`gridColumnOptions.dragColumnLock`、`gridOptions.multiRowReorder` 已作为当前采用的 data-grid 原生能力记录。
 

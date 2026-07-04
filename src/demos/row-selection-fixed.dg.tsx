@@ -77,7 +77,7 @@ export default function RowSelectionFixedDg({
       dataSource={data}
       virtual={virtual}
       scroll={virtual ? { x: 1200, y: true } : { x: 1200 }}
-      pagination={{}}
+      pagination={false}
     />
   )
 }

@@ -148,7 +148,7 @@ const TABLE_API_ROWS: ApiRow[] = [
   { prop: 'tableLayout', desc: '透传到底层布局，本阶段仅接收不强制。', type: "'auto' | 'fixed'", def: '-' },
   { prop: 'rowSelection', desc: 'antd 兼容行选择层。支持 selectedRowKeys/defaultSelectedRowKeys、onChange/onSelect/onSelectAll/onSelectInvert/onSelectNone、getCheckboxProps、selections、preserveSelectedRowKeys、checkStrictly、renderCell。与 gridOptions.selection 同时存在时，UI 真理源优先看 selectedValues。', type: 'TableRowSelection', def: '-' },
   { prop: 'expandable', desc: '行展开配置。自动插入展开图标列（默认最前；columns 含 EXPAND_COLUMN 哨兵则插该位置），可展开行下方插 0fr↔1fr 过渡 track（纯 CSS 动画）。支持 expandedRowRender、rowExpandable、受控 expandedRowKeys、树形 childrenColumnName/indentSize。', type: 'Expandable', def: '-' },
-  { prop: 'pagination', desc: '分页配置。★ data-grid 默认不分页（undefined/false 不渲染分页器、数据全显）；传对象才启用。受控 current/pageSize；placement 为 v6 数组语义（默认 [bottomEnd]）。', type: 'false | TablePaginationConfig', def: 'false' },
+  { prop: 'pagination', desc: '分页配置。默认对齐 antd：未传等价 {}，默认 10/页并在 bottomEnd 渲染分页器；pagination={false} 才关闭。受控 current/pageSize；placement 为 v6 数组语义（默认 [bottomEnd]）。', type: 'false | TablePaginationConfig', def: '{}' },
   { prop: 'loading', desc: '加载态，用 antd <Spin> 包裹整个表格内容。boolean 或 SpinProps（spinning 字段优先）。', type: 'boolean | SpinProps', def: 'false' },
   { prop: 'onChange', desc: '排序/筛选/分页变化的统一回调：(pagination, filters, sorter, extra)。filters 形态 {[key]: value[]|null}；sorter 0/1 列为对象，>=2 列为数组（按 multiple 升序）；extra.action ∈ sort/filter/paginate。', type: '(pagination, filters, sorter, extra)=>void', def: '-' },
   { prop: 'showSorterTooltip', desc: '全局排序提示 tooltip 开关；单列可由 column.showSorterTooltip 覆盖。', type: 'boolean | { target?: "full-header"|"sorter-icon" }', def: 'true' },
@@ -219,7 +219,7 @@ const FEATURE_LIST: Array<{ title: string; desc: string }> = [
   { title: '树形数据', desc: 'childrenColumnName；缩进展开；checkStrictly 父子勾选联动。' },
   { title: '单元格 / 行编辑', desc: 'components.body.cell/row + onCell 注入编辑 props；shouldCellUpdate 性能优化。' },
   { title: '行 / 列拖拽排序', desc: '行拖拽（pointer，指示线+arrayMove）；列拖拽（onHeaderCell 注入 dnd 标识）。' },
-  { title: '分页', desc: 'pagination（v6 placement 数组语义）；默认不分页。' },
+  { title: '分页', desc: 'pagination（v6 placement 数组语义）；默认开启，pagination={false} 关闭。' },
   { title: '服务端模式', desc: 'loading + 受控 dataSource/sortOrder/filteredValue/pagination；preserveSelectedRowKeys 跨页。' },
   { title: '主题（dark/light + token）', desc: '兼容 antd v6 CSS variables（--ant-*）；ConfigProvider theme.components.Table token 注入。' },
   { title: '列省略 / Tooltip', desc: 'ellipsis（默认 native title；{showTitle:false} 接管 Tooltip）。' },
@@ -244,8 +244,8 @@ const ANTD_DIFFS: Array<{ title: string; desc: string }> = [
     desc: '决策 8：scroll.x 启用时隐藏原生横向滚动条，额外渲染 HorizontalFloatingScrollBar（细线 2px + hit 上下各 8px + hover 变粗 8px + 拖动/同步），定位在数据区域底部（summary 上方）。视觉更现代，但行为与原生等价。',
   },
   {
-    title: '默认不分页',
-    desc: 'data-grid 的 pagination 默认 undefined/false 不渲染分页器、数据全显（与 antd 默认开启分页不同）。显式传 pagination 对象才启用。',
+    title: '默认分页对齐 antd',
+    desc: 'pagination 未传时等价 {}，默认 10/页并渲染 bottomEnd 分页器；pagination={false} 才关闭并数据全显。',
   },
   {
     title: 'components.body.cell 替换的是单元格内容（非整个 td）',
@@ -396,16 +396,15 @@ export default function Demo() {
   <Table.Column title="Age" dataIndex="age" key="age" />
 </Table>`}</Code>
             <Alert
-              type="warning"
+              type="info"
               showIcon
               style={{ margin: '16px 0' }}
-              title="默认不分页"
+              title="默认分页对齐 antd"
               description={
                 <span>
-                  与 antd 默认开启分页不同，data-grid 的{' '}
-                  <Text code>pagination</Text> 默认 <Text code>undefined</Text>/
-                  <Text code>false</Text> 时<strong>不渲染分页器、数据全显</strong>
-                  。需要分页请显式传 <Text code>{'pagination={{ current: 1, pageSize: 10 }}'}</Text>。
+                  <Text code>pagination</Text> 未传时等价 <Text code>{'{}'}</Text>，默认
+                  10/页并渲染 bottomEnd 分页器。需要全量展示时请显式传{' '}
+                  <Text code>{'pagination={false}'}</Text>。
                 </span>
               }
             />

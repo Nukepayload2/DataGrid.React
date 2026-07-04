@@ -149,21 +149,19 @@
 
 2. **`locale` 为部分兼容**（antd 18 字段）。已接入：`emptyText`、FilterDropdown 的 `filterConfirm/filterReset/filterEmptyText/filterSearchPlaceholder/filterCheckAll`、selection 内置菜单 `selectionAll/selectInvert/selectNone`、排序 hover title `triggerDesc/triggerAsc/cancelSort`、展开按钮 aria `expand/collapse`。未消费字段仍有 `filterTitle/selectAll/sortTitle` 等。证据：dg `Table.tsx`、`engine\FilterDropdown.tsx`、`engine\GridTable.tsx`、`types.ts:1027-1058`；antd `interface.ts:41-63`。
 
-3. **`pagination` 默认关**（antd 默认开 10/页）。dg 不传则无分页条；从 antd 迁入需要显式 `pagination={{}}` 才能拿到默认分页条。证据：dg types.ts（pagination 默认 undefined/false）。
+3. **`rowSelection` 仍为部分兼容**。已补 `onSelect/onSelectAll/onSelectInvert/onSelectNone`；仍缺 `columnTitle/onCell/getTitleCheckboxProps/onSelectMultiple`。证据：antd `interface.ts:230-255`；dg `types.ts:130-193`。
 
-4. **`rowSelection` 仍为部分兼容**。已补 `onSelect/onSelectAll/onSelectInvert/onSelectNone`；仍缺 `columnTitle/onCell/getTitleCheckboxProps/onSelectMultiple`。证据：antd `interface.ts:230-255`；dg `types.ts:130-193`。
+4. **`expandable` 缺 `columnTitle/fixed`**。证据：antd `ExpandableConfig`；dg `types.ts:1084-1085, 1107-1158`。
 
-5. **`expandable` 缺 `columnTitle/fixed`**。证据：antd `ExpandableConfig`；dg `types.ts:1084-1085, 1107-1158`。
+5. **`components` 缺 `table/header.table/header.wrapper/header.row/body(wrapper)/body 函数形态`**。`body.cell`/`body.row` 已通，但语义有适配（见「名兼义异」）。证据：dg `types.ts:742-769`。
 
-6. **`components` 缺 `table/header.table/header.wrapper/header.row/body(wrapper)/body 函数形态`**。`body.cell`/`body.row` 已通，但语义有适配（见「名兼义异」）。证据：dg `types.ts:742-769`。
+6. **RTL（`direction`）未支持**。通过 ConfigProvider 注入，dg 未消费。证据：dg types.ts 全仓无 `direction`/`RTL`。
 
-7. **RTL（`direction`）未支持**。通过 ConfigProvider 注入，dg 未消费。证据：dg types.ts 全仓无 `direction`/`RTL`。
+7. **`render` 返回 `RenderedCell{ props:{colSpan,rowSpan} }` 对象形态未支持**。合并语义在 dg 统一走 `onCell` 返回 `{ colSpan, rowSpan }`（决策：合并路径单一化）。证据：antd rc-table `RenderedCell`；dg `types.ts:470`（render 仅 ReactNode）+ `501-514`（onCell 承载合并）。
 
-8. **`render` 返回 `RenderedCell{ props:{colSpan,rowSpan} }` 对象形态未支持**。合并语义在 dg 统一走 `onCell` 返回 `{ colSpan, rowSpan }`（决策：合并路径单一化）。证据：antd rc-table `RenderedCell`；dg `types.ts:470`（render 仅 ReactNode）+ `501-514`（onCell 承载合并）。
+8. **`sticky.offsetSummary` 缺**；**`dataIndex` 不支持 `DeepNamePath`**（运行时支持路径数组，类型不深）。证据：antd rc-table `interface.d.ts:199`；dg `types.ts:1658, 376`。
 
-9. **`sticky.offsetSummary` 缺**；**`dataIndex` 不支持 `DeepNamePath`**（运行时支持路径数组，类型不深）。证据：antd rc-table `interface.d.ts:199`；dg `types.ts:1658, 376`。
-
-10. **`ColumnType` 缺 `rowSpan`(独立字段,仅 onCell)/`filtered`/`sortIcon`/`filterResetToDefaultFilteredValue`**；**`filterDropdownProps` 仅透传子集**。证据：antd `interface.ts:159, 163, 178, 179`；dg `types.ts:373-548`。
+9. **`ColumnType` 缺 `rowSpan`(独立字段,仅 onCell)/`filtered`/`sortIcon`/`filterResetToDefaultFilteredValue`**；**`filterDropdownProps` 仅透传子集**。证据：antd `interface.ts:159, 163, 178, 179`；dg `types.ts:373-548`。
 
 ---
 
@@ -172,17 +170,17 @@
 按「迁移影响面 × 实现成本」排序：
 
 1. **P0：`scroll.scrollToFirstRowOnChange`**（TOP #1）—— 分页/排序/筛选后滚回首行是 antd 常见默认行为，实现面相对局部。
-2. **P0：`rowSelection.columnTitle/onCell/getTitleCheckboxProps/onSelectMultiple`**（TOP #4）—— 都是 antd 在用、非 deprecated 的字段，迁移真实业务会立刻踩到；`onSelect` 系列中的常用项已实现，不再列为缺口。
+2. **P0：`rowSelection.columnTitle/onCell/getTitleCheckboxProps/onSelectMultiple`**（TOP #3）—— 都是 antd 在用、非 deprecated 的字段，迁移真实业务会立刻踩到；`onSelect` 系列中的常用项已实现，不再列为缺口。
 3. **P1：`scroll.y` 支持 `number|string` max-height 语义**（TOP #1）—— 表体限高是常见诉求，但需要和 data-grid 当前 `scroll.y: true` 数据区模式明确优先级。
-4. **P1：`pagination` 默认开**（TOP #3）—— 与 antd 默认一致（默认 10/页），但会改变现有不传 `pagination` 的默认行为，需单独评估回归。
-5. **P2：`expandable.columnTitle/fixed`**（TOP #5）—— API 适配面清楚，和现有展开列构造逻辑直接相关。
-6. **P2：`components` 缺槽位补齐**（TOP #6）—— 至少 `header.row`/`body.wrapper` 可以提供 data-grid 语义下的适配；完整 table DOM 替换仍受架构限制。
-7. **P3：`column.sortIcon/filtered/filterResetToDefaultFilteredValue` 与 `filterDropdownProps` 全透传**（TOP #10）。
-8. **P3：`sticky.offsetSummary`、`dataIndex` 深类型、RTL**（TOP #7/#9）—— 长尾，按需。
+4. **P2：`expandable.columnTitle/fixed`**（TOP #4）—— API 适配面清楚，和现有展开列构造逻辑直接相关。
+5. **P2：`components` 缺槽位补齐**（TOP #5）—— 至少 `header.row`/`body.wrapper` 可以提供 data-grid 语义下的适配；完整 table DOM 替换仍受架构限制。
+6. **P3：`column.sortIcon/filtered/filterResetToDefaultFilteredValue` 与 `filterDropdownProps` 全透传**（TOP #9）。
+7. **P3：`sticky.offsetSummary`、`dataIndex` 深类型、RTL**（TOP #6/#8）—— 长尾，按需。
 
 已不再作为优先缺口：
 
 - FilterDropdown i18n 已接入 `locale.filterConfirm/filterReset/filterEmptyText/filterSearchPlaceholder/filterCheckAll`。
+- `pagination` 默认开启已对齐 antd，`pagination={false}` 才关闭。
 - `rowSelection.onSelect/onSelectAll/onSelectInvert/onSelectNone` 已实现。
 - `gridOptions.autoScrollOnDrag`、`gridOptions.columnReorder`、`gridColumnOptions.dragColumnLock`、`gridOptions.multiRowReorder` 已作为 data-grid 原生能力采用。
 

@@ -84,8 +84,7 @@ export default function FilterInTreeDg({
       dataSource={data}
       onChange={onChange}
       bordered={bordered}
-      /* pagination={{}}：对齐右栏 antd 默认分页条（antd 对任意行数都渲染 .ant-pagination，
-         即便行数 ≤ pageSize 也会渲染 disabled 态分页条；data-grid 不传=不渲染）。 */
+      /* 显式采用默认分页配置；不传 pagination 时也会按 antd 默认开启。 */
       pagination={{}}
       /* 全局虚拟化开关接入：ON 时 virtual=true + scroll.y:true（CSS 自适应，填满 SplitDemo
          pane 限高，虚拟窗口才有滚动区）；OFF 时回 undefined，无 scroll。 */

@@ -70,6 +70,7 @@ export default function FixedColumnsDg({
          OFF 时仅保留原 scroll.x:'max-content'。详见 docs/design-notes/virtualization.md */
       virtual={virtual}
       scroll={virtual ? { x: 'max-content', y: true } : { x: 'max-content' }}
+      pagination={false}
     />
   )
 }

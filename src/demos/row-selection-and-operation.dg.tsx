@@ -39,6 +39,7 @@ export default function RowSelectionAndOperationDg({
       dataSource={dataSource}
       virtual={virtual}
       scroll={virtual ? { y: true } : undefined}
+      pagination={false}
     />
   )
 }

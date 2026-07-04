@@ -226,13 +226,8 @@ export default function ComponentTokenDemo() {
                 </ul>
               </li>
               <li>
-                <strong>pagination 默认行为差异</strong>
-                <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                  <li><strong>差异行为</strong>：data-grid 默认不分页；本 demo 显式传
-                    <code>&#123; placement:[top,bottom] &#125;</code> 启用；antd 默认开启分页。</li>
-                  <li><strong>触发条件</strong>：未显式传 pagination 时。</li>
-                  <li><strong>差异原因</strong>：data-grid 默认 omit pagination，需 demo 显式启用。</li>
-                </ul>
+                <strong>pagination</strong>：data-grid 与 antd 默认均开启分页；本 demo 显式传
+                <code>&#123; placement:[top,bottom] &#125;</code> 只是为了让顶部/底部分页位置跟随控件变化。
               </li>
             </ul>
           </div>

@@ -107,8 +107,8 @@ export default function ResetFilterDemo() {
           </ul>
           <p style={{ margin: '8px 0 0' }}>
             末尾追加的 Status/Tag/Empty 列用于触发上述 locale 文案分支；与受控筛选/排序/重置无关。
-            两栏均显式 <code>pagination=&#123;&#123;&#125;&#125;</code>（antd 默认分页器），表底一致出现
-            disabled 态分页条。已知：filter 触发时 onChange 的 <code>sorter</code> 字段可能不完整
+            两栏均使用默认分页器，表底一致出现 disabled 态分页条。已知：filter 触发时 onChange 的
+            <code>sorter</code> 字段可能不完整
             （data-grid 与 antd 均如此，非 bug）。
           </p>
         </div>

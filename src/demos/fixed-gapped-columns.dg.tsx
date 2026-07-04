@@ -75,6 +75,7 @@ export default function FixedGappedColumnsDg({
       // 虚拟化开关接入：ON 时 scroll.y:true（表体纵向滚动）；OFF 仅保留原 max-content。
       virtual={virtual}
       scroll={virtual ? { x: 'max-content', y: true } : { x: 'max-content' }}
+      pagination={false}
     />
   )
 }

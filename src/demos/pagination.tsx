@@ -35,14 +35,13 @@ export default function PaginationDemo() {
           （单元素数组 = 单翻页器）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>分页默认行为差异</strong>
+              <strong>分页默认行为</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 不传 <code>pagination</code> 时全量渲染、无翻页器；
-                  antd <code>&lt;Table&gt;</code> 默认开启分页（<code>defaultPageSize: 10</code>、
-                  <code>placement: 'bottomEnd'</code>）。</li>
+                <li><strong>行为</strong>：data-grid 与 antd 都在不传 <code>pagination</code> 时默认开启分页
+                  （<code>defaultPageSize: 10</code>、<code>placement: 'bottomEnd'</code>）。</li>
                 <li><strong>触发条件</strong>：未显式传 <code>pagination</code> prop。</li>
-                <li><strong>差异原因</strong>：data-grid 把分页做成显式启用项（贴近「按需开启」语义），
-                  antd 原生默认即渲染翻页器。本 demo 左栏显式传 <code>pagination</code> 对象对齐 antd 默认。</li>
+                <li><strong>说明</strong>：本 demo 显式传 <code>pagination</code> 对象是为了测试
+                  <code>placement</code>，不是为了开启分页。</li>
               </ul>
             </li>
             <li>

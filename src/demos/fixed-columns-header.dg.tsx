@@ -54,6 +54,7 @@ export default function FixedColumnsHeaderDg({
         bordered={bordered}
         virtual={virtual}
         scroll={{ x: 'max-content', y: true }}
+        pagination={false}
       />
     </div>
   )

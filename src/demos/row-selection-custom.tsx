@@ -44,14 +44,8 @@ export default function RowSelectionCustomDemo() {
               </ul>
             </li>
             <li>
-              <strong>pagination 默认值</strong>
-              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：左栏 data-grid 默认不分页（无 <code>pagination</code> 时
-                  46 行全显）；右栏 antd 设 <code>pagination={false}</code> 显式关闭。</li>
-                <li><strong>触发条件</strong>：本 demo 数据 46 行（antd demo 同款），无分页配置时。</li>
-                <li><strong>差异原因</strong>：data-grid 默认无分页（需显式 <code>pagination={"{}"}</code> 才出现分页条），
-                  antd 默认开启分页（需 <code>pagination={'{false}'}</code> 才关闭以复刻 demo 全显行为）。</li>
-              </ul>
+              <strong>pagination</strong>：本 demo 为复刻 antd row-selection-custom 的 46 行全显效果，
+              两侧均显式关闭分页（<code>pagination={false}</code>）。
             </li>
             <li>
               <strong>选中态可视化区</strong>

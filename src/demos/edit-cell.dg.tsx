@@ -217,7 +217,6 @@ export default function EditCellDg({
         bordered
         dataSource={dataSource}
         columns={columns as DgColumnTypes}
-        // data-grid 不传 pagination=无分页条；显式传 {} 对齐 antd 默认分页。
         pagination={{}}
         // ON→virtual+scroll.y=true（CSS 自适应高度，SplitDemo 限高 pane body 提供可滚动区域）。
         virtual={virtual}

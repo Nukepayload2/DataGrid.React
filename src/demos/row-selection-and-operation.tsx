@@ -76,12 +76,11 @@ export default function RowSelectionAndOperationDemo() {
             <li>
               <strong>分页</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：左栏 data-grid 默认不分页；右栏 antd demo 默认分页，
-                  本 demo 显式传 <code>pagination={'{'}false{'}'}</code> 取消。</li>
+                <li><strong>差异行为</strong>：两侧默认都会开启分页；本 demo 显式传
+                  <code>pagination={'{'}false{'}'}</code> 取消。</li>
                 <li><strong>触发条件</strong>：始终（demo 写死 <code>pagination={'{'}false{'}'}</code>）。</li>
-                <li><strong>差异原因</strong>：antd Table 对任意行数默认渲染分页条，data-grid 默认不渲染；
-                  本 demo 取消 antd 分页以让 46 行全显对照。详见
-                  <code>docs/design-notes/pagination.md</code>。</li>
+                <li><strong>差异原因</strong>：复刻 antd row-selection-and-operation 的 46 行全显效果，
+                  避免默认分页切片影响批量选择对照。</li>
               </ul>
             </li>
           </ul>

@@ -50,14 +50,8 @@ export default function TreeDataDemo() {
               </ul>
             </li>
             <li>
-              <strong>分页默认行为差异</strong>
-              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 不传 <code>pagination</code> 时全量渲染无翻页器；
-                  antd <code>&lt;Table&gt;</code> 默认开启分页。</li>
-                <li><strong>触发条件</strong>：未显式传 <code>pagination</code>。</li>
-                <li><strong>差异原因</strong>：同 pagination demo——data-grid 把分页做成显式启用项。
-                  本 demo 左栏 data-grid 显式传 <code>pagination=&#123;&#123;&#125;&#125;</code> 对齐 antd 默认。</li>
-              </ul>
+              <strong>pagination</strong>：data-grid 与 antd 默认均开启分页；左栏显式传
+              <code>pagination=&#123;&#123;&#125;&#125;</code> 只是把 demo 意图写明，行为等价于不传。
             </li>
             <li>
               <strong>onSelect 回调差异</strong>

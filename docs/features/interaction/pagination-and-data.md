@@ -2,6 +2,8 @@
 
 data-grid 在 antd `<Pagination>` 外多一层 `.dg-pagination` div（grid 布局需要 flex 容器承载对齐），样式对齐 antd `components/table/style/pagination.ts` 的 `.ant-table-pagination`。本文说明分页外层容器、对齐变体、与 antd 的差异。
 
+默认行为对齐 antd Table：`pagination` 未传时等价 `{}`，默认 `current=1`、`pageSize=10`、`placement=['bottomEnd']`；只有 `pagination={false}` 才关闭分页并全量渲染。
+
 ## 外层容器 `.dg-pagination`
 
 对齐 antd `pagination.ts`：

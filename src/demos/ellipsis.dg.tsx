@@ -54,7 +54,7 @@ export default function EllipsisDg({
       columns={dgColumns}
       dataSource={data}
       bordered={bordered}
-      /* pagination={{}}：对齐 antd 默认分页条（antd 对任意行数都渲染 .ant-pagination）。 */
+      /* 显式采用默认分页配置；不传 pagination 时也会按 antd 默认开启。 */
       pagination={{}}
       /* virtual 开关 ON 时 virtual=true + scroll:{y:true}（数据区域模式，CSS 自适应填满
          SplitDemo 给的 400px 限高，虚拟窗口才有滚动区）；OFF 时 scroll=undefined。 */

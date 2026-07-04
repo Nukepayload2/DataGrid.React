@@ -37,6 +37,7 @@ export default function RowSelectionCustomDebugDg({
       dataSource={dataSource}
       virtual={virtual}
       scroll={virtual ? { y: true } : undefined}
+      pagination={false}
     />
   )
 }

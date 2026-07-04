@@ -163,6 +163,7 @@ export default function VirtualListDg({
         expandable={dgExpandable}
         // 展开关闭时显示 radio 单选列（对齐右栏 antd）；展开时关闭避免图标列与选择列并存。
         rowSelection={expanded ? undefined : { type: 'radio', columnWidth: 48 }}
+        pagination={false}
         // 每行 40px 作未测兜底；虚拟窗口由 RO 实测真实高驱动。
         gridOptions={{ rowHeight: 40, headerHeight: 40 }}
       />
