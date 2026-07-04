@@ -349,6 +349,13 @@ function StickyScrollBar({
     startScrollLeft: number
   } | null>(null)
 
+  useEffect(() => {
+    return () => {
+      barRef.current?.classList.remove('dg-sticky-scroll-bar-dragging')
+      document.body.classList.remove('dg-scrollbar-pointer-capturing')
+    }
+  }, [])
+
   // 解析 container（window 或 HTMLElement；undefined/null 回退 window）。
   const resolveContainer = useCallback((): Window | HTMLElement => {
     if (getContainer) {
@@ -464,6 +471,8 @@ function StickyScrollBar({
       startPointerX: e.clientX,
       startScrollLeft: currentScrollLeft,
     }
+    bar.classList.add('dg-sticky-scroll-bar-dragging')
+    document.body.classList.add('dg-scrollbar-pointer-capturing')
     // 用闭包捕获拖动几何（拖动期间 DOM 不变，无需重读）。
     const geometry = { thumbMaxLeft, maxScroll }
     const onMove = (ev: PointerEvent) => {
@@ -484,6 +493,8 @@ function StickyScrollBar({
       const ds = dragStateRef.current
       if (!ds || ds.pointerId !== ev.pointerId) return
       dragStateRef.current = null
+      bar.classList.remove('dg-sticky-scroll-bar-dragging')
+      document.body.classList.remove('dg-scrollbar-pointer-capturing')
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onUp)
@@ -500,14 +511,10 @@ function StickyScrollBar({
       style={{
         position: 'sticky',
         bottom: `${offsetScroll}px`,
-        // antd sticky.ts:34,38 height = tableScrollThumbSize(8) + background = tableScrollBg(浅)。
+        // 8px hit 区保留；thumb 的 2px/8px 折叠展开由 CSS 控制。
         height: 'var(--ant-table-scroll-thumb-size, 8px)',
         // z-index 6 高于表头 corner（z5），避免同级；几何不重叠时无视觉变化，防未来回归。
         zIndex: 6,
-        background: 'var(--ant-table-scroll-bg, rgba(5, 5, 5, 0.06))',
-        // antd sticky.ts:39 borderTop: tableBorder（1px solid tableBorderColor）。data-grid 同款，
-        // 用 --ant-table-border-color（= #f0f0f0，与 antd tableBorderColor 一致）。
-        borderTop: 'var(--ant-line-width, 1px) var(--ant-line-type, solid) var(--ant-table-border-color, #f0f0f0)',
         // bar 宽度与 grid 对齐：grid 多宽 bar 多宽（gridRef 提供 grid 宽度参考）。
         // sticky 元素宽度保持为当前表格视口宽，不再用宽表 min-width 撑宽文档流。
       }}
@@ -517,14 +524,8 @@ function StickyScrollBar({
         onPointerDown={onThumbPointerDown}
         className="dg-sticky-scroll-bar-thumb"
         style={{
-          height: 'var(--ant-table-scroll-thumb-size, 8px)',
           width: '20px',
-          // antd sticky.ts:50 borderRadius = stickyScrollBarBorderRadius(100) + backgroundColor = tableScrollThumbBg。
-          borderRadius: 'var(--ant-table-sticky-scroll-bar-border-radius, 100px)',
-          background: 'var(--ant-table-scroll-thumb-bg, rgba(0, 0, 0, 0.25))',
-          cursor: 'pointer',
           willChange: 'transform',
-          transition: 'background-color 0.2s ease',
         }}
       />
     </div>

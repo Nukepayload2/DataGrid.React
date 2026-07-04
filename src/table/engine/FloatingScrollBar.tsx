@@ -229,6 +229,14 @@ export function FloatingScrollBar({
     startScrollLeft: number
   } | null>(null)
 
+  useEffect(() => {
+    return () => {
+      vHitRef.current?.classList.remove('dg-floating-scrollbar-dragging')
+      hHitRef.current?.classList.remove('dg-floating-scrollbar-dragging')
+      document.body.classList.remove('dg-scrollbar-pointer-capturing')
+    }
+  }, [])
+
   // 核心：重算纵向 thumb 几何 + track inset。
   const recomputeVertical = useCallback(() => {
     const container = innerScrollRef.current
@@ -410,6 +418,8 @@ export function FloatingScrollBar({
     //   导致 `e.currentTarget.releasePointerCapture` 抛 null。这里在 pointerdown 入口
     //   （e.currentTarget = hit 容器有效）把捕获目标元素引用存进闭包，set/release 都用同一元素。
     const hitEl = e.currentTarget
+    hitEl.classList.add('dg-floating-scrollbar-dragging')
+    document.body.classList.add('dg-scrollbar-pointer-capturing')
     hitEl.setPointerCapture(e.pointerId)
     const onMove = (ev: PointerEvent) => {
       const ds = vDragStateRef.current
@@ -422,6 +432,8 @@ export function FloatingScrollBar({
       const ds = vDragStateRef.current
       if (!ds || ds.pointerId !== ev.pointerId) return
       vDragStateRef.current = null
+      hitEl.classList.remove('dg-floating-scrollbar-dragging')
+      document.body.classList.remove('dg-scrollbar-pointer-capturing')
       hitEl.releasePointerCapture(ds.pointerId)
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
@@ -454,6 +466,8 @@ export function FloatingScrollBar({
     // 同纵向：onUp 注册在 window 上，触发时 e.currentTarget 已为 null。
     //   在 pointerdown 入口把捕获目标元素引用存进闭包，set/release 都用同一元素。
     const hitEl = e.currentTarget
+    hitEl.classList.add('dg-floating-scrollbar-dragging')
+    document.body.classList.add('dg-scrollbar-pointer-capturing')
     hitEl.setPointerCapture(e.pointerId)
     const onMove = (ev: PointerEvent) => {
       const ds = hDragStateRef.current
@@ -466,6 +480,8 @@ export function FloatingScrollBar({
       const ds = hDragStateRef.current
       if (!ds || ds.pointerId !== ev.pointerId) return
       hDragStateRef.current = null
+      hitEl.classList.remove('dg-floating-scrollbar-dragging')
+      document.body.classList.remove('dg-scrollbar-pointer-capturing')
       hitEl.releasePointerCapture(ds.pointerId)
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)

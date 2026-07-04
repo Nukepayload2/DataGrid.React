@@ -53,6 +53,12 @@
   cursor: not-allowed;
 }
 
+body.dg-scrollbar-pointer-capturing,
+body.dg-scrollbar-pointer-capturing * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
 /* 数据区域模式（scroll.y===true）。 */
 .dg-wrapper.dg-data-area {
   display: flex;
@@ -943,7 +949,8 @@
 
 .dg-wrapper.dg-scrollbar-table-hover:hover .dg-floating-scrollbar-thumb,
 .dg-wrapper.dg-scrollbar-table-hover.dg-scrollbar-touched .dg-floating-scrollbar-thumb,
-.dg-floating-scrollbar-v:hover .dg-floating-scrollbar-thumb {
+.dg-floating-scrollbar-v:hover .dg-floating-scrollbar-thumb,
+.dg-floating-scrollbar-v.dg-floating-scrollbar-dragging .dg-floating-scrollbar-thumb {
   opacity: 1;
 }
 
@@ -954,11 +961,18 @@
   opacity: 1;
 }
 
+.dg-floating-scrollbar-thumb:active {
+  background: var(--ant-color-text-heading);
+  cursor: grabbing;
+}
+
 /* 纵向 hit 容器 hover。 */
-.dg-floating-scrollbar-v:hover .dg-floating-scrollbar-thumb {
+.dg-floating-scrollbar-v:hover .dg-floating-scrollbar-thumb,
+.dg-floating-scrollbar-v.dg-floating-scrollbar-dragging .dg-floating-scrollbar-thumb {
   width: 8px;
   background: var(--ant-color-text-heading);
   opacity: 1;
+  cursor: grabbing;
 }
 
 /* expandOnHover=false：不折叠成 2px 指示器，始终保持展开尺寸。 */
@@ -997,7 +1011,8 @@
 
 .dg-wrapper.dg-scrollbar-table-hover:hover .dg-floating-scrollbar-thumb-h,
 .dg-wrapper.dg-scrollbar-table-hover.dg-scrollbar-touched .dg-floating-scrollbar-thumb-h,
-.dg-floating-scrollbar-h:hover .dg-floating-scrollbar-thumb-h {
+.dg-floating-scrollbar-h:hover .dg-floating-scrollbar-thumb-h,
+.dg-floating-scrollbar-h.dg-floating-scrollbar-dragging .dg-floating-scrollbar-thumb-h {
   opacity: 1;
 }
 
@@ -1008,11 +1023,18 @@
   opacity: 1;
 }
 
+.dg-floating-scrollbar-thumb-h:active {
+  background: var(--ant-color-text-heading);
+  cursor: grabbing;
+}
+
 /* 横向 hit 容器 hover。 */
-.dg-floating-scrollbar-h:hover .dg-floating-scrollbar-thumb-h {
+.dg-floating-scrollbar-h:hover .dg-floating-scrollbar-thumb-h,
+.dg-floating-scrollbar-h.dg-floating-scrollbar-dragging .dg-floating-scrollbar-thumb-h {
   height: 8px;
   background: var(--ant-color-text-heading);
   opacity: 1;
+  cursor: grabbing;
 }
 
 /* expandOnHover=false：不折叠成 2px 指示器，始终保持展开尺寸。 */
@@ -1020,21 +1042,63 @@
   height: 8px;
 }
 
+/* 页面级 StickyScrollBar 使用 8px hit 区，默认只露出 2px 指示条。 */
+.dg-sticky-scroll-bar {
+  background: transparent;
+  border-top: 0 solid transparent;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.dg-sticky-scroll-bar-thumb {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 2px;
+  border-radius: var(--ant-table-sticky-scroll-bar-border-radius, 100px);
+  background: var(--ant-table-scroll-thumb-bg, rgba(0, 0, 0, 0.25));
+  cursor: pointer;
+  transition:
+    height 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.dg-sticky-scroll-bar:hover,
+.dg-sticky-scroll-bar.dg-sticky-scroll-bar-dragging,
+.dg-wrapper.dg-scrollbar-no-expand .dg-sticky-scroll-bar {
+  background: var(--ant-table-scroll-bg, rgba(5, 5, 5, 0.06));
+  border-top: var(--ant-line-width, 1px) var(--ant-line-type, solid) var(--ant-table-border-color, #f0f0f0);
+}
+
+.dg-sticky-scroll-bar:hover .dg-sticky-scroll-bar-thumb,
+.dg-sticky-scroll-bar.dg-sticky-scroll-bar-dragging .dg-sticky-scroll-bar-thumb,
+.dg-wrapper.dg-scrollbar-no-expand .dg-sticky-scroll-bar-thumb {
+  height: var(--ant-table-scroll-thumb-size, 8px);
+}
+
+.dg-sticky-scroll-bar.dg-sticky-scroll-bar-dragging .dg-sticky-scroll-bar-thumb {
+  background: var(--ant-table-scroll-thumb-bg-hover, rgba(0, 0, 0, 0.88));
+  cursor: grabbing;
+}
+
 /* 页面级 StickyScrollBar 也消费 showOnTableHover。 */
 .dg-wrapper.dg-scrollbar-table-hover .dg-sticky-scroll-bar {
   opacity: 0;
-  transition: opacity 0.2s ease;
 }
 
 .dg-wrapper.dg-scrollbar-table-hover:hover .dg-sticky-scroll-bar,
 .dg-wrapper.dg-scrollbar-table-hover.dg-scrollbar-touched .dg-sticky-scroll-bar,
-.dg-wrapper.dg-scrollbar-table-hover .dg-sticky-scroll-bar:hover {
+.dg-wrapper.dg-scrollbar-table-hover .dg-sticky-scroll-bar:hover,
+.dg-wrapper.dg-scrollbar-table-hover .dg-sticky-scroll-bar.dg-sticky-scroll-bar-dragging {
   opacity: 1;
 }
 
 /* 页面级 StickyScrollBar thumb hover。 */
 .dg-sticky-scroll-bar-thumb:hover {
   background: var(--ant-table-scroll-thumb-bg-hover, rgba(0, 0, 0, 0.88));
+  height: var(--ant-table-scroll-thumb-size, 8px);
 }
 
 /* style-class demo 的 root classNames 演示。 */
