@@ -916,8 +916,12 @@ body.dg-scrollbar-pointer-capturing * {
   background: transparent;
 }
 
-/* 纵向悬浮条 hit 容器。 */
+/* 纵向悬浮条 hit 容器。
+   top:0 / bottom:0 兜底（recomputeVertical 通常用 inline top=headerH、bottom=summaryH 覆盖；
+   若 inline 未写入/被跳过，至少贴满容器右侧而非停在静态流位置）。 */
 .dg-floating-scrollbar-v {
+  top: 0;
+  bottom: 0;
   right: 0;
   width: 8px;
   z-index: 11;
@@ -980,8 +984,13 @@ body.dg-scrollbar-pointer-capturing * {
   width: 8px;
 }
 
-/* 横向悬浮条 hit 容器。 */
+/* 横向悬浮条 hit 容器。
+   bottom:0 兜底锚底（recomputeHorizontal 通常用 inline bottom=summaryH 覆盖到 summary 上方；
+   若 inline 未写入/被跳过，至少不跑到顶部 —— 用户线上报过此回归）。 */
 .dg-floating-scrollbar-h {
+  bottom: 0;
+  left: 0;
+  right: 0;
   height: 8px;
 }
 

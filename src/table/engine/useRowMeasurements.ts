@@ -16,12 +16,18 @@ import type { SizeRange } from './rowSizeSystem'
 /**
  * 容器内一行的高度修正值。
  *
- * 用 `Math.round(getBoundingClientRect().height)`：grid track 实际高可能是小数（如 42.4px），
+ * 用 `Math.round(el.offsetHeight)`：grid track 实际高可能是小数（如 42.4px），
  * 取整避免 sizeTree 频繁写入浮点抖动；同时与 `data-known-size` 写入端（GridTable 也取整）
  * 保持一致，确保去重生效。
+ *
+ * 用 `offsetHeight`（整数布局高度）替代 `getBoundingClientRect().height`（浮点 rect）：
+ *   - `offsetHeight` 已是整数（CSS 像素），`Math.round` 是无副作用的恒等；与之前取整后结果一致。
+ *   - 少一次 rect 对象分配（getBoundingClientRect 构造一个 DOMRect）。
+ *   - 循环内零写：连续纯读 offsetHeight，modern Chrome 会把多次读合并到一次 layout flush。
  */
 function correctRowSize(el: HTMLElement): number {
-  return Math.round(el.getBoundingClientRect().height)
+  // offsetHeight 已取整；Math.round 保留以兼容（万一未来切回 getBoundingClientRect）。
+  return Math.round(el.offsetHeight)
 }
 
 /**
@@ -85,6 +91,40 @@ function getChangedRowSizes(container: HTMLElement): SizeRange[] | null {
 }
 
 /**
+ * 容器子元素签名（数量 + 首尾数据行 index）。
+ *
+ * 用于 flush 短路：若签名与上次相同，说明虚拟窗口未进出、DOM 未增删 → 上次 flush 已把实测高度
+ * 回填到 data-known-size，本次 flush 必然返回空（getChangedRowSizes 内 size===knownSize 去重），
+ * 直接跳过省 N 次 offsetHeight 读。
+ *
+ * 仅做"零布局读"操作（dataset + length）—— 不触发 reflow；与 getChangedRowSizes 的遍历重叠，
+ * 但读的属性不同（dataset vs offsetHeight），modern 浏览器会把 dataset 读 + 长度读合并到同一
+ * style/layout flush。即便不能合并，dataset 读也是 O(1) per element 的廉价字符串读。
+ *
+ * 首尾 index 取「首个 / 末个有 data-row-index 的子元素」，无数据行时返回 null（视作无签名）。
+ */
+function computeChildrenSignature(container: HTMLElement): {
+  childCount: number
+  firstIdx: number | null
+  lastIdx: number | null
+} {
+  const children = container.children
+  const length = children.length
+  let firstIdx: number | null = null
+  let lastIdx: number | null = null
+  // 首个有 data-row-index 的子元素 → firstIdx；末个 → lastIdx。
+  // 多数虚拟列表里，padding/数据行交错排列，但只有数据行带 data-row-index。
+  for (let i = 0; i < length; i++) {
+    const idxAttr = (children.item(i) as HTMLElement).dataset.rowIndex
+    if (idxAttr === undefined) continue
+    const idx = parseInt(idxAttr, 10)
+    if (firstIdx === null) firstIdx = idx
+    lastIdx = idx
+  }
+  return { childCount: length, firstIdx, lastIdx }
+}
+
+/**
  * 测量 body 行高度并向上回填 SizeRange。
  *
  * @param containerRef body 内容容器 ref（行级子元素的直接父；GridTable 传入）。
@@ -103,6 +143,17 @@ export function useRowMeasurements(
   // RAF 句柄；-1 表示未调度。RAF 合并：RO 多次触发只排一次 flush。
   const rafRef = useRef<number>(-1)
 
+  // 上次 flush 时容器子元素签名（数量 + 首尾数据行 index）。
+  // 短路依据：若子元素列表完全相同（虚拟窗口未进出 / 无 DOM 增删）→ 上次 flush 已把所有行
+  //   实测高度回填到 data-known-size，getChangedRowSizes 内部 size===knownSize 必然命中去重 →
+  //   返回 null。此时跳过整个 flush（省去 N 次 offsetHeight 读）。
+  // 注意：虚拟窗口进出（children count / 首尾 index 变）时本就要 flush，签名必变 → 不跳过。
+  const lastSignatureRef = useRef<{
+    childCount: number
+    firstIdx: number | null
+    lastIdx: number | null
+  }>({ childCount: 0, firstIdx: null, lastIdx: null })
+
   useEffect(() => {
     const container = containerRef.current
     // 未启用 / 容器未挂载 → 什么都不做。
@@ -116,6 +167,17 @@ export function useRowMeasurements(
       if (!el) {
         return
       }
+      // 短路：签名未变 → 跳过本次 flush（详见 lastSignatureRef 注释）。
+      const signature = computeChildrenSignature(el)
+      const prev = lastSignatureRef.current
+      if (
+        prev.childCount === signature.childCount &&
+        prev.firstIdx === signature.firstIdx &&
+        prev.lastIdx === signature.lastIdx
+      ) {
+        return
+      }
+      lastSignatureRef.current = signature
       const ranges = getChangedRowSizes(el)
       if (ranges !== null) {
         // 通过 ref 调最新 onRanges，避免闭包陈旧。

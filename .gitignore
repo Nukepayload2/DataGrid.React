@@ -89,3 +89,4 @@ $tf/
 *.cache
 *.tmp
 /docs/verify
+/perf-traces

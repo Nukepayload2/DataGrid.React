@@ -34,14 +34,24 @@
  *
  * 5. 可见性：内容不溢出 → 隐藏悬浮条（display:none）。
  *
+ * 6. 性能（Stage 5 优化）：
+ *    - thumb 几何（height/display/track inset）+ 缓存的几何参数（scrollHeight/clientHeight/
+ *      thumbHeight/thumbMaxOffset/headerH/summaryH）**只**在 `recomputeVertical`/`recomputeHorizontal`
+ *      里读 + 写（recompute 由 RO 触发，频率远低于 scroll）。
+ *    - `onScroll` 不直接读布局属性（`scrollHeight/clientHeight/scrollWidth/clientWidth` 会强制 reflow）：
+ *      改为 `requestAnimationFrame` 节流，每帧最多一次 `doSync`，doSync 内**只读** `container.scrollTop/
+ *      scrollLeft`（不 reflow）+ 用 `geometryRef` 缓存 + 现有 `trackInsetRef` 算 ratio → 写 thumb transform。
+ *    - 不再使用 `setState`（`setTrackInset`/`setVThumbStyle` 等）—— 避免组件自身在 scroll 期重渲；
+ *      所有 thumb 几何直接写 DOM。
+ *
  * 仅 scroll.y/scroll.x 启用时渲染（GridTable 显式调用本组件）；无 scroll 路径完全不渲染本组件。
  * 详见 [docs/design-notes/scrollbar.md](../../../docs/design-notes/scrollbar.md)。
  */
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
-  useState,
   type CSSProperties,
   type ReactNode,
 } from 'react'
@@ -150,6 +160,53 @@ export interface FloatingScrollBarProps {
 }
 
 /**
+ * 纵向 thumb 几何缓存（由 recomputeVertical 写入；onScroll 读）。
+ * 拆分 maxScroll 是为了 onScroll 不重复算减法。
+ */
+interface VerticalGeometry {
+  /** 容器 scrollHeight（recompute 时刻的值）。 */
+  scrollHeight: number
+  /** 容器 clientHeight（recompute 时刻的值）。 */
+  clientHeight: number
+  /** 数据区可视高度 = clientHeight - headerH - summaryH。 */
+  trackHeight: number
+  /** thumb 高度（max(32, trackHeight * clientHeight / scrollHeight)）。 */
+  thumbHeight: number
+  /** 最大可滚动距离 = scrollHeight - clientHeight。 */
+  maxScroll: number
+  /** thumb 在 track 内最大偏移 = max(0, trackHeight - thumbHeight)。 */
+  thumbMaxOffset: number
+}
+
+/** 横向 thumb 几何缓存（由 recomputeHorizontal 写入；onScroll 读）。 */
+interface HorizontalGeometry {
+  scrollWidth: number
+  clientWidth: number
+  trackWidth: number
+  thumbWidth: number
+  maxScroll: number
+  thumbMaxOffset: number
+}
+
+/** 空几何（display:none / 不溢出 时）：所有比值为 0、maxScroll=0 → doSync 早返回。 */
+const EMPTY_VERTICAL_GEOMETRY: VerticalGeometry = {
+  scrollHeight: 0,
+  clientHeight: 0,
+  trackHeight: 0,
+  thumbHeight: 0,
+  maxScroll: 0,
+  thumbMaxOffset: 0,
+}
+const EMPTY_HORIZONTAL_GEOMETRY: HorizontalGeometry = {
+  scrollWidth: 0,
+  clientWidth: 0,
+  trackWidth: 0,
+  thumbWidth: 0,
+  maxScroll: 0,
+  thumbMaxOffset: 0,
+}
+
+/**
  * 悬浮滚动条包装组件（纵向 + 横向）。
  *
  * 渲染结构：
@@ -191,53 +248,79 @@ export function FloatingScrollBar({
 
   const wrapRef = useRef<HTMLDivElement | null>(null)
 
-  // === 纵向悬浮条 state ===
+  // === 纵向悬浮条 ===
+  // 全部走 ref + DOM 直写（不触发 React 重渲）。
   const vThumbRef = useRef<HTMLDivElement | null>(null)
   const vHitRef = useRef<HTMLDivElement | null>(null)
-  // state 不含 transform —— transform 由 DOM 直接写（onScroll / recompute），
-  //   避免 React 重渲染用 state.transform 覆盖 DOM transform 造成滚动中闪烁。
-  const [vThumbStyle, setVThumbStyle] = useState<CSSProperties>({
-    height: 0,
-    display: 'none',
+  // track inset（top=表头高，bottom=summary 高）。recompute 里写 DOM + 同步 ref；
+  // onScroll / pointerdown 通过 ref 读，避免闭包陈旧。
+  // 初值用 NaN 哨兵：recomputeVertical 的「skip if unchanged」守卫对 NaN 永远判不等
+  // （NaN !== 任何值 含自身），保证首帧 inline top/bottom 一定被写入 DOM —— 即使
+  // headerH=0 && summaryH=0（无表头/无 summary 场景）。否则首帧被跳过 → hit 容器退回
+  // CSS 默认定位（.dg-floating-scrollbar-v 无 top/bottom 兜底）→ 滚动条跑到容器顶部。
+  const trackInsetRef = useRef<{ top: number; bottom: number }>({
+    top: Number.NaN,
+    bottom: Number.NaN,
   })
-  const [trackInset, setTrackInset] = useState<{ top: number; bottom: number }>({
-    top: 0,
-    bottom: 0,
-  })
+  // thumb 几何缓存。recompute 里写；onScroll 里读（不再读 container.scrollHeight/clientHeight）。
+  const vGeometryRef = useRef<VerticalGeometry>(EMPTY_VERTICAL_GEOMETRY)
+  // thumb 当前可见性（display:none|block）。recompute 写 DOM 后同步此 ref，onScroll 用它判 hidden→visible 兜底。
+  const vVisibleRef = useRef<boolean>(false)
   const vDragStateRef = useRef<{
     pointerId: number
     startY: number
     startScrollTop: number
   } | null>(null)
 
-  // === 横向悬浮条 state ===
+  // === 横向悬浮条 ===
   const hThumbRef = useRef<HTMLDivElement | null>(null)
   const hHitRef = useRef<HTMLDivElement | null>(null)
-  // state 不含 transform，横向 thumb 位置由 DOM 直接写（同纵向）。
-  const [hThumbStyle, setHThumbStyle] = useState<CSSProperties>({
-    width: 0,
-    display: 'none',
+  // 初值用 NaN 哨兵（同 trackInsetRef）：保证 recomputeHorizontal 首帧一定写入 inline
+  // left/right/bottom —— 否则 summaryH=0 时守卫 `0!==0 || 0!==0 || 0!==0` 为 false 跳过
+  // 写入，hit 容器退回 CSS 默认（.dg-floating-scrollbar-h 无 bottom 兜底）→ 横向滚动条
+  // 跑到容器顶部（用户报的回归：跑到第一行上方）。
+  const hTrackInsetRef = useRef<{ left: number; right: number; bottom: number }>({
+    left: Number.NaN,
+    right: Number.NaN,
+    bottom: Number.NaN,
   })
-  const [hTrackInset, setHTrackInset] = useState<{ left: number; right: number; bottom: number }>({
-    left: 0,
-    right: 0,
-    bottom: 0,
-  })
+  const hGeometryRef = useRef<HorizontalGeometry>(EMPTY_HORIZONTAL_GEOMETRY)
+  const hVisibleRef = useRef<boolean>(false)
   const hDragStateRef = useRef<{
     pointerId: number
     startX: number
     startScrollLeft: number
   } | null>(null)
 
+  // === onScroll RAF 节流句柄 ===
+  // -1 表示未调度；多次 scroll 事件合并到每帧一次 doSync。
+  const scrollRafRef = useRef<number>(-1)
+
+  // === 表头高度缓存（Stage 5 残余优化）===
+  // 表头高度在滚动期间稳定（不随虚拟 padding / 滚动位置变化），无需每 RO 重测。
+  // - headerHeightRef：缓存 measureHeaderHeight 的结果；null=尚未测过。
+  // - headerCellCountRef：上次测量时的表头格数量；用于兜底检测"列增删导致表头格变化"场景
+  //   （表头 RO 只 observe 到挂载时的格，新增格不会被 observe，但 grid RO 会触发 recompute →
+  //   recomputeVertical 读 countRef 发现变化 → 重测一次刷新缓存 + countRef）。
+  const headerHeightRef = useRef<number | null>(null)
+  const headerCellCountRef = useRef<number>(0)
+
   useEffect(() => {
     return () => {
       vHitRef.current?.classList.remove('dg-floating-scrollbar-dragging')
       hHitRef.current?.classList.remove('dg-floating-scrollbar-dragging')
       document.body.classList.remove('dg-scrollbar-pointer-capturing')
+      // 卸载时取消未完成的 RAF，防止卸载后写 null DOM。
+      if (scrollRafRef.current !== -1) {
+        cancelAnimationFrame(scrollRafRef.current)
+        scrollRafRef.current = -1
+      }
     }
   }, [])
 
   // 核心：重算纵向 thumb 几何 + track inset。
+  // 直接写 DOM（thumb.style.height/display + hit.style.top/bottom + thumb.style.transform），
+  // 同步刷新 geometryRef / trackInsetRef / vVisibleRef，供 onScroll（不读布局）使用。
   const recomputeVertical = useCallback(() => {
     const container = innerScrollRef.current
     const thumb = vThumbRef.current
@@ -245,21 +328,38 @@ export function FloatingScrollBar({
     if (!container || !thumb || !hit) return
 
     const grid = container.querySelector<HTMLElement>('.dg-grid')
-    const headerH = measureHeaderHeight(grid, container)
-    const summaryH = measureSummaryHeight(grid, container)
-    setTrackInset((prev) =>
-      prev.top === headerH && prev.bottom === summaryH
-        ? prev
-        : { top: headerH, bottom: summaryH },
+    // 表头高度走缓存（headerHeightRef）—— 仅在 (a) 首帧竞态未初始化 或 (b) 表头格数量变化（列增删）
+    // 时才重测一次。表头尺寸变化（换行/分组展开/locale/主题）由独立的表头 RO 负责重测并刷缓存 +
+    // 触发 recompute（见下方表头 RO effect）。这样滚动期 container/grid RO 触发的 recompute 不再
+    // 遍历表头格 getBoundingClientRect（消除 182-202ms ForcedReflow）。
+    const headerCells = grid?.querySelectorAll<HTMLElement>(
+      '.dg-cell-header, .dg-cell-header-vsticky',
     )
+    const headerCellCount = headerCells?.length ?? 0
+    if (
+      headerHeightRef.current === null ||
+      headerCellCount !== headerCellCountRef.current
+    ) {
+      headerHeightRef.current = measureHeaderHeight(grid, container)
+      headerCellCountRef.current = headerCellCount
+    }
+    const headerH = headerHeightRef.current
+    const summaryH = measureSummaryHeight(grid, container)
+    if (trackInsetRef.current.top !== headerH || trackInsetRef.current.bottom !== summaryH) {
+      trackInsetRef.current = { top: headerH, bottom: summaryH }
+      hit.style.top = `${headerH}px`
+      hit.style.bottom = `${summaryH}px`
+    }
 
     const clientHeight = container.clientHeight
     const scrollHeight = container.scrollHeight
     // 内容不溢出 → 隐藏纵向悬浮条。
     if (scrollHeight <= clientHeight + 1) {
-      setVThumbStyle((prev) =>
-        prev.display === 'none' ? prev : { ...prev, display: 'none' },
-      )
+      if (vVisibleRef.current) {
+        vVisibleRef.current = false
+        thumb.style.display = 'none'
+      }
+      vGeometryRef.current = EMPTY_VERTICAL_GEOMETRY
       return
     }
     // track 高度 = clientHeight - headerH - summaryH（数据区可视高）。
@@ -272,17 +372,27 @@ export function FloatingScrollBar({
     const thumbMaxOffset = Math.max(0, trackHeight - thumbHeight)
     const ratio = maxScroll > 0 ? scrollTop / maxScroll : 0
     const thumbOffset = ratio * thumbMaxOffset
-    // thumb 位置（transform）由 DOM 单一路径负责。
-    //   recompute 与 onScroll 都通过 `thumb.style.transform = ...` 直接写 DOM，
-    //   state（vThumbStyle）不携带 transform，只管几何（height）+ 可见性（display）。
-    //   这样 React 重渲染时不会用 state.transform 覆盖 DOM 上 onScroll 刚写的 transform，
-    //   消除「state transform ↔ DOM transform 竞争覆盖」导致的滚动中 thumb 闪烁。
-    setVThumbStyle((prev) => {
-      // height/display 不变则跳过（避免 RO 频繁触发引起不必要重渲）。
-      if (prev.height === thumbHeight && prev.display === 'block') return prev
-      return { height: thumbHeight, display: 'block' }
-    })
-    // 位置直接写 DOM（与 onScroll 同一路径，单源）。
+
+    // thumb 几何 + 可见性：DOM 直写（与原 setVThumbStyle 等价，但不触发 React 重渲）。
+    if (thumb.style.height !== `${thumbHeight}px`) {
+      thumb.style.height = `${thumbHeight}px`
+    }
+    if (!vVisibleRef.current) {
+      vVisibleRef.current = true
+      thumb.style.display = 'block'
+    }
+
+    // 几何缓存（供 onScroll 的 doSync 读 —— doSync 不再读 container.scrollHeight/clientHeight）。
+    vGeometryRef.current = {
+      scrollHeight,
+      clientHeight,
+      trackHeight,
+      thumbHeight,
+      maxScroll,
+      thumbMaxOffset,
+    }
+
+    // 位置（transform）也由 recompute 写一次（与 onScroll 单一写源，刚加载/RO 触发时立即对齐）。
     thumb.style.transform = `translateY(${thumbOffset}px)`
   }, [])
 
@@ -296,17 +406,26 @@ export function FloatingScrollBar({
     const grid = container.querySelector<HTMLElement>('.dg-grid')
     const summaryH = measureSummaryHeight(grid, container)
     // 横向 track 定位：left=0, right=0, bottom=summary 高度（summary 上方）。
-    setHTrackInset((prev) =>
-      prev.bottom === summaryH ? prev : { left: 0, right: 0, bottom: summaryH },
-    )
+    if (
+      hTrackInsetRef.current.bottom !== summaryH ||
+      hTrackInsetRef.current.left !== 0 ||
+      hTrackInsetRef.current.right !== 0
+    ) {
+      hTrackInsetRef.current = { left: 0, right: 0, bottom: summaryH }
+      hit.style.left = '0px'
+      hit.style.right = '0px'
+      hit.style.bottom = `${summaryH}px`
+    }
 
     const clientWidth = container.clientWidth
     const scrollWidth = container.scrollWidth
     // 内容不横向溢出 → 隐藏横向悬浮条。
     if (scrollWidth <= clientWidth + 1) {
-      setHThumbStyle((prev) =>
-        prev.display === 'none' ? prev : { ...prev, display: 'none' },
-      )
+      if (hVisibleRef.current) {
+        hVisibleRef.current = false
+        thumb.style.display = 'none'
+      }
+      hGeometryRef.current = EMPTY_HORIZONTAL_GEOMETRY
       return
     }
     // thumb 宽度 = track 宽度 × (clientWidth / scrollWidth)，最少 32px（与纵向一致）。
@@ -317,11 +436,24 @@ export function FloatingScrollBar({
     const thumbMaxOffset = Math.max(0, trackWidth - thumbWidth)
     const ratio = maxScroll > 0 ? scrollLeft / maxScroll : 0
     const thumbOffset = ratio * thumbMaxOffset
-    // state 不携带 transform，位置由 DOM 直接写（单一源，同纵向）。
-    setHThumbStyle((prev) => {
-      if (prev.width === thumbWidth && prev.display === 'block') return prev
-      return { width: thumbWidth, display: 'block' }
-    })
+
+    if (thumb.style.width !== `${thumbWidth}px`) {
+      thumb.style.width = `${thumbWidth}px`
+    }
+    if (!hVisibleRef.current) {
+      hVisibleRef.current = true
+      thumb.style.display = 'block'
+    }
+
+    hGeometryRef.current = {
+      scrollWidth,
+      clientWidth,
+      trackWidth,
+      thumbWidth,
+      maxScroll,
+      thumbMaxOffset,
+    }
+
     thumb.style.transform = `translateX(${thumbOffset}px)`
   }, [])
 
@@ -331,50 +463,64 @@ export function FloatingScrollBar({
   }, [recomputeVertical, recomputeHorizontal, horizontal])
 
   // 监听容器 scroll（滚轮/键盘/程序滚动）→ 同步纵/横 thumb。
+  // 关键性能点：onScroll 内**不**直接读 scrollHeight/clientHeight/scrollWidth/clientWidth
+  // （会强制 reflow）；改为 RAF 节流 + 几何缓存（recompute 时算一次写入 geometryRef）。
+  // doSync 每帧只读 container.scrollTop/scrollLeft（不 reflow）+ geometryRef → 写 transform。
   useEffect(() => {
     const container = innerScrollRef.current
     if (!container) return
-    const onScroll = () => {
+
+    const doSync = () => {
+      scrollRafRef.current = -1
       // === 纵向 ===
       const vThumb = vThumbRef.current
-      if (vThumb && vThumb.style.display !== 'none') {
-        const scrollHeight = container.scrollHeight
-        const clientHeight = container.clientHeight
-        const maxScroll = scrollHeight - clientHeight
-        if (maxScroll > 0) {
-          const headerH = trackInset.top
-          const summaryH = trackInset.bottom
-          const trackHeight = Math.max(0, clientHeight - headerH - summaryH)
-          const thumbHeight = Math.max(32, trackHeight * (clientHeight / scrollHeight))
-          const thumbMaxOffset = Math.max(0, trackHeight - thumbHeight)
-          const ratio = container.scrollTop / maxScroll
-          vThumb.style.transform = `translateY(${ratio * thumbMaxOffset}px)`
+      if (vThumb) {
+        if (vVisibleRef.current) {
+          // 已可见：用缓存几何算 ratio，仅读 scrollTop（不 reflow）。
+          const g = vGeometryRef.current
+          if (g.maxScroll > 0 && g.thumbMaxOffset > 0) {
+            const ratio = container.scrollTop / g.maxScroll
+            vThumb.style.transform = `translateY(${ratio * g.thumbMaxOffset}px)`
+          }
+        } else {
+          // 兜底：内容从无溢出变溢出（display 由 recompute 刚从 none→block）。
+          // recompute 已把 vVisibleRef 设为 true 并刷好几何，但本帧 onScroll 可能在 recompute
+          // 完成前先触发 —— 这里调用 recomputeVertical 重算一次确保可见性 + 几何正确。
+          recomputeVertical()
         }
-      } else {
-        recomputeVertical()
       }
       // === 横向 ===
       if (horizontal) {
         const hThumb = hThumbRef.current
-        if (hThumb && hThumb.style.display !== 'none') {
-          const scrollWidth = container.scrollWidth
-          const clientWidth = container.clientWidth
-          const maxScroll = scrollWidth - clientWidth
-          if (maxScroll > 0) {
-            const trackWidth = clientWidth
-            const thumbWidth = Math.max(32, trackWidth * (clientWidth / scrollWidth))
-            const thumbMaxOffset = Math.max(0, trackWidth - thumbWidth)
-            const ratio = container.scrollLeft / maxScroll
-            hThumb.style.transform = `translateX(${ratio * thumbMaxOffset}px)`
+        if (hThumb) {
+          if (hVisibleRef.current) {
+            const g = hGeometryRef.current
+            if (g.maxScroll > 0 && g.thumbMaxOffset > 0) {
+              const ratio = container.scrollLeft / g.maxScroll
+              hThumb.style.transform = `translateX(${ratio * g.thumbMaxOffset}px)`
+            }
+          } else {
+            recomputeHorizontal()
           }
-        } else {
-          recomputeHorizontal()
         }
       }
     }
+
+    const onScroll = () => {
+      // RAF 节流：多个 scroll 事件合并到每帧一次 doSync。
+      if (scrollRafRef.current === -1) {
+        scrollRafRef.current = requestAnimationFrame(doSync)
+      }
+    }
     container.addEventListener('scroll', onScroll, { passive: true })
-    return () => container.removeEventListener('scroll', onScroll)
-  }, [recomputeVertical, recomputeHorizontal, trackInset, horizontal])
+    return () => {
+      container.removeEventListener('scroll', onScroll)
+      if (scrollRafRef.current !== -1) {
+        cancelAnimationFrame(scrollRafRef.current)
+        scrollRafRef.current = -1
+      }
+    }
+  }, [recomputeVertical, recomputeHorizontal, horizontal])
 
   // ResizeObserver：容器尺寸/内容尺寸变化 → 全量 recompute。
   useEffect(() => {
@@ -392,6 +538,53 @@ export function FloatingScrollBar({
     }
   }, [recompute])
 
+  // 首次挂载 useLayoutEffect：确保 thumb 几何在首屏绘制前到位（避免首帧 0 高度 thumb 闪烁）。
+  // recompute 自身会读 DOM（clientHeight/scrollHeight）+ 写 DOM，必须在 layout 阶段同步跑一次。
+  useLayoutEffect(() => {
+    recompute()
+  }, [recompute])
+
+  // 表头高度独立 RO（Stage 5 残余优化）：仅观察表头格，捕获表头尺寸变化（列宽拖拽致换行、
+  // 分组列展开/收起、locale/主题切换、数据驱动标题变化、sticky 表头场景）。表头变化 → 重测一次
+  // measureHeaderHeight 刷缓存 + 触发一次 recompute（让 track inset 与新表头高对齐）。
+  //
+  // 这是浏览器权威的"表头尺寸变了"信号，不依赖人工枚举 deps（比 depsRef 方案稳：漏了场景→track 错位）。
+  //
+  // 限制：本 RO 只 observe 到挂载时刻存在的表头格；列增删（dg 显隐列）会引入未被 observe 的新格，
+  //       但 grid RO 会因 grid bbox 变化触发 recompute → recomputeVertical 的 count 兜底重测 → 缓存自愈。
+  useEffect(() => {
+    const container = innerScrollRef.current
+    if (!container) return
+    const grid = container.querySelector<HTMLElement>('.dg-grid')
+    if (!grid) return
+    const headers = grid.querySelectorAll<HTMLElement>(
+      '.dg-cell-header, .dg-cell-header-vsticky',
+    )
+    if (headers.length === 0) {
+      // 无表头格（showHeader=false）：缓存 0 + count 0，避免 recompute 走 measure 路径。
+      headerHeightRef.current = 0
+      headerCellCountRef.current = 0
+      return
+    }
+    const remeasureAndRecompute = () => {
+      // 重测表头高度并刷缓存；若真变化才触发一次 recompute（避免无谓重算）。
+      const prev = headerHeightRef.current
+      const next = measureHeaderHeight(grid, container)
+      headerHeightRef.current = next
+      headerCellCountRef.current =
+        grid.querySelectorAll<HTMLElement>(
+          '.dg-cell-header, .dg-cell-header-vsticky',
+        ).length
+      if (next !== prev) recompute()
+    }
+    const ro = new ResizeObserver(remeasureAndRecompute)
+    headers.forEach((h) => ro.observe(h, { box: 'border-box' }))
+    // 挂载时立即测一次（覆盖"cells 在 recompute 首跑之后才到 DOM"的竞态：recompute 走 null 分支
+    // 测的是当时（可能为 0/旧值），此处同步刷成最新真值；recompute 后续读缓存即对齐）。
+    remeasureAndRecompute()
+    return () => ro.disconnect()
+  }, [recompute])
+
   // 纵向拖动（pointerdown 绑在 hit 容器，整个 8px hit 区可靠抓取，不依赖 thumb 先 hover 展开）：
   // pointerdown → capture（hit 容器自身）→ move 换算 → 容器 scrollTop。
   // thumb 仅用于几何计算 + transform 同步，其 ref 仍保留（vThumbRef）但不再绑 pointerdown。
@@ -400,15 +593,10 @@ export function FloatingScrollBar({
     if (!container) return
     e.preventDefault()
     e.stopPropagation()
-    const scrollHeight = container.scrollHeight
-    const clientHeight = container.clientHeight
-    const maxScroll = scrollHeight - clientHeight
-    if (maxScroll <= 0) return
-    const headerH = trackInset.top
-    const summaryH = trackInset.bottom
-    const trackHeight = Math.max(0, clientHeight - headerH - summaryH)
-    const thumbHeight = Math.max(32, trackHeight * (clientHeight / scrollHeight))
-    const thumbMaxOffset = Math.max(0, trackHeight - thumbHeight)
+    // 用 geometryRef 缓存（不读 container.scrollHeight/clientHeight，避免拖动起点 reflow）。
+    const g = vGeometryRef.current
+    if (g.maxScroll <= 0) return
+    const thumbMaxOffset = g.thumbMaxOffset
     vDragStateRef.current = {
       pointerId: e.pointerId,
       startY: e.clientY,
@@ -425,7 +613,7 @@ export function FloatingScrollBar({
       const ds = vDragStateRef.current
       if (!ds || ds.pointerId !== ev.pointerId) return
       const dy = ev.clientY - ds.startY
-      const scrollDelta = thumbMaxOffset > 0 ? (dy / thumbMaxOffset) * maxScroll : 0
+      const scrollDelta = thumbMaxOffset > 0 ? (dy / thumbMaxOffset) * g.maxScroll : 0
       container.scrollTop = ds.startScrollTop + scrollDelta
     }
     const onUp = (ev: PointerEvent) => {
@@ -451,13 +639,9 @@ export function FloatingScrollBar({
     if (!container) return
     e.preventDefault()
     e.stopPropagation()
-    const scrollWidth = container.scrollWidth
-    const clientWidth = container.clientWidth
-    const maxScroll = scrollWidth - clientWidth
-    if (maxScroll <= 0) return
-    const trackWidth = clientWidth
-    const thumbWidth = Math.max(32, trackWidth * (clientWidth / scrollWidth))
-    const thumbMaxOffset = Math.max(0, trackWidth - thumbWidth)
+    const g = hGeometryRef.current
+    if (g.maxScroll <= 0) return
+    const thumbMaxOffset = g.thumbMaxOffset
     hDragStateRef.current = {
       pointerId: e.pointerId,
       startX: e.clientX,
@@ -473,7 +657,7 @@ export function FloatingScrollBar({
       const ds = hDragStateRef.current
       if (!ds || ds.pointerId !== ev.pointerId) return
       const dx = ev.clientX - ds.startX
-      const scrollDelta = thumbMaxOffset > 0 ? (dx / thumbMaxOffset) * maxScroll : 0
+      const scrollDelta = thumbMaxOffset > 0 ? (dx / thumbMaxOffset) * g.maxScroll : 0
       container.scrollLeft = ds.startScrollLeft + scrollDelta
     }
     const onUp = (ev: PointerEvent) => {
@@ -512,20 +696,18 @@ export function FloatingScrollBar({
           hit 容器宽度 = 8px（= thumb 展开后宽度，整个 8px 都是抓取/hover 区；pointer-events:auto 使该
           8px 可抓可 hover，区外点击穿透）。onPointerDown 绑在 hit 容器，整个 8px 区可靠抓取。
           thumb 贴右边缘（CSS right:0; left:auto），transform 仅 translateY（无 translateX），
-            hover 变粗时向左生长（右边缘不动，原位贴边）。默认 width 2px，hit 容器 :hover 时 8px（CSS）。 */}
+            hover 变粗时向左生长（右边缘不动，原位贴边）。默认 width 2px，hit 容器 :hover 时 8px（CSS）。
+          初始 style.top/bottom 留空（recompute 在 useLayoutEffect 里同步写入 DOM）；display 初始 none
+            （recompute 在挂载布局期写为 block，避免首帧空 thumb 闪烁）。 */}
       <div
         ref={vHitRef}
         className="dg-floating-scrollbar dg-floating-scrollbar-v"
-        style={{
-          top: `${trackInset.top}px`,
-          bottom: `${trackInset.bottom}px`,
-        }}
         onPointerDown={onVHitPointerDown}
       >
         <div
           ref={vThumbRef}
           className="dg-floating-scrollbar-thumb"
-          style={vThumbStyle}
+          style={{ display: 'none' }}
         />
       </div>
       {/* 横向悬浮滚动条：绝对定位数据区底部（summary 上方）。
@@ -537,17 +719,12 @@ export function FloatingScrollBar({
         <div
           ref={hHitRef}
           className="dg-floating-scrollbar dg-floating-scrollbar-h"
-          style={{
-            left: `${hTrackInset.left}px`,
-            right: `${hTrackInset.right}px`,
-            bottom: `${hTrackInset.bottom}px`,
-          }}
           onPointerDown={onHHitPointerDown}
         >
           <div
             ref={hThumbRef}
             className="dg-floating-scrollbar-thumb-h"
-            style={hThumbStyle}
+            style={{ display: 'none' }}
           />
         </div>
       ) : null}

@@ -33,6 +33,7 @@ Date: 2026-07-05
   - modules: `StickyScrollBar.tsx`, `HeaderCell.tsx` (+ColumnResizer), `BodyGrid.tsx` (renderBodyCells + internal BodyCell), `FlatColumnCells.tsx` (ColumnCells)
   - decision: `useGridLayout.ts` / `useGridScrollSync.ts` NOT extracted (negative-ROI — gridTemplate useMemo + scroll sync tightly coupled to GridTableInner orchestration)
 - Stage 4 (2026-07-05): type boundaries split into `publicTypes.ts` / `nativeOptions.ts` / `compatTypes.ts` / `engine/engineTypes.ts`; `types.ts` + `engine/types.ts` → pure barrels (explicit `export type` + value re-export of `TABLE_LOCALE_DEFAULT`/`EXPAND_COLUMN`/`SELECTION_COLUMN`); zero consumer changes; all gates green (287 tests pass)
+- Stage 5 (2026-07-05): baselines established (5 hot paths; only virtual vertical scroll slower than antd, 1.7x); shipped #1+#4+#2 (onScroll RAF-throttle + geometry cache, recompute setState → refs/DOM-writes, flush batch/skip) + #25 (measureHeaderHeight cached behind a dedicated header RO); fixed a positioning regression those introduced (h-scrollbar at top → NaN-sentinel ref init + CSS bottom/top fallback); dg-vs-antd **1.7x → 0.89x** (dg now ≤ antd; onScroll + measureHeaderHeight ForcedReflow both eliminated); behavior verified via chrome-devtools; 287 tests green
 
 ## Remaining TODO
 
@@ -49,15 +50,14 @@ Date: 2026-07-05
 - Types split into `publicTypes.ts` / `nativeOptions.ts` / `compatTypes.ts` / `engine/engineTypes.ts`. `types.ts` and `engine/types.ts` are now pure barrels — all existing imports resolve unchanged. Zero consumer changes; import surface + public type set intact. All gates green (tsc 0, lint 0, 287 tests pass, build OK).
 - Categorization: atomic + data-grid-native options → `nativeOptions` (no imports); antd-bridging → `compatTypes` (+ 3 value consts + `ColumnOrSentinel`); public API → `publicTypes`; engine-internal → `engineTypes`. Acyclic dependency graph.
 
-### Stage 5
+### Stage 5 — complete (2026-07-05)
 
-- Establish performance baselines.
-- Optimize only after measurement:
-  - hover path
-  - cell memo path
-  - `onCell` cache path
-  - drag path
-  - resize path
+- Baselines established for all 5 hot paths. User-confirmed: only **virtual vertical scroll** felt slower than antd (1.7x); hover / cell-memo / onCell / drag all fine (0 long tasks / 0 forced reflow).
+- Optimizations shipped (#1+#4+#2 in `FloatingScrollBar.tsx` + `useRowMeasurements.ts`): onScroll RAF-throttle + geometry cache (ref, RO-refreshed) eliminated the 46ms forced reflow; recompute `setState` → refs/DOM-writes removed FloatingScrollBar's scroll-time React re-renders; flush uses `offsetHeight` + children-signature short-circuit. dg-vs-antd **1.7x → 1.06x** (avg/p50 at parity). 287 tests green; behavior spot-checks pass.
+- **Residual done (#25)**: `measureHeaderHeight` now cached behind a dedicated header ResizeObserver — only re-measures on header change, not every scroll RO. dg engine ForcedReflow during scroll now ~0.3ms (FloatingScrollBar.doSync) vs antd's ~45ms internal; dg ≤ antd (0.89x).
+- **Regression fixed**: #1/#4's "skip if unchanged" guard skipped the first inline position write when `summaryH=0`, so the h-scrollbar fell back to CSS and jumped to the top. Fixed via NaN-sentinel ref init (forces first write) + CSS bottom/top fallback. Verified via chrome-devtools across scroll-x demos.
+- **Deferred (high risk)**: #3 — `useVirtualList` start/end useMemo dependency refactor + offsetTree structural sharing. Touches virtualization core; not worth it while avg/p50 are at parity.
+- Untouched by design: `flushSync` (useVirtualList L309), offsetTree/AATree, smooth RAF easing, sticky/horizontal sync.
 
 ### Stage 6
 
@@ -82,4 +82,4 @@ Date: 2026-07-05
 
 - Keep changes small and behavior-preserving.
 - Do not widen into layout-sensitive or hot-path refactors without a dedicated test or validation plan.
-- Stages 3 & 4 complete (2026-07-05); next is Stage 5 (performance baselines → optimize after measurement). Working tree carries Stage 4 uncommitted (6 files) — human commits at end.
+- Stages 3, 4 & 5 complete (2026-07-05); next is Stage 6 (react-doctor advisory) / Stage 7 (live-editor sandbox). Working tree carries Stage 4 + Stage 5 changes uncommitted — human commits at end.
