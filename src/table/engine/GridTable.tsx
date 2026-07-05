@@ -34,7 +34,6 @@
  */
 
 import {
-  cloneElement,
   forwardRef,
   useCallback,
   useEffect,
@@ -66,6 +65,7 @@ import {
 import { useColumnResize, type ColumnResizeMode } from './useColumnResize'
 import { SortIndicator } from './SortIndicator'
 import { FilterDropdown } from './FilterDropdown'
+import { HeaderGrid } from './HeaderGrid'
 import { parseSummaryNode } from './Summary'
 import type {
   Align,
@@ -79,7 +79,6 @@ import type {
 } from './types'
 // onHeaderCell 签名 `(column) => HTMLAttributes` 的 column 类型用 ColumnType 表达（与对外 types.ts 一致），仅 type-only。
 import type { ColumnType, FilterValue } from '../types'
-import { ExpandIcon } from './ExpandIcon'
 import { FloatingScrollBar } from './FloatingScrollBar'
 import { getRowKey, getValueByDataIndex } from './recordAccess'
 import {
@@ -92,6 +91,23 @@ import {
   toEllipsisTitle,
   toTrack,
 } from './cellRenderUtils'
+import { resolveBodyCellInjectedProps } from './bodyCellUtils'
+import {
+  clampScrollLeft,
+  computeStickyMaxScroll,
+  scrollLeftValue,
+} from './gridScrollUtils'
+import { computeGridTemplateColumns } from './gridTemplateColumnsUtils'
+import { computeExpandLayout } from './expandLayoutUtils'
+import { renderExpandedContents } from './expandLayerUtils'
+import { SummaryLayer, summaryRowsTrack } from './SummaryLayer'
+import {
+  isRowSpanHovered,
+  mergeHoverEventHandler,
+  resolveHoverClass,
+} from './hoverController'
+import { buildResizeSiblingByKey } from './resizeColumnUtils'
+import { renderTreeIndent } from './treeIndentRenderer'
 
 /**
  * 自定义组件渲染（components.body.cell / components.body.row）— 详见 docs/design-notes/header.md 与 selection.md。
@@ -138,21 +154,12 @@ export interface GridTableHandle {
   }) => void
 }
 
-function scrollLeftValue(value: number | undefined): number {
-  return Number.isFinite(value) ? (value as number) : 0
-}
-
-function clampScrollLeft(value: number, maxScroll: number): number {
-  if (!Number.isFinite(value)) return 0
-  return Math.max(0, Math.min(value, Math.max(0, maxScroll)))
-}
-
 function getStickyMaxScroll(
   viewport: HTMLDivElement | null,
   grid: HTMLDivElement | null,
 ): number {
   if (!viewport || !grid) return 0
-  return Math.max(0, (grid.scrollWidth || grid.clientWidth || 0) - (viewport.clientWidth || 0))
+  return computeStickyMaxScroll(viewport.clientWidth, grid.scrollWidth, grid.clientWidth)
 }
 
 /**
@@ -600,18 +607,10 @@ function GridTableInner<RecordType = any>(
     return 0
   }, [treeEnabled, leafColumns])
 
-  const visibleLeafKeys = useMemo(
-    () => leafColumns.filter((col) => !col.hidden).map((col) => col.key),
+  const resizeSiblingByKey = useMemo(
+    () => buildResizeSiblingByKey(leafColumns),
     [leafColumns],
   )
-  const resizeSiblingByKey = useMemo(() => {
-    const map = new Map<string, string>()
-    visibleLeafKeys.forEach((key, index) => {
-      const nextKey = visibleLeafKeys[index + 1]
-      if (nextKey !== undefined) map.set(key, nextKey)
-    })
-    return map
-  }, [visibleLeafKeys])
 
   // === 列宽拖拽调整 — 详见 docs/design-notes/column-width.md ===
   // columnResizeMode 显式配置时优先；未配置时保留 resizable=true 的旧行为（ResizeLeft）。
@@ -753,36 +752,16 @@ function GridTableInner<RecordType = any>(
   //   - expandTrackLine：该行下方展开内容 track 的起始线（仅可展开行有；= rowLine + 1）。
   // expandTrackSizes: Map<rowIndex, '0fr' | '1fr'>（可展开行的展开 track 大小）。
   // 在 gridTemplateRows 构建时与 bodyTracks 拼接；在渲染数据格 / 展开内容时取定位。
-  const expandLayout = useMemo(() => {
-    const layout = new Map<number, { rowLine: number; expandTrackLine?: number }>()
-    if (!expandEnabled || !expandState) return { layout }
-    const { isExpandable } = expandState
-    const headerRowsUsed = showHeader ? maxDepth : 0
-    // 虚拟下数据行起始线 = headerRows + 1(paddingTop track) + 1（首行）；
-    // 非虚拟 = headerRows + 1。
-    let lineCursor = headerRowsUsed + (virtualEnabled ? 1 : 0)
-    const lo = virtualEnabled ? virtualState.start : 0
-    const hi = virtualEnabled ? virtualState.end : dataSource.length
-    for (let i = lo; i < hi; i += 1) {
-      // lineCursor 后 +1 = 该数据行的起始线（track N 占用 [lineCursor+1, lineCursor+2]）。
-      const rowLine = lineCursor + 1
-      const record = dataSource[i]
-      let expandTrackLine: number | undefined
-      if (record !== undefined) {
-        const key = getRowKey(record, rowKey)
-        if (isExpandable(key)) {
-          expandTrackLine = rowLine + 1
-          lineCursor += 2 // 数据行 track + 展开内容 track 各占 1
-        } else {
-          lineCursor += 1
-        }
-      } else {
-        lineCursor += 1
-      }
-      layout.set(i, { rowLine, expandTrackLine })
-    }
-    return { layout }
-  }, [expandEnabled, expandState, showHeader, maxDepth, virtualEnabled, virtualState, dataSource, rowKey])
+  const expandLayout = useMemo(() => computeExpandLayout({
+    expandEnabled,
+    isExpandable: expandState?.isExpandable,
+    showHeader,
+    maxDepth,
+    virtualEnabled,
+    virtualState,
+    dataSource,
+    rowKey,
+  }), [expandEnabled, expandState, showHeader, maxDepth, virtualEnabled, virtualState, dataSource, rowKey])
 
   // === grid 模板 ===
   // 虚拟模式：headerTracks + paddingTopTrack + [start,end) 数据行 tracks（含展开 track）+ paddingBottomTrack。
@@ -866,58 +845,16 @@ function GridTableInner<RecordType = any>(
       }
     }
 
-    const colTracks = leafColumns.map((col) => {
-      // 隐藏列：track 置为 `0fr`（不删除，保线号稳定）— 详见 docs/design-notes/hidden-column.md。
-      if (col.hidden) return '0fr'
-      // 列宽拖拽：用户拖拽过的列优先用 resizedWidths（具体 px），覆盖 column.width。
-      // 未拖拽过的列保持原逻辑（column.width → max-content / fixed 下 minmax(0,1fr)）。
-      // 这样首次拖拽 max-content 列时，第一次 move 即把该列从 max-content 转为受控 px。
-      // 拖拽后的列固定为受控 px，不参与 1fr 比例分配（用户已明确指定该列宽，不应再被比例伸缩；
-      // 其余列按各自的 minmax/max-content 策略分剩余）。
-      const resized = resizedWidths.get(col.key)
-      if (resized !== undefined) return `${resized}px`
-      // 列宽 track 策略（对齐 antd `<table width:100%>` + table-layout 行为）— 详见 docs/design-notes/column-width.md。
-      //
-      // grid-track 等效模拟 `<col width>` + `table-layout` 的「绝对 width 列=绝对宽不参与 fr 分配、
-      // 无 width 列分剩余空间」语义：
-      //   - 绝对 width 列（number / 非百分比字符串如 `'100px'`）：
-      //     · fixed 列（column.fixed 存在）不论 tableLayout 一律 `${width}`（严格 track，内容超 clip/ellipsis）。
-      //       对齐 antd 6.4.4 实测：fixed 列恒严格 width，即便 mergedTableLayout 派生为 'auto'
-      //       （fixColumn + scroll.x==='max-content' 场景）也不被长内容撑开。
-      //     · fixed 模式（非 fixed 列）→ `${width}`（绝对 track，不参与 fr 分配）——对齐 antd
-      //       `table-layout:fixed` 下 `<col style="width:Npx">` 的语义：width 列锁定为绝对宽，剩余空间
-      //       由无 width 列分。
-      //     · auto 模式（非 fixed 列）→ `minmax(width, max-content)`：min=width（保底），max=content
-      //       （可随内容增长，与 antd `table-layout:auto` 下 `<col width>` 列宽=content 但至少 width 语义一致）。
-      //   - 百分比 width 列（如 `'20%'`）：原样作为 track（不包 minmax）——antd 不转换；grid 与 antd 语义一致。
-      //   - 无 width 列：fixed → `minmax(0, 1fr)`（min:0 收缩触发 ellipsis；max=1fr 均分剩余空间）；
-      //     auto → `minmax(min-content, 1fr)`（min=min-content 内容可换行收缩保底，max=1fr 拉伸填满剩余空间）。
-      //   - 配合 `.dg-grid{width:100%}`（见 gridStyle）约束表格总宽=容器宽：width 列绝对 track 之和
-      //     >容器 时出横滚；<容器 时剩余由无 width 列的 1fr 撑满。
-      const w = toTrack(col.width)
-      if (w !== undefined) {
-        // 百分比 width（含 '%'）：原样 track（antd `<col style="width:xx%">` 等效）。
-        if (typeof col.width === 'string' && col.width.includes('%')) return w
-        // fixed 列（column.fixed 存在）不论 tableLayout 一律严格 `${width}` track（不包 minmax）。
-        if (col.fixed) return `${w}`
-        // 绝对 width（非 fixed）：fixed=绝对 track（不参与 fr）/ auto=minmax(width,max-content) 可增长。
-        return tableLayout === 'fixed' ? `${w}` : `minmax(${w}, max-content)`
-      }
-      // 无 width：fixed → minmax(0,1fr) 收缩（ellipsis 视觉，分剩余）；
-      // auto → minmax(min-content,1fr)：min=min-content（内容可换行收缩，下限=最长不可拆词，被容器约束），
-      //   max=1fr（拉伸填满剩余）。对齐 antd table-layout:auto + <table width:100%> 语义——窄视口内容换行、
-      //   grid 不溢出容器。
-      // 无 width 的 fixed 列（如 fixed-gapped-columns 的 Column1 fixed:start 无 width）仍走此分支
-      //   （保持原 minmax 行为）——antd 该列实际也按内容/auto 布局，无声明 width 不可严格。
-      return tableLayout === 'fixed' ? 'minmax(0, 1fr)' : 'minmax(min-content, 1fr)'
+    const gridTemplateColumns = computeGridTemplateColumns({
+      leafColumns,
+      resizedWidths,
+      tableLayout: tableLayout ?? 'auto',
     })
 
     // summary 区 tracks（grid-template-rows 末尾追加，每行一条 'auto' track）。
     // summary 行高按内容自适应（'auto'），与表体行高约定无关——summary 通常是单行文本，
     // 不需要参与虚拟窗口/行高约定计算。
-    const summaryTracks: string[] = summaryParsed
-      ? Array.from({ length: summaryParsed.count }, () => 'auto')
-      : []
+    const summaryTracks = summaryParsed ? summaryRowsTrack(summaryParsed.count).split(' ').filter(Boolean) : []
     // summary 区起始线号 = headerTracks + bodyTracks + 1（1-based grid line）。
     // summary 第 0 行 track 占 [summaryStartLine, summaryStartLine+1]。
     const summaryStartLine = summaryParsed
@@ -940,7 +877,7 @@ function GridTableInner<RecordType = any>(
     // auto-flow:column 会导致表体格 DOM 按列连续填充时与 summary Cell 的显式定位冲突。
     return {
       gridTemplateRows: [...headerTracks, ...bodyTracks, ...summaryTracks].join(' ') || 'none',
-      gridTemplateColumns: colTracks.join(' ') || 'none',
+      gridTemplateColumns,
       gridAutoFlow: mode === 'multi' || summaryEnabled ? undefined : ('column' as const),
       summaryStartLine,
       paddingTopLine,
@@ -1089,38 +1026,36 @@ function GridTableInner<RecordType = any>(
               跳过 covered 表头格（被前面的 colSpan>1 表头覆盖，不渲染 DOM）。
               虚拟 / 非虚拟 scroll.y：表头格额外 position:sticky; top:0（z-index 4），
               相对滚动容器顶部固定（由 headerStickyTop 标志统一驱动）。 */}
-          {showHeader
-            ? headerCells.map((cell) =>
-                cell.covered ? null : (
-                  <HeaderCell
-                    key={`h-${cell.key}`}
-                    cell={cell}
-                    sticky={headerSticky.get(cell.key)}
-                    headerStickyTop={headerStickyTop}
-                    stickyHeaderOffset={stickyHeaderOffset}
-                    // 按 cell.gridRowStart 取逐行累计偏移，多级表头分层 sticky 避免堆叠。
-                    headerStickyTopOffset={
-                      cell.gridRowStart >= 1
-                        ? headerRowOffsets[cell.gridRowStart - 1] ?? 0
-                        : 0
-                    }
-                    resizeEnabled={resizeEnabled}
-                    resizeSiblingKey={resizeSiblingByKey.get(cell.key)}
-                    onResizerPointerDown={onResizerPointerDown}
-                    resizingKey={resizingKey}
-                    semanticHeader={semantic?.header}
-                    onSorterClick={onSorterClick}
-                    onFilterApply={onFilterApply}
-                    // onHeaderRow 行级 props 透传到表头格（grid 无 tr，行 props 分发到该行所有表头格）。
-                    onHeaderRow={onHeaderRow}
-                    getPopupContainer={getPopupContainer}
-                    headerColumns={headerColumns}
-                    // Table 级 locale 透传到表头格内的 FilterDropdown。
-                    filterLocale={filterLocale}
-                  />
-                ),
-              )
-            : null}
+          <HeaderGrid
+            showHeader={showHeader}
+            headerCells={headerCells}
+            headerSticky={headerSticky}
+            headerRowOffsets={headerRowOffsets}
+            renderHeaderCell={({ cell, sticky, headerStickyTopOffset }) => (
+              <HeaderCell
+                key={`h-${cell.key}`}
+                cell={cell}
+                sticky={sticky}
+                headerStickyTop={headerStickyTop}
+                stickyHeaderOffset={stickyHeaderOffset}
+                // 按 cell.gridRowStart 取逐行累计偏移，多级表头分层 sticky 避免堆叠。
+                headerStickyTopOffset={headerStickyTopOffset}
+                resizeEnabled={resizeEnabled}
+                resizeSiblingKey={resizeSiblingByKey.get(cell.key)}
+                onResizerPointerDown={onResizerPointerDown}
+                resizingKey={resizingKey}
+                semanticHeader={semantic?.header}
+                onSorterClick={onSorterClick}
+                onFilterApply={onFilterApply}
+                // onHeaderRow 行级 props 透传到表头格（grid 无 tr，行 props 分发到该行所有表头格）。
+                onHeaderRow={onHeaderRow}
+                getPopupContainer={getPopupContainer}
+                headerColumns={headerColumns}
+                // Table 级 locale 透传到表头格内的 FilterDropdown。
+                filterLocale={filterLocale}
+              />
+            )}
+          />
           {/* 数据区：按数据行 × 叶子列显式定位（sticky 来自 leafSticky[colIdx]）— 详见 docs/design-notes/fixed-column.md。
               当 components.body.row 提供时，按**行**优先遍历，每行用 body.row 组件包裹该行所有单元格
               （body.row 不产生 DOM 或产生不影响 grid 的 DOM——典型 EditableRow 用 antd Form + Context.Provider，
@@ -1219,17 +1154,13 @@ function GridTableInner<RecordType = any>(
               }}
             />
           ) : null}
-          {summaryParsed && summaryStartLine > 0 && !extractSummary
-            ? summaryParsed.rows.map((row, rowIndex) => {
-                const rowLine = summaryStartLine + rowIndex
-                return cloneElement(row, {
-                  key: `dg-summary-row-${rowIndex}`,
-                  __rowLine: rowLine,
-                  __fixed: summaryParsed.fixed,
-                  __leafSticky: leafSticky,
-                } as Partial<typeof row.props>)
-              })
-            : null}
+          {!extractSummary ? (
+            <SummaryLayer
+              summary={summaryParsed}
+              startLine={summaryStartLine}
+              leafSticky={leafSticky}
+            />
+          ) : null}
         </div>
       )
     }
@@ -1316,34 +1247,6 @@ function GridTableInner<RecordType = any>(
     //   时与主 grid 同宽），grid-template-rows 仅含 summary tracks（每行 'auto'）。summary Cell 的
     //   grid-row 重置为 rowIndex+1（独立 grid 第 1 track）；fixed bottom（position:sticky;bottom:0）
     //   相对页面滚动容器仍生效（与主 grid 内行为一致）。横向 sticky 通过 __leafSticky 透传同样生效。
-    const renderExtractedSummary = () => {
-      if (!summaryParsed) return null
-      // summary 行 track（每行一条 'auto'），独立 grid 的 grid-template-rows。
-      const summaryOnlyRows = Array.from({ length: summaryParsed.count }, () => 'auto').join(' ')
-      return (
-        <div
-          className={gridClassName}
-          style={{
-            display: 'grid',
-            gridTemplateRows: summaryOnlyRows || 'none',
-            gridTemplateColumns,
-            // 与主 grid 同宽；外层 sticky clip 视口负责裁剪，不撑宽文档流。
-            ...(scrollMinWidth ? { minWidth: scrollMinWidth } : null),
-            ...(stickyTranslateStyle ?? null),
-          }}
-        >
-          {summaryParsed.rows.map((row, rowIndex) =>
-            cloneElement(row, {
-              key: `dg-summary-row-${rowIndex}`,
-              // 独立 grid：第 1 track = rowIndex+1（1-based grid line）。
-              __rowLine: rowIndex + 1,
-              __fixed: summaryParsed.fixed,
-              __leafSticky: leafSticky,
-            } as Partial<typeof row.props>),
-          )}
-        </div>
-      )
-    }
     return (
       <>
         <div
@@ -1364,7 +1267,16 @@ function GridTableInner<RecordType = any>(
         {/* summary 提取到 StickyScrollBar 之后 → 横向滚动条落在 summary 上方。 */}
         {extractSummary ? (
           <div className="dg-sticky-scroll-viewport" onWheel={onStickyViewportWheel}>
-            {renderExtractedSummary()}
+            <SummaryLayer
+              summary={summaryParsed}
+              startLine={1}
+              leafSticky={leafSticky}
+              extracted
+              gridClassName={gridClassName}
+              gridTemplateColumns={gridTemplateColumns}
+              scrollMinWidth={scrollMinWidth}
+              stickyTranslateStyle={stickyTranslateStyle}
+            />
           </div>
         ) : null}
       </>
@@ -1455,122 +1367,6 @@ function GridTableInner<RecordType = any>(
  * 仅展开的行才渲染（与 antd rc-table 行为一致：展开才 mount 内容）。
  */
 /**
- * 树形缩进 + 展开/收起图标渲染（在第一列数据单元格内，内容前）。
- *
- * - 缩进：`paddingLeft = level × indentSize`（对齐 antd BodyRow `paddingLeft: ${indentSize * indent}px`）。
- * - 展开图标：仅 `hasChildren` 行渲染；无 children 行渲染等宽占位（保持图标列对齐）。
- *   - 展开：▼（ExpandIcon expanded=true）。
- *   - 收起：▶（ExpandIcon expanded=false）。
- *   - 点击：treeState.toggleExpand(key)。
- *
- * 返回 inline-flex 容器（缩进 + 图标），与原 rendered 内容横向并列。
- */
-function renderTreeIndent<RecordType>({
-  record,
-  rowKey,
-  treeState,
-}: {
-  record: RecordType
-  rowKey: string | ((record: RecordType) => string | number)
-  treeState: EngineTreeState
-}): ReactNode {
-  const key = getRowKey(record, rowKey)
-  const info = treeState.rowInfoMap.get(key)
-  // rowInfoMap 中应有该 key（扁平化时已写入）；兜底无信息则不渲染。
-  if (!info) return null
-  const indent = info.level * treeState.indentSize
-  const expanded = treeState.isExpanded(key)
-  return (
-    <span
-      className="dg-tree-indent"
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        // 缩进：level × indentSize px（对齐 antd BodyRow paddingLeft）。
-        paddingLeft: `${indent}px`,
-        flexShrink: 0,
-      }}
-    >
-      {info.hasChildren ? (
-        <ExpandIcon
-          expanded={expanded}
-          onExpand={() => treeState.toggleExpand(key)}
-        />
-      ) : (
-        // 无 children 行渲染 disabled ExpandIcon（spaced 态），对齐 antd `.ant-table-row-expand-icon-spaced`
-        // （antd BodyRow 对 rowExpandable=false / 无 children 的行也渲染一个 disabled button，加 -spaced 类，
-        // visibility:hidden 占位）。antd expand.ts 第 102-110 行：`&-spaced { &::before/::after { display:none;
-        // content:none }, background:transparent, border:0, visibility:hidden }`。容器尺寸同展开图标
-        // （17×17 + scale(0.9412)），故占位宽度与 collapsed/expanded 态一致，缩进对齐。
-        // 用 disabled ExpandIcon 让 DOM 与 antd 同构（disabled button），尺寸/visibility 由
-        //   .dg-expand-icon-spaced CSS 接管（table.css 第 714-720 行），与 antd spaced 态一致。
-        <ExpandIcon
-          expanded={false}
-          disabled
-          onExpand={() => treeState.toggleExpand(key)}
-        />
-      )}
-      {/* 图标与内容之间的间隔（对齐 antd 默认间距）。 */}
-      <span style={{ display: 'inline-block', width: 4, flexShrink: 0 }} aria-hidden="true" />
-    </span>
-  )
-}
-
-function renderExpandedContents<RecordType>({
-  dataSource,
-  virtualEnabled,
-  virtualState,
-  expandState,
-  expandLayout,
-  rowKey,
-  leafColumns,
-}: {
-  dataSource: Array<RecordType>
-  virtualEnabled: boolean
-  virtualState: { start: number; end: number }
-  expandState: EngineExpandState
-  expandLayout: Map<number, { rowLine: number; expandTrackLine?: number }>
-  rowKey: string | ((record: RecordType) => string | number)
-  leafColumns: Array<EngineLeafColumn<RecordType>>
-}): Array<ReactNode> {
-  const out: Array<ReactNode> = []
-  const lo = virtualEnabled ? virtualState.start : 0
-  const hi = virtualEnabled ? virtualState.end : dataSource.length
-  const rawOffset = expandState.expandedRowOffset
-  const offset = typeof rawOffset === 'number' && Number.isFinite(rawOffset)
-    ? Math.max(0, Math.floor(rawOffset))
-    : 0
-  const startLine = Math.min(offset, Math.max(leafColumns.length - 1, 0)) + 1
-  const gridColumn = startLine <= 1 ? '1 / -1' : `${startLine} / -1`
-  for (let i = lo; i < hi; i += 1) {
-    const record = dataSource[i]
-    if (record === undefined) continue
-    const key = getRowKey(record, rowKey)
-    if (!expandState.isExpandable(key)) continue
-    if (!expandState.isExpanded(key)) continue
-    const layout = expandLayout.get(i)
-    if (!layout || layout.expandTrackLine === undefined) continue
-    const content = expandState.expandedRowRender(record, i, true)
-    if (content === null || content === undefined) continue
-    out.push(
-      <div
-        key={`expand-${i}-${key}`}
-        className="dg-row-expanded"
-        style={{
-          gridColumn,
-          gridRow: layout.expandTrackLine,
-          overflow: 'hidden',
-          minHeight: 0,
-        }}
-      >
-        {content}
-      </div>,
-    )
-  }
-  return out
-}
-
-/**
  * 单个数据单元格渲染（multi 路径，显式 grid 定位）。详见 docs/design-notes/layout.md + header.md。
  *
  * 封装 dg-cell div（含 gridColumn/gridRow/sticky/hover/align）+ 内部内容渲染（含
@@ -1657,67 +1453,19 @@ function BodyCell<RecordType>({
           ? String(text)
           : undefined
       : undefined
-  // 调用 onCell 取完整返回值（透传给 components.body.cell）。colSpan/rowSpan 已由 cellMerge 消费；
-  // 这里取完整返回值透传。无 components.body.cell 时 onCellProps 不被使用。
-  // 注：onCell 在此与 cellMerge 内各调用一次（共两次）——antd demo 的 onCell 是纯函数，安全。
-  let onCellProps: Record<string, any> | undefined
-  if (column.onCell && components?.body?.cell) {
-    try {
-      onCellProps = column.onCell(record, index)
-    } catch {
-      onCellProps = undefined
-    }
-  }
-  // onRow 返回值（行级 props 注入）。
-  let onRowProps: import('react').HTMLAttributes<HTMLElement> | undefined
-  if (onRow) {
-    try {
-      onRowProps = onRow(record, index)
-    } catch {
-      onRowProps = undefined
-    }
-  }
-  // rowClassName（行级 class）：string 直接用；函数按行求值。
-  const rowClassNameStr =
-    rowClassName === undefined
-      ? undefined
-      : typeof rowClassName === 'string'
-        ? rowClassName
-        : (() => {
-            try {
-              return rowClassName(record, index)
-            } catch {
-              return undefined
-            }
-          })()
+  // 调用 onCell / onRow / rowClassName 并合并行级注入 props。
+  const bodyCellInjectedProps = resolveBodyCellInjectedProps({
+    column,
+    record,
+    index,
+    components,
+    onRow,
+    rowClassName,
+    isRowSelected,
+  })
   // rowHoverable=false 时不加 dg-row-hover（关闭内置 hover 视觉）。
-  const hoverClass =
-    rowHoverable === false ? undefined : isHovered ? 'dg-row-hover' : undefined
-  // 行选中态 → 加 dg-row-selected 类（CSS 消费 antd token，详见 docs/design-notes/selection.md）。
-  // 镜像 flat 路径 ColumnCells 的算式，保证多级表头路径与 flat 路径行为一致。
-  const selectedClass =
-    isRowSelected && isRowSelected(record) ? 'dg-row-selected' : undefined
-  // 合并 cell 级 + 行级 className（column.className + rowClassName + onRow.className）。
-  const mergedBodyExtraClass = [
-    column.className,
-    rowClassNameStr,
-    onRowProps?.className,
-  ]
-    .filter(Boolean)
-    .join(' ') || undefined
-  const mergedBodyExtraStyle: CSSProperties = {
-    ...(column.style ?? null),
-    ...(onRowProps?.style ?? null),
-  }
-  // 提取 onRow 事件 props（除 className/style）。
-  const bodyEventProps: Record<string, unknown> = {}
-  if (onRowProps) {
-    for (const k of Object.keys(onRowProps)) {
-      if (k === 'className' || k === 'style') continue
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      bodyEventProps[k] = (onRowProps as any)[k]
-    }
-  }
+  const hoverClass = resolveHoverClass(rowHoverable, isHovered)
+  const bodyEventProps = bodyCellInjectedProps.restRowProps
   return (
     <div
       key={`b-${colIdx}-${getRowKey(record, rowKey) ?? index}`}
@@ -1738,13 +1486,13 @@ function BodyCell<RecordType>({
         // rowHoverable=false 时关闭内置 hover 视觉。
         hoverClass,
         // 行选中态 → dg-row-selected 类。
-        selectedClass,
+        bodyCellInjectedProps.selectedClass,
         // 语义化 body.row 部位 className（行级 class 透传到该行所有单元格）。
         semanticBody?.className?.row,
         // 语义化 body.cell 部位 className（单元格级）。
         semanticBody?.className?.cell,
         // column.className + rowClassName + onRow.className 合并。
-        mergedBodyExtraClass,
+        bodyCellInjectedProps.mergedClassName,
       ]
         .filter(Boolean)
         .join(' ')}
@@ -1778,24 +1526,18 @@ function BodyCell<RecordType>({
         // 语义化 body.cell 部位 style（单元格级；后于 row 合并，覆盖 row 同名字段）。
         ...(semanticBody?.style?.cell ?? null),
         // column.style + onRow.style 合并。
-        ...mergedBodyExtraStyle,
+        ...bodyCellInjectedProps.mergedStyle,
       }}
-      onMouseEnter={
-        rowHoverable === false
-          ? (bodyEventProps.onMouseEnter as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)
-          : (e: React.MouseEvent<HTMLElement>) => {
-              onHoverEnter()
-              ;(bodyEventProps.onMouseEnter as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)?.(e)
-            }
-      }
-      onMouseLeave={
-        rowHoverable === false
-          ? (bodyEventProps.onMouseLeave as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)
-          : (e: React.MouseEvent<HTMLElement>) => {
-              onHoverLeave()
-              ;(bodyEventProps.onMouseLeave as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)?.(e)
-            }
-      }
+      onMouseEnter={mergeHoverEventHandler(
+        rowHoverable,
+        onHoverEnter,
+        bodyEventProps.onMouseEnter as ((e: React.MouseEvent<HTMLElement>) => void) | undefined,
+      )}
+      onMouseLeave={mergeHoverEventHandler(
+        rowHoverable,
+        onHoverLeave,
+        bodyEventProps.onMouseLeave as ((e: React.MouseEvent<HTMLElement>) => void) | undefined,
+      )}
       // 其余 onRow 事件 props 透传（onMouseEnter/Leave 已单独合并，跳过）。
       {...omitKey(omitKey(bodyEventProps, 'onMouseEnter'), 'onMouseLeave')}
     >
@@ -1814,7 +1556,7 @@ function BodyCell<RecordType>({
           record,
           index,
           rendered,
-          onCellProps,
+          onCellProps: bodyCellInjectedProps.onCellProps,
         })}
       </div>
     </div>
@@ -1933,21 +1675,6 @@ function renderBodyCells<RecordType>({
     return { merge, rowSpanTracks }
   }
 
-  // 对齐 antd 6.4.4 / rc-table 7.51 的 column-aware hover：合并格（rowSpan>1）在
-  //   其跨度内任一行被 hover 时，该合并格本身也加 dg-row-hover 高亮（视觉占跨度行空间就高亮）。
-  //   antd 实现：rc-table Cell/index.js:92 useHoverState(index, mergedRowSpan) +
-  //   useHoverState.js:4-7 inHoverRange(cellStartRow, cellRowSpan, hoverStart, hoverEnd) 用区间相交判定
-  //   （onMouseEnter 调 onHover(index, index+rowSpan-1)，单行 hover 时 hoverStart===hoverEnd）。
-  //   data-grid 的 hoveredRowIndex 等价于 hoverStart===hoverEnd===该行 index，故区间相交退化为：
-  //   hoveredRowIndex 落在 [startRow, startRow+logicalRowSpan-1] 即高亮。
-  //   ★ rowSpan=1（普通格，含 flat 路径全部 cell）退化为 hoveredRowIndex===startRow。
-  //     logicalRowSpan 取 merge.rowSpan（不含展开 track 偏移），
-  //     因 hoveredRowIndex 是逻辑行 index（与 antd 行号同语义）。
-  const isRowSpanHovered = (startRow: number, logicalRowSpan: number) =>
-    hoveredRowIndex !== null &&
-    hoveredRowIndex >= startRow &&
-    hoveredRowIndex <= startRow + logicalRowSpan - 1
-
   if (BodyRow) {
     // 行优先遍历：每行用 body.row 包裹。
     for (let index = lo; index < hi; index += 1) {
@@ -1961,9 +1688,9 @@ function renderBodyCells<RecordType>({
         if (m === null) continue
         const isSortedColumn =
           !!column.sorter && column.sortOrder !== null && column.sortOrder !== undefined
-        // rowSpan-aware hover：合并格按区间相交判定（见 isRowSpanHovered 注释）。
+        // rowSpan-aware hover：合并格按区间相交判定。
         //   rowSpan=1 退化为 hoveredRowIndex===index。
-        const isHovered = isRowSpanHovered(index, m.merge?.rowSpan ?? 1)
+        const isHovered = isRowSpanHovered(index, m.merge?.rowSpan ?? 1, hoveredRowIndex)
         rowCells.push(
           <BodyCell<RecordType>
             key={`b-${colIdx}-${getRowKey(record, rowKey) ?? index}`}
@@ -2025,9 +1752,9 @@ function renderBodyCells<RecordType>({
       if (record === undefined) continue
       const m = computeMerge(colIdx, index)
       if (m === null) continue
-      // rowSpan-aware hover：合并格按区间相交判定（见 isRowSpanHovered 注释）。
+      // rowSpan-aware hover：合并格按区间相交判定。
       //   rowSpan=1 退化为 hoveredRowIndex===index。
-      const isHovered = isRowSpanHovered(index, m.merge?.rowSpan ?? 1)
+      const isHovered = isRowSpanHovered(index, m.merge?.rowSpan ?? 1, hoveredRowIndex)
       out.push(
         <BodyCell<RecordType>
           key={`b-${colIdx}-${getRowKey(record, rowKey) ?? index}`}
@@ -2839,64 +2566,20 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
                 ? String(text)
                 : undefined
             : undefined
-        // 调用 onCell 取完整返回值（透传给 components.body.cell）。详见 multi 路径同款注释。
-        let onCellProps: Record<string, any> | undefined
-        if (column.onCell && components?.body?.cell) {
-          try {
-            onCellProps = column.onCell(record, index)
-          } catch {
-            onCellProps = undefined
-          }
-        }
-        const isHovered = hoveredRowIndex === index
-        // onRow 返回值（行级 props 注入到该单元格）。
-        let onRowProps: import('react').HTMLAttributes<HTMLElement> | undefined
-        if (onRow) {
-          try {
-            onRowProps = onRow(record, index)
-          } catch {
-            onRowProps = undefined
-          }
-        }
-        // rowClassName（行级 class）：string 直接用；函数按行求值。
-        const rowClassNameStr =
-          rowClassName === undefined
-            ? undefined
-            : typeof rowClassName === 'string'
-              ? rowClassName
-              : (() => {
-                  try {
-                    return rowClassName(record, index)
-                  } catch {
-                    return undefined
-                  }
-                })()
+        const isHovered = isRowSpanHovered(index, 1, hoveredRowIndex)
+        // 调用 onCell / onRow / rowClassName 并合并行级注入 props。与 multi 路径 BodyCell 同款。
+        const bodyCellInjectedProps = resolveBodyCellInjectedProps({
+          column,
+          record,
+          index,
+          components,
+          onRow,
+          rowClassName,
+          isRowSelected,
+        })
         // rowHoverable=false 时不加 dg-row-hover（关闭内置 hover 视觉）。
-        const hoverClass = rowHoverable === false ? undefined : isHovered ? 'dg-row-hover' : undefined
-        // 行选中态 → 加 dg-row-selected 类（CSS 消费 --ant-table-row-selected-bg / row-selected-hover-bg）。
-        const selectedClass =
-          isRowSelected && isRowSelected(record) ? 'dg-row-selected' : undefined
-        // 合并 cell 级 + 行级 className（column.className + rowClassName + onRow.className）。
-        const mergedBodyExtraClassFlat = [
-          column.className,
-          rowClassNameStr,
-          onRowProps?.className,
-        ]
-          .filter(Boolean)
-          .join(' ') || undefined
-        const mergedBodyExtraStyleFlat: CSSProperties = {
-          ...(column.style ?? null),
-          ...(onRowProps?.style ?? null),
-        }
-        // 提取 onRow 事件 props（除 className/style）。
-        const bodyEventPropsFlat: Record<string, unknown> = {}
-        if (onRowProps) {
-          for (const k of Object.keys(onRowProps)) {
-            if (k === 'className' || k === 'style') continue
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            bodyEventPropsFlat[k] = (onRowProps as any)[k]
-          }
-        }
+        const hoverClass = resolveHoverClass(rowHoverable, isHovered)
+        const bodyEventPropsFlat = bodyCellInjectedProps.restRowProps
         return (
           <div
             key={getRowKey(record, rowKey) ?? index}
@@ -2914,13 +2597,13 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
               // rowHoverable=false 时关闭内置 hover 视觉。
               hoverClass,
               // 行选中态 → dg-row-selected 类。
-              selectedClass,
+              bodyCellInjectedProps.selectedClass,
               // 语义化 body.row 部位 className（行级 class 透传到该行所有单元格）。
               semanticBody?.className?.row,
               // 语义化 body.cell 部位 className（单元格级）。
               semanticBody?.className?.cell,
               // column.className + rowClassName + onRow.className。
-              mergedBodyExtraClassFlat,
+              bodyCellInjectedProps.mergedClassName,
             ]
               .filter(Boolean)
               .join(' ')}
@@ -2941,24 +2624,18 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
               // 语义化 body.cell 部位 style（单元格级；后于 row 合并）。
               ...(semanticBody?.style?.cell ?? null),
               // column.style + onRow.style 合并。
-              ...mergedBodyExtraStyleFlat,
+              ...bodyCellInjectedProps.mergedStyle,
             }}
-            onMouseEnter={
-              rowHoverable === false
-                ? (bodyEventPropsFlat.onMouseEnter as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)
-                : (e: React.MouseEvent<HTMLElement>) => {
-                    onHoverRow(index)
-                    ;(bodyEventPropsFlat.onMouseEnter as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)?.(e)
-                  }
-            }
-            onMouseLeave={
-              rowHoverable === false
-                ? (bodyEventPropsFlat.onMouseLeave as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)
-                : (e: React.MouseEvent<HTMLElement>) => {
-                    onHoverRow(null)
-                    ;(bodyEventPropsFlat.onMouseLeave as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)?.(e)
-                  }
-            }
+            onMouseEnter={mergeHoverEventHandler(
+              rowHoverable,
+              () => onHoverRow(index),
+              bodyEventPropsFlat.onMouseEnter as ((e: React.MouseEvent<HTMLElement>) => void) | undefined,
+            )}
+            onMouseLeave={mergeHoverEventHandler(
+              rowHoverable,
+              () => onHoverRow(null),
+              bodyEventPropsFlat.onMouseLeave as ((e: React.MouseEvent<HTMLElement>) => void) | undefined,
+            )}
             // 其余 onRow 事件 props 透传（onMouseEnter/Leave 已单独合并，跳过）。
             {...omitKey(omitKey(bodyEventPropsFlat, 'onMouseEnter'), 'onMouseLeave')}
           >
@@ -2974,7 +2651,7 @@ function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
                 record,
                 index,
                 rendered,
-                onCellProps,
+                onCellProps: bodyCellInjectedProps.onCellProps,
               })}
             </div>
           </div>
