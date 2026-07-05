@@ -5,6 +5,7 @@ import {
   fixedClass,
   omitKey,
   renderCellContent,
+  resolveBodyCellEllipsisTitle,
   resolveNumericRowHeight,
   shadowClass,
   toEllipsisTitle,
@@ -112,5 +113,36 @@ describe('cellRenderUtils', () => {
     expect(props.shouldCellUpdate).toBe(shouldCellUpdate)
     expect(props.className).toBe('editable')
     expect(props.colSpan).toBe(2)
+  })
+})
+
+describe('resolveBodyCellEllipsisTitle', () => {
+  it('returns undefined when ellipsis is not strictly true', () => {
+    expect(resolveBodyCellEllipsisTitle(undefined, undefined, 'Ada')).toBeUndefined()
+    expect(resolveBodyCellEllipsisTitle(false, undefined, 'Ada')).toBeUndefined()
+  })
+
+  it('returns undefined when showTitle is false (lets custom Tooltip take over)', () => {
+    expect(resolveBodyCellEllipsisTitle(true, false, 'Ada')).toBeUndefined()
+  })
+
+  it('returns the original string when ellipsis is true and showTitle is undefined', () => {
+    expect(resolveBodyCellEllipsisTitle(true, undefined, 'Ada')).toBe('Ada')
+  })
+
+  it('stringifies number text (e.g. 42 -> "42")', () => {
+    expect(resolveBodyCellEllipsisTitle(true, undefined, 42)).toBe('42')
+  })
+
+  it('returns undefined for object/array/null/undefined/boolean text', () => {
+    expect(resolveBodyCellEllipsisTitle(true, undefined, { v: 1 })).toBeUndefined()
+    expect(resolveBodyCellEllipsisTitle(true, undefined, [1, 2])).toBeUndefined()
+    expect(resolveBodyCellEllipsisTitle(true, undefined, null)).toBeUndefined()
+    expect(resolveBodyCellEllipsisTitle(true, undefined, undefined)).toBeUndefined()
+    expect(resolveBodyCellEllipsisTitle(true, undefined, false)).toBeUndefined()
+  })
+
+  it('stringifies numeric 0 (falsy values are not swallowed)', () => {
+    expect(resolveBodyCellEllipsisTitle(true, undefined, 0)).toBe('0')
   })
 })

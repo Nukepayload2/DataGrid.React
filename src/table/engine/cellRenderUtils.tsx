@@ -147,6 +147,32 @@ export function fixedClass(fixed: FixedSide | undefined): string | undefined {
 }
 
 /**
+ * Body 单元格 ellipsis 列的 native `title` 派生：把原始 dataIndex 值文本化为 string。
+ * 详见 docs/design-notes/ellipsis.md。
+ *
+ * 与 header 端 `toEllipsisTitle`（递归遍历 ReactNode 抽文本）有意区分：Body 这里**只处理
+ * 原始 string/number 文本**，对元素/数组/null/undefined/boolean 一律返回 undefined（不强行文本化）。
+ *
+ * 行为约定（对齐 antd 默认 title 来源）：
+ *   - `ellipsis !== true`（false 或 undefined）→ undefined（非 ellipsis 列不加 title，避免多余 tooltip）。
+ *   - `showTitle === false` → undefined（让 render 内 antd Tooltip 接管 hover 提示，
+ *     与 ellipsis={ showTitle: false } / ellipsis-custom-tooltip demo 兼容）。
+ *   - text 是 string → 原字符串。
+ *   - text 是 number → `String(number)`（含 `0 → '0'`：用 typeof 严格判定，不用 truthy，避免吞 0）。
+ *   - text 其它形态（对象/数组/null/undefined/boolean）→ undefined。
+ */
+export function resolveBodyCellEllipsisTitle(
+  ellipsis: boolean | undefined,
+  showTitle: boolean | undefined,
+  text: unknown,
+): string | undefined {
+  if (ellipsis !== true || showTitle === false) return undefined
+  if (typeof text === 'string') return text
+  if (typeof text === 'number') return String(text)
+  return undefined
+}
+
+/**
  * 浅拷贝对象并剔除指定 key。
  *
  * 用于 HeaderCell / BodyCell 的事件 props 合并——onClick 等已单独处理（与排序/hover 逻辑合并），
