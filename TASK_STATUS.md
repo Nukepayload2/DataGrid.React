@@ -68,10 +68,10 @@ Date: 2026-07-05
 - **Wontfix**: `no-eval` (live editor → Stage 7); `no-flush-sync` (virtuoso-aligned); React 19 `forwardRef`/`useContext` deprecations (migration backlog).
 - Report: `docs/react-doctor-report-stage6.{txt,json}` + `docs/react-doctor-dump/`.
 
-### Stage 7
+### Stage 7 — not needed (user decision, 2026-07-05)
 
-- Document and isolate live editor risk.
-- Clarify sandbox boundaries for untrusted input.
+- Live editor runs the **user's own demo code** in their own dev environment — no multi-user / untrusted-input threat model. Sandbox/isolation not required (user: "用户输入任何内容是用户的问题").
+- `react-doctor`'s `no-eval` finding on `live/evalModule.ts:20` (`new Function`) is **wontfix by design** — that eval is the live editor's core mechanism for the user's own code.
 
 ## Verification Standard
 
@@ -86,4 +86,4 @@ Date: 2026-07-05
 
 - Keep changes small and behavior-preserving.
 - Do not widen into layout-sensitive or hot-path refactors without a dedicated test or validation plan.
-- Stages 3, 4, 5 & 6 complete (2026-07-05); next is Stage 7 (live-editor sandbox). Working tree carries Stage 4 + Stage 5 + Stage 6 changes uncommitted — human commits at end.
+- All stages complete or declined (2026-07-05): 0-2 done earlier; 3 structural split; 4 type boundaries; 5 virtual-scroll perf (dg ≤ antd); 6 react-doctor advisory; 7 declined (no untrusted-input threat model). Plan complete. Working tree carries Stage 4 + Stage 5 + Stage 6 changes uncommitted — human commits + final review.
