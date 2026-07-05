@@ -8,7 +8,7 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import type { ColumnType, ColumnFilterItem, FilterValue } from '../types'
-import { resolveColumnSortKey } from './useSorter'
+import { resolveFilterKey } from './columnKeys'
 import type { EngineFilterItem } from './types'
 
 export interface UseFilterOptions<RecordType> {
@@ -57,16 +57,6 @@ export interface UseFilterResult<RecordType> {
    * 所有可筛选列均出现为 key；无激活的列值为 null。
    */
   getFiltersArg: () => Record<string, Array<FilterValue> | null>
-}
-
-/**
- * 解析 column 的"筛选标识"（filterKey）：与 sortKey 同算法（column.key ?? dataIndex）。
- */
-export function resolveFilterKey<RecordType>(
-  column: ColumnType<RecordType>,
-): string | undefined {
-  const k = resolveColumnSortKey(column)
-  return k !== undefined ? String(k) : undefined
 }
 
 /**
@@ -310,3 +300,4 @@ export function useFilter<RecordType>(
 
 // EngineFilterItem 类型从 ./types 重新导出（渲染层 FilterDropdown 也可直接从 ./types 导入）。
 export type { EngineFilterItem }
+export { resolveFilterKey } from './columnKeys'

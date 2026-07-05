@@ -1025,7 +1025,8 @@ export type RowKeyType = string | ((record: any) => string | number)
  *
  * 全部 optional；未传的字段回退到内置默认值（与 antd `locale/en_US.ts` 的 Table 段一致——
  * 保持英文默认、与 antd 行为对齐）。FilterDropdown 消费 filterConfirm/filterReset/filterEmptyText/
- * filterSearchPlaceholder/filterCheckAll/filterCheckall；emptyText 由 Table 表体空态消费；
+ * filterSearchPlaceholder/filterCheckAll/filterCheckall；emptyText 由 Table 表体空态消费，使用
+ * Table.tsx 合并后的 Table locale（包含 `TableProps.locale` 与 `ConfigProvider locale.Table`）；
  * 其余字段（filterTitle/selectAll/selectNone/selectInvert/selectionAll/sortTitle/expand/collapse/
  * triggerDesc/triggerAsc/cancelSort）为接口完整性保留，供后续任务（如排序 tooltip i18n、选择菜单 i18n）消费。
  *
@@ -1672,16 +1673,17 @@ export interface TableProps<RecordType = any> {
    * - `ConfigProvider locale` 覆盖默认英文。
    * - 已消费：表体 empty、FilterDropdown、自研选择菜单、自研排序 hover title、自研展开按钮 aria。
    *
-   * === emptyText 语义（对齐 antd v6 `locale.emptyText`）===
+   * === emptyText 语义（data-grid 当前兼容语义）===
    *
    * - 当 `pagedDataSource` 为空（dataSource 空 或 筛选/分页后无数据）时，表格在表体区域
    *   渲染一个跨所有列（`grid-column: 1 / -1`）的 empty 占位区，内容取 `emptyText`。
-   * - `emptyText` 优先级（严格对齐 antd `InternalTable.tsx:706-718` 的 mergedEmptyNode）：
-   *     1. `locale.emptyText`（Table 级，最高优先级——antd 同款）。
-   *     2. `ConfigProvider.renderEmpty('Table')`（全局表体空状态）。
-   *     3. 默认 antd `<Empty>`（无描述）。
-   * - **表体 empty 不区分"空数据 vs 筛选无结果"**（对齐 antd InternalTable.tsx:714-717）：
-   *   antd 表体 empty 固定用 `locale.emptyText > renderEmpty('Table') > 默认`，两种场景共用。
+   * - `emptyText` 优先级：
+   *     1. `TableProps.locale.emptyText`（Table 级，最高优先级）。
+   *     2. `ConfigProvider locale.Table.emptyText`（全局 Table locale，由 merged Table locale 提供）。
+   *     3. `ConfigProvider.renderEmpty('Table')`（全局表体空状态）。
+   *     4. 默认 antd `<Empty>`（无描述）。
+   * - **表体 empty 不区分"空数据 vs 筛选无结果"**：data-grid 当前兼容语义下，两种场景
+   *   共用同一表体 emptyText，并按上述优先级解析。
    *
    *   ★ `'Table.filter'` 是**另一个**独立语义（对齐 antd FilterDropdown.tsx:395,410）：仅用于
    *   **filter 下拉面板内部**当 `column.filters` 为空数组时的占位（默认 Empty SIMPLE +
@@ -1695,7 +1697,8 @@ export interface TableProps<RecordType = any> {
    *   `<Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No Filter(Custom)" />`
    *   （filter 下拉内 filters 空时占位）。
    *
-   * 不传（默认）→ 用 ConfigProvider.renderEmpty 或默认 antd Empty（零回归：现有 demo 无 locale）。
+   * 不传（默认）→ 用 `ConfigProvider locale.Table.emptyText`、ConfigProvider.renderEmpty 或默认 antd Empty
+   * （零回归：现有 demo 无 locale）。
    */
   locale?: TableLocale
   /**

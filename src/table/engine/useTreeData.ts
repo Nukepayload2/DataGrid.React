@@ -8,7 +8,7 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import type { Expandable } from '../types'
-import { getRowKey } from './GridTable'
+import { getRowKey } from './recordAccess'
 
 export interface UseTreeDataOptions<RecordType> {
   /** 原始 dataSource（可能含嵌套 children）。 */

@@ -245,12 +245,11 @@ function createOffsetTree(
  *
  *  - offsetTree 空 → 返回 0。
  *  - 二分找 index<=给定 index 的最大断点 (startIndex, offset, size)。
- *  - top = size * (index - startIndex) + ((index - startIndex) - 1) * gap + offset。
- *    即：段内偏移 + 段内项间 gap + 段起始 offset。
- *  - top > 0 时再加一个 gap（行与前一断点行之间的 gap），否则不加（首行）。
+ *  - top = offset + (index - startIndex) * (size + gap)。
+ *    即：段起始 offset + 段内行高与行间距累加。
  *
- * gap 处理是关键：行间共 itemCount 个间距但第一项无前导 gap，故 (itemCount-1)；
- * top>0 表示非首段，还需补一个段间 gap。
+ * gap 处理是关键：offsetTree 的段起点 offset 已包含段前累计间距，段内只需按
+ * index 差值累加后续行之间的 gap；首行无前导 gap，因此 index=0 返回 0。
  */
 export function offsetOf(index: number, state: RowSizeState, gap: number): number {
   const tree = state.offsetTree
@@ -259,9 +258,7 @@ export function offsetOf(index: number, state: RowSizeState, gap: number): numbe
   }
 
   const { index: startIndex, offset, size } = findClosestSmallerOrEqual(tree, index, indexComparator)
-  const itemCount = index - startIndex
-  const top = size * itemCount + (itemCount - 1) * gap + offset
-  return top > 0 ? top + gap : top
+  return offset + (index - startIndex) * (size + gap)
 }
 
 /**
@@ -279,14 +276,16 @@ export function sizeOf(index: number, state: RowSizeState): number {
 /**
  * 计算 totalCount 行的总高度。O(1)。
  *
- * 公式：lastOffset + (totalCount - lastIndex) * lastSize + (totalCount - 1) * gap。
+ * 公式：
+ *   lastOffset + (totalCount - lastIndex) * lastSize
+ *   + max(0, totalCount - lastIndex - 1) * gap
  *
  * 推导：lastOffset 是最后一断点行（index=lastIndex）的顶边 offset。
+ * 它已经包含 lastIndex 之前的累计 gap，不可再重复加全量 gap。
  * 从 lastIndex 到 totalCount-1 共 (totalCount - lastIndex) 行，每行高 lastSize，
- * 故第 (totalCount-1) 行底边 = lastOffset + (totalCount - lastIndex) * lastSize。
+ * 这些尾部行之间仅有 max(0, totalCount - lastIndex - 1) 个 gap。
  *
- * 与 offsetOf 自洽：offsetOf(totalCount-1) + lastSize + gap ≈ 总高（gap 计 (totalCount-1) 个，
- * 行间，首行前无 gap）。
+ * 与 offsetOf 自洽：等价于 offsetOf(totalCount-1) + sizeOf(totalCount-1)。
  *
  * 边界：count<=0 或空树 → 0（调用方用约定行高 * count 兜底）。
  */
@@ -300,8 +299,8 @@ export function totalHeight(totalCount: number, state: RowSizeState, gap: number
   const { lastOffset, lastSize, lastIndex } = state
   // 第 (totalCount-1) 行底边 = lastOffset + (totalCount - lastIndex) * lastSize。
   const lastRowBottom = lastOffset + (totalCount - lastIndex) * lastSize
-  // 行间 gap 共 (totalCount - 1) 个。
-  return lastRowBottom + (totalCount - 1) * gap
+  // lastOffset 已包含 lastIndex 之前的 gap，这里只补最后断点后的行间 gap。
+  return lastRowBottom + Math.max(0, totalCount - lastIndex - 1) * gap
 }
 
 /* ============================================================

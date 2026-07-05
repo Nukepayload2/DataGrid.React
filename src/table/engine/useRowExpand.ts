@@ -7,7 +7,7 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import type { Expandable } from '../types'
-import { getRowKey } from './GridTable'
+import { getRowKey } from './recordAccess'
 
 export interface UseRowExpandOptions<RecordType> {
   /** antd `expandable` 配置（可能为 undefined → 无展开）。 */

@@ -752,15 +752,16 @@ export interface EngineTableProps<RecordType = any> {
   /**
    * 空状态占位内容。
    *
-   * 适配层（Table.tsx）解析 emptyText 来源优先级（严格对齐 antd `InternalTable.tsx:706-718`）：
+   * 适配层（Table.tsx）解析 emptyText 来源优先级（data-grid 当前兼容语义）：
    *   1. `TableProps.locale.emptyText`（Table 级，最高优先级）。
-   *   2. `ConfigProvider.renderEmpty('Table')`（全局表体空状态）。
-   *   3. 默认 antd `<Empty>`。
+   *   2. `ConfigProvider locale.Table.emptyText`（全局 Table locale，由 merged Table locale 提供）。
+   *   3. `ConfigProvider.renderEmpty('Table')`（全局表体空状态）。
+   *   4. 默认 antd `<Empty>`。
    * 解析后的 ReactNode 传给引擎；引擎仅在 pagedDataSource 为空时渲染一个跨所有列的 empty 区
    * （`grid-column: 1 / -1`，居中）。非空时不渲染（零回归）。
    *
-   * 表体 empty 不区分"空数据 vs 筛选无结果"（对齐 antd InternalTable.tsx:714-717）——两种场景
-   * 共用同一 emptyText（已由适配层按上述优先级解析为单一 'Table' 语义）。
+   * 表体 empty 不区分"空数据 vs 筛选无结果"——两种场景共用同一 emptyText
+   * （已由适配层按上述优先级解析为单一 'Table' 语义）。
    * 注：antd 的 `'Table.filter'` 是 filter 下拉内 filters 空时的占位（FilterDropdown 消费），
    * 与表体 empty 无关。
    */
@@ -937,7 +938,7 @@ export interface EngineExpandState {
   showExpandColumn: boolean
   /**
    * 自定义展开图标渲染器（来自 expandable.expandIcon）。
-   * 当前由适配层（Table.tsx buildExpandColumnNode）在展开列 render 中消费；引擎透传不直接使用。
+   * 当前由适配层（src/table/expandAdapter.tsx buildExpandColumnNode）在展开列 render 中消费；引擎透传不直接使用。
    * 保留在引擎类型中便于未来引擎直渲染展开列时复用。未提供时用默认 ExpandIcon 组件。
    * 参数对齐 antd ExpandIcon props：{ expanded, onExpand(record,e), record }。
    */

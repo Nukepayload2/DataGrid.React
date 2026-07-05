@@ -20,8 +20,7 @@
  */
 
 import type { EngineColumnNode, EngineHeaderCell, EngineLeafColumn } from './types'
-import { resolveColumnSortKey } from './useSorter'
-import { resolveFilterKey } from './useFilter'
+import { resolveColumnSortKey, resolveFilterKey } from './columnKeys'
 
 /** 节点是否为叶子（无有效 children）。 */
 export function isLeafColumn<RecordType>(

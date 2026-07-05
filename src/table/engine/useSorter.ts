@@ -14,7 +14,8 @@ import type {
   TableCurrentDataSource,
   TablePaginationState,
 } from '../types'
-import { getValueByDataIndex } from './GridTable'
+import { resolveColumnSortKey } from './columnKeys'
+import { getValueByDataIndex } from './recordAccess'
 
 /** antd sortDirections 默认值。 */
 const DEFAULT_SORT_DIRECTIONS: Array<'ascend' | 'descend'> = ['ascend', 'descend']
@@ -163,18 +164,6 @@ export interface UseSorterResult<RecordType> {
    *   - >=2 激活 → 数组（按 multiple 升序）。
    */
   currentSorterResult: SorterResult<RecordType> | Array<SorterResult<RecordType>>
-}
-
-/**
- * 解析 column 的"排序标识"（columnKey）：优先 column.key，否则 dataIndex（支持数组→ join）。
- * 与 antd `sorter.columnKey` 取值一致。
- */
-export function resolveColumnSortKey<RecordType>(
-  column: ColumnType<RecordType>,
-): React.Key | undefined {
-  if (column.key !== undefined) return column.key
-  if (Array.isArray(column.dataIndex)) return column.dataIndex.join('.')
-  return column.dataIndex
 }
 
 /**
@@ -508,3 +497,5 @@ export function useSorter<RecordType>(
     currentSorterResult,
   }
 }
+
+export { resolveColumnSortKey } from './columnKeys'
