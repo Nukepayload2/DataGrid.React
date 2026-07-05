@@ -137,12 +137,22 @@ export default function LiveEditor({
                 }}
               >
                 {tokens.map((line, i) => {
-                  const lineProps = getLineProps({ line })
+                  // Stage 6 #3-4: 同 CodeView，不用 {...spread} 直接传，避免 react-doctor
+                  // jsx-key 与 eslint-plugin-react jsx-key 在 key 位置上的互斥警告。
+                  const { className: lineClassName, style: lineStyle } = getLineProps({
+                    line,
+                  })
                   return (
-                    <div key={i} {...lineProps}>
-                      {line.map((token, key) => (
-                        <span key={key} {...getTokenProps({ token })} />
-                      ))}
+                    <div key={i} className={lineClassName} style={lineStyle}>
+                      {line.map((token, key) => {
+                        const {
+                          className: tokenClassName,
+                          style: tokenStyle,
+                        } = getTokenProps({ token })
+                        return (
+                          <span key={key} className={tokenClassName} style={tokenStyle} />
+                        )
+                      })}
                     </div>
                   )
                 })}

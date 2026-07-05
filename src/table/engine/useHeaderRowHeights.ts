@@ -24,17 +24,20 @@ export function useHeaderRowHeights(
     Array.from<number>({ length: Math.max(0, maxDepth) }).fill(0),
   )
 
-  useEffect(() => {
-    // 同步 maxDepth 变化（列定义改了要重置数组长度）。
-    const len = Math.max(0, maxDepth)
-    setOffsets(Array.from<number>({ length: len }).fill(0))
-  }, [maxDepth])
-
+  // === Stage 6 #8: 去掉"effect 同步 maxDepth→offsets 长度"的派生-state 反模式
+  // （react-doctor no-derived-state @ L30）。原 effect 在 maxDepth 变化时 setOffsets
+  // 触发额外 render，与下面的测量 effect 重复。改为：测量 effect 自己处理长度变化
+  // （next 数组按当前 maxDepth 长度构造，长度不同则一定 setOffsets）。
   useEffect(() => {
     const grid = gridRef.current
-    if (!grid) return
     const len = Math.max(0, maxDepth)
-    if (len === 0) return
+    if (!grid || len === 0) {
+      // grid 未挂载 / showHeader=false：如果当前 offsets 长度不为 len，归零一次。
+      if (offsets.length !== len) {
+        setOffsets(Array.from<number>({ length: len }).fill(0))
+      }
+      return
+    }
 
     const measure = () => {
       // 读 grid-template-rows（CSS Grid 布局引擎求解的逐行 track 高度），取前 len 个累计。
@@ -50,10 +53,10 @@ export function useHeaderRowHeights(
       // 累计：cumulativeOffsets[k] = Σ trackHeights[0..k-1]（= grid-row-start k+1 的 sticky top）。
       const next: number[] = Array.from({ length: len }).fill(0) as number[]
       let acc = 0
-      let changed = false
+      let changed = offsets.length !== len
       for (let i = 0; i < len; i++) {
         next[i] = acc
-        if (Math.abs(next[i] - offsets[i]) > 0.1) changed = true
+        if (!changed && Math.abs(next[i] - (offsets[i] ?? 0)) > 0.1) changed = true
         acc += trackHeights[i] || 0
       }
       if (changed) setOffsets(next)

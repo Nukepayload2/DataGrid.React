@@ -68,15 +68,15 @@ export function useStickyColumns<RecordType>(
   headerSticky: Map<string, { side: FixedSide; offset: number; isEdge: boolean }>
   hasFixed: boolean
 } {
-  // 叶子列宽度（按 leafIndex 索引）。首测前用 column.width 兜底（数字→px，字符串→0 因为非 px 不可知）。
+  // === Stage 6 #7: widths 仍由 RO 测量维护（DOM 真值必需），但去掉"effect 同步
+  // leafColumns 到 widths"的派生-state 反模式（react-doctor no-derived-state +
+  // no-pass-data-to-parent 双 finding 在 L78）。原 effect 把 leafColumns.map(width)
+  // 写回 state 触发额外 render，且与首帧 useState initializer + 测量 effect 重复。
+  // 改为：useState initializer 给初值；leafColumns 变化时由测量 effect 的 measure()
+  // 重读 DOM 自动同步（measure 内遍历 [data-leaf-index]，新列无 DOM 时回退 column.width）。
   const [widths, setWidths] = useState<number[]>(() =>
     leafColumns.map((c) => (typeof c.width === 'number' ? c.width : 0)),
   )
-
-  // 同步 leafColumns 变化（列定义改了要重置 widths）。
-  useEffect(() => {
-    setWidths(leafColumns.map((c) => (typeof c.width === 'number' ? c.width : 0)))
-  }, [leafColumns])
 
   // 观测叶子列宽度：监听 grid 容器内所有 [data-leaf-index] 节点（表头叶子格，每列 1 个）。
   useEffect(() => {
@@ -84,10 +84,14 @@ export function useStickyColumns<RecordType>(
     if (!grid) return
 
     const measure = () => {
-      const els = grid.querySelectorAll<HTMLElement>('[data-leaf-index]')
-      if (els.length === 0) return
-      const next = Array.from<number>({ length: leafColumns.length }).fill(0)
+      // 列定义长度变化（增删列）→ 用 column.width 兜底重置一份 baseline，再叠加 DOM 测量真值。
+      // 这样删除原"effect 同步 leafColumns→widths"的派生 state 后，列定义变化仍能正确反映。
+      const baseline = leafColumns.map((c) =>
+        typeof c.width === 'number' ? c.width : 0,
+      )
+      const next = baseline.slice()
       let changed = false
+      const els = grid.querySelectorAll<HTMLElement>('[data-leaf-index]')
       els.forEach((el) => {
         const idx = Number(el.getAttribute('data-leaf-index'))
         if (Number.isNaN(idx) || idx < 0 || idx >= leafColumns.length) return
@@ -97,7 +101,8 @@ export function useStickyColumns<RecordType>(
           changed = true
         }
       })
-      if (changed) setWidths(next)
+      // 长度变化或任一格测量值更新 → 写 state。
+      if (changed || next.length !== widths.length) setWidths(next)
     }
 
     measure()
@@ -111,6 +116,8 @@ export function useStickyColumns<RecordType>(
     })
 
     return () => ro.disconnect()
+    // widths 不进依赖：measure 内部比较 next/widths 决定是否 set，避免循环触发。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gridRef, leafColumns])
 
   // === 计算 sticky 偏移 ===

@@ -90,3 +90,4 @@ $tf/
 *.tmp
 /docs/verify
 /perf-traces
+/docs/react-doctor-dump

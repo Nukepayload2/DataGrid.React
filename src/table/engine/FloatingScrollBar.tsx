@@ -462,6 +462,19 @@ export function FloatingScrollBar({
     if (horizontal) recomputeHorizontal()
   }, [recomputeVertical, recomputeHorizontal, horizontal])
 
+  // === Stage 6 #5: 把 recompute 的"最新引用"放进 ref，让 onScroll effect 不必把
+  // recomputeVertical/recomputeHorizontal 列入 deps（避免 react-doctor
+  // prefer-use-effect-event 警告：effect 因 callback 引用变化而 re-subscribe）。
+  // 这里 recomputeVertical/recomputeHorizontal 本身是 useCallback([]) 稳定引用，
+  // 但通过 ref 读 latest 可让 effect deps 收敛到只剩 `horizontal`，行为等价。
+  // 注意：不动 onScroll RAF 节流 + geometryRef 缓存（Stage 5 #1 成果）—— doSync
+  // 内仍只读 container.scrollTop/scrollLeft + geometryRef，仅在"内容从无溢出变溢出"
+  // 兜底分支调一次 recompute（通过 ref 取最新）。
+  const recomputeVerticalRef = useRef(recomputeVertical)
+  const recomputeHorizontalRef = useRef(recomputeHorizontal)
+  recomputeVerticalRef.current = recomputeVertical
+  recomputeHorizontalRef.current = recomputeHorizontal
+
   // 监听容器 scroll（滚轮/键盘/程序滚动）→ 同步纵/横 thumb。
   // 关键性能点：onScroll 内**不**直接读 scrollHeight/clientHeight/scrollWidth/clientWidth
   // （会强制 reflow）；改为 RAF 节流 + 几何缓存（recompute 时算一次写入 geometryRef）。
@@ -486,7 +499,7 @@ export function FloatingScrollBar({
           // 兜底：内容从无溢出变溢出（display 由 recompute 刚从 none→block）。
           // recompute 已把 vVisibleRef 设为 true 并刷好几何，但本帧 onScroll 可能在 recompute
           // 完成前先触发 —— 这里调用 recomputeVertical 重算一次确保可见性 + 几何正确。
-          recomputeVertical()
+          recomputeVerticalRef.current()
         }
       }
       // === 横向 ===
@@ -500,7 +513,7 @@ export function FloatingScrollBar({
               hThumb.style.transform = `translateX(${ratio * g.thumbMaxOffset}px)`
             }
           } else {
-            recomputeHorizontal()
+            recomputeHorizontalRef.current()
           }
         }
       }
@@ -520,7 +533,7 @@ export function FloatingScrollBar({
         scrollRafRef.current = -1
       }
     }
-  }, [recomputeVertical, recomputeHorizontal, horizontal])
+  }, [horizontal])
 
   // ResizeObserver：容器尺寸/内容尺寸变化 → 全量 recompute。
   useEffect(() => {

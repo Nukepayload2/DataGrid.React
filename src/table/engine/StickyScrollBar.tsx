@@ -235,7 +235,6 @@ export function StickyScrollBar({
         className="dg-sticky-scroll-bar-thumb"
         style={{
           width: '20px',
-          willChange: 'transform',
         }}
       />
     </div>

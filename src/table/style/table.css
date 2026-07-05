@@ -1110,6 +1110,16 @@ body.dg-scrollbar-pointer-capturing * {
   height: var(--ant-table-scroll-thumb-size, 8px);
 }
 
+/*
+ * will-change 仅在交互时挂（hover / dragging），避免常驻浪费 GPU 内存
+ * （react-doctor no-permanent-will-change）。dragging 由 StickyScrollBar
+ * onThumbPointerDown/up 增删 dg-sticky-scroll-bar-dragging 类触发。
+ */
+.dg-sticky-scroll-bar:hover .dg-sticky-scroll-bar-thumb,
+.dg-sticky-scroll-bar.dg-sticky-scroll-bar-dragging .dg-sticky-scroll-bar-thumb {
+  will-change: transform;
+}
+
 /* style-class demo 的 root classNames 演示。 */
 .dg-style-class-root {
   color: #e0e0e0;

@@ -34,6 +34,7 @@ Date: 2026-07-05
   - decision: `useGridLayout.ts` / `useGridScrollSync.ts` NOT extracted (negative-ROI — gridTemplate useMemo + scroll sync tightly coupled to GridTableInner orchestration)
 - Stage 4 (2026-07-05): type boundaries split into `publicTypes.ts` / `nativeOptions.ts` / `compatTypes.ts` / `engine/engineTypes.ts`; `types.ts` + `engine/types.ts` → pure barrels (explicit `export type` + value re-export of `TABLE_LOCALE_DEFAULT`/`EXPAND_COLUMN`/`SELECTION_COLUMN`); zero consumer changes; all gates green (287 tests pass)
 - Stage 5 (2026-07-05): baselines established (5 hot paths; only virtual vertical scroll slower than antd, 1.7x); shipped #1+#4+#2 (onScroll RAF-throttle + geometry cache, recompute setState → refs/DOM-writes, flush batch/skip) + #25 (measureHeaderHeight cached behind a dedicated header RO); fixed a positioning regression those introduced (h-scrollbar at top → NaN-sentinel ref init + CSS bottom/top fallback); dg-vs-antd **1.7x → 0.89x** (dg now ≤ antd; onScroll + measureHeaderHeight ForcedReflow both eliminated); behavior verified via chrome-devtools; 287 tests green
+- Stage 6 (2026-07-05): `react-doctor` v0.7.1 adopted **advisory** (`blocking: none`, `--no-telemetry`, non-gate) via `doctor.config.ts` + `pnpm run doctor`; complements tsgo/oxlint/vitest (hooks/effects/render-perf/a11y/security/correctness). First scan 206 → suppressed 10 noise rules + fixed 8 A-class findings → **95 findings**; behavior verified via chrome-devtools (sticky columns, multi-level headers, scrollbar sync, virtual-scroll perf all intact); 287 tests green
 
 ## Remaining TODO
 
@@ -59,10 +60,13 @@ Date: 2026-07-05
 - **Deferred (high risk)**: #3 — `useVirtualList` start/end useMemo dependency refactor + offsetTree structural sharing. Touches virtualization core; not worth it while avg/p50 are at parity.
 - Untouched by design: `flushSync` (useVirtualList L309), offsetTree/AATree, smooth RAF easing, sticky/horizontal sync.
 
-### Stage 6
+### Stage 6 — complete (2026-07-05)
 
-- Evaluate `react-doctor` in advisory mode.
-- Keep it non-blocking until the signal is stable.
+- `react-doctor` v0.7.1 adopted as **advisory** (`blocking: none`, `--no-telemetry`, non-gate) via `doctor.config.ts` + `pnpm run doctor` script. Complements tsgo/oxlint/vitest (hooks/effects, render perf, a11y, security, React correctness); does NOT replace them.
+- First scan: 206 findings. C-class noise suppressed (10 rules: `anchor-is-valid`, grid-cell a11y, `no-array-index-as-key`, etc.). 8 A-class findings fixed (prism jsx-key ×4, FloatingScrollBar `useEffectEvent`→ref-as-latest, StickyScrollBar `will-change`→hover-scoped, `useStickyColumns`/`useHeaderRowHeights` derived-state→merged-into-measure, `useSplitDemoSource` reducer). **Post-fix: 95 findings** (54% reduction); behavior verified via chrome-devtools.
+- **Known false positives (do NOT re-fix)**: `jsx-key` on `BodyGrid:139` / `FlatColumnCells:416` (key stable after spread) + `drag-virtual-list:127` (single element); `exhaustive-deps` where refs don't enter deps (React convention); `unused-export` on demo default exports (consumed via `import.meta.glob`).
+- **Wontfix**: `no-eval` (live editor → Stage 7); `no-flush-sync` (virtuoso-aligned); React 19 `forwardRef`/`useContext` deprecations (migration backlog).
+- Report: `docs/react-doctor-report-stage6.{txt,json}` + `docs/react-doctor-dump/`.
 
 ### Stage 7
 
@@ -82,4 +86,4 @@ Date: 2026-07-05
 
 - Keep changes small and behavior-preserving.
 - Do not widen into layout-sensitive or hot-path refactors without a dedicated test or validation plan.
-- Stages 3, 4 & 5 complete (2026-07-05); next is Stage 6 (react-doctor advisory) / Stage 7 (live-editor sandbox). Working tree carries Stage 4 + Stage 5 changes uncommitted — human commits at end.
+- Stages 3, 4, 5 & 6 complete (2026-07-05); next is Stage 7 (live-editor sandbox). Working tree carries Stage 4 + Stage 5 + Stage 6 changes uncommitted — human commits at end.
