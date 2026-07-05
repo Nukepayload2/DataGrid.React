@@ -32,6 +32,7 @@ Date: 2026-07-05
 - Stage 3 coarse split (2026-07-05): GridTable.tsx split into 4 component modules + thin orchestration layer (2681 → ~1114 lines); 178 unit tests added; all gates green
   - modules: `StickyScrollBar.tsx`, `HeaderCell.tsx` (+ColumnResizer), `BodyGrid.tsx` (renderBodyCells + internal BodyCell), `FlatColumnCells.tsx` (ColumnCells)
   - decision: `useGridLayout.ts` / `useGridScrollSync.ts` NOT extracted (negative-ROI — gridTemplate useMemo + scroll sync tightly coupled to GridTableInner orchestration)
+- Stage 4 (2026-07-05): type boundaries split into `publicTypes.ts` / `nativeOptions.ts` / `compatTypes.ts` / `engine/engineTypes.ts`; `types.ts` + `engine/types.ts` → pure barrels (explicit `export type` + value re-export of `TABLE_LOCALE_DEFAULT`/`EXPAND_COLUMN`/`SELECTION_COLUMN`); zero consumer changes; all gates green (287 tests pass)
 
 ## Remaining TODO
 
@@ -43,14 +44,10 @@ Date: 2026-07-05
 - Hot-path optimizations (BodyCell memo, onCell cache, drag/resize) deferred to Stage 5 (after measurement).
 - Working tree carries all Stage 3 extractions uncommitted (user commits manually at end).
 
-### Stage 4
+### Stage 4 — complete (2026-07-05)
 
-- Split type boundaries:
-  - `publicTypes.ts`
-  - `nativeOptions.ts`
-  - `engineTypes.ts`
-  - `compatTypes.ts`
-- Preserve existing import surface through re-exports where needed.
+- Types split into `publicTypes.ts` / `nativeOptions.ts` / `compatTypes.ts` / `engine/engineTypes.ts`. `types.ts` and `engine/types.ts` are now pure barrels — all existing imports resolve unchanged. Zero consumer changes; import surface + public type set intact. All gates green (tsc 0, lint 0, 287 tests pass, build OK).
+- Categorization: atomic + data-grid-native options → `nativeOptions` (no imports); antd-bridging → `compatTypes` (+ 3 value consts + `ColumnOrSentinel`); public API → `publicTypes`; engine-internal → `engineTypes`. Acyclic dependency graph.
 
 ### Stage 5
 
@@ -85,4 +82,4 @@ Date: 2026-07-05
 
 - Keep changes small and behavior-preserving.
 - Do not widen into layout-sensitive or hot-path refactors without a dedicated test or validation plan.
-- Stage 3 complete (2026-07-05); next is Stage 4 (type boundaries). Working tree uncommitted — human commits at end.
+- Stages 3 & 4 complete (2026-07-05); next is Stage 5 (performance baselines → optimize after measurement). Working tree carries Stage 4 uncommitted (6 files) — human commits at end.
