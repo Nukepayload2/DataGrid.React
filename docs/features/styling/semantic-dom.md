@@ -19,7 +19,7 @@ antd v6 `TableProps.classNames` / `styles` 共 13 个槽位。data-grid 的兼�
 | 4 | `title` | `.ant-table-title` | `.dg-title` | ✅ 完全兼容 |
 | 5 | `footer` | `.ant-table-footer` | `.dg-footer` | ✅ 完全兼容 |
 | 6 | `header.cell` | `<th>` | `.dg-cell-header` | ✅ 完全兼容 |
-| 7 | `header.row` | `<tr>`（thead 内） | 透传到表头行所有 `.dg-cell-header` | ✅ 已支持（GridTable.tsx 多路径 + flat 路径） |
+| 7 | `header.row` | `<tr>`（thead 内） | 透传到表头行所有 `.dg-cell-header` | ✅ 已支持（多路径 HeaderCell + flat 路径，详见 `src/table/engine/HeaderCell.tsx` 与 `FlatColumnCells.tsx`） |
 | 8 | `header.wrapper` | `.ant-table-thead` | **❌ 架构不兼容**（dg 无 thead 容器） | 🚫 仅有逻辑槽位接口，渲染层无对应 DOM |
 | 9 | `body.cell` | `<td>` | `.dg-cell-body` | ✅ 完全兼容 |
 | 10 | `body.row` | `<tr>`（tbody 内） | 透传到表体行所有 `.dg-cell-body` | ✅ 完全兼容 |
@@ -32,15 +32,15 @@ antd v6 `TableProps.classNames` / `styles` 共 13 个槽位。data-grid 的兼�
 
 ### `header.row` 的处理方式
 
-- **缺口位置**：`src/table/engine/GridTable.tsx`，header.cell 渲染处过去只消费
+- **缺口位置**：表头 cell 渲染处（`src/table/engine/HeaderCell.tsx` 多路径 + `src/table/engine/FlatColumnCells.tsx` flat 路径）过去只消费
   `semanticHeader.className.cell` / `semanticHeader.style.cell`，**未消费 `.row`**；
-  而 body 侧（`GridTable.tsx:2071,2100,3187,3208`）已消费 `semanticBody.className.row` /
+  而 body 侧（`src/table/engine/BodyGrid.tsx` 内 `renderBodyCells`）已消费 `semanticBody.className.row` /
   `semanticBody.style.row`（透传到行内所有 cell）。两侧不对称。
 - **修复**：在表头格的 className 数组 + style 合并里补 `semanticHeader?.className?.row` /
   `semanticHeader?.style?.row`（与 body.row 对称——grid 无 tr，行 class/style 分发到该行所有表头格）。
 - **改动位置**：
-  - 多路径 HeaderCell（`HeaderCell` 函数，~2618/2668）：className + style 各补一行。
-  - flat 路径 HeaderCell（`renderHeaderCellFlat` 内联，~2988/3019）：className + style 各补一行。
+  - 多路径 HeaderCell（`src/table/engine/HeaderCell.tsx`）：className + style 各补一行。
+  - flat 路径 HeaderCell（`src/table/engine/FlatColumnCells.tsx`）：className + style 各补一行。
 - **零回归**：未传 `semantic.header.row` 时 `?.row` 取 `undefined`，与改造前完全一致。
 
 ### header.wrapper / body.wrapper 架构天花板
@@ -71,16 +71,16 @@ data-grid 的渲染结构：
 **调查结论：dg 行＝多 cell 直接铺在 grid 上，无行容器。**
 
 证据：
-- `GridTable.tsx:1396` 的 `.dg-grid` 是单一 CSS Grid 容器。
-- `GridTable.tsx:1418` `headerCells.map(...)` 把每个 HeaderCell 直接作为 grid 子元素放置
+- `src/table/engine/GridTable.tsx` 渲染的 `.dg-grid` 是单一 CSS Grid 容器。
+- 多路径 `headerCells.map(...)` 把每个 HeaderCell 直接作为 grid 子元素放置
   （`grid-column` / `grid-row` 由 `cell.gridColumnStart/gridColumnEnd/gridRowStart/gridRowEnd`
-  显式指定，见 HeaderCell `<div>` 的 inline style，~2663）。
-- `GridTable.tsx:1465` `renderBodyCells(...)` 同样把每个 BodyCell 直接作为 grid 子元素放置
+  显式指定，见 `src/table/engine/HeaderCell.tsx` 内 HeaderCell `<div>` 的 inline style）。
+- `renderBodyCells(...)`（`src/table/engine/BodyGrid.tsx`）同样把每个 BodyCell 直接作为 grid 子元素放置
   （`grid-column` / `grid-row` 由 colIdx + rowLine + colSpan/rowSpanTracks 计算，见 BodyCell
-  `<div>` 的 inline style，~2096）。
+  `<div>` 的 inline style）。
 - **没有**任何 `<div role="row">` 或类似行级容器把"一行的所有 cell"包起来。`components.body.row`
   仅用于 EditableRow 等场景的 Context.Provider 包裹（Provider 不渲染真实 DOM，cell 仍是 grid
-  直接子元素，见 `GridTable.tsx:2150-2157` 注释）。
+  直接子元素，见 `src/table/engine/BodyGrid.tsx` 注释）。
 
 **采取方案：不加零散 role（避免无效 ARIA）**。
 
@@ -126,11 +126,11 @@ data-grid 的渲染结构：
 仅当列表头格可排序且 `sortOrder` 非 null 时设 `aria-sort`（`ascending` / `descending`）；
 未排序时**不设**（与 antd 一致——antd 也是 `if (sortOrder)` 才设）。
 
-**改动位置**（`src/table/engine/GridTable.tsx`）：
-- 多路径 `HeaderCell`：表头格 `<div>` 加 `aria-sort` 属性（在 className 数组后、style 前）。
+**改动位置**（表头 cell 渲染）：
+- 多路径 `HeaderCell`（`src/table/engine/HeaderCell.tsx`）：表头格 `<div>` 加 `aria-sort` 属性（在 className 数组后、style 前）。
   - 判定：`sortable && sortOrder === 'ascend' → 'ascending'`；
     `sortable && sortOrder === 'descend' → 'descending'`；否则 `undefined`。
-- flat 路径 `renderHeaderCellFlat`：同款 `aria-sort` 属性。
+- flat 路径 `renderHeaderCellFlat`（`src/table/engine/FlatColumnCells.tsx`）：同款 `aria-sort` 属性。
 
 **未加 `aria-label`**：antd 给排序 th 加 `aria-label = displayTitle`，但 dg 的表头格已有
 `title` 属性（native tooltip + ellipsis 完整文案）覆盖此语义；且 dg 表头格内 `.dg-column-title`
@@ -139,7 +139,7 @@ data-grid 的渲染结构：
 
 ### `header.row` 槽位注入
 
-见上方 `header.row` 一节。改动位置：`GridTable.tsx` 多路径 HeaderCell + flat 路径
+见上方 `header.row` 一节。改动位置：`src/table/engine/HeaderCell.tsx`（多路径 HeaderCell）+ `src/table/engine/FlatColumnCells.tsx`（flat 路径 HeaderCell）
 HeaderCell 的 className 数组 + style 合并各补一行 `semanticHeader?.className?.row` /
 `semanticHeader?.style?.row`。
 
@@ -150,11 +150,11 @@ HeaderCell 的 className 数组 + style 合并各补一行 `semanticHeader?.clas
 
 ### `aria-colspan` / `aria-rowspan`
 
-**改动位置**（`src/table/engine/GridTable.tsx` BodyCell，~2089）：合并的数据格（`colSpan >= 2`
+**改动位置**（`src/table/engine/BodyGrid.tsx` 内 BodyCell）：合并的数据格（`colSpan >= 2`
 或 `rowSpanTracks >= 2`）补 `aria-colspan` / `aria-rowspan`（数字）。仅 span >= 2 时设
 （span = 1 是默认值，不设避免噪声）。`rowSpanTracks` 会计入展开产生的额外 track，与视觉跨行一致。
 
-**flat 路径不加**：cellMerge 强制走 multi 路径（`GridTable.tsx:827-830, 846`），flat 路径
+**flat 路径不加**：cellMerge 强制走 multi 路径（`src/table/engine/cellMerge.ts` 内的判定），flat 路径
 架构上无合并，无需 aria。
 
 ---

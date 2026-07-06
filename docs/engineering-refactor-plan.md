@@ -59,6 +59,8 @@ data-grid 已经具备组件库雏形：核心表格实现、demo 对照站、�
 
 目标：在拆核心文件前，先让回归可见。
 
+> 现状：Vitest 最小测试栈已落地（`vite.config.ts` 配置 jsdom + setup + coverage），`pnpm run test` / `pnpm run test:watch` / `pnpm run test:coverage` 已纳入 `package.json` scripts，`@vitest/coverage-v8` 提供 v8 覆盖率（include `src/table/**`）。基线覆盖率：Lines 50.74% / Statements 49.08% / Branches 49.46% / Functions 57.18%。
+
 任务：
 
 1. 新增 Vitest 最小测试栈。
@@ -102,6 +104,8 @@ data-grid 已经具备组件库雏形：核心表格实现、demo 对照站、�
 ## 阶段 1：借鉴 antd 的测试方式
 
 目标：借鉴 antd 面向公开 API 的行为回归思路，不照搬其内部 DOM 结构测试。
+
+> 现状：Playwright smoke 层已落地为 `e2e/` 目录 + [`playwright.config.ts`](../playwright.config.ts)。配置使用本机已有 Chrome（`G:\Program Files\ChromeCon\chrome.exe`），`fullyParallel:false`、`retries:0`，`webServer` 启动 `pnpm dev`（默认 5173，可用 `E2E_PORT` 覆盖）；`.npmrc` 设 `playwright_skip_browser_download=1` 跳过浏览器下载；`pnpm run test:e2e` 已纳入 scripts。当前 6 个 smoke 用例覆盖 `basic` / `fixed-columns` / `virtual-list` / `drag-sorting` / `tree-data` / `filter-in-tree`。
 
 适合借鉴：
 
@@ -160,17 +164,21 @@ Playwright 用例数量应保持很少，只做 smoke 和难测路径，不承�
 
 目标：让 `Table.tsx` 回到兼容层编排职责。
 
-建议拆分方向：
+拆分方向与现状：
 
-- `tokenBridge.ts`：antd token、CSS variables、Table component token 转换。
-- `columnAdapter.ts`：children 转 columns、列默认值、哨兵列插入、column key 生成。
-- `sortFilterAdapter.ts`：sort/filter 状态写回 engine column tree。
-- `selectionAdapter.ts`：antd `rowSelection` 与 `gridOptions.selection` 的桥接。
-- `paginationAdapter.tsx`：pagination 配置归一、位置解析、分页节点渲染。
-- `emptyLoadingAdapter.tsx`：empty、loading、Spin 相关处理。
-- `refAdapter.ts`：`TableRef.scrollTo` 到 engine handle 的桥接。
-- `useTablePipeline.ts`：组合 columns、sorter、filter、tree、selection、pagination 等状态流水线；仅在依赖变化时重算。
-- `useTableThemeVars.ts`：封装 token 到 CSS variables 的桥接，集中处理 antd 内部 API 依赖。
+- `tokenBridge.ts`：antd token、CSS variables、Table component token 转换。**已外提**到 [`src/table/tokenBridge.ts`](../src/table/tokenBridge.ts)。
+- `columnAdapter.ts`：children 转 columns、列默认值、哨兵列插入、column key 生成。**已外提**到 [`src/table/columnAdapter.ts`](../src/table/columnAdapter.ts)。
+- `sortFilterAdapter.ts`：sort/filter 状态写回 engine column tree。**已外提**到 [`src/table/sortFilterAdapter.ts`](../src/table/sortFilterAdapter.ts)。
+- `selectionAdapter.ts`：antd `rowSelection` 与 `gridOptions.selection` 的桥接。**已外提**到 [`src/table/selectionAdapter.tsx`](../src/table/selectionAdapter.tsx)。
+- `paginationAdapter.tsx`：pagination 配置归一、位置解析、分页节点渲染。**已外提**到 [`src/table/paginationAdapter.tsx`](../src/table/paginationAdapter.tsx)。
+- `emptyLoadingAdapter.tsx`：empty、loading、Spin 相关处理。**已外提**到 [`src/table/emptyLoadingAdapter.tsx`](../src/table/emptyLoadingAdapter.tsx)。
+- `expandAdapter.tsx`：展开列与 expandState 构造。**已外提**到 [`src/table/expandAdapter.tsx`](../src/table/expandAdapter.tsx)。
+- `tableLayoutResolver.ts`：antd `mergedTableLayout` 等价派生（显式 prop 优先、fixColumn×scroll.x 矩阵、哨兵列跳过）。**已外提**到 [`src/table/tableLayoutResolver.ts`](../src/table/tableLayoutResolver.ts)。
+- `useResponsiveColumns.ts`：antd `InternalTable.tsx` 断点过滤的等价 hook（无 `responsive` 时短路保持 `columns` 引用稳定）。**已外提**到 [`src/table/useResponsiveColumns.ts`](../src/table/useResponsiveColumns.ts)。
+- `useSemanticClassNames.ts`：`classNames` / `styles` 归一（对象或函数）+ `engineSemantic` 子集（section/content/header/body）派生。**已外提**到 [`src/table/useSemanticClassNames.ts`](../src/table/useSemanticClassNames.ts)。
+- `useTableThemeVars.ts`：封装 token 到 CSS variables 的桥接（`useAntdInternalToken` + 4 个 `tokenBridge` 依赖集中于此），输出 `aliasTokenVars` / `tableTokenVars` / 合并后的 `wrapperStyle`。**已外提**到 [`src/table/useTableThemeVars.ts`](../src/table/useTableThemeVars.ts)。
+- `refAdapter.ts`：`TableRef.scrollTo` 到 engine handle 的桥接。**未外提**——目前仍内联在 `Table.tsx`，待后续按需提取。
+- `useTablePipeline.ts`：组合 columns、sorter、filter、tree、selection、pagination 等状态流水线；仅在依赖变化时重算。**未外提**——目前仍以多个独立 hook 形式分布在 `Table.tsx` 内，未做集中 pipeline 封装。
 
 约束：
 
@@ -190,18 +198,23 @@ Playwright 用例数量应保持很少，只做 smoke 和难测路径，不承�
 
 目标：降低渲染中枢复杂度，保留现有 CSS Grid 行为。
 
-建议拆分方向：
+拆分方向与现状：
 
-- `HeaderGrid.tsx`：多级表头、排序/筛选入口、header cell 渲染。
-- `BodyGrid.tsx`：body cell、row class/style、components.body 适配。
-- `ScrollContainer.tsx`：scroll.x、scroll.y、sticky viewport、浮动滚动条容器。
-- `SummaryLayer.tsx`：summary 解析和渲染。
-- `ExpandLayer.tsx`：展开行内容和展开 track。
-- `gridTemplate.ts`：grid-template-rows / columns 计算。
-- `hoverController.ts`：行 hover 管理。
-- `useGridLayout.ts`：封装列轨道、行轨道、summary 行、padding 行等布局派生值。
-- `useGridScrollSync.ts`：封装 sticky viewport、横向滚动条、scrollLeft 同步。
-- `cellRenderUtils.ts`：封装 className/style/ellipsis/title 等纯计算，便于单测和复用。
+- `HeaderGrid.tsx` / `HeaderCell.tsx`：多级表头、排序/筛选入口、header cell 渲染。**已外提**到 [`src/table/engine/HeaderCell.tsx`](../src/table/engine/HeaderCell.tsx)（含 `ColumnResizer`）。
+- `BodyGrid.tsx`：body cell、row class/style、components.body 适配。**已外提**到 [`src/table/engine/BodyGrid.tsx`](../src/table/engine/BodyGrid.tsx)（`renderBodyCells` + 内部 `BodyCell`）。
+- `FlatColumnCells.tsx`：flat 路径 ColumnCells 单层快速渲染。**已外提**到 [`src/table/engine/FlatColumnCells.tsx`](../src/table/engine/FlatColumnCells.tsx)。
+- `StickyScrollBar.tsx`：sticky 横向滚动条组件。**已外提**到 [`src/table/engine/StickyScrollBar.tsx`](../src/table/engine/StickyScrollBar.tsx)。
+- `ScrollContainer.tsx`：scroll.x、scroll.y、sticky viewport、浮动滚动条容器三分支路由（sticky clip-viewport + StickyScrollBar + summary-grid / 不可达 sticky fallback / FloatingScrollBar 横向）。**已外提**到 [`src/table/engine/ScrollContainer.tsx`](../src/table/engine/ScrollContainer.tsx)。
+- `SummaryLayer.tsx`：summary 解析和渲染。**已外提**到 [`src/table/engine/SummaryLayer.tsx`](../src/table/engine/SummaryLayer.tsx)。
+- `ExpandLayer.tsx` / `expandLayoutUtils.ts` / `expandLayerUtils.tsx`：展开行内容、track 与展开布局工具。**已外提**到 [`src/table/engine/expandLayoutUtils.ts`](../src/table/engine/expandLayoutUtils.ts) / [`src/table/engine/expandLayerUtils.tsx`](../src/table/engine/expandLayerUtils.tsx)。
+- `gridTemplate.ts`：grid-template-rows / columns 纯计算。**已外提**到 [`src/table/engine/gridTemplateColumnsUtils.ts`](../src/table/engine/gridTemplateColumnsUtils.ts) / [`src/table/engine/headerHeightUtils.ts`](../src/table/engine/headerHeightUtils.ts)（列宽 / 表头高度）。
+- `hoverController.ts`：行 hover 管理。**已外提**到 [`src/table/engine/hoverController.ts`](../src/table/engine/hoverController.ts)。
+- `cellRenderUtils.ts`：封装 className/style/ellipsis/title 等纯计算。**已外提**到 [`src/table/engine/cellRenderUtils.tsx`](../src/table/engine/cellRenderUtils.tsx) / [`src/table/engine/bodyCellUtils.ts`](../src/table/engine/bodyCellUtils.ts)。
+- `useScrollMode.ts`：sticky / virtual / 容器内固定表头的互斥派生（产出 `headerStickyTop` + `stickyHeaderOffset`）。**已外提**到 [`src/table/engine/useScrollMode.ts`](../src/table/engine/useScrollMode.ts)。
+- `useRowHeightSystem.ts`：行高派生 + 有界行高模型 + `getRowHeight` / `effectiveRowHeight` 回调（热路径，使用稳定 ref）。包含同文件内的 `useEffectiveRowHeight`（依赖 `virtualState.sizeOf`，分两阶段）。**已外提**到 [`src/table/engine/useRowHeightSystem.ts`](../src/table/engine/useRowHeightSystem.ts)。
+- `useGridLayout.ts`：封装列轨道、行轨道、summary 行、padding 行等布局派生值（grid-template-rows/columns/auto-flow `useMemo`）。**已外提**到 [`src/table/engine/useGridLayout.ts`](../src/table/engine/useGridLayout.ts)——通过把整个闭包作为单一 options 对象传入、deps 数组按字节对齐，绕开了"需传回 ~6 个值"的负收益问题。
+- `useGridScrollSync.ts`：封装 sticky viewport、横向滚动条、scrollLeft 同步（`stickyScrollLeft` state + `onStickyViewportWheel` 回调 + `stickyTranslateStyle` 派生）。**已外提**到 [`src/table/engine/useGridScrollSync.ts`](../src/table/engine/useGridScrollSync.ts)。
+- 辅助工具：`gridScrollUtils.ts` / `resizeColumnUtils.ts` / `treeIndentRenderer.tsx` / `treeColumnUtils.ts` 等小颗粒纯计算与渲染片段也已外提到 `src/table/engine/` 下相应模块，便于 Vitest 直接覆盖。
 
 约束：
 

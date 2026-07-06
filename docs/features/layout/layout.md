@@ -13,7 +13,7 @@ data-grid 的整体容器结构与 antd `<table>` 三层包裹（`table-wrapper 
 
 ## 行 hover 机制（grid-auto-flow:column 下"同行"DOM 不连续）
 
-`.dg-grid` 用 `grid-auto-flow: column`，同一行的单元格在 DOM 中并不连续。纯 CSS 无法对任意动态 row index 关联整行（`:has()` 不适用），故 data-grid 用 JS 方案：`GridTable` 持有 `hoveredRowIndex` state，命中行所有 body cell 加 `dg-row-hover` 类。详见 GridTable.tsx 注释。
+`.dg-grid` 用 `grid-auto-flow: column`，同一行的单元格在 DOM 中并不连续。纯 CSS 无法对任意动态 row index 关联整行（`:has()` 不适用），故 data-grid 用 JS 方案：`hoverController.ts` 持有 `hoveredRowIndex` state，命中行所有 body cell 加 `dg-row-hover` 类。详见 `src/table/engine/hoverController.ts` 注释。
 
 ## 布局修饰类
 
@@ -54,4 +54,5 @@ sticky 是页面级（grid 不包 overflow 容器），data-area 是容器内（
 
 - [`src/table/style/table.css`](../../../src/table/style/table.css) — `.dg-wrapper` / `.dg-wrapper.dg-sticky` / `.dg-wrapper.dg-data-area` / `.dg-wrapper.dg-content-scrolled` 规则。
 - [`src/table/Table.tsx`](../../../src/table/Table.tsx) — 三类修饰类的启用判定（`dataAreaClassEnabled` / `stickyClassEnabled` / `contentScrolledEnabled`）。
-- [`src/table/engine/GridTable.tsx`](../../../src/table/engine/GridTable.tsx) — `hoveredRowIndex` state + `.dg-scroll-wrap` 渲染。
+- [`src/table/engine/hoverController.ts`](../../../src/table/engine/hoverController.ts) — `hoveredRowIndex` state + 行 hover 类分发。
+- [`src/table/engine/ScrollContainer.tsx`](../../../src/table/engine/ScrollContainer.tsx) — `.dg-scroll-wrap` 渲染（sticky / FloatingScrollBar 三分支路由）。

@@ -91,3 +91,9 @@ $tf/
 /docs/verify
 /perf-traces
 /docs/react-doctor-dump
+/coverage
+
+# Playwright
+/playwright-report/
+/playwright/.cache/
+/test-results/

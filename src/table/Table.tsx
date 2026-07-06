@@ -28,12 +28,6 @@ import {
 } from 'react'
 import { ConfigProvider } from 'antd'
 import defaultLocale from 'antd/es/locale/en_US'
-// 响应式断点检测：antd Grid.useBreakpoint 返回 ScreenMap（{ xs?, sm?, md?, lg?, xl?, xxl?, xxxl? }），
-// screens[bp]===true 表示当前视口 >= bp（antd responsiveObserver 语义）。
-import Grid from 'antd/es/grid'
-// 主题注入：直接复用 antd 真实的 token→CSS-var 注入工具（防猜测铁律）。详见
-// `docs/design-notes/theme-tokens.md` 的「注入路径」节。
-import { useToken as useAntdInternalToken } from 'antd/es/theme/internal'
 import { GridTable, getRowKey } from './engine/GridTable'
 import { Summary as SummaryComponent } from './engine/Summary'
 import {
@@ -47,12 +41,13 @@ import { useRowExpand } from './engine/useRowExpand'
 import { useSorter } from './engine/useSorter'
 import { useFilter } from './engine/useFilter'
 import { useTreeData } from './engine/useTreeData'
+import { useSemanticClassNames } from './useSemanticClassNames'
 import {
   usePagination,
   slicePage,
   resolvePlacement,
 } from './engine/usePagination'
-import type { EngineColumnNode, EngineExpandState, EngineSemantic, EngineTreeState, FixedSide } from './engine/types'
+import type { EngineColumnNode, EngineExpandState, EngineTreeState, FixedSide } from './engine/types'
 import {
   EXPAND_COLUMN,
   SELECTION_COLUMN,
@@ -72,15 +67,10 @@ import {
   type TableProps,
   type TableRef,
   type TableRowSelection,
-  type TableSemanticClassNames,
-  type TableSemanticStyles,
 } from './types'
 import {
-  antdTokenIgnore,
-  antdTokenUnitless,
-  tableTokenToCssVars,
-  tokenToCssVars,
-} from './tokenBridge'
+  useTableThemeVars,
+} from './useTableThemeVars'
 import {
   applyColumnDefaults,
   convertChildrenToColumns,
@@ -106,6 +96,8 @@ import {
   TableLoadingContainer,
   useTableEmptyText,
 } from './emptyLoadingAdapter'
+import { resolveTableLayout } from './tableLayoutResolver'
+import { useResponsiveColumns } from './useResponsiveColumns'
 import {
   getPaginationSize,
   renderPaginationNode,
@@ -325,53 +317,11 @@ function TableInner<RecordType = any>(
   )
 
   // === 响应式 responsive：按当前视口断点过滤列（对齐 antd InternalTable.tsx:235-246）===
-  // 实现位置：在所有列派生（排序/筛选/选择/展开/列树构建）之前过滤 columns，保证被移除的列
-  //   不参与任何下游机制（与 antd 一致：antd 在 InternalTable 派生 mergedColumns 时过滤，
-  //   下游消费 mergedColumns）。
-  //
-  // ★ 性能优化（对齐 antd `needResponsive` 思路）：先算 needResponsive（任一普通列设了 responsive）。
-  //   - needResponsive=false（所有现有 demo 默认）：visibleColumns 直接返回原 columns 引用（短路），
-  //     即使 screens 在视口变化时更新，visibleColumns 引用不变 → 下游 useMemo 不重算 → 零回归、
-  //     零多余重渲染。
-  //   - needResponsive=true：按 screens 过滤。
-  //   哨兵（EXPAND_COLUMN / SELECTION_COLUMN）不是 ColumnType，不带 responsive，跳过判定。
-  //
-  // 注：antd 公开类型 `Grid.useBreakpoint` 声明为无参（`() => ScreenMap`），底层 hook 实际支持
-  //   `refreshOnChange` 参数但公开类型未暴露。这里用无参形式（refreshOnChange 默认 true，订阅
-  //   responsiveObserver）；needResponsive 短路保证无 responsive 的 demo 不触发重渲染（visibleColumns
-  //   引用稳定），订阅本身是轻量 ResizeObserver，无性能问题。
-  const needResponsive = useMemo(() => {
-    for (const c of columns as Array<ColumnOrSentinel<RecordType>>) {
-      if (c === SELECTION_COLUMN || c === EXPAND_COLUMN) continue
-      if ((c as ColumnType<RecordType>).responsive) return true
-    }
-    return false
-  }, [columns])
-
-  // useBreakpoint 订阅 antd responsiveObserver，视口变化时返回新 ScreenMap 触发重渲染。
-  // 仅在 needResponsive=true 的场景下被下游 visibleColumns 消费；needResponsive=false 时短路。
-  const screens = Grid.useBreakpoint()
-
-  // 过滤 columns：无 responsive 的列（含哨兵）保留；有 responsive 的列按 antd 语义匹配
-  // （列出的任一断点在当前视口激活即保留）。逐字对齐 antd InternalTable.tsx:242-246：
-  //   matched = Object.keys(screens).filter(bp => screens[bp])
-  //   显示 <=> !responsive || responsive.some(r => matched.has(r))
-  const visibleColumns = useMemo(() => {
-    if (!needResponsive) return columns
-    const screensMap = screens ?? {}
-    const matched = new Set<string>()
-    for (const bp in screensMap) {
-      if (screensMap[bp as keyof typeof screensMap]) matched.add(bp)
-    }
-    return (columns as Array<ColumnOrSentinel<RecordType>>).filter((c) => {
-      // 哨兵不带 responsive，始终保留（对齐 antd：哨兵在 useFilledColumns 阶段展开，已不是
-      // responsive 过滤的对象）。
-      if (c === SELECTION_COLUMN || c === EXPAND_COLUMN) return true
-      const col = c as ColumnType<RecordType>
-      if (!col.responsive) return true
-      return col.responsive.some((r) => matched.has(r as string))
-    })
-  }, [columns, needResponsive, screens])
+  // 实现移至 `useResponsiveColumns` hook（needResponsive 短路 + Grid.useBreakpoint + 按 screens 过滤）。
+  //   - needResponsive=false（所有现有 demo 默认）：返回原 columns 引用（短路，下游 useMemo 不重算）。
+  //   - needResponsive=true：按 screens 过滤；哨兵（EXPAND_COLUMN / SELECTION_COLUMN）不带 responsive，
+  //     跳过判定并始终保留。
+  const visibleColumns = useResponsiveColumns<RecordType>(columns)
 
   // === 单列 + 多列排序（须在选择 / 展开之前派生 sortedDataSource，供下游 hooks 消费）===
   // useSorter 从原始 antd columns 派生排序状态（受控/非受控、sortDirections 循环、defaultSortOrder、
@@ -880,58 +830,16 @@ function TableInner<RecordType = any>(
   // 适配层直接消费 root/title/footer/pagination.*（注入到对应 DOM）；section/content/header/body
   //   透传给引擎（GridTable.semantic）由引擎注入到 grid 内部部位。
   // 未提供（undefined）时 semanticResolved 为 undefined，所有部位走默认 class/style，零回归。
-  const semanticInfo = {
-    props: {
-      size,
-      bordered,
-      virtual,
-      scroll,
-      pagination: pagination as false | TablePaginationConfig | undefined,
-    },
-  }
-  const classNamesResolved: TableSemanticClassNames | undefined = useMemo(() => {
-    if (classNames === undefined) return undefined
-    if (typeof classNames === 'function') return classNames(semanticInfo)
-    return classNames
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [classNames, size, bordered, virtual, scroll, pagination])
-  const stylesResolved: TableSemanticStyles | undefined = useMemo(() => {
-    if (styles === undefined) return undefined
-    if (typeof styles === 'function') return styles(semanticInfo)
-    return styles
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [styles, size, bordered, virtual, scroll, pagination])
-
-  // 引擎消费子集（section/content/header/body）。
-  const engineSemantic: EngineSemantic | undefined = useMemo(() => {
-    if (!classNamesResolved && !stylesResolved) return undefined
-    const sem: EngineSemantic = {}
-    if (classNamesResolved?.section || stylesResolved?.section) {
-      sem.section = {
-        className: classNamesResolved?.section,
-        style: stylesResolved?.section,
-      }
-    }
-    if (classNamesResolved?.content || stylesResolved?.content) {
-      sem.content = {
-        className: classNamesResolved?.content,
-        style: stylesResolved?.content,
-      }
-    }
-    if (classNamesResolved?.header || stylesResolved?.header) {
-      sem.header = {
-        className: classNamesResolved?.header,
-        style: stylesResolved?.header,
-      }
-    }
-    if (classNamesResolved?.body || stylesResolved?.body) {
-      sem.body = {
-        className: classNamesResolved?.body,
-        style: stylesResolved?.body,
-      }
-    }
-    return sem
-  }, [classNamesResolved, stylesResolved])
+  // 求值 + 引擎子集构造抽出为独立 hook `useSemanticClassNames`（行为零差异，先移动不重写）。
+  const { classNamesResolved, stylesResolved, engineSemantic } = useSemanticClassNames(
+    classNames,
+    styles,
+    size,
+    bordered,
+    virtual,
+    scroll,
+    pagination as false | TablePaginationConfig | undefined,
+  )
 
   const scrollBarFoldMode = gridOptions?.scrollBarFoldMode
   const scrollBarShowOnTableHover = scrollBarFoldMode?.showOnTableHover === true
@@ -992,157 +900,16 @@ function TableInner<RecordType = any>(
     .filter(Boolean)
     .join(' ')
 
-  // 主题注入：用 antd 内部 `useToken`（`antd/es/theme/internal`）拿 realToken
-  //   （未 var 化的原值，与 antd transformToken 输入完全一致），喂 antd 真实 `transformToken`
-  //   产出与 .ant-table-wrapper 同名同值的全套 `--ant-*`。详见 `docs/design-notes/theme-tokens.md`。
-  //
-  // useAntdInternalToken 返回 6 元组 `[mergedTheme, realToken, hashId, token, cssVar, zeroRuntime]`：
-  //   - realToken（index 1）= 未 var 化原值（公开 theme.useToken().token 已被 var 化为 'var(--ant-x)'，
-  //     不能直接喂 transformToken——会产出 --ant-x:var(--ant-y) 自引用空循环）。
-  //   - cssVar（index 4）= `{ prefix:'ant', key:'css-var-root' }`（默认；ConfigProvider cssVar
-  //     可覆盖 prefix/key，但 demo 不覆盖）。
-  //
-  // realToken.Table 仅含**用户在 ConfigProvider theme.components.Table 显式声明的覆盖项**
-  //   （不含 prepareComponentToken 派生的默认值——antd 是在 genCSSVarRegister 的 fn 回调里
-  //   通过 getDefaultComponentToken + getComponentToken 在渲染时单独合并 + 删除与 alias 同值键）。
-  //   data-grid 在注入时（tableTokenToCssVars）复刻此合并流程：prepareComponentToken 默认 + 用户覆盖。
-  //
-  // useMemo 依赖 realToken：useCacheToken 内部用 tokenStr 缓存，realToken 引用在 theme/override
-  //   变化时更新（新对象）→ useMemo 重算 vars → 视觉同步。
-  const antdUseTokenResult = useAntdInternalToken()
-  // realToken 已是 GlobalToken（useToken 元组 index 1），强转为 Record<string, unknown>
-  //   以便 transformToken 处理（transformToken 接受任意 token 对象，TS 上用 Record 表达）。
-  //   经 unknown 中转避免 strict 类型校验。
-  const realToken = antdUseTokenResult[1] as unknown as Record<string, unknown> | undefined
-  const cssVar = antdUseTokenResult[4] as { prefix: string; key: string }
+  // 主题注入：alias/table token → CSS vars 编排 + wrapperStyle 合并。
+  // 集中 antd 内部 API 依赖（useAntdInternalToken / tokenBridge）于 hook，逻辑详见 `./useTableThemeVars.ts`。
+  const { wrapperStyle } = useTableThemeVars(style, stylesResolved)
 
-  // alias var：transformToken(realToken, ...)，与 useCacheToken 内部同款调用。
-  //   unitless/ignore/preserve 直接复用 antd 源文件导出的全集（不自己枚举，防猜测）。
-  const aliasTokenVars = useMemo(
-    () =>
-      realToken
-        ? tokenToCssVars(realToken, cssVar, {
-            unitless: antdTokenUnitless as Record<string, boolean>,
-            ignore: antdTokenIgnore as Record<string, boolean>,
-            // preserve 集合 antd useToken.ts 内部声明为 const（未 export），复制稳定集合：
-            //   screenXS..screenXXXL 各 min/max（preserve 让 transformToken 原样保留数值不转 CSS var）。
-            preserve: {
-              screenXS: true, screenXSMin: true, screenXSMax: true,
-              screenSM: true, screenSMMin: true, screenSMMax: true,
-              screenMD: true, screenMDMin: true, screenMDMax: true,
-              screenLG: true, screenLGMin: true, screenLGMax: true,
-              screenXL: true, screenXLMin: true, screenXLMax: true,
-              screenXXL: true, screenXXLMin: true, screenXXLMax: true,
-              screenXXXL: true, screenXXXLMin: true,
-            },
-          })
-        : {},
-    [realToken, cssVar],
+  // 列宽策略 tableLayout 派生（对齐 antd rc-table `Table.tsx:613-627` mergedTableLayout）。
+  // 派生规则与设计依据详见 `./tableLayoutResolver.ts` 顶层注释。
+  const derivedTableLayout: 'auto' | 'fixed' = useMemo(
+    () => resolveTableLayout(tableLayoutProp, visibleColumns, scroll?.x, scroll?.y, sticky),
+    [tableLayoutProp, visibleColumns, scroll?.x, scroll?.y, sticky],
   )
-
-  // Table component var：完全复刻 antd genCSSVarRegister fn 回调（详见 tableTokenToCssVars 注释）。
-  //   传入完整 realToken（含 .Table 子对象），内部调 prepareComponentToken 派生默认 + 合并用户覆盖
-  //   + 删 alias 同值键 + prefixToken 重命名（仅 defaultToken 的 key）→ 产出 --ant-table-*（默认派生）
-  //   与写回 alias 同名的 --ant-* （如 colorBgContainer）混合 CSS vars。
-  //   realToken 为 undefined（首次渲染前）时输出空对象（零回归）。
-  const tableTokenVars = useMemo(
-    () =>
-      realToken
-        ? tableTokenToCssVars(realToken, cssVar)
-        : {},
-    [realToken, cssVar],
-  )
-
-  // 语义化 root 部位 style（合并到根容器 style；semantic 覆盖同名字段）。
-  // 主题注入：aliasTokenVars（基础 alias token）+ tableTokenVars（Table component token）合并到根容器
-  //   style；优先级：style（用户传入） > stylesResolved.root（语义 root style）
-  //   > tableTokenVars（Table component token）> aliasTokenVars（基础 alias token）
-  //   > tokens.css fallback。
-  //
-  //   合并顺序 `{...aliasTokenVars, ...tableTokenVars}`：tableTokenVars 覆盖 aliasTokenVars 同名字段。
-  //   实际几乎不重名：alias 用 `--ant-color-*`/`--ant-border-radius` 等直名（`token2CSSVar('colorPrimary','ant')`
-  //   = `--ant-color-primary`），Table 用 `--ant-table-*`（prefixToken 加 `Table` 前缀后再 token2CSSVar：
-  //   `token2CSSVar('TableHeaderBg','ant')` = `--ant-table-header-bg`）。
-  //
-  //   colorBgContainer 写回机制：用户覆 `Table.colorBgContainer` 时，tableTokenVars 直接产出
-  //   `--ant-color-bg-container`（写回 alias 同名 var，非新增 `--ant-table-color-bg-container`）——
-  //   与 antd DOM 一致。aliasTokenVars 也产出 `--ant-color-bg-container`（alias 默认 #ffffff），
-  //   但 tableTokenVars 在合并中后置覆盖之（`{...aliasTokenVars, ...tableTokenVars}`），最终
-  //   .dg-wrapper 的 `--ant-color-bg-container` = 用户值（如 component-token demo 的 #e6f4ff）。
-  //   data-grid 表体底色消费此 var（tokens.css）。
-  //
-  //   CSS variable 由 inline style 提供优先级高于 class（tokens.css fallback）。用户 style 与 token
-  //   vars 的 key 空间不同（用户用标准 CSS 属性，token vars 用 `--ant-*`），实际不冲突。
-  const wrapperStyle = useMemo(() => {
-    const merged: React.CSSProperties = { ...aliasTokenVars, ...tableTokenVars }
-    if (stylesResolved?.root) {
-      Object.assign(merged, style, stylesResolved.root)
-    } else if (style) {
-      Object.assign(merged, style)
-    }
-    return merged
-  }, [style, stylesResolved?.root, tableTokenVars, aliasTokenVars])
-
-  /**
-   * 列宽策略 tableLayout 派生（对齐 antd rc-table `Table.tsx:613-627` mergedTableLayout）。
-   *
-   * data-grid `grid-template-columns` 默认 `max-content`（列宽=内容宽）→ ① ellipsis 列 track=content
-   * 宽，cell-inner 不溢出 → 视觉无 `...`；② 固定列 + scroll.x 场景下，无 width 列 max-content
-   * 不填满 scrollX，实际列总宽 < 声明宽 → 横滚到右时 fixed-end 列脱离右边缘（virtual-list 暴露
-   * 的问题）。antd 用 `<table>{width:100%}` + `table-layout:fixed` 让无 width 列均分剩余（填满
-   * scrollX，fixed-end 始终贴右；被压缩 < content → ellipsis 生效）。
-   *
-   * 派生规则（对齐 antd `mergedTableLayout`）：
-   *   - 用户显式传 `tableLayout`（`'fixed'` / `'auto'`）→ 用之。
-   *   - 未显式 + **fixColumn**（任一叶子列 `fixed:'start'|'end'`）→ 'fixed'（除非 scroll.x==='max-content'，
-   *     此时 antd 保持 'auto' 让内容自然撑宽）。
-   *   - 未显式 + **fixHeader**（scroll.y===true 容器内固定表头）/ **sticky**（页面级）/ **有 ellipsis 列**
-   *     → 'fixed'。
-   *   - 否则 → 'auto'（默认，维持 max-content；basic 等无 fixed/ellipsis/scroll 的 demo 走此路径）。
-   *
-   * antd 源码依据：`react-component/table/src/Table.tsx:613-627`：
-   *   ```
-   *   if (tableLayout) return tableLayout;
-   *   if (fixColumn) return mergedScrollX === 'max-content' ? 'auto' : 'fixed';
-   *   if (fixHeader || isSticky || flattenColumns.some(({ellipsis}) => ellipsis)) return 'fixed';
-   *   return 'auto';
-   *   ```
-   *
-   * 与 colTracks 策略配合：fixed 模式下无 width 列 `minmax(0,1fr)` 均分剩余填满容器/scrollX，
-   *   绝对 width 列 `minmax(width,1fr)`；auto 模式下 `max-content`/`minmax(width,max-content)`。
-   *   修 virtual-list fixed-end 脱离 + ellipsis + narrow 均分（narrow 需 demo 显式 tableLayout:fixed
-   *   或有 fixed/ellipsis 列才派生；narrow demo 三列均无 fixed/ellipsis 故仍 auto——属 auto 语义预期）。
-   *
-   * 固定列偏移不受影响：useStickyColumns 用 ResizeObserver 实测 DOM 宽度（不依赖 col.width 数值），
-   *   fixed 模式下 minmax 算出的实际宽度会被 ResizeObserver 重测，sticky 偏移自动正确。
-   *
-   * ellipsis/fixed 判定：基于已过滤哨兵的 visibleColumns（与渲染一致）。哨兵（SELECTION/EXPAND）
-   *   不是 ColumnType，不带 ellipsis/fixed，跳过。
-   *
-   * 详见 `docs/design-notes/column-width.md`。
-   */
-  const derivedTableLayout: 'auto' | 'fixed' = useMemo(() => {
-    if (tableLayoutProp === 'fixed' || tableLayoutProp === 'auto') return tableLayoutProp
-    // 扫描叶子列：fixColumn（任一 fixed）+ ellipsis（任一 ellipsis truthy）。
-    let hasFixedColumn = false
-    let hasEllipsis = false
-    for (const c of visibleColumns as Array<ColumnOrSentinel<RecordType>>) {
-      if (c === SELECTION_COLUMN || c === EXPAND_COLUMN) continue
-      const col = c as ColumnType<RecordType>
-      if (col.fixed) hasFixedColumn = true
-      if (col.ellipsis) hasEllipsis = true
-    }
-    // fixHeader = scroll.y===true（容器内固定表头）；isSticky = sticky prop 启用。
-    const fixHeader = scroll?.y === true
-    const isSticky = sticky !== undefined && sticky !== false
-    // 对齐 antd `Table.tsx:620-622`：fixColumn 时提前返回（max-content → auto，否则 fixed），
-    //   不再落到 fixHeader/ellipsis 分支——即使同时有 fixHeader/ellipsis，fixColumn+max-content 仍 auto。
-    if (hasFixedColumn) {
-      return scroll?.x === 'max-content' ? 'auto' : 'fixed'
-    }
-    if (fixHeader || isSticky || hasEllipsis) return 'fixed'
-    return 'auto'
-  }, [tableLayoutProp, visibleColumns, scroll?.x, scroll?.y, sticky])
 
   // 引擎层 ref（暴露 scrollTo 等）。本组件的 forwardRef ref 桥接到它。
   const engineRef = useRef<TableEngineHandle | null>(null)

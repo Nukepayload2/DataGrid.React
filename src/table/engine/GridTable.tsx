@@ -35,7 +35,6 @@
 
 import {
   forwardRef,
-  useCallback,
   useImperativeHandle,
   useMemo,
   useRef,
@@ -57,6 +56,10 @@ import {
   useVirtualList,
 } from './useVirtualList'
 import { useColumnResize, type ColumnResizeMode } from './useColumnResize'
+import { useScrollMode } from './useScrollMode'
+import { useRowHeightSystem, useEffectiveRowHeight } from './useRowHeightSystem'
+import { useGridLayout } from './useGridLayout'
+import { useGridScrollSync } from './useGridScrollSync'
 import { HeaderGrid } from './HeaderGrid'
 import { parseSummaryNode } from './Summary'
 import type {
@@ -66,23 +69,14 @@ import type {
   EngineTableProps,
 } from './types'
 // onHeaderCell 签名 `(column) => HTMLAttributes` 的 column 类型用 ColumnType 表达（与对外 types.ts 一致），仅 type-only。
-import { FloatingScrollBar } from './FloatingScrollBar'
-import { getRowKey } from './recordAccess'
-import {
-  clampSize,
-  resolveNumericRowHeight,
-  toTrack,
-} from './cellRenderUtils'
-import {
-  clampScrollLeft,
-} from './gridScrollUtils'
-import { computeGridTemplateColumns } from './gridTemplateColumnsUtils'
+// FloatingScrollBar / StickyScrollBar 由 ScrollContainer 内部调用（不再直接 import）。
+// clampScrollLeft / getStickyMaxScroll 已下移到 useGridScrollSync.ts（task43），此处不再 import。
 import { resolveHeaderContentOffset } from './headerHeightUtils'
 import { computeTreeFirstDataColumnIdx } from './treeColumnUtils'
 import { computeExpandLayout } from './expandLayoutUtils'
 import { renderExpandedContents } from './expandLayerUtils'
-import { SummaryLayer, summaryRowsTrack } from './SummaryLayer'
-import { StickyScrollBar, getStickyMaxScroll } from './StickyScrollBar'
+import { SummaryLayer } from './SummaryLayer'
+import { ScrollContainer } from './ScrollContainer'
 import { HeaderCell } from './HeaderCell'
 import { renderBodyCells } from './BodyGrid'
 import { ColumnCells } from './FlatColumnCells'
@@ -190,47 +184,29 @@ function GridTableInner<RecordType = any>(
 
   const gridRef = useRef<HTMLDivElement | null>(null)
   const stickyViewportRef = useRef<HTMLDivElement | null>(null)
-  const [stickyScrollLeft, setStickyScrollLeft] = useState(0)
 
-  // === 页面级粘性表头（区别于容器内固定）— 详见 docs/design-notes/sticky.md ===
-  // sticky prop 启用时：表头相对**页面 viewport** 固定（position:sticky; top:offsetHeader），
-  // 而非相对表格滚动容器固定。
-  //
-  // 与虚拟 / 容器内固定表头互斥：sticky 启用时走"页面级"路径（grid 不包 overflow 容器，避免拦截
-  // sticky 上下文），virtual / scrollYNonVirtual 的容器内固定表头不生效（headerStickyTop 仍为 false，
-  // 由 stickyHeaderOffset 驱动）。
-  const stickyEnabled = sticky !== undefined && sticky !== null
-  const stickyOffsetHeader = (sticky && typeof sticky === 'object' ? sticky.offsetHeader : undefined) ?? 0
-  const stickyOffsetScroll = (sticky && typeof sticky === 'object' ? sticky.offsetScroll : undefined) ?? 0
-  const stickyGetContainer =
-    sticky && typeof sticky === 'object' && sticky.getContainer ? sticky.getContainer : undefined
+  // === 滚动模式互斥判定（sticky / virtual / 容器内固定表头）— 详见 useScrollMode.ts ===
+  const {
+    stickyEnabled,
+    stickyOffsetScroll,
+    stickyGetContainer,
+    scrollYEnabled,
+    virtualEnabled,
+    scrollYNonVirtual,
+    headerStickyTop,
+    stickyHeaderOffset,
+  } = useScrollMode({ sticky, scroll, virtual })
 
-  // === 虚拟滚动判定 — 详见 docs/design-notes/virtualization.md ===
-  // virtual=true 且 scroll.y === true 时启用纵向虚拟滚动（scroll.y 仅 true/undefined）。
-  // 虚拟窗口高度由 CSS 自动适应（容器 clientHeight，ResizeObserver 实时测量——见 useVirtualList）。
-  // sticky 启用时禁用虚拟（页面级与容器内虚拟互斥；sticky 下页面滚动，虚拟窗口失去意义）。
-  const scrollY = scroll?.y
-  const scrollYEnabled = scrollY === true
-  const virtualEnabled = !stickyEnabled && virtual === true && scrollYEnabled
-
-  // === 容器内固定表头（非 virtual）判定 ===
-  // 非 virtual 且 scroll.y === true 时启用：表头 sticky top + 表体限高纵向滚动（CSS 自动适应高度）。
-  // 与虚拟互斥（虚拟优先）。sticky 启用时禁用（页面级优先）。
-  const scrollYNonVirtual = !stickyEnabled && !virtualEnabled && scrollYEnabled
-
-  // === 表头纵向 sticky 统一标志（虚拟 + 容器内固定表头共用）===
-  // 无论虚拟还是非虚拟 scroll.y，表头都需要 `position: sticky; top: 0` 钉在滚动容器顶部。
-  // 该标志传入 HeaderCell / ColumnCells 的 `headerStickyTop` prop，统一驱动表头 sticky 行为，
-  // 避免两套不一致的实现。
-  // sticky 页面级固定**不**走此标志（该标志驱动的是"容器内 top:0"）；sticky 由 stickyHeaderOffset
-  // 单独驱动（表头格 inline style 用 top: offsetHeader，相对 viewport），见下方 stickyHeaderOffset。
-  const headerStickyTop = virtualEnabled || scrollYNonVirtual
-
-  // === 表头页面级 sticky 偏移（仅 sticky 启用时有效）===
-  // 传入 HeaderCell / ColumnCells 的 `stickyHeaderOffset` prop：sticky 启用时表头格 inline style
-  // 加 `position: sticky; top: offsetHeader; zIndex`，相对 viewport 固定。与 headerStickyTop（容器内）
-  // 互斥——同时为 true 时 sticky 优先（sticky 启用时 headerStickyTop 恒 false，见上）。
-  const stickyHeaderOffset: number | undefined = stickyEnabled ? stickyOffsetHeader : undefined
+  // === sticky 横向滚动同步（stickyScrollLeft + onStickyViewportWheel + stickyTranslateStyle）
+  //   已抽出到 useGridScrollSync.ts（task43）；依赖 stickyEnabled 故在 useScrollMode 之后调用。
+  //   行为字节级保持：wheel 处理 / clamp 边界 / getStickyMaxScroll 协同 / translateX 派生全部
+  //   在 hook 内，本组件只透传 props 给 ScrollContainer。
+  const {
+    stickyScrollLeft,
+    setStickyScrollLeft,
+    onStickyViewportWheel,
+    stickyTranslateStyle,
+  } = useGridScrollSync({ stickyEnabled, stickyViewportRef, gridRef })
 
   // 是否启用展开（expandState.expandEnabled）。展开启用时强制 multi 路径——
   // 展开内容 track 需要精确 grid-row 定位，flat 路径（grid-auto-flow:column）无法插入。
@@ -383,54 +359,18 @@ function GridTableInner<RecordType = any>(
     [leafColumns, dataSource],
   )
 
-  // === 虚拟滚动：约定行高 + 有界行高模型 — 详见 docs/design-notes/virtualization.md 与 row-height.md ===
-  // getRowHeight 是 useVirtualList 算 offset/totalSize 的唯一行高来源。
-  // 此处只用"收起态"约定行高，不感知展开态（详见 useVirtualList 注释 + docs/design-notes/virtualization.md）。
-  //
-  // rowHeight 仅来自 `gridOptions.rowHeight`。优先级：`gridOptions.rowHeight` > 虚拟默认 56
-  //   （对齐 antd virtual-list 表观行高，antd large ≈ 55）。
-  // boundedRowHeight：minRowHeight 与 maxRowHeight **同时**为正数时启用「有界行高模型」
-  //   （行随内容在 [min,max] 变高，body track=auto + 行容器 min/max-height 约束）。
-  //   仅设其一或都未设 → 固定行高模型（body track = `${effectiveRowHeight}px`）。
-  const gridRowHeightOpt = gridOptions?.rowHeight
-  const minRowHeightRaw = gridOptions?.minRowHeight
-  const maxRowHeightRaw = gridOptions?.maxRowHeight
-  const resolvedRowHeight = gridRowHeightOpt ?? (virtualEnabled ? 56 : undefined)
-  const boundedRowHeight =
-    typeof minRowHeightRaw === 'number' &&
-    minRowHeightRaw > 0 &&
-    typeof maxRowHeightRaw === 'number' &&
-    maxRowHeightRaw > 0 &&
-    minRowHeightRaw <= maxRowHeightRaw
-  const minRowHeight = boundedRowHeight ? (minRowHeightRaw as number) : undefined
-  const maxRowHeight = boundedRowHeight ? (maxRowHeightRaw as number) : undefined
-  const getRowHeight = useCallback(
-    (index: number) => {
-      // 有界模式下，未测行回退用 minRowHeight（而非 rowHeight），保证 track=auto + 行容器 min-height
-      // 时虚拟窗口初始 offset 与首屏一致（首测后由 sizeOf 实测接管）。
-      if (boundedRowHeight) {
-        const rec = dataSource[index]
-        const declared =
-          typeof gridRowHeightOpt === 'function'
-            ? resolveNumericRowHeight(gridRowHeightOpt, rec, index)
-            : typeof gridRowHeightOpt === 'number'
-              ? gridRowHeightOpt
-              : minRowHeightRaw
-        return clampSize(declared, minRowHeightRaw, maxRowHeightRaw)
-      }
-      return resolvedRowHeight === undefined
-        ? 0
-        : resolveNumericRowHeight(resolvedRowHeight, dataSource[index], index)
-    },
-    [
-      boundedRowHeight,
-      gridRowHeightOpt,
-      minRowHeight,
-      maxRowHeight,
-      dataSource,
-      resolvedRowHeight,
-    ],
-  )
+  // === 行高系统 — 详见 useRowHeightSystem.ts 与 docs/design-notes/virtualization.md / row-height.md ===
+  // 阶段 1：派生 gridRowHeightOpt/minRowHeight/maxRowHeight/resolvedRowHeight/boundedRowHeight +
+  // getRowHeight（每行调用，useVirtualList offset/totalSize 唯一行高来源）。
+  // 虚拟滚动核心，铁律：只搬编排不重写不优化，引用稳定。
+  // 注：effectiveRowHeight 依赖 virtualState.sizeOf，必须在 useVirtualList 之后通过
+  // useEffectiveRowHeight 计算（依赖顺序：getRowHeight → virtualState → effectiveRowHeight）。
+  const {
+    minRowHeight,
+    maxRowHeight,
+    boundedRowHeight,
+    getRowHeight,
+  } = useRowHeightSystem({ gridOptions, dataSource, virtualEnabled })
 
   // 滚动容器 ref（虚拟下承载纵向滚动；非虚拟时不使用）。
   const virtualScrollRef = useRef<HTMLDivElement | null>(null)
@@ -452,22 +392,15 @@ function GridTableInner<RecordType = any>(
     gap: 0,
   })
 
-  // === effectiveRowHeight：body track 行高取值 — 详见 docs/design-notes/virtualization.md ===
-  //   - 有界模型（minRowHeight/maxRowHeight 均设）：实测优先（sizeOf 闭环），未测回退 getRowHeight；
-  //     clamp 到 [min,max]；body track 取该值（min-height/max-height 同样约束行容器，二者一致保对齐）。
-  //   - 固定模型（默认）：取 getRowHeight(i)（= resolvedRowHeight 数值化）。
-  // 该值同时回填到每行 cell 的 `data-known-size`（实测闭环，避免 useRowMeasurements 死循环）。
-  const effectiveRowHeight = useCallback(
-    (i: number): number => {
-      if (boundedRowHeight) {
-        const measured = virtualEnabled ? virtualState.sizeOf(i) : 0
-        const base = measured > 0 ? measured : getRowHeight(i)
-        return clampSize(base, minRowHeight, maxRowHeight)
-      }
-      return getRowHeight(i)
-    },
-    [boundedRowHeight, virtualEnabled, virtualState, getRowHeight, minRowHeight, maxRowHeight],
-  )
+  // 阶段 2：effectiveRowHeight（body track 行高取值，有界/固定二分支）— 须在 virtualState 之后。
+  const effectiveRowHeight = useEffectiveRowHeight({
+    boundedRowHeight,
+    virtualEnabled,
+    virtualState,
+    getRowHeight,
+    minRowHeight,
+    maxRowHeight,
+  })
 
   // 暴露 scrollTo（仅在虚拟模式下有效；非虚拟调用为 no-op）。
   useImperativeHandle(
@@ -504,144 +437,30 @@ function GridTableInner<RecordType = any>(
   // 非虚拟：headerTracks + 全部数据行 tracks（含展开 track）。无展开时退化为简单行 track。
   // summary 启用时末尾追加 summaryTracks（每行一条 'auto'），并返回 summaryStartLine
   //   供渲染时给 summary Row 注入 grid-row 线号。
-  const { gridTemplateRows, gridTemplateColumns, gridAutoFlow, summaryStartLine, paddingTopLine, paddingBottomLine } = useMemo(() => {
-    const headerRows = showHeader ? maxDepth : 0
-    const headerTrackUnit = toTrack(headerHeight) ?? 'auto'
-    const headerTracks: string[] = []
-    for (let i = 0; i < headerRows; i += 1) headerTracks.push(headerTrackUnit)
-
-    let bodyTracks: string[]
-    if (virtualEnabled) {
-      // 虚拟：只列可视区数据行 tracks（约定行高数值化）。前后各加一条占位 track 撑总高。
-      // 展开内容 track 穿插在可视区数据行间（可展开行后插一条 0fr/1fr）。
-      //   展开 track 不参与虚拟窗口大小（paddingTop/Bottom 仍按收起态 totalSize 算），展开会让实际
-      //   DOM 总高 > totalSize，浏览器滚动条位置可能轻微偏移，但窗口稳定不崩。
-      const visibleTracks: string[] = []
-      for (let i = virtualState.start; i < virtualState.end; i += 1) {
-        // 有界行高模型（详见 docs/design-notes/row-height.md）：
-        //   - 有界模式（min/max 均设）：track = `auto`（行随内容自适应），每行 cell 加
-        //     `min-height:minRowHeight; max-height:maxRowHeight`（dg-cell-bounded 类，见 table.css）。
-        //     不能用 `minmax(min,max)` track：grid 的 free-space 分配会把所有 minmax track 拉满到 max
-        //     （因为 paddingBottom track 撑大 grid 容器→grid 有大量 free space→minmax track 全部吸满）。
-        //     用 `auto` track 不吸 free space，cell 的 min/max-height 约束真实高，实测闭环正确。
-        //   - 固定模式（默认）：track = `${effectiveRowHeight(i)}px`（含 sizeOf 实测闭环；
-        //     measurement 跑但实测≈固定值，视觉不变）。
-        if (boundedRowHeight) {
-          visibleTracks.push('auto')
-        } else {
-          visibleTracks.push(`${effectiveRowHeight(i)}px`)
-        }
-        // 展开内容 track（可展开行后紧跟一条）。
-        if (expandEnabled && expandState) {
-          const record = dataSource[i]
-          if (record !== undefined) {
-            const key = getRowKey(record, rowKey)
-            if (expandState.isExpandable(key)) {
-              visibleTracks.push(expandState.isExpanded(key) ? '1fr' : '0fr')
-            }
-          }
-        }
-      }
-      // paddingTop/paddingBottom track 用 `'auto'`，由独立的 FillerRow grid item 撑高——
-      // 详见 docs/design-notes/virtualization.md 的「占位 track / FillerRow（spacer 解耦）」一节。
-      bodyTracks = ['auto', ...visibleTracks, 'auto']
-    } else {
-      // 非虚拟下数据行间穿插展开内容 track（可展开行后插一条 0fr/1fr）。无展开时退化为 dataSource.map。
-      if (expandEnabled && expandState) {
-        const tracks: string[] = []
-        dataSource.forEach((record, index) => {
-          // 有界行高模型（非虚拟分支同款）：有界模式用 auto track + cell min/max-height。
-          let baseTrack: string
-          if (boundedRowHeight) {
-            baseTrack = 'auto'
-          } else if (typeof rowHeight === 'function') {
-            baseTrack = toTrack(rowHeight(record, index)) ?? 'auto'
-          } else {
-            baseTrack = rowHeight !== undefined ? `${rowHeight}px` : 'auto'
-          }
-          tracks.push(baseTrack)
-          const key = getRowKey(record, rowKey)
-          if (expandState.isExpandable(key)) {
-            tracks.push(expandState.isExpanded(key) ? '1fr' : '0fr')
-          }
-        })
-        bodyTracks = tracks
-      } else {
-        bodyTracks = dataSource.map((record, index) => {
-          // 有界行高模型（非虚拟分支同款）：有界模式用 auto track + cell min/max-height。
-          if (boundedRowHeight) {
-            return 'auto'
-          }
-          if (typeof rowHeight === 'function') {
-            const v = rowHeight(record, index)
-            return toTrack(v) ?? 'auto'
-          }
-          return rowHeight !== undefined ? `${rowHeight}px` : 'auto'
-        })
-      }
-    }
-
-    const gridTemplateColumns = computeGridTemplateColumns({
-      leafColumns,
-      resizedWidths,
-      tableLayout: tableLayout ?? 'auto',
-    })
-
-    // summary 区 tracks（grid-template-rows 末尾追加，每行一条 'auto' track）。
-    // summary 行高按内容自适应（'auto'），与表体行高约定无关——summary 通常是单行文本，
-    // 不需要参与虚拟窗口/行高约定计算。
-    const summaryTracks = summaryParsed ? summaryRowsTrack(summaryParsed.count).split(' ').filter(Boolean) : []
-    // summary 区起始线号 = headerTracks + bodyTracks + 1（1-based grid line）。
-    // summary 第 0 行 track 占 [summaryStartLine, summaryStartLine+1]。
-    const summaryStartLine = summaryParsed
-      ? headerTracks.length + bodyTracks.length + 1
-      : 0
-
-    // FillerRow（撑 paddingTop/Bottom 的独立 grid item）所在 grid-row 线号。
-    //   - paddingTop track 紧跟 headerTracks：其 1-based 起始线 = headerTracks.length + 1。
-    //   - paddingBottom track 是 bodyTracks 末条：起始线 = headerTracks.length + bodyTracks.length。
-    //     （summaryStartLine>0 时 = summaryStartLine - 1；summaryStartLine=0 时直接由 tracks 长度算。）
-    //   虚拟模式下 bodyTracks 首末恒为 'auto'（FillerRow 用 height 撑高其 auto track）。
-    //   非虚拟下 bodyTracks 无 padding track（无 FillerRow），此处的线号仅虚拟场景使用。
-    //   详见 docs/design-notes/virtualization.md 的「占位 track / FillerRow（spacer 解耦）」一节。
-    const paddingTopLine = headerTracks.length + 1
-    const paddingBottomLine = headerTracks.length + bodyTracks.length
-
-    // 多级表头路径：关闭 auto-flow（用显式 grid-column/grid-row 定位）。
-    // 单层路径：保持 grid-auto-flow:column。
-    // summary 启用时强制关闭 auto-flow（用显式定位）——summary Cell 用 gridColumn/gridRow 显式定位，
-    // auto-flow:column 会导致表体格 DOM 按列连续填充时与 summary Cell 的显式定位冲突。
-    return {
-      gridTemplateRows: [...headerTracks, ...bodyTracks, ...summaryTracks].join(' ') || 'none',
-      gridTemplateColumns,
-      gridAutoFlow: mode === 'multi' || summaryEnabled ? undefined : ('column' as const),
-      summaryStartLine,
-      paddingTopLine,
-      paddingBottomLine,
-    }
-  }, [
+  // 实现已抽出到 useGridLayout.ts（先移动不重写，字节级对齐；详见该 hook 注释）。
+  const { gridTemplateRows, gridTemplateColumns, gridAutoFlow, summaryStartLine, paddingTopLine, paddingBottomLine } = useGridLayout({
     mode,
     maxDepth,
-    leafColumns,
-    dataSource,
-    rowHeight,
+    showHeader,
+    headerHeight,
+    virtualEnabled,
+    virtualState,
     boundedRowHeight,
     minRowHeight,
     maxRowHeight,
     effectiveRowHeight,
-    headerHeight,
-    showHeader,
-    virtualEnabled,
-    virtualState,
     getRowHeight,
-    resizedWidths,
     expandEnabled,
     expandState,
+    dataSource,
     rowKey,
+    rowHeight,
+    leafColumns,
+    resizedWidths,
+    tableLayout,
     summaryParsed,
     summaryEnabled,
-    tableLayout,
-  ])
+  })
 
   // 整行 hover：记录当前 hover 的数据行 index（null 表示未 hover）。
   const [hoveredRowIndex, setHoveredRowIndex] = useState<number | null>(null)
@@ -671,13 +490,7 @@ function GridTableInner<RecordType = any>(
   // 虚拟：FloatingScrollBar 内部 .dg-scroll overflow-y:auto 双向（虚拟路径）。
   const scrollX = scroll?.x
   const scrollMinWidth = scrollX !== undefined ? (typeof scrollX === 'number' ? `${scrollX}px` : scrollX) : undefined
-  const stickyTranslateStyle: CSSProperties | null =
-    stickyEnabled && stickyScrollLeft > 0
-      ? {
-          transform: `translateX(${-stickyScrollLeft}px)`,
-          willChange: 'transform',
-        }
-      : null
+  // stickyTranslateStyle 来自 useGridScrollSync（task43 抽出，上方派生）。
   const gridFinalStyle: CSSProperties = scrollMinWidth
     ? { ...gridStyle, minWidth: scrollMinWidth, ...(stickyTranslateStyle ?? null) }
     : { ...gridStyle, ...(stickyTranslateStyle ?? null) }
@@ -687,26 +500,6 @@ function GridTableInner<RecordType = any>(
   const gridFinalStyleWithSemantic: CSSProperties = semanticContentStyle
     ? { ...gridFinalStyle, ...semanticContentStyle }
     : gridFinalStyle
-
-  const onStickyViewportWheel = useCallback(
-    (event: React.WheelEvent<HTMLDivElement>) => {
-      if (!stickyEnabled) return
-      const maxScroll = getStickyMaxScroll(stickyViewportRef.current, gridRef.current)
-      if (maxScroll <= 1) return
-      const rawDelta = Math.abs(event.deltaX) > 0
-        ? event.deltaX
-        : event.shiftKey
-          ? event.deltaY
-          : 0
-      if (Math.abs(rawDelta) <= 0.5) return
-      const current = clampScrollLeft(stickyScrollLeft, maxScroll)
-      const next = clampScrollLeft(current + rawDelta, maxScroll)
-      if (next === current) return
-      event.preventDefault()
-      setStickyScrollLeft(next)
-    },
-    [stickyEnabled, stickyScrollLeft],
-  )
 
   const gridClassName = [
     'dg-grid',
@@ -951,139 +744,42 @@ function GridTableInner<RecordType = any>(
     )
   }
 
-  // 语义化 section 部位 class/style（注入到滚动容器；无 semantic 时 sectionClassName=undefined）。
+  // 语义化 section 部位 class/style（注入到滚动容器外层；无 semantic 时 sectionClassName=undefined）。
+  // 合并逻辑（mergeSectionClass/mergeSectionStyle）已随 ScrollContainer 抽出。
   const sectionClassName = semantic?.section?.className
   const sectionStyle = semantic?.section?.style
-  const mergeSectionClass = (...base: Array<string | undefined>) =>
-    [...base, sectionClassName].filter(Boolean).join(' ') || undefined
-  const mergeSectionStyle = (base: CSSProperties | undefined): CSSProperties | undefined => {
-    if (!sectionStyle) return base
-    return { ...(base ?? null), ...sectionStyle }
-  }
 
-  // === 页面级粘性表头（区别于容器内固定）— 详见 docs/design-notes/sticky.md ===
-  // sticky 启用时：grid 只包一层 `overflow: clip` 视口，裁剪宽表但不创建滚动容器；
-  // 横向位移由虚拟 scrollLeft + transform 驱动。表头 grid item 用 stickyHeaderOffset 驱动
-  // （position: sticky; top: offsetHeader，相对 viewport 固定，已在上游 HeaderCell/ColumnCells 应用）。
-  // grid 之后渲染 StickyScrollBar（position: sticky; bottom: offsetScroll）作为底部固定横向滚动条。
-  //
-  // 关键：`overflow: clip` 不提供滚动机制，表头 sticky 仍相对外层页面/内容滚动容器固定
-  //   （页面纵向滚动时表头钉在视口顶部 offsetHeader 处）。这是 sticky 与容器内固定表头
-  //   的本质区别（容器内固定表头相对 .dg-fixed-header-scroll 容器固定，容器内滚动）。
-  //
-  // 横向滚动：StickyScrollBar 与横向 wheel 更新同一份虚拟 scrollLeft，避免宽表撑宽外层文档流。
-  //
-  // 与固定列组合：固定列 grid item 的 position: sticky; left/right 与表头的 position: sticky; top
-  //   在同一元素上叠加（corner cell 双 sticky，浏览器原生支持）。
-  if (stickyEnabled) {
-    // summary 存在时从主 grid 提取为独立兄弟 grid，渲染顺序
-    //   grid(数据) → StickyScrollBar → summary-grid，使横向滚动条落在 summary 上方（数据区末尾）。
-    //
-    // 独立 summary grid 复用主 grid 的 grid-template-columns（列对齐）+ min-width:scrollX（横向滚动
-    //   时与主 grid 同宽），grid-template-rows 仅含 summary tracks（每行 'auto'）。summary Cell 的
-    //   grid-row 重置为 rowIndex+1（独立 grid 第 1 track）；fixed bottom（position:sticky;bottom:0）
-    //   相对页面滚动容器仍生效（与主 grid 内行为一致）。横向 sticky 通过 __leafSticky 透传同样生效。
-    return (
-      <>
-        <div
-          ref={stickyViewportRef}
-          className="dg-sticky-scroll-viewport"
-          onWheel={onStickyViewportWheel}
-        >
-          {renderGrid()}
-        </div>
-        <StickyScrollBar
-          offsetScroll={stickyOffsetScroll}
-          getContainer={stickyGetContainer}
-          gridRef={gridRef}
-          viewportRef={stickyViewportRef}
-          scrollLeft={stickyScrollLeft}
-          onScrollLeftChange={setStickyScrollLeft}
-        />
-        {/* summary 提取到 StickyScrollBar 之后 → 横向滚动条落在 summary 上方。 */}
-        {extractSummary ? (
-          <div className="dg-sticky-scroll-viewport" onWheel={onStickyViewportWheel}>
-            <SummaryLayer
-              summary={summaryParsed}
-              startLine={1}
-              leafSticky={leafSticky}
-              extracted
-              gridClassName={gridClassName}
-              gridTemplateColumns={gridTemplateColumns}
-              scrollMinWidth={scrollMinWidth}
-              stickyTranslateStyle={stickyTranslateStyle}
-            />
-          </div>
-        ) : null}
-      </>
-    )
-  }
-
-  // === 滚动容器路由 — 详见 docs/design-notes/scrollbar.md ===
-  //
-  // **横向滚动统一悬浮条**（用户规约：绝不出占布局的原生横滚动条）：
-  //   - 非 sticky 模式一律走 FloatingScrollBar（horizontal=true）。
-  //   - 滚动容器 `.dg-scroll` 始终 overflow-x:auto 作为"滚动源"，原生横滚动条由
-  //     `.dg-scroll-floating` 修饰类（FloatingScrollBar 自动添加）隐藏 width/height:0。
-  //   - 横向不溢出时，HorizontalFloatingScrollBar 的 thumb 自动 display:none → 无任何条；
-  //     溢出时显示悬浮条（细线 2px + hit 上下各 8px + hover 变粗 8px + 拖动/同步 translateX）。
-  //   - 因此原生横滚动条**永不出现**：basic / fixed-columns / scroll.x / scroll.y / virtual 全部覆盖。
-  //
-  // **纵向滚动**（scroll.y === true，数据区域模式）：
-  //   - 高度 CSS 自动适应：`.dg-scroll-wrap`（FloatingScrollBar 包装）`flex:1; min-height:0`，
-  //     `.dg-scroll`（滚动容器）`flex:1; min-height:0; overflow-y:auto`。
-  //     外层 `.dg-wrapper.dg-data-area`（Table.tsx 注入）`display:flex; flex-direction:column; height:100%`，
-  //     让 wrap 填满父容器剩余空间——**不用 JS 算数字**。
-  //   - 表头 sticky top（HeaderCell 的 headerStickyTop 标志驱动）钉顶，表体限高滚动。
-  //   - 纵向悬浮滚动条（FloatingScrollBar 组件 vertical）。
-  //
-  // **sticky 例外**：stickyEnabled 已在上方返回 sticky clip 视口 + StickyScrollBar，
-  //   不走 FloatingScrollBar。
-  //
-  // 虚拟滚动：scrollContainerRef 必须传入（virtualScrollRef）。
-
-  // 横向滚动是否启用（scroll.x）。用于决定是否附加 `dg-x-scroll` 修饰类（仅 scroll.x 无 scroll.y 时）。
-  // 注意：无论 scrollXEnabled 是否为 true，非 sticky 模式下横向悬浮条始终启用——不溢出时 thumb 隐藏。
-  const scrollXEnabled = scrollX !== undefined
-
-  // sticky 模式已在上方返回；这里保留兜底，不走 FloatingScrollBar。
-  if (stickyEnabled) {
-    return renderGrid()
-  }
-
-  // 非 sticky 模式：横向滚动统一 FloatingScrollBar（horizontal 始终 true；纵向按 scrollYEnabled）。
-  // wrapStyle：数据区域模式下 wrap 填满（flex:1; min-height:0）；否则默认布局。
-  const wrapBaseStyle: CSSProperties = scrollYEnabled
-    ? { flex: '1', minHeight: '0', display: 'flex', flexDirection: 'column' }
-    : {}
-  // 滚动容器 style：overflowX 始终 auto（作为横向滚动源，原生条由 .dg-scroll-floating 隐藏）；
-  // overflowY 按 scrollYEnabled 开关（数据区域模式纵向滚动）。
-  const containerStyle: CSSProperties = {
-    // 数据区域模式：滚动容器 flex 填满 wrap；横向滚动模式：自适应内容高。
-    ...(scrollYEnabled ? { flex: '1', minHeight: '0' } : null),
-    overflowY: scrollYEnabled ? 'auto' : 'hidden',
-    overflowX: 'auto',
-  }
-  const containerClasses = [
-    'dg-scroll',
-    virtualEnabled ? 'dg-virtual-scroll' : null,
-    scrollYNonVirtual ? 'dg-fixed-header-scroll' : null,
-    scrollXEnabled && !scrollYEnabled ? 'dg-x-scroll' : null,
-  ]
-    .filter(Boolean)
-    .join(' ')
+  // === 滚动容器路由 — 由 ScrollContainer 组件负责三路 return（sticky / 兜底 / FloatingScrollBar）===
+  //   详见 docs/design-notes/sticky.md（sticky 分支）与 docs/design-notes/scrollbar.md（FloatingScrollBar 分支）。
+  //   stickyScrollLeft state + onStickyViewportWheel + stickyTranslateStyle 由 useGridScrollSync（task43）派生，
+  //   作 props 传入 ScrollContainer。
   return (
-    <FloatingScrollBar
-      wrapClassName={mergeSectionClass('dg-scroll-wrap')}
-      wrapStyle={mergeSectionStyle(wrapBaseStyle)}
-      scrollContainerClassName={containerClasses}
-      scrollContainerStyle={containerStyle}
-      scrollContainerRef={virtualEnabled ? virtualScrollRef : undefined}
-      // 非 sticky 模式横向悬浮滚动条始终启用；不溢出时 thumb 自动隐藏（无视觉副作用）。
-      horizontal={true}
+    <ScrollContainer
+      stickyEnabled={stickyEnabled}
+      stickyViewportRef={stickyViewportRef}
+      onStickyViewportWheel={onStickyViewportWheel}
+      stickyScrollLeft={stickyScrollLeft}
+      setStickyScrollLeft={setStickyScrollLeft}
+      stickyOffsetScroll={stickyOffsetScroll}
+      stickyGetContainer={stickyGetContainer}
+      gridRef={gridRef}
+      extractSummary={extractSummary}
+      summaryParsed={summaryParsed}
+      leafSticky={leafSticky}
+      gridClassName={gridClassName}
+      gridTemplateColumns={gridTemplateColumns}
+      scrollMinWidth={scrollMinWidth}
+      stickyTranslateStyle={stickyTranslateStyle}
+      scrollYEnabled={scrollYEnabled}
+      scrollXEnabled={scrollX !== undefined}
+      virtualEnabled={virtualEnabled}
+      scrollYNonVirtual={scrollYNonVirtual}
+      virtualScrollRef={virtualScrollRef}
+      sectionClassName={sectionClassName}
+      sectionStyle={sectionStyle}
     >
       {renderGrid()}
-    </FloatingScrollBar>
+    </ScrollContainer>
   )
 }
 

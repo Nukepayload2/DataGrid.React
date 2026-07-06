@@ -1,13 +1,13 @@
 # 主题注入与 tokens 桥接（theme tokens）
 
-data-grid 通过 `tokens.css` 定义 `--dg-*` 变量，并在 `Table.tsx` 注入全套 `--ant-*` alias token 到 `.dg-wrapper`。本文说明 token 桥接策略、getComponentToken 剪枝坑、链接色复刻、style-class demo，以及与 antd 的差异。
+data-grid 通过 `tokens.css` 定义 `--dg-*` 变量，并在 `useTableThemeVars.ts` 注入全套 `--ant-*` alias token 到 `.dg-wrapper`。本文说明 token 桥接策略、getComponentToken 剪枝坑、链接色复刻、style-class demo，以及与 antd 的差异。
 
 ## token 桥接（`tokens.css`）
 
 `tokens.css` 定义两套变量：
 
 - `--dg-*`：data-grid 自有变量（如 `--dg-font-size`、`--dg-body-bg`、`--dg-header-bg`、`--dg-border`、`--dg-radius` 等），多数桥接自 `--ant-*` alias token（未接主题时 fallback 到 antd 默认值）。
-- `--ant-*`：antd alias token（由 `Table.tsx aliasTokenVars` 注入 `.dg-wrapper`，未接主题时 tokens.css fallback 兜底）。
+- `--ant-*`：antd alias token（由 `useTableThemeVars` 内的 `aliasTokenVars` 注入 `.dg-wrapper`，未接主题时 tokens.css fallback 兜底）。
 
 `--dg-*` 桥接示例：
 
@@ -76,21 +76,22 @@ antd `getComponentToken` 会**剪枝"默认值 === alias 同值"的 component to
 }
 ```
 
-data-grid 侧：`.dg-wrapper.dg-style-class-root`（root class 注入到根容器，`Table.tsx classNamesResolved?.root`）。antd 侧：`.ant-table-wrapper.dg-style-class-root`。仅 style-class demo 使用，引擎默认不消费。深色主题（#e0e0e0 文字 + 深阴影）是 antd 官方 demo 原样，逐字复刻。
+data-grid 侧：`.dg-wrapper.dg-style-class-root`（root class 注入到根容器，`useTableThemeVars` 合并 `stylesResolved.root`）。antd 侧：`.ant-table-wrapper.dg-style-class-root`。仅 style-class demo 使用，引擎默认不消费。深色主题（#e0e0e0 文字 + 深阴影）是 antd 官方 demo 原样，逐字复刻。
 
 ## 与 antd 差异
 
 | | data-grid | antd |
 |---|---|---|
-| token 注入 | `Table.tsx aliasTokenVars` 注入 `.dg-wrapper` | ConfigProvider theme + cssinjs |
+| token 注入 | `useTableThemeVars` 内的 `aliasTokenVars` / `tableTokenVars` 注入 `.dg-wrapper` | ConfigProvider theme + cssinjs |
 | 链接色 | `.dg-wrapper a` 复刻 genLinkStyle | genLinkStyle 挂在 `.ant-table` 根 |
 | component token | 部分 key 被 getComponentToken 剪枝 → 改消费 alias | cssinjs 内部处理 |
 
 ## 关联源码
 
 - [`src/table/style/tokens.css`](../../../src/table/style/tokens.css) — `--dg-*` 桥接定义 + `--ant-*` fallback。
-- [`src/table/style/table.css`](../../../src/table/style/table.css) — 消费 `var(--dg-*)` / `var(--ant-*)`、`.dg-wrapper a` 链接色、`.dg-style-class-root`。
-- [`src/table/Table.tsx`](../../../src/table/Table.tsx) — `aliasTokenVars` 注入全套 `--ant-*` alias token 到 `.dg-wrapper`、`classNamesResolved?.root`。
+- [`src/table/useTableThemeVars.ts`](../../../src/table/useTableThemeVars.ts) — `aliasTokenVars`（基础 alias token）/ `tableTokenVars`（Table component token）派生与合并，集中 antd 内部 API 依赖（`useAntdInternalToken` + 4 个 `tokenBridge` 导出），输出 `wrapperStyle`（含 `stylesResolved.root` 合并）。
+- [`src/table/tokenBridge.ts`](../../../src/table/tokenBridge.ts) — `transformToken` + `useToken` realToken + `prepareComponentToken` 复刻，产出 alias var 与 Table component var 字符串。
+- [`src/table/Table.tsx`](../../../src/table/Table.tsx) — 调用 `useTableThemeVars`，把 `wrapperStyle` 挂到 `.dg-wrapper` inline style。
 
 ## 注入路径（与 antd 同款，零猜测）
 
