@@ -17,21 +17,16 @@
 import {
   forwardRef,
   useContext,
-  useCallback,
-  useEffect,
   useImperativeHandle,
   useMemo,
   useRef,
-  useState,
   type ReactNode,
-  type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { ConfigProvider } from 'antd'
 import defaultLocale from 'antd/es/locale/en_US'
 import { GridTable, getRowKey } from './engine/GridTable'
 import { Summary as SummaryComponent } from './engine/Summary'
 import {
-  useRowSelection,
   type SelectionItem,
   SELECTION_ALL,
   SELECTION_NONE,
@@ -42,12 +37,7 @@ import { useSorter } from './engine/useSorter'
 import { useFilter } from './engine/useFilter'
 import { useTreeData } from './engine/useTreeData'
 import { useSemanticClassNames } from './useSemanticClassNames'
-import {
-  usePagination,
-  slicePage,
-  resolvePlacement,
-} from './engine/usePagination'
-import type { EngineColumnNode, EngineExpandState, EngineTreeState, FixedSide } from './engine/types'
+import type { EngineExpandState, EngineTreeState } from './engine/types'
 import {
   EXPAND_COLUMN,
   SELECTION_COLUMN,
@@ -56,10 +46,7 @@ import {
   type ColumnProps,
   type ColumnType,
   type Expandable,
-  type GridSelectionMode,
   type GridSelectionOptions,
-  type GridSelectionValue,
-  type RowSelectMethod,
   type SizeType,
   type TableLocale,
   type TablePaginationConfig,
@@ -75,22 +62,10 @@ import {
   applyColumnDefaults,
   convertChildrenToColumns,
   flattenLeafColumns,
-  toEngineColumns,
 } from './columnAdapter'
+import { buildExpandColumnNode } from './expandAdapter'
 import {
-  applyFilterToNode,
-  applySortOrderToNode,
-  hasChildren,
-  isNodeFilterable,
-} from './sortFilterAdapter'
-import { EXPAND_COLUMN_KEY, buildExpandColumnNode } from './expandAdapter'
-import {
-  SELECTION_COLUMN_KEY,
   buildSelectionColumnNode,
-  getRangeKeys,
-  shouldSkipRowSelectionClick,
-  toSelectionValues,
-  type SelectionChangeTrigger,
 } from './selectionAdapter'
 import {
   TableLoadingContainer,
@@ -98,10 +73,12 @@ import {
 } from './emptyLoadingAdapter'
 import { resolveTableLayout } from './tableLayoutResolver'
 import { useResponsiveColumns } from './useResponsiveColumns'
-import {
-  getPaginationSize,
-  renderPaginationNode,
-} from './paginationAdapter'
+import { buildTableRefHandle } from './buildTableRefHandle'
+import { useScrollbarTouch } from './useScrollbarTouch'
+import { useColumnTreeBuilder } from './useColumnTreeBuilder'
+import { usePaginationAdapter } from './usePaginationAdapter'
+import { useSelectionAdapter } from './useSelectionAdapter'
+import { useExpandRowBinding } from './useExpandRowBinding'
 import './style/tokens.css'
 import './style/table.css'
 
@@ -422,241 +399,29 @@ function TableInner<RecordType = any>(
   // 非树形 → flattenedData === filteredDataSource（同引用，零回归）。
   const flattenedDataSource = tree.flattenedData
 
-  // === 行选择 ===
-  const rowSel = rowSelection as TableRowSelection<RecordType> | undefined
-  const gridSelection = gridOptions?.selection as GridSelectionOptions<RecordType> | undefined
-  const nativeSelectionConfigured = gridSelection !== undefined
-  const resolvedSelectionMode: GridSelectionMode = nativeSelectionConfigured
-    ? (gridSelection.selectionMode ?? (rowSel?.type === 'radio' ? 'single' : 'multiple'))
-    : 'disabled'
-  const selectionEnabled = nativeSelectionConfigured ? resolvedSelectionMode !== 'disabled' : !!rowSel
-  const showSelectionColumn = selectionEnabled && (gridSelection?.showSelectionColumn ?? true)
-  const resolvedSelectionType: 'checkbox' | 'radio' = nativeSelectionConfigured
-    ? resolvedSelectionMode === 'single'
-      ? 'radio'
-      : 'checkbox'
-    : rowSel?.type === 'radio'
-      ? 'radio'
-      : 'checkbox'
-  const resolvedRowSel: TableRowSelection<RecordType> | undefined = selectionEnabled
-    ? {
-        ...rowSel,
-        type: resolvedSelectionType,
-      }
-    : undefined
-  const getSelectionValue = useCallback(
-    (record: RecordType, index: number): GridSelectionValue => {
-      const value = gridSelection?.getSelectionValue?.(record, index)
-      return value ?? (getRowKey(record, rowKeyResolved) as GridSelectionValue)
-    },
-    [gridSelection?.getSelectionValue, rowKeyResolved],
-  )
-  const selectionLookup = useMemo(() => {
-    const keyToValue = new Map<React.Key, GridSelectionValue>()
-    const valueToKey = new Map<GridSelectionValue, React.Key>()
-    for (let index = 0; index < flattenedDataSource.length; index += 1) {
-      const record = flattenedDataSource[index]
-      const key = getRowKey(record, rowKeyResolved)
-      const value = getSelectionValue(record, index)
-      if (!keyToValue.has(key)) keyToValue.set(key, value)
-      if (!valueToKey.has(value)) valueToKey.set(value, key)
-    }
-    return { keyToValue, valueToKey }
-  }, [flattenedDataSource, getSelectionValue, rowKeyResolved])
-  const mapKeysToValues = useCallback(
-    (keys: ReadonlyArray<React.Key> | undefined) => {
-      if (!keys) return []
-      const next: Array<GridSelectionValue> = []
-      const seen = new Set<GridSelectionValue>()
-      for (const key of keys) {
-        const value = selectionLookup.keyToValue.get(key)
-        if (value === undefined || seen.has(value)) continue
-        seen.add(value)
-        next.push(value)
-      }
-      return next
-    },
-    [selectionLookup],
-  )
-  const mapValuesToKeys = useCallback(
-    (values: ReadonlyArray<GridSelectionValue> | undefined) => {
-      if (!values) return []
-      const next: Array<React.Key> = []
-      const seen = new Set<React.Key>()
-      for (const value of values) {
-        const key = selectionLookup.valueToKey.get(value)
-        if (key === undefined || seen.has(key)) continue
-        seen.add(key)
-        next.push(key)
-      }
-      return next
-    },
-    [selectionLookup],
-  )
-  const isControlledSelection = !nativeSelectionConfigured && rowSel
-    ? rowSel.selectedRowKeys !== undefined
-    : false
-  const [uncontrolledKeys, setUncontrolledKeys] = useState<Array<React.Key>>(
-    () => rowSel?.defaultSelectedRowKeys ?? [],
-  )
-  const [uncontrolledSelectedValues, setUncontrolledSelectedValues] = useState<Array<GridSelectionValue>>(
-    () => {
-      if (!nativeSelectionConfigured) return []
-      if (gridSelection?.defaultSelectedValues !== undefined) {
-        return toSelectionValues(gridSelection.defaultSelectedValues)
-      }
-      if (rowSel?.defaultSelectedRowKeys !== undefined) {
-        return mapKeysToValues(rowSel.defaultSelectedRowKeys)
-      }
-      return []
-    },
-  )
-  const [selectionAnchorKey, setSelectionAnchorKey] = useState<React.Key | null>(null)
-  const isNativeValuesControlled =
-    nativeSelectionConfigured && gridSelection?.selectedValues !== undefined
-  const isNativeCompatKeysControlled =
-    nativeSelectionConfigured &&
-    gridSelection?.selectedValues === undefined &&
-    gridSelection?.defaultSelectedValues === undefined &&
-    rowSel?.selectedRowKeys !== undefined
-  const effectiveSelectedValues: Array<GridSelectionValue> = nativeSelectionConfigured
-    ? isNativeValuesControlled
-      ? toSelectionValues(gridSelection?.selectedValues)
-      : isNativeCompatKeysControlled
-        ? mapKeysToValues(rowSel?.selectedRowKeys)
-        : uncontrolledSelectedValues
-    : []
-  // 受控：用 selectedValues / selectedRowKeys；非受控：用对应内部 state。
-  const effectiveSelectedKeys: Array<React.Key> = nativeSelectionConfigured
-    ? mapValuesToKeys(effectiveSelectedValues)
-    : rowSel
-      ? isControlledSelection
-        ? (rowSel.selectedRowKeys as Array<React.Key>)
-        : uncontrolledKeys
-      : []
-
-  // 状态机：从 effectiveSelectedKeys + flattenedDataSource + rowKey + getCheckboxProps 派生。
-  // 用排序后的顺序 + 筛选后的数据源（与引擎实际渲染顺序一致）。
-  // 树形模式下用 flattenedDataSource（仅可见行）——与引擎实际渲染顺序一致；
-  //   同时传 checkStrictly + parentChildrenMap 启用父子联动。
-  //   使 selectedRows 与引擎渲染顺序一致（与 antd "onChange 返回渲染后顺序的 selectedRows"语义一致）。
-  // 返回 isSelected/allSelected/intermediate/isDisabled/isIndeterminate 与 toggle* 操作。
-  // 详见 `docs/design-notes/selection.md`。
-  const selection = useRowSelection<RecordType>({
-    type: resolvedRowSel?.type,
-    selectedRowKeys: effectiveSelectedKeys,
-    dataSource: flattenedDataSource,
+  // === 行选择（useSelectionAdapter：模式解析 + selectionLookup + 受控/非受控 state +
+  //   useRowSelection 调用 + fireSelectionChange 分发，详见 ./useSelectionAdapter.ts）===
+  const {
+    selectionEnabled,
+    nativeSelectionConfigured,
+    resolvedSelectionMode,
+    resolvedRowSel,
+    showSelectionColumn,
+    selection,
+    effectiveSelectedKeys,
+    fireSelectionChange,
+    selectionAnchorKey,
+    setSelectionAnchorKey,
+  } = useSelectionAdapter<RecordType>({
+    rowSelection: rowSelection as TableRowSelection<RecordType> | undefined,
+    gridSelection: gridOptions?.selection as GridSelectionOptions<RecordType> | undefined,
+    flattenedDataSource,
+    filteredDataSource,
+    treeEnabled,
+    childrenColumnName,
     rowKey: rowKeyResolved,
-    getCheckboxProps: resolvedRowSel?.getCheckboxProps,
-    selections: resolvedRowSel?.selections,
-    checkStrictly: resolvedRowSel?.checkStrictly,
     parentChildrenMap: tree.parentChildrenMap,
   })
-
-  // 统一 onChange 分发：更新非受控 state + 调用 rowSel.onChange。
-  // selectedRows 按 selectableKeys 顺序返回（即排除 disabled 行；与 antd 一致）。
-  // preserveSelectedRowKeys（跨页/跨数据源保留已选 key，对齐 antd）：
-  //   - false（默认）：每次勾选操作生成的 nextKeys 会被**过滤**——保留 dataSource 中存在的 key，
-  //     丢弃不在当前数据源的 key（antd `setSelectedKeys` 非 preserve 分支：keys.filter(getRecordByKey)）。
-  //     即：已选但翻页后不在当前页的 key，会在下次勾选时被清掉。
-  //   - true：不过滤，nextKeys 原样保留所有 key（antd preserve 分支：availableKeys = keys）。
-  //     典型 ajax 场景：翻页后回原页，之前选的仍是选中态。
-  //   受控/非受控都过滤（antd 的 setMergedSelectedKeys 对两者都写过滤后的值）。
-  const fireSelectionChange = useCallback(
-    (
-      nextKeysInput: Array<React.Key>,
-      method: RowSelectMethod,
-      trigger?: SelectionChangeTrigger<RecordType>,
-    ) => {
-      if (!selectionEnabled) return
-      const preserve = resolvedRowSel?.preserveSelectedRowKeys === true
-      // 非 preserve 模式过滤掉不在数据源中的 key（对齐 antd）。preserve=true 则保留全部
-      //   （含跨页/跨数据源的 key）。
-      // 树形模式下用**全树**（filteredDataSource，未扁平化）做存在性判定——折叠的子孙 key 仍在全树中
-      //   （antd getRecordByKey 搜全树，行为一致），不应被清掉（checkStrictly=false 勾父→勾全部子孙含折叠的）。
-      const existenceSource = treeEnabled ? filteredDataSource : flattenedDataSource
-      const nextKeys: Array<React.Key> = preserve
-        ? nextKeysInput
-        : (() => {
-            const existSet = new Set<React.Key>()
-            const walk = (records: Array<RecordType>) => {
-              for (const rec of records) {
-                existSet.add(getRowKey(rec, rowKeyResolved))
-                // 树形：递归收集子孙 key（折叠的也在）。
-                const children = rec && typeof rec === 'object'
-                  ? (rec as any)[childrenColumnName]
-                  : undefined
-                if (Array.isArray(children) && children.length > 0) walk(children)
-              }
-            }
-            walk(existenceSource)
-            return nextKeysInput.filter((k) => existSet.has(k))
-          })()
-      if (nativeSelectionConfigured) {
-        if (!isNativeValuesControlled && !isNativeCompatKeysControlled) {
-          const nextValues = mapKeysToValues(nextKeys)
-          setUncontrolledSelectedValues(nextValues)
-        }
-      } else if (!isControlledSelection) {
-        setUncontrolledKeys(nextKeys)
-      }
-      // 按 selectableKeys 顺序构造 selectedRows（disabled 行不会出现在 nextKeys 的 selectable 子集里）。
-      // 遍历 flattenedDataSource（排序+筛选+树形扁平化后顺序——仅可见行），与 antd "onChange 返回
-      //   渲染后顺序的 selectedRows" 一致。折叠的子孙 record 不在 flattenedDataSource，不出现在
-      //   selectedRows（与 antd 一致：antd selectedRows 也只含当前可见的选中行）。
-      const keySet = new Set<React.Key>(nextKeys)
-      const rows: Array<RecordType> = []
-      for (const rec of flattenedDataSource) {
-        const k = getRowKey(rec, rowKeyResolved)
-        if (keySet.has(k)) rows.push(rec)
-      }
-      const prevKeySet = new Set<React.Key>(effectiveSelectedKeys)
-      const changeRows: Array<RecordType> = []
-      for (const rec of flattenedDataSource) {
-        const key = getRowKey(rec, rowKeyResolved)
-        if (prevKeySet.has(key) !== keySet.has(key)) {
-          changeRows.push(rec)
-        }
-      }
-      if (nativeSelectionConfigured) {
-        gridSelection?.onSelectedValuesChange?.(mapKeysToValues(nextKeys), rows, { type: method })
-      }
-      if (!resolvedRowSel) return
-      resolvedRowSel.onChange?.(nextKeys, rows, { type: method })
-      if (trigger?.record) {
-        const key = getRowKey(trigger.record, rowKeyResolved)
-        resolvedRowSel.onSelect?.(
-          trigger.record,
-          keySet.has(key),
-          rows,
-          trigger.nativeEvent ?? new Event('change'),
-        )
-      } else if (method === 'all' || method === 'none') {
-        resolvedRowSel.onSelectAll?.(method === 'all', rows, changeRows)
-      } else if (method === 'invert') {
-        resolvedRowSel.onSelectInvert?.(nextKeys)
-      }
-      if (method === 'none') {
-        resolvedRowSel.onSelectNone?.()
-      }
-    },
-    [
-      rowKeyResolved,
-      selectionEnabled,
-      resolvedRowSel,
-      treeEnabled,
-      filteredDataSource,
-      flattenedDataSource,
-      childrenColumnName,
-      isControlledSelection,
-      effectiveSelectedKeys,
-      nativeSelectionConfigured,
-      isNativeCompatKeysControlled,
-      isNativeValuesControlled,
-      gridSelection,
-      mapKeysToValues,
-    ],
-  )
 
   // === 行展开状态（useRowExpand hook 派生；引擎 + 展开列 render 闭包共同消费）===
   // 用排序后的顺序 + 筛选后的数据源（与引擎实际渲染顺序一致）。
@@ -702,126 +467,15 @@ function TableInner<RecordType = any>(
         )
       : null
 
-  const columnTree = useMemo(() => {
-    // 遍历 columns（含哨兵）：哨兵位置插入对应列节点；普通列走 toEngineColumns 单元素构建。
-    // 收集哨兵命中信息——若未命中，按默认位置在最前插入。
-    let seenSelectionSentinel = false
-    let seenExpandSentinel = false
-    const result: Array<EngineColumnNode<RecordType>> = []
-    // 整棵列树共享一个匿名列计数器。每个匿名列（无 key/dataIndex）按遍历顺序得到唯一的 `col-N`，
-    //   避免之前每个顶层列独立调 `toEngineColumns([col])` 导致 `index` 恒 0 → 多个匿名列都回退到
-    //   `col-0` → 表头格 React key 重复（virtual-list demo 的 `Group` 与 `Action` 列均无 key/dataIndex）。
-    const anonCounter = { seq: 0 }
-    for (const item of visibleColumns as Array<ColumnOrSentinel<RecordType>>) {
-      if (item === SELECTION_COLUMN) {
-        seenSelectionSentinel = true
-        if (selectionNode) result.push(selectionNode)
-        continue
-      }
-      if (item === EXPAND_COLUMN) {
-        seenExpandSentinel = true
-        if (expandNode) result.push(expandNode)
-        continue
-      }
-      // 普通列：单元素构建（与 toEngineColumns 内部一致）；共享 anonCounter 保证全局唯一。
-      const col = item as ColumnType<RecordType>
-      const node = toEngineColumns<RecordType>([col], anonCounter, showSorterTooltip)[0]
-      if (node) result.push(node)
-    }
-    // 默认位置：未命中哨兵的列插在最前（选择列在前，展开列随后）。
-    if (!seenSelectionSentinel && selectionNode) result.unshift(selectionNode)
-    if (!seenExpandSentinel && expandNode) {
-      // 展开列在选择列之后；若选择列已 unshift 在 0，展开列插在 1，否则插在 0。
-      if (!seenSelectionSentinel && selectionNode) result.splice(1, 0, expandNode)
-      else result.unshift(expandNode)
-    }
-
-    // === 邻列 fixed 继承（对齐 antd useSelection.tsx:694-717）===
-    // rowSelection.fixed 未设时，selection 列从邻列继承 fixed —— **优先 nextCol，其次 prevCol**。
-    // 修复 bug：此前 selection 列 fixed 仅取 rowSelection.fixed，导致「首列 fixed:'start' +
-    //   rowSelection 不设 fixed」时 selection 列不跟随固定（与 antd 行为不一致）。
-    // selectionNode 每次 selection state 变都重建，就地赋值即可。
-    if (selectionNode?.key === SELECTION_COLUMN_KEY && selectionNode.fixed === undefined) {
-      const selIdx = result.indexOf(selectionNode)
-      if (selIdx >= 0) {
-        const nextCol = result[selIdx + 1]
-        const prevCol = result[selIdx - 1]
-        let mergedFixed: FixedSide | undefined
-        if (nextCol?.fixed !== undefined) {
-          mergedFixed = nextCol.fixed
-        } else if (prevCol?.fixed !== undefined) {
-          mergedFixed = prevCol.fixed
-        }
-        if (mergedFixed !== undefined) {
-          selectionNode.fixed = mergedFixed
-          // 可选边界（antd useSelection.tsx:710-717）：selection 列前面是未 fixed 的 EXPAND_COLUMN
-          // 时，反向把 expand 也设为同 fixed（保持展开列与选择列同侧固定）。
-          if (
-            prevCol &&
-            prevCol.key === EXPAND_COLUMN_KEY &&
-            prevCol.fixed === undefined
-          ) {
-            prevCol.fixed = mergedFixed
-          }
-        }
-      }
-    }
-    return result
-    // selection / expand state 变化时重建（捕获最新勾选/展开态）；columns 变化时重建。
-    // visibleColumns 是 columns 经 responsive 过滤后的结果，依赖项改用 visibleColumns
-    //   （screens 变化时 visibleColumns 重算 → columnTree 重建 → 引擎按新列树渲染）。
-  }, [visibleColumns, selectionNode, expandNode, showSorterTooltip])
-
-  // 把 useSorter 派生的 sortOrderMap 回填到 columnTree 的叶子节点（引擎据此渲染排序图标 +
-  // dg-column-sort 类）。回填按"原始 antd column"匹配：每个叶子引擎节点的 raw 字段保留原始列引用，
-  // 从中算出 sortKey（column.key ?? dataIndex），查 sortOrderMap 得 sortOrder。
-  // 未匹配的叶子节点 sortOrder 保持 undefined（引擎视为 null）。
-  // 同时把 useFilter 派生的 filteredValueMap 回填到可筛选叶子节点（引擎据此渲染漏斗激活态 +
-  //   下拉默认勾选）。
-  const columnTreeWithSortAndFilter = useMemo(() => {
-    // 第一步：排序回填。
-    let tree = columnTree
-    if (sortOrderMap.size === 0) {
-      // 无任何排序列 → 给所有可排序叶子节点显式设 null（确保图标渲染为"无序"态而非 undefined）。
-      // 优化：仅当存在至少一个可排序列时才做回填，避免对无排序表格做无谓遍历（零回归）。
-      let hasAnySorter = false
-      for (const node of columnTree) {
-        if (!hasChildren(node) && node.sorter) {
-          hasAnySorter = true
-          break
-        }
-      }
-      if (hasAnySorter) {
-        tree = columnTree.map(
-          (node) => applySortOrderToNode(node, sortOrderMap, sortPriorityMap),
-        )
-      }
-    } else {
-      tree = columnTree.map(
-        (node) => applySortOrderToNode(node, sortOrderMap, sortPriorityMap),
-      )
-    }
-    // 第二步：筛选回填。仅当存在至少一个可筛选列时才做回填（零回归优化）。
-    // 激活态门与 filterable 判定单一真理源对齐（与 useFilter.isFilterable 字面一致——
-    //   filters 非空 || filterDropdown 存在 || onFilter 存在）。修复「纯 filters 无 onFilter」列
-    //   （如 ajax demo Gender）激活态不回填：此前门用 (filters && onFilter) || filterDropdown，
-    //   漏掉纯 filters 列 → hasAnyFilter=false → applyFilterToNode 跳过 → filteredValue 恒 null → 漏斗不变蓝。
-    //   注：EngineColumnNode 无 filterable 字段（仅 EngineHeaderCell 有），故此处用内联条件复刻 isFilterable。
-    let hasAnyFilter = false
-    for (const node of tree) {
-      if (
-        !hasChildren(node) &&
-        isNodeFilterable(node)
-      ) {
-        hasAnyFilter = true
-        break
-      }
-    }
-    if (hasAnyFilter) {
-      tree = tree.map((node) => applyFilterToNode(node, filteredValueMap))
-    }
-    return tree
-  }, [columnTree, sortOrderMap, sortPriorityMap, filteredValueMap])
+  const { columnTreeWithSortAndFilter } = useColumnTreeBuilder<RecordType>({
+    visibleColumns,
+    selectionNode,
+    expandNode,
+    showSorterTooltip,
+    sortOrderMap,
+    sortPriorityMap,
+    filteredValueMap,
+  })
 
   // === 语义化样式 classNames/styles 求值 ===
   // 支持对象（静态）或函数 `(info) => 对象`（动态，按 info.props 求值）。对齐 antd v6：
@@ -841,33 +495,12 @@ function TableInner<RecordType = any>(
     pagination as false | TablePaginationConfig | undefined,
   )
 
-  const scrollBarFoldMode = gridOptions?.scrollBarFoldMode
-  const scrollBarShowOnTableHover = scrollBarFoldMode?.showOnTableHover === true
-  const scrollBarExpandOnHover = scrollBarFoldMode?.expandOnHover !== false
-  const [scrollBarTouchedActive, setScrollBarTouchedActive] = useState(false)
-  const scrollBarTouchTimerRef = useRef<number | undefined>(undefined)
-  const activateScrollBarByTouch = useCallback(
-    (event: ReactPointerEvent<HTMLDivElement>) => {
-      if (!scrollBarShowOnTableHover || event.pointerType === 'mouse') return
-      setScrollBarTouchedActive(true)
-      if (scrollBarTouchTimerRef.current !== undefined) {
-        window.clearTimeout(scrollBarTouchTimerRef.current)
-      }
-      scrollBarTouchTimerRef.current = window.setTimeout(() => {
-        setScrollBarTouchedActive(false)
-        scrollBarTouchTimerRef.current = undefined
-      }, 1600)
-    },
-    [scrollBarShowOnTableHover],
-  )
-
-  useEffect(() => {
-    return () => {
-      if (scrollBarTouchTimerRef.current !== undefined) {
-        window.clearTimeout(scrollBarTouchTimerRef.current)
-      }
-    }
-  }, [])
+  const {
+    scrollBarShowOnTableHover,
+    scrollBarExpandOnHover,
+    scrollBarTouchedActive,
+    activateScrollBarByTouch,
+  } = useScrollbarTouch({ scrollBarFoldMode: gridOptions?.scrollBarFoldMode })
 
   // sticky 启用时给 .dg-wrapper 加 dg-sticky 修饰类。
   //   table.css 的 .dg-wrapper 默认 overflow:hidden + width:100%（圆角裁剪 + 容器约束），
@@ -917,48 +550,12 @@ function TableInner<RecordType = any>(
 
   useImperativeHandle(
     ref,
-    (): TableRef => ({
-      scrollTo: (config) => {
-        const engine = engineRef.current
-        if (!engine) return
-        // key → index：在适配层根据 rowKey 解析（引擎不感知 key 语义）。
-        // 用 flattenedDataSource（引擎实际渲染的数据源顺序——排序+筛选+树形扁平化后），
-        //   否则排序/筛选/树形展开后 scrollTo(key) 会滚到错误行。
-        if (config.key !== undefined) {
-          const key = config.key
-          const idx = flattenedDataSource.findIndex(
-            (rec) => getRowKey(rec, rowKeyResolved) === key,
-          )
-          if (idx < 0) return
-          engine.scrollTo({
-            index: idx,
-            offset: config.offset,
-            align: config.align,
-            // data-grid 专属（antd 无），透传平滑行为。
-            behavior: config.behavior,
-          })
-          return
-        }
-        // antd 同名 top：合并到 scrollTop。
-        if (config.scrollTop === undefined && config.top !== undefined) {
-          engine.scrollTo({
-            scrollTop: config.top,
-            offset: config.offset,
-            align: config.align,
-            behavior: config.behavior,
-          })
-          return
-        }
-        engine.scrollTo({
-          index: config.index,
-          scrollTop: config.scrollTop,
-          offset: config.offset,
-          align: config.align,
-          behavior: config.behavior,
-        })
-      },
-      nativeElement: rootRef.current,
-    }),
+    () => buildTableRefHandle<RecordType>(
+        engineRef.current,
+        rootRef.current,
+        flattenedDataSource,
+        rowKeyResolved,
+      ),
     [flattenedDataSource, rowKeyResolved],
   )
 
@@ -983,112 +580,24 @@ function TableInner<RecordType = any>(
     }
   }, [treeEnabled, expandEnabled, expandable, expand, showExpandColumn])
 
-  // === expandRowByClick + expandedRowClassName ===
-  // 在适配层包装 onRow / rowClassName（而非改引擎），引擎已有 onRow/rowClassName 透传链路，复用即可。
-  //
-  // - expandRowByClick=true：包装 onRow.onClick——点击行体（任意单元格）时，若该行可展开，
-  //   叠加触发 expand.toggleExpand(key, record)。**与原 onRow.onClick 共存**（不阻止、不互斥），
-  //   对齐 antd rc-table 行为：expandRowByClick 切换的同时 onRow.onClick 也触发。
-  // - expandedRowClassName：包装 rowClassName——该行展开时追加 expandedRowClassName(record, index) 返回的 class，
-  //   与原 rowClassName（string 或函数）叠加。
-  //
-  // 仅 expandEnabled 时生效；否则原样返回 onRow/rowClassName（零回归）。
-  // 注意：包装仅作用于「行展开」状态机（expand），与树形（treeState）独立——
-  //   树形模式下 engineExpandState 恒 undefined（树形优先），expandEnabled=false，包装不生效。
-  const expandRowByClick = expandEnabled ? expandable?.expandRowByClick === true : false
-  const expandedRowClassNameFn = expandEnabled ? expandable?.expandedRowClassName : undefined
-
-  // 包装后的 onRow：原生 selection 行点击 + expandRowByClick 叠加；用户 onRow.onClick 继续保留。
-  const onRowWithExpand = useMemo<typeof onRow>(() => {
-    const rowClickSelectionEnabled =
-      nativeSelectionConfigured && resolvedSelectionMode !== 'disabled'
-    if (!expandRowByClick && !rowClickSelectionEnabled) return onRow
-    return (record, index) => {
-      const userProps = onRow?.(record, index) ?? {}
-      const key = getRowKey(record, rowKeyResolved)
-      const userOnClick = userProps.onClick
-      const expandableRecord = expand.expandableKeySet.has(key)
-      return {
-        ...userProps,
-        onClick: (e: React.MouseEvent<HTMLElement>) => {
-          const skipInteraction = shouldSkipRowSelectionClick(e.target)
-          if (
-            rowClickSelectionEnabled &&
-            !skipInteraction &&
-            !selection.isDisabled(record)
-          ) {
-            let nextKeys: Array<React.Key> | null = null
-            let method: RowSelectMethod = 'single'
-            if (resolvedSelectionMode === 'single') {
-              nextKeys = selection.selectRow(key)
-              setSelectionAnchorKey(key)
-            } else if (resolvedSelectionMode === 'multiple') {
-              nextKeys = selection.toggleRow(key)
-              method = 'multiple'
-              setSelectionAnchorKey(key)
-            } else if (resolvedSelectionMode === 'extended') {
-              const additive = e.ctrlKey || e.metaKey
-              if (e.shiftKey && selectionAnchorKey !== null) {
-                const rangeKeys = getRangeKeys(selection.selectableKeys, selectionAnchorKey, key)
-                if (additive) {
-                  nextKeys = Array.from(new Set<React.Key>([...effectiveSelectedKeys, ...rangeKeys]))
-                } else {
-                  nextKeys = rangeKeys
-                }
-                method = rangeKeys.length > 1 || additive ? 'multiple' : 'single'
-              } else if (additive) {
-                nextKeys = selection.toggleRow(key)
-                method = 'multiple'
-              } else {
-                nextKeys = [key]
-              }
-              setSelectionAnchorKey(key)
-            }
-            if (nextKeys) {
-              fireSelectionChange(nextKeys, method, {
-                record,
-                nativeEvent: e.nativeEvent ?? e,
-              })
-            }
-          }
-          if (expandRowByClick && expandableRecord && !skipInteraction) {
-            expand.toggleExpand(key, record)
-          }
-          userOnClick?.(e)
-        },
-      }
-    }
-  }, [
-    expandRowByClick,
-    onRow,
+  // === 行展开 + 行点击绑定（useExpandRowBinding：expandRowByClick 派生 + onRowWithExpand
+  //   行点击选择 single/multiple/extended-shift + expandRowByClick 叠加 + rowClassNameWithExpand
+  //   展开行追加 class，详见 ./useExpandRowBinding.ts）===
+  const { onRowWithExpand, rowClassNameWithExpand } = useExpandRowBinding<RecordType>({
+    expandEnabled,
+    expandable: expandable as Expandable<RecordType> | undefined,
     expand,
-    rowKeyResolved,
+    onRow,
+    rowClassName,
+    rowKey: rowKeyResolved,
     nativeSelectionConfigured,
     resolvedSelectionMode,
     selection,
     selectionAnchorKey,
+    setSelectionAnchorKey,
     effectiveSelectedKeys,
     fireSelectionChange,
-  ])
-
-  // 包装后的 rowClassName（expandedRowClassName 存在时追加；否则原样）。
-  const rowClassNameWithExpand = useMemo(() => {
-    if (!expandedRowClassNameFn) return rowClassName
-    // 归一化为函数形式（string → 常量函数），便于追加 expandedRowClassName。
-    const baseFn: ((record: RecordType, index: number) => string) | undefined =
-      rowClassName === undefined
-        ? undefined
-        : typeof rowClassName === 'string'
-          ? () => rowClassName
-          : rowClassName
-    return (record: RecordType, index: number) => {
-      const base = baseFn?.(record, index) ?? ''
-      const key = getRowKey(record, rowKeyResolved)
-      // 仅该行展开时追加（收起时不加，对齐 antd）。
-      const extra = expand.isExpanded(key) ? expandedRowClassNameFn(record, index) : ''
-      return [base, extra].filter(Boolean).join(' ')
-    }
-  }, [expandedRowClassNameFn, rowClassName, expand, rowKeyResolved])
+  })
 
 
   // 把 useTreeData 的派生结果封装为 EngineTreeState，传给引擎。
@@ -1119,59 +628,24 @@ function TableInner<RecordType = any>(
     return sticky
   }, [sticky])
 
-  // === 分页集成 ===
-  // antd 兼容默认：pagination 未传时等价 `{}`，默认 pageSize=10 + bottomEnd 分页器。
-  // 仅 `pagination={false}` 明确关闭分页并全量渲染。
-  const paginationEnabled = pagination !== false
-  const paginationConfig = (pagination === false ? {} : (pagination ?? {})) as TablePaginationConfig
-
-  const paginationInfo = usePagination({
-    pagination: paginationConfig,
-    // 树形模式下分页基于扁平化后数据源长度（仅可见行）；非树形同 filteredDataSource。
-    dataSourceLength: flattenedDataSource.length,
-    onPaginationChange: (nextCurrent, nextPageSize) => {
-      // 翻页/改 pageSize → 触发 Table onChange(action:'paginate')。
-      // paginationState 用回调参数构造（antd Pagination 不会传越界 page，current 已 effective）。
-      if (!onChange) return
-      const total =
-        typeof paginationConfig.total === 'number' && paginationConfig.total > 0
-          ? paginationConfig.total
-          : flattenedDataSource.length
-      const nextState: TablePaginationState = {
-        current: nextCurrent,
-        pageSize: nextPageSize,
-        total,
-      }
-      onChange(
-        nextState,
-        getFiltersArg(),
-        currentSorterResult,
-        // currentDataSource：分页**前**的全量数据源（与 antd 一致）。
-        { currentDataSource: flattenedDataSource, action: 'paginate' },
-      )
-    },
+  // === 分页集成（usePaginationAdapter：派生 + 切片 + 渲染分页节点）===
+  // paginationStateRef 在顶部声明（L343，在 useSorter 之前），供 useSorter/useFilter 的 onChange
+  //   闭包注入最新分页。hook 内写 .current，外部读。
+  const {
+    pagedDataSource,
+    topPaginationNode,
+    bottomPaginationNode,
+  } = usePaginationAdapter<RecordType>({
+    pagination,
+    flattenedDataSource,
+    paginationStateRef,
+    onChange,
+    getFiltersArg,
+    currentSorterResult,
+    size,
+    classNamesResolved,
+    stylesResolved,
   })
-
-  // 同步 paginationStateRef（供 useSorter/useFilter 的 onChange 闭包注入最新分页）。
-  // 分页未启用时构造"全量态"（current=1, pageSize=长度, total=长度），保证 onChange.pagination
-  // 始终有意义（与 antd 未开分页时 onChange.pagination 仍含 {current,pageSize,total} 一致）。
-  const effectivePaginationState: TablePaginationState = paginationEnabled
-    ? paginationInfo.paginationState
-    : { current: 1, pageSize: flattenedDataSource.length, total: flattenedDataSource.length }
-  paginationStateRef.current = effectivePaginationState
-
-  // 分页切片（未启用 → 全量）。
-  // 传入 paginationInfo.total 用于服务端模式检测——dataSource.length < total（server/async）
-  // 时不切片（对齐 antd InternalTable.tsx:547-557），避免双重分页。
-  // 基于 flattenedDataSource（树形扁平化后）切片；非树形同 filteredDataSource。
-  const pagedDataSource = paginationEnabled
-    ? slicePage(
-        flattenedDataSource,
-        paginationInfo.current,
-        paginationInfo.pageSize,
-        paginationInfo.total,
-      )
-    : flattenedDataSource
 
   // === 汇总 summary 解析 ===
   // summary prop：函数 → 用 pagedDataSource（当前页数据）调用；ReactNode → 原样。
@@ -1191,37 +665,6 @@ function TableInner<RecordType = any>(
     rowCount: pagedDataSource.length,
     locale: mergedLocale,
   })
-
-  // 解析 placement → top/bottom 对齐（未启用分页 → 两侧均 null，不渲染）。
-  const placement = paginationEnabled
-    ? resolvePlacement(paginationConfig.placement)
-    : { top: null, bottom: null }
-  // antd 行为：仅当 total > 0 且分页启用时渲染分页器。
-  const showPagination = paginationEnabled && paginationInfo.total > 0
-  // 分页器尺寸：pagination.size 优先；否则随 Table size（small/middle→'small'，其余 default/undefined）。
-  const paginationSize = getPaginationSize(size, paginationConfig.size)
-  const topPaginationNode =
-    showPagination && placement.top
-      ? renderPaginationNode({
-          align: placement.top,
-          paginationConfig,
-          paginationInfo,
-          paginationSize,
-          classNamesResolved,
-          stylesResolved,
-        })
-      : null
-  const bottomPaginationNode =
-    showPagination && placement.bottom
-      ? renderPaginationNode({
-          align: placement.bottom,
-          paginationConfig,
-          paginationInfo,
-          paginationSize,
-          classNamesResolved,
-          stylesResolved,
-        })
-      : null
 
   // ★ 内容区滚动模式（pagination/footer 滚动条出框修复）。
   //

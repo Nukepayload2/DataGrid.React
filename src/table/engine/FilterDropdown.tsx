@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { Button, Checkbox, Dropdown, Empty, Input, Radio, Tree } from 'antd'
+import { Dropdown, Empty } from 'antd'
 import type { DropdownProps } from 'antd'
 // filter 图标用 `@ant-design/icons` 的 FilterFilled（与 antd Table 默认 filterIcon 一致）。
 // 默认/激活态都用同一个 FilterFilled——激活视觉差异由 `.dg-filter-trigger-active`（color）驱动，不切换图标。
@@ -29,25 +29,17 @@ import type {
   FilterDropdownProps as DgFilterDropdownProps,
 } from '../types'
 import { TABLE_LOCALE_DEFAULT } from '../types'
-
-// 放大镜图标（自绘 SVG，对齐 antd SearchOutlined 视觉）。
-// 自绘而非引入 @ant-design/icons：仅 filter 搜索框前缀一处用，path 取自 @ant-design/icons-svg asn
-// （与 antd FilterDropdown 内部 `<SearchOutlined />` 渲染一致）。
-function SearchOutlined() {
-  return (
-    <svg
-      viewBox="64 64 896 896"
-      width="1em"
-      height="1em"
-      fill="currentColor"
-      aria-hidden="true"
-      style={{ fontSize: 12, display: 'block' }}
-    >
-      {/* antd SearchOutlined 的 SVG path（取自 @ant-design/icons-svg asn）。放大镜：圆 + 把手。 */}
-      <path d="M909.6 854.5L649.9 594.8C690.2 542.7 712 479 712 412c0-80.2-31.3-155.4-87.9-212.1-56.6-56.7-132-87.9-212.1-87.9s-155.5 31.3-212.1 87.9C143.2 256.5 112 331.8 112 412c0 80.1 31.3 155.5 87.9 212.1C256.5 680.8 331.8 712 412 712c67 0 130.6-21.8 182.7-62l259.7 259.6a8.2 8.2 0 0011.6 0l43.6-43.5a8.2 8.2 0 000-11.6zM570.4 570.4C528 612.7 471.8 636 412 636s-116-23.3-158.4-65.6C211.3 528 188 471.8 188 412s23.3-116.1 65.6-158.4C296 211.3 352.2 188 412 188s116.1 23.2 158.4 65.6S636 352.2 636 412s-23.3 116.1-65.6 158.4z" />
-    </svg>
-  )
-}
+// 纯函数簇抽到 filterDropdownUtils：flattenFilterItems / toReactKey / toTreeData /
+// collectLeafValues / resolveCheckedKeys（antd Tree onCheck 两种形态归一）。
+import {
+  collectLeafValues,
+  flattenFilterItems,
+  resolveCheckedKeys,
+  toReactKey,
+  toTreeData,
+} from './filterDropdownUtils'
+// 内置面板（menu/tree + 搜索 + 占位 + 按钮）抽到 FilterBuiltinPanel 子组件（执行单元 #65）。
+import { FilterBuiltinPanel } from './FilterBuiltinPanel'
 
 export interface FilterDropdownProps {
   /** 该列筛选项列表（来自列树 EngineHeaderCell.filters）。 */
@@ -123,91 +115,6 @@ export interface FilterDropdownProps {
     filterCheckall?: React.ReactNode
     filterCheckAll?: React.ReactNode
   }
-}
-
-/**
- * 扁平化筛选项（含 children）为顶层项参与勾选列表。
- * 不渲染二级菜单 UI；children 出现时扁平化展示（与 useFilter.flattenFilterValues 配套）。
- */
-function flattenFilterItems(items: Array<EngineFilterItem>): Array<EngineFilterItem> {
-  const out: Array<EngineFilterItem> = []
-  const walk = (list: Array<EngineFilterItem>) => {
-    for (const it of list) {
-      out.push({ text: it.text, value: it.value })
-      if (it.children && it.children.length > 0) walk(it.children)
-    }
-  }
-  walk(items)
-  return out
-}
-
-/**
- * antd Tree 的 treeData 节点类型（对齐 antd `DataNode` 子集：key/title/children）。
- */
-interface FilterTreeNode {
-  key: React.Key
-  title: React.ReactNode
-  children?: Array<FilterTreeNode>
-}
-
-function toReactKey(value: FilterValue): React.Key {
-  return typeof value === 'boolean' ? String(value) : value
-}
-
-/**
- * 把 EngineFilterItem[]（含 children）转为 antd Tree 的 treeData（对齐 antd getTreeData）。
- *   - key = value（与 onFilter/onCompare 的 value 同源）。
- *   - title = text（任意 ReactNode）。
- *   - children 递归。
- */
-function toTreeData(filters: Array<EngineFilterItem>): Array<FilterTreeNode> {
-  return filters.map((filter) => {
-    const item: FilterTreeNode = {
-      title: filter.text,
-      key: toReactKey(filter.value),
-    }
-    if (filter.children && filter.children.length > 0) {
-      item.children = toTreeData(filter.children)
-    }
-    return item
-  })
-}
-
-/**
- * 递归收集所有叶子 value（对齐 antd flattenKeys）。
- * 用于"全选" Checkbox 的 checked/indeterminate 判定——只看叶子，因为父节点勾选是联动的（非独立）。
- */
-function collectLeafValues(filters: Array<EngineFilterItem>): Array<FilterValue> {
-  const out: Array<FilterValue> = []
-  const walk = (list: Array<EngineFilterItem>) => {
-    for (const it of list) {
-      if (it.children && it.children.length > 0) {
-        walk(it.children)
-      } else {
-        out.push(it.value)
-      }
-    }
-  }
-  walk(filters)
-  return out
-}
-
-/**
- * 归一化 antd Tree onCheck 的 keys 参数为 string[]/number[] 数组。
- * antd Tree 在 `checkStrictly=false` 时 onCheck 第一参为 `{ checked: Key[], halfChecked: Key[] }`，
- * `checkStrictly=true` 时为 `Key[]`；统一处理。
- */
-function resolveCheckedKeys(keys: unknown): Array<FilterValue> {
-  if (Array.isArray(keys)) {
-    return keys.map((k) => (typeof k === 'number' ? k : String(k)))
-  }
-  if (keys && typeof keys === 'object' && 'checked' in keys) {
-    const checked = (keys as { checked?: Array<unknown> }).checked
-    if (Array.isArray(checked)) {
-      return checked.map((k) => (typeof k === 'number' ? k : String(k)))
-    }
-  }
-  return []
 }
 
 export function FilterDropdown({
@@ -469,130 +376,34 @@ export function FilterDropdown({
   // 不用 antd Menu 包装（Menu.Item 内嵌 Checkbox/Radio 视觉不佳），改用 popupRender 直接渲染自定义面板。
   // antd Dropdown v6：popupRender 返回 ReactNode 作为弹出层内容。
   // filterMode='tree' 时菜单区改用 antd `<Tree checkable>` 渲染树形结构。
+  //
+  // 内置面板 JSX 抽到 FilterBuiltinPanel 子组件（执行单元 #65），便于独立单测 + 隔离 antd Tree/Checkbox
+  //   渲染复杂度。所有 state/派生值/回调透传 props（FilterBuiltinPanel 为纯展示组件）。
   const builtinPanel = (
-    <div
-      className="dg-filter-dropdown"
-      data-multiple={filterMultiple ? '1' : '0'}
-      data-filter-mode={isTree ? 'tree' : 'menu'}
-      // 阻止面板内点击（勾选 / OK / Reset）冒泡到 body——避免任何 document 级
-      // 监听器或坐标误派发触发表头格 onClick。
-      onClick={(e) => e.stopPropagation()}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      <div className="dg-filter-dropdown-menu">
-        {/* filters 为空（无筛选项可勾选）时显示占位（对齐 antd FilterDropdown.tsx:410）。
-            替代搜索框+列表/树区；底部 Reset/OK 按钮仍保留（antd 同款）。 */}
-        {filtersEmpty ? (
-          <div className="dg-filter-dropdown-empty">{filterEmptyNode}</div>
-        ) : (
-          <>
-        {/* 筛选项搜索框（仅当 filterSearch 非 falsy 时渲染）。位于列表/树顶部。
-            onKeyDown stopPropagation 避免按键冒泡触发表头 onClick（与面板整体 onClick stopPropagation 一致）。
-            menu 模式过滤 flatItems；tree 模式过滤树节点（filterTreeNode）。 */}
-        {hasSearch ? (
-          <div className="dg-filter-dropdown-search" onKeyDown={(e) => e.stopPropagation()}>
-            <Input
-              prefix={<SearchOutlined />}
-              // antd enUS locale filterSearchPlaceholder = 'Search in filters'（locale/en_US.ts:29）。
-              // 未传 Table locale 时回退到 antd enUS 默认值。
-              placeholder={localeFilterSearchPlaceholder}
-              value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
-              // htmlSize=1 对齐 antd：绕开 input 默认 min-width（让 popup 宽度由外层约束）。
-              htmlSize={1}
-              className="dg-filter-dropdown-search-input"
-              // antd FilterSearch（FilterSearch.tsx:25-33）无 allowClear——filter 搜索框不带清除（×）按钮。
-              // 用户用关闭下拉或手动删除清空（antd 同款行为）。
-            />
-          </div>
-        ) : null}
-        {isTree ? (
-          // === 树形面板（filterMode='tree'）===
-          // antd `<Tree checkable>`：父子联动（checkStrictly=!filterMultiple）。
-          // 对齐 antd FilterDropdown.tsx filterMode==='tree' 分支。
-          <div className="dg-filter-dropdown-tree">
-            {/* 全选 Checkbox（仅 filterMultiple=true 多选时渲染；对齐 antd onCheckAll）。 */}
-            {filterMultiple ? (
-              <Checkbox
-                checked={allChecked}
-                indeterminate={allIndeterminate}
-                className="dg-filter-dropdown-checkall"
-                onChange={onCheckAll}
-              >
-                {/* antd enUS locale filterCheckAll = 'Select all items'
-                    （locale/en_US.ts:28；消费处 antd FilterDropdown.tsx:434 `{locale?.filterCheckall ?? locale?.filterCheckAll}`）。
-                    未传 Table locale 时回退到 antd enUS 默认值。 */}
-                {localeFilterCheckAll}
-              </Checkbox>
-            ) : null}
-            <Tree
-              checkable
-              selectable={false}
-              blockNode
-              // checkStrictly：多选=false（父子联动，对齐 antd checkStrictly={!filterMultiple}）；
-              // 单选=true（仅勾选中节点）。注意 antd Tree 的 single 行为由 onCheck + filterMultiple 控制。
-              checkStrictly={!filterMultiple}
-              className="dg-filter-menu-tree"
-              // localSelected 转 string key 数组给 antd Tree（checkedKeys 接受 Key[]）。
-              checkedKeys={localSelected.map((v) => String(v))}
-              selectedKeys={localSelected.map((v) => String(v))}
-              onCheck={handleTreeCheck as unknown as React.ComponentProps<typeof Tree>['onCheck']}
-              showIcon={false}
-              treeData={treeData}
-              autoExpandParent
-              defaultExpandAll
-              filterTreeNode={filterTreeNode as unknown as React.ComponentProps<typeof Tree>['filterTreeNode']}
-            />
-          </div>
-        ) : visibleItems.length === 0 ? (
-          // === menu 模式搜索过滤后无匹配项（对齐 antd FilterDropdown.tsx:477,488-490 isEmpty 分支）===
-          // antd：`const isEmpty = items.every(item => item === null)` → 搜索无匹配时所有 item 为 null →
-          // 显示 empty 占位（与 filters 列表本身为空时同一个 renderEmpty('Table.filter')）。
-          // data-grid：visibleItems（经 filterSearch 过滤）为空等价 antd 的 isEmpty → 显示同一占位。
-          <div className="dg-filter-dropdown-empty">{filterEmptyNode}</div>
-        ) : filterMultiple ? (
-          // === menu 多选（Checkbox.Group）===
-          <Checkbox.Group
-            value={localSelected}
-            onChange={(values) => setLocalSelected(values as Array<string | number>)}
-            className="dg-filter-checkbox-group"
-          >
-            <div className="dg-filter-menu-list">
-              {visibleItems.map((item) => (
-                <div key={String(item.value)} className="dg-filter-menu-item">
-                  <Checkbox value={item.value}>{item.text}</Checkbox>
-                </div>
-              ))}
-            </div>
-          </Checkbox.Group>
-        ) : (
-          // === menu 单选（Radio.Group）===
-          <Radio.Group
-            value={localSelected[0] ?? null}
-            onChange={(e) => setLocalSelected(e.target.value == null ? [] : [e.target.value])}
-            className="dg-filter-radio-group"
-          >
-            <div className="dg-filter-menu-list">
-              {visibleItems.map((item) => (
-                <div key={String(item.value)} className="dg-filter-menu-item">
-                  <Radio value={item.value}>{item.text}</Radio>
-                </div>
-              ))}
-            </div>
-          </Radio.Group>
-        )}
-          </>
-        )}
-      </div>
-      <div className="dg-filter-dropdown-btns">
-        <Button size="small" onClick={resetDraft}>
-          {localeFilterReset}
-        </Button>
-        <Button type="primary" size="small" onClick={applyAndClose}>
-          {localeFilterConfirm}
-        </Button>
-      </div>
-    </div>
+    <FilterBuiltinPanel
+      filterMultiple={filterMultiple}
+      isTree={isTree}
+      filtersEmpty={filtersEmpty}
+      filterEmptyNode={filterEmptyNode}
+      hasSearch={hasSearch}
+      localeFilterSearchPlaceholder={localeFilterSearchPlaceholder}
+      searchValue={searchValue}
+      onSearchChange={setSearchValue}
+      treeData={treeData}
+      allChecked={allChecked}
+      allIndeterminate={allIndeterminate}
+      onCheckAll={onCheckAll}
+      onTreeCheck={handleTreeCheck}
+      filterTreeNode={filterTreeNode}
+      localeFilterCheckAll={localeFilterCheckAll}
+      visibleItems={visibleItems}
+      localSelected={localSelected}
+      onLocalSelectedChange={setLocalSelected}
+      localeFilterReset={localeFilterReset}
+      localeFilterConfirm={localeFilterConfirm}
+      onReset={resetDraft}
+      onApply={applyAndClose}
+    />
   )
 
   // === 自定义面板 ===

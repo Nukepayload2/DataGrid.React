@@ -1,7 +1,34 @@
 /** 行选择状态机。详见 docs/design-notes/selection.md。 */
 
 import { useCallback, useMemo } from 'react'
-import type { ReactNode } from 'react'
+import type { Key } from 'react'
+
+/**
+ * 树形联动 conduction 纯函数簇 + 内置哨兵常量已抽出到 selectionTreeConduction.ts。
+ * 本文件 re-export 哨兵 + SelectionItem 以维持公共 API 表面不变（index.ts 从本文件
+ * 导出 SELECTION_ALL/NONE/INVERT，re-export 保证引用仍指向 selectionTreeConduction 中的同一对象）。
+ */
+export {
+  SELECTION_ALL,
+  SELECTION_INVERT,
+  SELECTION_NONE,
+  resolveKey,
+  collectDescendants,
+  collectAncestors,
+  conductTreeCheck,
+} from './selectionTreeConduction'
+export type { SelectionItem } from './selectionTreeConduction'
+
+import {
+  SELECTION_ALL,
+  SELECTION_INVERT,
+  SELECTION_NONE,
+  collectAncestors,
+  collectDescendants,
+  conductTreeCheck,
+  resolveKey,
+} from './selectionTreeConduction'
+import type { SelectionItem } from './selectionTreeConduction'
 
 /** antd RowSelection.type：'checkbox'（多选）/ 'radio'（单选）。 */
 export type SelectionType = 'checkbox' | 'radio'
@@ -24,45 +51,6 @@ export type RowSelectMethod = 'all' | 'none' | 'invert' | 'single' | 'multiple'
  */
 export type BuiltinSelectionKey = 'all' | 'invert' | 'none'
 
-/**
- * 自定义选择项（对齐 antd `SelectionItem`）— 详见 docs/design-notes/selection.md
- *
- * - `key`：项唯一标识（菜单 React key）。
- * - `text`：菜单展示文案（ReactNode）。
- * - `onSelect(changeableRowKeys)`：点击回调；`changeableRowKeys` 为当前所有可选（非 disabled）
- *   行的 rowKeys 数组（与 antd 签名一致）。返回 void——demo 内自行 setSelectedRowKeys
- *   实现自定义选择逻辑（如 odd/even）。
- *
- * 内置哨兵（`SELECTION_ALL/NONE/INVERT`）亦实现此接口，但其 `onSelect` 为占位——真正行为由
- * `useRowSelection.applySelection` 按 key 分支处理。
- */
-export interface SelectionItem {
-  key: string
-  text?: ReactNode
-  onSelect?: (changeableRowKeys: Array<React.Key>) => void
-}
-
-/** 内置哨兵：全选。 */
-export const SELECTION_ALL: SelectionItem = {
-  key: 'all',
-  text: 'Select all data',
-  onSelect: () => {},
-}
-
-/** 内置哨兵：反选。 */
-export const SELECTION_INVERT: SelectionItem = {
-  key: 'invert',
-  text: 'Invert current page',
-  onSelect: () => {},
-}
-
-/** 内置哨兵：清空。 */
-export const SELECTION_NONE: SelectionItem = {
-  key: 'none',
-  text: 'Clear all data',
-  onSelect: () => {},
-}
-
 /** 透传给底层 input 的"勾选相关 props"子集（antd getCheckboxProps 返回值子集）。 */
 export interface RowCheckboxProps {
   disabled?: boolean
@@ -74,7 +62,7 @@ export interface UseRowSelectionOptions<RecordType> {
   /** 'checkbox'（多选，默认）/ 'radio'（单选）。 */
   type?: SelectionType
   /** 受控选中 key 数组（真理源）。 */
-  selectedRowKeys: Array<React.Key>
+  selectedRowKeys: Array<Key>
   /** 全集 dataSource（用于算 selectableKeys / 全选 / 半选）。 */
   dataSource: Array<RecordType>
   /** rowKey 取值器（字符串属性名或函数）。 */
@@ -108,31 +96,31 @@ export interface UseRowSelectionOptions<RecordType> {
    * 仅树形模式（非空 Map）+ checkStrictly=false 时参与父子联动；否则忽略。
    * — 详见 docs/design-notes/selection.md（树形父子联动）
    */
-  parentChildrenMap?: Map<React.Key, Array<React.Key>>
+  parentChildrenMap?: Map<Key, Array<Key>>
 }
 
 export interface UseRowSelectionResult<RecordType> {
   /** 是否单选模式。 */
   isRadio: boolean
   /** 全集可勾选 key 数组（未 disabled）。 */
-  selectableKeys: Array<React.Key>
+  selectableKeys: Array<Key>
   /** 全集可勾选 record 数组（与 selectableKeys 一一对应）。 */
   selectableRecords: Array<RecordType>
   /** 当前选中 key 集合（Set；去重）。 */
-  selectedKeySet: Set<React.Key>
+  selectedKeySet: Set<Key>
   /** 全选态（仅多选有意义；单选恒 false）。 */
   allSelected: boolean
   /** 半选态（仅多选有意义；单选恒 false）。 */
   intermediate: boolean
   /** 某 key 是否选中。 */
-  isSelected: (key: React.Key) => boolean
+  isSelected: (key: Key) => boolean
   /**
    * 某 key 是否半选（仅 checkStrictly=false 树形模式有意义）。
    * 半选 = 该 key 是父行，且其子行中**部分**（至少 1 个但非全部）被选中。
    * checkStrictly=true 或非树形 → 恒 false。
    * — 详见 docs/design-notes/selection.md（树形父子联动）
    */
-  isIndeterminate: (key: React.Key) => boolean
+  isIndeterminate: (key: Key) => boolean
   /** 某 record 是否 disabled（不可勾选）。 */
   isDisabled: (record: RecordType) => boolean
   /**
@@ -141,21 +129,21 @@ export interface UseRowSelectionResult<RecordType> {
    * - radio：选中即替换为该 key；已选中再点不变（antd radio 行为：再次点击不取消）。
    * 返回新的 `selectedRowKeys` 数组（不直接调 onChange；由调用方决定如何分发）。
    */
-  toggleRow: (key: React.Key) => Array<React.Key>
+  toggleRow: (key: Key) => Array<Key>
   /**
    * 全选/全不选（仅 checkbox；radio 下 no-op）。
    * 当前已全选 → 清空；否则 → 选中所有 selectableKeys。
    */
-  toggleAll: () => Array<React.Key>
+  toggleAll: () => Array<Key>
   /**
    * 单选指定 key（radio 主用；checkbox 等价于 toggleRow 的"选中"分支）。
    */
-  selectRow: (key: React.Key) => Array<React.Key>
+  selectRow: (key: Key) => Array<Key>
   /**
    * 当前可选（非 disabled）行的 rowKeys（= changeableRowKeys）。
    * 传给自定义 selection 的 onSelect(changeableRowKeys)。
    */
-  changeableRowKeys: Array<React.Key>
+  changeableRowKeys: Array<Key>
   /**
    * 解析后的 selections 列表（`true` → 默认三项；数组 → 原样；undefined → null）。
    * null 表示不渲染表头下拉菜单。
@@ -173,125 +161,7 @@ export interface UseRowSelectionResult<RecordType> {
    */
   applySelection: (
     item: SelectionItem,
-  ) => { nextKeys: Array<React.Key>; method: RowSelectMethod } | null
-}
-
-/**
- * 把 record 解析为 React.Key（字符串/数字）。
- * 与 GridTable.getRowKey 同语义；这里独立实现避免引擎耦合。
- */
-function resolveKey<RecordType>(
-  record: RecordType,
-  rowKey: string | ((record: RecordType) => string | number),
-): React.Key {
-  if (typeof rowKey === 'function') return rowKey(record)
-  const v = (record as any)?.[rowKey]
-  return v === undefined ? '' : v
-}
-
-/**
- * 树形联动：收集某 key 的全部子孙 keys（递归 parentChildrenMap）。
- */
-function collectDescendants(
-  key: React.Key,
-  parentChildrenMap: Map<React.Key, Array<React.Key>>,
-): Array<React.Key> {
-  const out: Array<React.Key> = []
-  const stack: Array<React.Key> = [key]
-  while (stack.length > 0) {
-    const k = stack.pop()!
-    const children = parentChildrenMap.get(k)
-    if (children) {
-      for (const c of children) {
-        out.push(c)
-        stack.push(c)
-      }
-    }
-  }
-  return out
-}
-
-/**
- * 树形联动：收集某 key 的全部祖先 keys（自底向上）。
- * 通过遍历 parentChildrenMap 反查（线性扫描）——树规模通常不大，可接受。
- */
-function collectAncestors(
-  key: React.Key,
-  parentChildrenMap: Map<React.Key, Array<React.Key>>,
-): Array<React.Key> {
-  const ancestors: Array<React.Key> = []
-  // 构建 child→parent 映射（一次性）以 O(depth) 查找。
-  // 这里每次调用都重建——调用频率低（toggle/全选），可接受。
-  const childToParent = new Map<React.Key, React.Key>()
-  for (const [parent, children] of parentChildrenMap) {
-    for (const c of children) childToParent.set(c, parent)
-  }
-  let current: React.Key | undefined = key
-  while (true) {
-    const parent = childToParent.get(current as React.Key)
-    if (parent === undefined) break
-    ancestors.push(parent)
-    current = parent
-  }
-  return ancestors
-}
-
-/**
- * 树形联动 conduction（对齐 antd rc-tree `conductCheck`）— 详见 docs/design-notes/selection.md（树形父子联动）
- *
- * 输入"原始 selectedRowKeys"（可能含父但缺子孙，或含子但缺父），输出：
- *   - checkedKeys：完整勾选集合（填充子孙 + 补全所有子已选中的父）。
- *   - halfCheckedKeys：半选父集合（部分子选中、未全选）。
- *
- * 与 antd conductCheck 略简化：不处理 disabled 行的"强制不参与"复杂规则（disabled 子行仍参与父全选判定）。
- */
-function conductTreeCheck(
-  inputKeys: Array<React.Key>,
-  parentChildrenMap: Map<React.Key, Array<React.Key>>,
-): { checkedKeys: Set<React.Key>; halfCheckedKeys: Set<React.Key> } {
-  const checked = new Set<React.Key>(inputKeys)
-  // Step 1: 填充子孙（父选中 → 全部子孙选中）。
-  const descendantsToAdd: Array<React.Key> = []
-  for (const k of inputKeys) {
-    const children = parentChildrenMap.get(k)
-    if (children) {
-      for (const d of collectDescendants(k, parentChildrenMap)) {
-        descendantsToAdd.push(d)
-      }
-    }
-  }
-  for (const d of descendantsToAdd) checked.add(d)
-
-  // Step 2: 自底向上补全父（迭代直到一轮无变化）。
-  // 按深度从大到小处理父（叶子父先判），确保补全传播。
-  // 简单实现：循环直到一次完整遍历无新增 checked 父。
-  const halfChecked = new Set<React.Key>()
-  let changed = true
-  while (changed) {
-    changed = false
-    halfChecked.clear()
-    for (const [parent, children] of parentChildrenMap) {
-      let selectedCount = 0
-      for (const c of children) {
-        if (checked.has(c)) selectedCount += 1
-      }
-      if (selectedCount === children.length) {
-        // 全选 → 父加入 checked（若未在）。
-        if (!checked.has(parent)) {
-          checked.add(parent)
-          changed = true
-        }
-      } else if (selectedCount > 0) {
-        // 部分选 → 父半选。
-        halfChecked.add(parent)
-      }
-    }
-  }
-  // 再次清理 halfChecked 中可能误含的（若某父刚被补入 checked 则不在 halfChecked）。
-  for (const k of Array.from(halfChecked)) {
-    if (checked.has(k)) halfChecked.delete(k)
-  }
-  return { checkedKeys: checked, halfCheckedKeys: halfChecked }
+  ) => { nextKeys: Array<Key>; method: RowSelectMethod } | null
 }
 
 
@@ -321,7 +191,7 @@ export function useRowSelection<RecordType>(
 
   // === 全集可勾选 key/record（排除 disabled）===
   const { selectableKeys, selectableRecords } = useMemo(() => {
-    const keys: Array<React.Key> = []
+    const keys: Array<Key> = []
     const records: Array<RecordType> = []
     for (const record of dataSource) {
       const disabled = getCheckboxProps?.(record)?.disabled === true
@@ -347,8 +217,8 @@ export function useRowSelection<RecordType>(
       return { selectedKeySet: checkedKeys, halfCheckedKeySet: halfCheckedKeys }
     }
     return {
-      selectedKeySet: new Set<React.Key>(selectedRowKeys),
-      halfCheckedKeySet: new Set<React.Key>(),
+      selectedKeySet: new Set<Key>(selectedRowKeys),
+      halfCheckedKeySet: new Set<Key>(),
     }
   }, [treeLinkEnabled, parentChildrenMap, selectedRowKeys])
 
@@ -369,12 +239,12 @@ export function useRowSelection<RecordType>(
   }, [isRadio, selectableKeys, selectedKeySet])
 
   const isSelected = useCallback(
-    (key: React.Key) => selectedKeySet.has(key),
+    (key: Key) => selectedKeySet.has(key),
     [selectedKeySet],
   )
 
   const isIndeterminate = useCallback(
-    (key: React.Key) => halfCheckedKeySet.has(key),
+    (key: Key) => halfCheckedKeySet.has(key),
     [halfCheckedKeySet],
   )
 
@@ -387,7 +257,7 @@ export function useRowSelection<RecordType>(
 
   /** 不可变地从数组中 add/delete 一个 key，返回新数组。保留原顺序，新增追加末尾。 */
   const toggleKey = useCallback(
-    (key: React.Key, select: boolean): Array<React.Key> => {
+    (key: Key, select: boolean): Array<Key> => {
       if (select) {
         if (selectedKeySet.has(key)) return Array.from(selectedKeySet)
         return [...Array.from(selectedKeySet), key]
@@ -406,9 +276,9 @@ export function useRowSelection<RecordType>(
    * 返回完整 conduced 数组（含父+子孙）。
    */
   const toggleTreeKey = useCallback(
-    (key: React.Key, select: boolean): Array<React.Key> => {
+    (key: Key, select: boolean): Array<Key> => {
       if (!parentChildrenMap) return toggleKey(key, select)
-      const nextSet = new Set<React.Key>(selectedKeySet)
+      const nextSet = new Set<Key>(selectedKeySet)
       if (select) {
         nextSet.add(key)
         for (const d of collectDescendants(key, parentChildrenMap)) nextSet.add(d)
@@ -440,7 +310,7 @@ export function useRowSelection<RecordType>(
   )
 
   const toggleRow = useCallback(
-    (key: React.Key): Array<React.Key> => {
+    (key: Key): Array<Key> => {
       if (isRadio) {
         // radio：选中即替换；已选中再点保持（antd radio 行为）。
         if (selectedKeySet.has(key)) return Array.from(selectedKeySet)
@@ -454,18 +324,18 @@ export function useRowSelection<RecordType>(
     [isRadio, selectedKeySet, treeLinkEnabled, toggleTreeKey, toggleKey],
   )
 
-  const toggleAll = useCallback((): Array<React.Key> => {
+  const toggleAll = useCallback((): Array<Key> => {
     if (isRadio) return Array.from(selectedKeySet)
     if (allSelected) {
       // 当前已全选 → 清空所有 selectableKeys（保留 selectableKeys 之外的 key，如 disabled 行
       // 之前被选中——antd preserveSelectedRowKeys 语义）。
-      const selectableSet = new Set<React.Key>(selectableKeys)
+      const selectableSet = new Set<Key>(selectableKeys)
       const next = Array.from(selectedKeySet).filter((k) => !selectableSet.has(k))
       return next
     }
     // 未全选 → 选中所有 selectableKeys（去重合并，保留原顺序优先）。
-    const seen = new Set<React.Key>(selectedKeySet)
-    const next: Array<React.Key> = Array.from(selectedKeySet)
+    const seen = new Set<Key>(selectedKeySet)
+    const next: Array<Key> = Array.from(selectedKeySet)
     for (const k of selectableKeys) {
       if (!seen.has(k)) {
         seen.add(k)
@@ -476,7 +346,7 @@ export function useRowSelection<RecordType>(
   }, [isRadio, allSelected, selectedRowKeys, selectableKeys])
 
   const selectRow = useCallback(
-    (key: React.Key): Array<React.Key> => {
+    (key: Key): Array<Key> => {
       if (isRadio) return [key]
       return toggleKey(key, true)
     },
@@ -519,7 +389,7 @@ export function useRowSelection<RecordType>(
   const applySelection = useCallback(
     (
       item: SelectionItem,
-    ): { nextKeys: Array<React.Key>; method: RowSelectMethod } | null => {
+    ): { nextKeys: Array<Key>; method: RowSelectMethod } | null => {
       // 自定义项（非内置 key）：调其 onSelect，返回 null（不触发 onChange）。
       if (item.key !== 'all' && item.key !== 'invert' && item.key !== 'none') {
         item.onSelect?.(changeableRowKeys)
@@ -527,24 +397,24 @@ export function useRowSelection<RecordType>(
       }
       // changeableRowKeys 在树形联动下可能含父行（其子孙也在 selectableKeys）。
       // 用 Set 统一处理；ALL/INVERT 结果在树形联动模式下经 conductTreeCheck 补全父。
-      const changeableSet = new Set<React.Key>(changeableRowKeys)
-      let nextSet: Set<React.Key>
+      const changeableSet = new Set<Key>(changeableRowKeys)
+      let nextSet: Set<Key>
       let method: RowSelectMethod
       if (item.key === 'all') {
         // ALL：changeableRowKeys 全选 + 保留已选 disabled 行（不在 changeableSet 中的已选 key）。
-        nextSet = new Set<React.Key>(selectedKeySet)
+        nextSet = new Set<Key>(selectedKeySet)
         for (const k of changeableSet) nextSet.add(k)
         method = 'all'
       } else if (item.key === 'none') {
         // NONE：清空 changeableRowKeys，仅保留已选 disabled 行。
-        nextSet = new Set<React.Key>()
+        nextSet = new Set<Key>()
         for (const k of selectedKeySet) {
           if (!changeableSet.has(k)) nextSet.add(k)
         }
         method = 'none'
       } else {
         // INVERT：changeableRowKeys 中 toggle；保留 selectableKeys 之外的 key（disabled 行原样）。
-        nextSet = new Set<React.Key>(selectedKeySet)
+        nextSet = new Set<Key>(selectedKeySet)
         for (const k of changeableSet) {
           if (nextSet.has(k)) nextSet.delete(k)
           else nextSet.add(k)
@@ -552,7 +422,7 @@ export function useRowSelection<RecordType>(
         method = 'invert'
       }
       // 树形联动：补全父（若所有子选中 → 父也选中），使存回的数组完整。
-      let nextKeys: Array<React.Key>
+      let nextKeys: Array<Key>
       if (treeLinkEnabled && parentChildrenMap) {
         const { checkedKeys } = conductTreeCheck(Array.from(nextSet), parentChildrenMap)
         nextKeys = Array.from(checkedKeys)

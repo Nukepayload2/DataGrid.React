@@ -9,12 +9,6 @@
  * - `ColumnResizer`：列宽拖拽手柄（叶子表头格右侧边缘）。HeaderCell 与单层路径 ColumnCells
  *   （仍在 GridTable.tsx）共用，故本文件 export。
  */
-import {
-  type CSSProperties,
-} from 'react'
-import {
-  stickyHeaderCellStyle,
-} from './useStickyColumns'
 import { SortIndicator } from './SortIndicator'
 import { FilterDropdown } from './FilterDropdown'
 import type {
@@ -30,6 +24,13 @@ import {
   shadowClass,
   toEllipsisTitle,
 } from './cellRenderUtils'
+// 表头格 className/style/event 合并 + sticky 合并纯函数簇（与 FlatColumnCells 共用，抽到 utils 便于单测 + 去重）。
+import {
+  mergeHeaderEventProps,
+  mergeHeaderExtraClass,
+  mergeHeaderExtraStyle,
+  mergeHeaderStickyStyle,
+} from './headerCellUtils'
 
 function HeaderCell<RecordType>({
   cell,
@@ -158,30 +159,20 @@ function HeaderCell<RecordType>({
   // 合并 cell 级 + 行级 className（cell.onHeaderCell.className + cell.className + 行 onHeaderRow.className）。
   // 顺序：基础 dg 类 → semantic.cell → cell.className（列级）→ onHeaderCell.className（单元格级）
   //   → onHeaderRow.className（行级，最后合并保证行级最优先）。
-  const mergedHeaderExtraClass = [
+  const mergedHeaderExtraClass = mergeHeaderExtraClass(
     cell.className,
     onHeaderCellProps?.className,
     onHeaderRowProps?.className,
-  ]
-    .filter(Boolean)
-    .join(' ') || undefined
+  )
   // 合并 cell 级 + 行级 style（后者覆盖前者同名字段）。
-  const mergedHeaderExtraStyle: CSSProperties = {
-    ...(cell.style ?? null),
-    ...(onHeaderCellProps?.style ?? null),
-    ...(onHeaderRowProps?.style ?? null),
-  }
+  const mergedHeaderExtraStyle = mergeHeaderExtraStyle(
+    cell.style,
+    onHeaderCellProps?.style,
+    onHeaderRowProps?.style,
+  )
   // 提取事件 props（onHeaderCell + onHeaderRow 合并；行级优先覆盖单元格级同名字段）。
   //   仅取 on* 开头的事件 handler（排除 className/style 已单独合并；其余 onXxx 透传到 div）。
-  const headerEventProps: Record<string, unknown> = {}
-  for (const src of [onHeaderCellProps, onHeaderRowProps]) {
-    if (!src) continue
-    for (const k of Object.keys(src)) {
-      if (k === 'className' || k === 'style') continue
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      headerEventProps[k] = (src as any)[k]
-    }
-  }
+  const headerEventProps = mergeHeaderEventProps([onHeaderCellProps, onHeaderRowProps])
   // 分组表头格默认居中（与 antd 多级表头一致）；叶子表头格保留列对齐。
   // 表头横向合并格（headerColSpan>1）也居中（跨多列的表头，与 antd <th colspan> 一致）。
   const headerSpan = cell.headerColSpan ?? 1
@@ -191,36 +182,14 @@ function HeaderCell<RecordType>({
       : cell.align
     : 'center'
   // 合并 sticky 样式：横向（左/右）+ 纵向 top:0（容器内）或 top:offsetHeader（页面级）。
-  // 详见 docs/design-notes/fixed-column.md + sticky.md。
-  const horizontalSticky = stickyHeaderCellStyle(sticky)
-  const hasHorizontalSticky = !!sticky?.side // 固定列（左/右）
-  // stickyHeaderOffset（页面级，相对 viewport）优先于 headerStickyTop（容器内，top:0）。
-  //   两者互斥（sticky 启用时 headerStickyTop 恒 false），这里防御性取优先级。
-  // 叠加逐行偏移 headerStickyTopOffset——多级表头各表头行按 gridRowStart 分层 sticky
-  //   （row1 top:0、row2 top:h1、rowN top:Σh[0..N-2]），避免多行表头全堆叠在 top:0 重叠。
-  //   sticky 多行表头同样逐行分层（top = stickyHeaderOffset + headerStickyTopOffset）。
-  //   单行表头 headerStickyTopOffset=0。
-  const rowTopOffset = headerStickyTopOffset ?? 0
-  const verticalSticky: CSSProperties = stickyHeaderOffset !== undefined
-    ? { position: 'sticky', top: `${stickyHeaderOffset + rowTopOffset}px`, zIndex: 4 }
-    : headerStickyTop
-      ? { position: 'sticky', top: `${rowTopOffset}px`, zIndex: 4 }
-      : {}
-  const hasVerticalSticky = stickyHeaderOffset !== undefined || !!headerStickyTop
-  // corner cell（表头 × 固定列交叉格，双 sticky）：横向+纵向同时存在时，该格需要
-  //   **最高 z-index**（5），保证横向滚动时始终盖住"只纵向 sticky 的中间表头格"（z-index 4）
-  //   与"只横向 sticky 的固定列表头格"（z-index 3）。
-  //   修复 bug：原实现 corner cell 取纵向 z-index（4），与中间表头格（4）相同，
-  //   DOM 后渲染的中间表头格横向滚动时会盖住 corner cell。
-  //   z-index 层级：普通(auto) < 表体固定列(2) < 表头固定列(3) < 表头顶部(4) < corner 双 sticky(5)。
-  const cornerZIndex = 5
-  const mergedSticky: CSSProperties = (() => {
-    const merged: CSSProperties = { ...horizontalSticky, ...verticalSticky }
-    if (hasHorizontalSticky && hasVerticalSticky) {
-      merged.zIndex = cornerZIndex
-    }
-    return merged
-  })()
+  //   详细语义（含 corner cell 双 sticky 取最高 z-index=5 的修复、逐行偏移 headerStickyTopOffset）
+  //   详见 headerCellUtils.ts:mergeHeaderStickyStyle + docs/design-notes/fixed-column.md + sticky.md。
+  const mergedSticky = mergeHeaderStickyStyle(
+    sticky,
+    stickyHeaderOffset,
+    headerStickyTop,
+    headerStickyTopOffset,
+  )
   // 该表头格是否可排序（仅叶子表头格；分组格无排序）。
   const sortable = cell.isLeaf && cell.sortable === true && !cell.hidden
   // 当前排序态（null/ascend/descend）；仅可排序格有意义。

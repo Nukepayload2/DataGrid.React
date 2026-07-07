@@ -1,5 +1,5 @@
 /**
- * data-grid 内部渲染引擎类型定义。
+ * data-grid 内部渲染引擎类型定义（部分拆分后的主文件）。
  *
  * 这是 CSS Grid 渲染层的内部约定，**不**对外暴露。
  * 对外 antd 兼容接口见 `src/table/Table.tsx`（适配层）。
@@ -11,49 +11,52 @@
  *   不实现 antd `measureRowRender` 兼容 API（隐藏测量行重渲染），与 RO 测量是两回事
  *   （详见 docs/design-notes/virtualization.md）。
  * - 预留 fixed / virtual / children(多级表头) / colSpan / rowSpan / rowExpand 钩子。
+ *
+ * === 拆分说明（档二·纯类型） ===
+ *
+ * 低耦合部分已拆到 `./engineTypes/` 子目录：
+ *   - atomic.ts：Align / FixedSide。
+ *   - filter.ts：EngineFilterItem。
+ *   - sort.ts：EngineSortOrder / EngineCompareFn / EngineColumnSorter。
+ *   - state.ts：EngineTreeState / EngineExpandState。
+ *   - semantic.ts：EngineSemanticSection / EngineSemanticSectionStyles / EngineSemantic。
+ *
+ * 本文件保留**强耦合主体**（字段镜像密集，不宜拆分）：
+ *   - 列三接口 EngineLeafColumn / EngineColumnNode / EngineHeaderCell。
+ *   - 聚合枢纽 EngineTableProps。
+ *   - RowHeight 约定。
+ *
+ * 本文件 barrel re-export 拆出的子文件类型，保证 `from './engineTypes'` 路径不变；
+ * `engine/types.ts` 的 barrel 也透明转发。子文件之间用相对 import；
+ * 引擎层自引用 `import('./types').XXX` 仍解析到 `engine/types.ts` barrel（不变）。
  */
 
 import type { ReactNode } from 'react'
 import type { ScrollBarFoldMode } from '../types'
+// 拆出的子文件类型（用于本文件强耦合主体引用 + 透传 re-export）
+import type { Align, FixedSide } from './engineTypes/atomic'
+import type { EngineFilterItem } from './engineTypes/filter'
+import type {
+  EngineColumnSorter,
+  EngineSortOrder,
+} from './engineTypes/sort'
+import type { EngineExpandState, EngineTreeState } from './engineTypes/state'
+import type { EngineSemantic } from './engineTypes/semantic'
 
-/** 对齐方式（antd column.align 子集）。 */
-export type Align = 'start' | 'center' | 'end'
-
-/** 固定列方向。antd 同时接受 'left'/'right'，这里在适配层做归一化为 'start'/'end'。 */
-export type FixedSide = 'start' | 'end'
-
-/**
- * 筛选项（引擎层独立类型；与对外 `ColumnFilterItem` 同语义）。
- * 引擎只消费 `text`/`value`（渲染下拉项 + 勾选比对）；`children`（树形）引擎不消费。
- */
-export interface EngineFilterItem {
-  text: ReactNode
-  value: import('../types').FilterValue
-  children?: Array<EngineFilterItem>
-}
-
-/**
- * 排序方向。对齐 antd `SortOrder`。
- * 注意：引擎层与对外 `SortOrder` 同语义，这里独立定义避免对外类型外泄到内部约定。
- */
-export type EngineSortOrder = 'ascend' | 'descend' | null
-
-/**
- * 排序比较函数。对齐 antd `CompareFn`。
- */
-export type EngineCompareFn<RecordType = any> = (
-  a: RecordType,
-  b: RecordType,
-  sortOrder?: EngineSortOrder,
-) => number
-
-/**
- * 排序器配置。与对外 `ColumnSorter` 同语义；引擎层独立类型。
- */
-export type EngineColumnSorter<RecordType = any> =
-  | boolean
-  | EngineCompareFn<RecordType>
-  | { compare?: EngineCompareFn<RecordType>; multiple?: number }
+// === barrel re-export：保持 `from './engineTypes'` 全部公开表面不变 ===
+export type { Align, FixedSide } from './engineTypes/atomic'
+export type { EngineFilterItem } from './engineTypes/filter'
+export type {
+  EngineSortOrder,
+  EngineCompareFn,
+  EngineColumnSorter,
+} from './engineTypes/sort'
+export type { EngineTreeState, EngineExpandState } from './engineTypes/state'
+export type {
+  EngineSemanticSection,
+  EngineSemanticSectionStyles,
+  EngineSemantic,
+} from './engineTypes/semantic'
 
 /**
  * 引擎内部使用的叶子列描述。
@@ -883,102 +886,4 @@ export interface EngineTableProps<RecordType = any> {
    * 未提供（undefined）时不加 dg-row-selected 类（无 rowSelection 的 demo 零回归）。
    */
   isRowSelected?: (record: RecordType) => boolean
-}
-
-/**
- * 引擎层树形数据状态。适配层 useTreeData 派生后传入；引擎只读不写。
- *
- * 适配层在树形模式下（dataSource record 含 `childrenColumnName` 子字段）调用 useTreeData：
- *   1. 把嵌套 children 扁平化（DFS）成普通 record 数组（按展开状态过滤未展开父行的子孙行），
- *      **替换原 dataSource 传给引擎**——引擎按普通扁平表格渲染。
- *   2. 同时构建 `rowInfoMap`（key → {level, parentKey, hasChildren}），引擎据此在**第一列数据列**
- *      单元格内按 `level × indentSize` 左缩进 + `hasChildren` 行渲染展开/收起图标。
- *
- * 引擎据此在渲染数据单元格时（仅 treeState 启用且该列为"首数据列"）插入缩进 + 展开图标。
- */
-export interface EngineTreeState {
-  /** 是否启用树形模式（treeState 启用）。 */
-  treeEnabled: boolean
-  /** 每层缩进宽度（px）。默认 15（对齐 antd 6.4.4 实测）。 */
-  indentSize: number
-  /**
-   * key → 树形行信息。
-   * 包含扁平化后**所有可见行**（已按展开状态过滤）的 level/parentKey/hasChildren。
-   * 引擎在渲染某行数据格时按该行 key 查此 Map。
-   */
-  rowInfoMap: Map<React.Key, { level: number; parentKey: React.Key | null; hasChildren: boolean }>
-  /** 某 key 是否展开。 */
-  isExpanded: (key: React.Key) => boolean
-  /** 切换某行展开态（点击展开图标触发）。参数：(key)。 */
-  toggleExpand: (key: React.Key) => void
-}
-
-/**
- * 引擎层展开状态。适配层 useRowExpand 派生后传入；引擎只读不写。
- */
-export interface EngineExpandState {
-  /** 是否启用展开（决定渲染展开列 / 展开内容 track）。 */
-  expandEnabled: boolean
-  /** 某 key 是否展开。 */
-  isExpanded: (key: React.Key) => boolean
-  /** 所有可展开 key 集合（用于判定某行是否需要展开 track）。 */
-  expandableKeySet: Set<React.Key>
-  /** 展开内容渲染器（来自 expandable.expandedRowRender）。 */
-  expandedRowRender: (record: any, index: number, expanded: boolean) => ReactNode
-  /** 展开内容起始列偏移（antd deprecated expandedRowOffset 兼容）。 */
-  expandedRowOffset?: number
-  /**
-   * 切换某行展开态（点击展开图标触发）。引擎在展开列单元格点击时调用。
-   * 参数：(key, record)。返回的新展开 keys 由适配层 state 管理。
-   */
-  toggleExpand: (key: React.Key, record: any) => void
-  /** 某 key 是否在 expandableKeySet 中（引擎为性能直接传函数）。 */
-  isExpandable: (key: React.Key) => boolean
-  /** 是否渲染展开图标列（expandable.showExpandColumn !== false 时为 true）。 */
-  showExpandColumn: boolean
-  /**
-   * 自定义展开图标渲染器（来自 expandable.expandIcon）。
-   * 当前由适配层（src/table/expandAdapter.tsx buildExpandColumnNode）在展开列 render 中消费；引擎透传不直接使用。
-   * 保留在引擎类型中便于未来引擎直渲染展开列时复用。未提供时用默认 ExpandIcon 组件。
-   * 参数对齐 antd ExpandIcon props：{ expanded, onExpand(record,e), record }。
-   */
-  expandIcon?: (props: {
-    expanded: boolean
-    onExpand: (record: any, e: import('react').MouseEvent) => void
-    record: any
-  }) => ReactNode
-}
-
-/**
- * 引擎层语义化样式（已求值的对象，由适配层 Table.tsx 传入）。
- *
- * 引擎只消费**grid 内**部位（root/title/footer/pagination.* 由适配层直接消费）：
- *   - `section`：grid 外的包装容器（`.dg-section`，含滚动容器）。
- *   - `content`：grid 根容器（`.dg-content`/`.dg-grid`）。
- *   - `header.{wrapper,row,cell}`：表头容器/表头行/表头格。
- *   - `body.{wrapper,row,cell}`：表体容器/表体行/表体格。
- *
- * 与对外 `TableSemanticClassNames/Styles`（types.ts）字段一一对应，仅取引擎消费的子集。
- */
-export interface EngineSemanticSection {
-  wrapper?: string
-  cell?: string
-  row?: string
-}
-export interface EngineSemanticSectionStyles {
-  wrapper?: import('react').CSSProperties
-  cell?: import('react').CSSProperties
-  row?: import('react').CSSProperties
-}
-export interface EngineSemantic {
-  section?: { className?: string; style?: import('react').CSSProperties }
-  content?: { className?: string; style?: import('react').CSSProperties }
-  header?: {
-    className?: EngineSemanticSection
-    style?: EngineSemanticSectionStyles
-  }
-  body?: {
-    className?: EngineSemanticSection
-    style?: EngineSemanticSectionStyles
-  }
 }
