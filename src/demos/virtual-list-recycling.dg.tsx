@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Button, Space, Switch, Typography } from 'antd'
+import { Button, Segmented, Space, Switch, Typography } from 'antd'
 import { Table } from '../table'
 import type {
   ColumnType,
@@ -102,6 +102,30 @@ function createTextRenderer<RecordType>(
   }
 }
 
+function formatCellValue(value: unknown): string {
+  return value === null || value === undefined ? '' : String(value)
+}
+
+function renderStandardText(value: unknown) {
+  return <span className="dg-recycling-text">{formatCellValue(value)}</span>
+}
+
+function renderStandardStatus(value: unknown) {
+  return (
+    <span className={`dg-recycling-text dg-recycling-status-${String(value).toLowerCase()}`}>
+      {formatCellValue(value)}
+    </span>
+  )
+}
+
+function renderStandardPriority(value: unknown) {
+  return (
+    <span className={`dg-recycling-text dg-recycling-priority-${String(value).toLowerCase()}`}>
+      {formatCellValue(value)}
+    </span>
+  )
+}
+
 function recordDispose(
   statsRef: React.MutableRefObject<Stats>,
   _element: HTMLElement,
@@ -145,7 +169,8 @@ export default function VirtualListRecyclingDg() {
     unmount: 0,
   })
   const [stats, setStats] = useState<Stats>(() => ({ ...statsRef.current }))
-  const [logEnabled, setLogEnabled] = useState(true)
+  const [mode, setMode] = useState<'standard' | 'recycling'>('recycling')
+  const [logEnabled, setLogEnabled] = useState(false)
   const [version, setVersion] = useState(0)
   const lastLogStatsRef = useRef(statsRef.current)
 
@@ -209,10 +234,10 @@ export default function VirtualListRecyclingDg() {
     () => [
       { title: 'ID', dataIndex: 'id', width: 72 },
       { title: 'Account', dataIndex: 'account', width: 120 },
-      { title: 'Status', dataIndex: 'status', width: 100, gridColumnOptions: { renderCellElement: renderStatus, disposeCellElement: dispose } },
+      { title: 'Status', dataIndex: 'status', width: 100, render: renderStandardStatus, gridColumnOptions: { renderCellElement: renderStatus, disposeCellElement: dispose } },
       { title: 'Region', dataIndex: 'region', width: 90 },
       { title: 'Owner', dataIndex: 'owner', width: 110 },
-      { title: 'Priority', dataIndex: 'priority', width: 92, gridColumnOptions: { renderCellElement: renderPriority, disposeCellElement: dispose } },
+      { title: 'Priority', dataIndex: 'priority', width: 92, render: renderStandardPriority, gridColumnOptions: { renderCellElement: renderPriority, disposeCellElement: dispose } },
       { title: 'Amount', dataIndex: 'amount', width: 110 },
       { title: 'Score', dataIndex: 'score', width: 82 },
       { title: 'Updated', dataIndex: 'updated', width: 112 },
@@ -226,6 +251,7 @@ export default function VirtualListRecyclingDg() {
       { title: 'Flag', dataIndex: 'flag', width: 95 },
     ].map((column) => ({
       ...column,
+      render: column.render ?? renderStandardText,
       gridColumnOptions: {
         renderCellElement: renderText,
         disposeCellElement: dispose,
@@ -250,10 +276,23 @@ export default function VirtualListRecyclingDg() {
     setVersion((current) => current + 1)
   }
 
+  const onModeChange = (nextMode: 'standard' | 'recycling') => {
+    setMode(nextMode)
+    resetStats()
+  }
+
   return (
     <div style={{ padding: 24 }}>
       <Space style={{ marginBottom: 12 }} align="center" wrap>
         <Typography.Text strong>Recycling virtual body</Typography.Text>
+        <Segmented
+          value={mode}
+          onChange={(value) => onModeChange(value as 'standard' | 'recycling')}
+          options={[
+            { label: 'Recycling', value: 'recycling' },
+            { label: 'Standard', value: 'standard' },
+          ]}
+        />
         <Typography.Text type="secondary" data-testid="recycling-counters">
           create {stats.create} / reuse {stats.reuse} / render {stats.render} / recycle {stats.recycle} / discard {stats.discard}
         </Typography.Text>
@@ -276,7 +315,7 @@ export default function VirtualListRecyclingDg() {
           pagination={false}
           scroll={{ x: 1800, y: true }}
           gridOptions={{
-            virtualizationMode: 'recycling',
+            virtualizationMode: mode,
             rowHeight: 28,
             headerHeight: 34,
           }}
