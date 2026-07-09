@@ -4,8 +4,8 @@ import type { ColumnType } from '../table'
 import { theme } from 'antd'
 import { initialData, type RecordType } from './_compare/drag-sorting.shared'
 const dgColumns: ColumnType<RecordType>[] = [
-  { title: 'Name', dataIndex: 'name', key: 'name', width: 120 },
-  { title: 'Age', dataIndex: 'age', key: 'age', width: 80 },
+  { title: 'Name', dataIndex: 'name', key: 'name', width: '10%' },
+  { title: 'Age', dataIndex: 'age', key: 'age', width: '7%' },
   { title: 'Address', dataIndex: 'address', key: 'address' },
 ]
 
