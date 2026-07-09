@@ -169,6 +169,8 @@ export function toEngineColumns<RecordType>(
         node.filterMode = col.filterMode
         // 单元格重渲染优化透传（仅叶子列消费；components.body.cell 提供时生效）。
         node.shouldCellUpdate = col.shouldCellUpdate as EngineColumnNode<RecordType>['shouldCellUpdate']
+        // data-grid 列级专属选项透传给引擎层（recycling renderer、列拖拽锁定等）。
+        node.gridColumnOptions = col.gridColumnOptions
       }
       return node
     })

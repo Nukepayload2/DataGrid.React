@@ -27,6 +27,7 @@ import type {
   ScrollBarFoldMode,
   TableComponents,
 } from './nativeOptions'
+import type { VirtualizationMode } from './engine/recyclingCellTypes'
 
 export type RowKeyType = string | ((record: any) => string | number)
 
@@ -143,6 +144,7 @@ export interface TableProps<RecordType = any> {
    */
   gridOptions?: {
     rowHeight?: number | ((record: RecordType, index: number) => number)
+    virtualizationMode?: VirtualizationMode
     minRowHeight?: number
     maxRowHeight?: number
     headerHeight?: number | string

@@ -109,6 +109,7 @@ export function collectLeaves<RecordType>(
         filterDropdownProps: node.filterDropdownProps,
         filterSearch: node.filterSearch,
         filterMode: node.filterMode,
+        gridColumnOptions: node.gridColumnOptions,
         raw: node.raw,
       })
       return

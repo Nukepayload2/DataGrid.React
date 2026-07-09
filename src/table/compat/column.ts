@@ -16,6 +16,7 @@ import type {
   FilterValue,
 } from './filter'
 import type { ColumnSorter, SortDirections, SortOrder } from './sort'
+import type { GridColumnOptions } from '../engine/recyclingCellTypes'
 
 /**
  * antd column 子集（demo 用到的）。
@@ -33,23 +34,7 @@ export interface ColumnType<RecordType = any> {
    *
    *   - `dragColumnLock`：列拖拽锁定模式（列拖拽排序）。
    */
-  gridColumnOptions?: {
-    /**
-     * 列拖拽锁定模式。
-     *
-     * **语义**：
-     *   - `undefined`：不锁定（默认），该列可发起拖拽，也可被其它列重排影响。
-     *   - `'lockDrag'`：锁定拖拽发起。该列**不可发起拖拽**，但其它列拖拽时它仍可被动让位 /
-     *     换位。
-     *   - `'lockPosition'`：锁定拖拽发起 + 锁定 index。该列不可发起拖拽，且重排算法保持其
-     *     columns index 恒定；拖拽动画中可临时位移以预览 drop 后真实位置。
-     *
-     * 全局还要受 `gridOptions.columnReorder`（默认 true）约束。
-     * 发起拖拽条件见 `useColumnDragSort`：
-     * `columnReorder !== false && dragColumnLock === undefined`。
-     */
-    dragColumnLock?: 'lockDrag' | 'lockPosition'
-  }
+  gridColumnOptions?: GridColumnOptions<RecordType>
   width?: number | string
   align?: Align
   fixed?: FixedInput

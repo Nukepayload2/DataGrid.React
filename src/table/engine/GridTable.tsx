@@ -81,6 +81,7 @@ import { HeaderCell } from './HeaderCell'
 import { renderBodyCells } from './BodyGrid'
 import { ColumnCells } from './FlatColumnCells'
 import { buildResizeSiblingByKey } from './resizeColumnUtils'
+import { useCellElementPool } from './useCellElementPool'
 
 /**
  * 自定义组件渲染（components.body.cell / components.body.row）— 详见 docs/design-notes/header.md 与 selection.md。
@@ -180,6 +181,7 @@ function GridTableInner<RecordType = any>(
     resizableMinWidth,
     resizableMaxWidth,
     columnResizeMode,
+    virtualizationMode,
   } = gridOptions ?? {}
 
   const gridRef = useRef<HTMLDivElement | null>(null)
@@ -402,6 +404,25 @@ function GridTableInner<RecordType = any>(
     maxRowHeight,
   })
 
+  const recyclingRequested =
+    virtualizationMode === 'recycling' && virtualEnabled
+  const recyclingReuseEnabled =
+    recyclingRequested &&
+    !treeEnabled &&
+    !expandEnabled &&
+    !components?.body?.row &&
+    !components?.body?.cell &&
+    !leafColumns.some((column) => typeof column.onCell === 'function')
+  const recyclingCellElementMode = recyclingRequested
+    ? recyclingReuseEnabled
+      ? ('reuse' as const)
+      : ('no-reuse' as const)
+    : undefined
+  const cellElementPool = useCellElementPool({
+    columns: leafColumns,
+    maxPoolSize: Math.max(1, virtualState.end - virtualState.start + 16),
+  })
+
   // 暴露 scrollTo（仅在虚拟模式下有效；非虚拟调用为 no-op）。
   useImperativeHandle(
     ref,
@@ -601,18 +622,18 @@ function GridTableInner<RecordType = any>(
             dataSource,
             virtualEnabled,
             virtualState,
-            cellMergePlan,
-            expandEnabled,
+            cellMergePlan: recyclingCellElementMode ? null : cellMergePlan,
+            expandEnabled: recyclingCellElementMode ? false : expandEnabled,
             expandState,
             rowKey,
             hoveredRowIndex,
             setHoveredRowIndex,
             rowLineBase,
             leafSticky,
-            treeEnabled,
+            treeEnabled: recyclingCellElementMode ? false : treeEnabled,
             treeState,
             treeFirstDataColumnIdx,
-            components,
+            components: recyclingCellElementMode ? undefined : components,
             semanticBody: semantic?.body,
             // onRow / rowClassName 透传到表体单元格（grid 无 tr，行 props / 行 class 分发到该行所有单元格）。
             onRow,
@@ -622,13 +643,15 @@ function GridTableInner<RecordType = any>(
             isRowSelected,
             // 首列写 data-known-size（实测闭环，详见 docs/design-notes/virtualization.md）。
             effectiveRowHeight,
+            cellElementMode: recyclingCellElementMode,
+            cellElementPool,
           })}
           {/* 行展开内容：每个可展开 + 展开中的数据行渲染一条展开内容 grid item — 详见 docs/design-notes/expand.md。
               grid-column: 1 / -1 跨整行，grid-row 指向该行下方的展开内容 track。
               track size 已由 grid-template-rows 设为 1fr（展开）/0fr（收起），这里只渲染内容容器。
               容器 overflow:hidden + min-height:0——0fr track 下被裁剪不可见，1fr track 下自然展开。
               虚拟 × 展开：展开内容只在可视区数据行范围内渲染（与数据行同窗口），虚拟窗口大小仍按收起态算。 */}
-          {expandEnabled && expandState
+          {!recyclingCellElementMode && expandEnabled && expandState
             ? renderExpandedContents({
                 dataSource,
                 virtualEnabled,

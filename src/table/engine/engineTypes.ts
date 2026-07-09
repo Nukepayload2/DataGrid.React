@@ -33,6 +33,10 @@
 
 import type { ReactNode } from 'react'
 import type { ScrollBarFoldMode } from '../types'
+import type {
+  GridColumnOptions,
+  VirtualizationMode,
+} from './recyclingCellTypes'
 // 拆出的子文件类型（用于本文件强耦合主体引用 + 透传 re-export）
 import type { Align, FixedSide } from './engineTypes/atomic'
 import type { EngineFilterItem } from './engineTypes/filter'
@@ -227,6 +231,8 @@ export interface EngineLeafColumn<RecordType = any> {
    * 仅当 components.body.cell 提供时消费。详见对外 types.ts ColumnType.shouldCellUpdate。
    */
   shouldCellUpdate?: (prevRecord: RecordType, nextRecord: RecordType) => boolean
+  /** data-grid 列级专属选项。 */
+  gridColumnOptions?: GridColumnOptions<RecordType>
 }
 
 /**
@@ -376,6 +382,8 @@ export interface EngineColumnNode<RecordType = any> {
    * 单元格重渲染优化（仅叶子节点消费）。详见 EngineLeafColumn.shouldCellUpdate。
    */
   shouldCellUpdate?: (prevRecord: RecordType, nextRecord: RecordType) => boolean
+  /** data-grid 列级专属选项。 */
+  gridColumnOptions?: GridColumnOptions<RecordType>
 }
 
 /**
@@ -622,6 +630,8 @@ export interface EngineTableProps<RecordType = any> {
   gridOptions?: {
     /** 行高约定（数字 px 或函数；默认 'auto'，虚拟下默认 56）。 */
     rowHeight?: RowHeight<RecordType>
+    /** 虚拟化实现模式。undefined / standard 保持现有 React 渲染。 */
+    virtualizationMode?: VirtualizationMode
     minRowHeight?: number
     maxRowHeight?: number
     /** 表头行高约定（默认 'auto'）。多级表头下所有表头行统一使用此高度。 */

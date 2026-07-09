@@ -72,6 +72,15 @@ export const demos: DemoMeta[] = [
     category: '虚拟与汇总',
   },
   {
+    name: 'virtual-list-recycling',
+    title: 'Virtual Recycling',
+    description:
+      'data-grid 专属 recycling 虚拟数据区：30x17 small 文本表格 + 同列 HTMLElement 复用计数。',
+    element: () => import('./virtual-list-recycling'),
+    compare: false,
+    category: '虚拟与汇总',
+  },
+  {
     name: 'row-selection',
     title: 'Row Selection',
     description:

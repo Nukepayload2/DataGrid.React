@@ -10,6 +10,8 @@
  * （gridColumn/gridRow 决定位置，与 DOM 顺序无关）——两条分支并行实现，未合并。
  */
 import {
+  useLayoutEffect,
+  useRef,
   type ReactNode,
 } from 'react'
 import {
@@ -35,11 +37,201 @@ import {
 } from './hoverController'
 import { renderTreeIndent } from './treeIndentRenderer'
 import { getRowKey, getValueByDataIndex } from './recordAccess'
+import {
+  defaultRenderCellElement,
+  type CellElementPool,
+} from './useCellElementPool'
+import type {
+  GridCellElementRenderParams,
+  RecyclingCellElementMode,
+} from './recyclingCellTypes'
 import type {
   EngineExpandState,
   EngineLeafColumn,
   EngineTreeState,
 } from './types'
+
+function recyclingColumnIdentity<RecordType>(
+  column: EngineLeafColumn<RecordType>,
+): string | EngineLeafColumn<RecordType> {
+  return column.key || column
+}
+
+function resolveRecyclingRowKey<RecordType>(
+  record: RecordType,
+  rowKey: string | ((record: RecordType) => string | number),
+): string | number | undefined {
+  if (typeof rowKey === 'function') return rowKey(record)
+  const value = (record as Record<string, unknown> | null | undefined)?.[rowKey]
+  return typeof value === 'string' || typeof value === 'number'
+    ? value
+    : undefined
+}
+
+function detachElement(
+  container: HTMLElement | null,
+  element: HTMLElement,
+): void {
+  if (element.parentNode === container) {
+    container?.removeChild(element)
+  } else if (element.parentNode) {
+    element.parentNode.removeChild(element)
+  }
+}
+
+function useImperativeCellElement<RecordType>({
+  containerRef,
+  mode,
+  pool,
+  column,
+  colIdx,
+  record,
+  index,
+  rowKey,
+}: {
+  containerRef: React.RefObject<HTMLDivElement | null>
+  mode: RecyclingCellElementMode | undefined
+  pool: CellElementPool<RecordType> | undefined
+  column: EngineLeafColumn<RecordType>
+  colIdx: number
+  record: RecordType
+  index: number
+  rowKey: string | ((record: RecordType) => string | number)
+}) {
+  const elementRef = useRef<HTMLElement | undefined>(undefined)
+  const elementColumnRef = useRef<EngineLeafColumn<RecordType> | undefined>(undefined)
+  const paramsRef = useRef<GridCellElementRenderParams<RecordType> | undefined>(undefined)
+  const modeRef = useRef(mode)
+  const poolRef = useRef(pool)
+  const columnRef = useRef(column)
+
+  const params: GridCellElementRenderParams<RecordType> = {
+    value: getValueByDataIndex(record, column.dataIndex),
+    record,
+    rowIndex: index,
+    columnIndex: colIdx,
+    columnKey: column.key,
+    dataIndex: column.dataIndex,
+    rowKey: resolveRecyclingRowKey(record, rowKey),
+  }
+  const renderer =
+    column.gridColumnOptions?.renderCellElement ?? defaultRenderCellElement
+  const disposer = column.gridColumnOptions?.disposeCellElement
+
+  modeRef.current = mode
+  poolRef.current = pool
+  columnRef.current = column
+  paramsRef.current = params
+
+  useLayoutEffect(() => {
+    if (!mode) {
+      const element = elementRef.current
+      const ownerColumn = elementColumnRef.current
+      if (element && ownerColumn) {
+        detachElement(containerRef.current, element)
+        ownerColumn.gridColumnOptions?.disposeCellElement?.(
+          element,
+          'unmount',
+          paramsRef.current,
+        )
+        elementRef.current = undefined
+        elementColumnRef.current = undefined
+      }
+      return
+    }
+    const container = containerRef.current
+    if (!container) return
+
+    const currentIdentity = recyclingColumnIdentity(column)
+    const previousColumn = elementColumnRef.current
+    if (
+      elementRef.current &&
+      previousColumn &&
+      recyclingColumnIdentity(previousColumn) !== currentIdentity
+    ) {
+      const previousElement = elementRef.current
+      detachElement(container, previousElement)
+      if (mode === 'reuse' && pool) {
+        pool.release(previousColumn, previousElement, paramsRef.current)
+      } else {
+        previousColumn.gridColumnOptions?.disposeCellElement?.(
+          previousElement,
+          'replace',
+          paramsRef.current,
+        )
+      }
+      elementRef.current = undefined
+      elementColumnRef.current = undefined
+    }
+
+    const previousElement = elementRef.current
+    const oldElement =
+      mode === 'reuse'
+        ? previousElement ?? pool?.acquire(column)
+        : undefined
+    const nextElement = renderer(params, oldElement)
+
+    if (previousElement && previousElement !== oldElement && previousElement !== nextElement) {
+      detachElement(container, previousElement)
+      column.gridColumnOptions?.disposeCellElement?.(
+        previousElement,
+        'replace',
+        params,
+      )
+    }
+    if (oldElement && oldElement !== nextElement) {
+      detachElement(container, oldElement)
+      column.gridColumnOptions?.disposeCellElement?.(
+        oldElement,
+        'replace',
+        params,
+      )
+    }
+
+    for (const child of Array.from(container.childNodes)) {
+      if (child !== nextElement) container.removeChild(child)
+    }
+    if (nextElement.parentNode !== container) {
+      if (nextElement.parentNode) nextElement.parentNode.removeChild(nextElement)
+      container.appendChild(nextElement)
+    }
+
+    elementRef.current = nextElement
+    elementColumnRef.current = column
+  }, [
+    colIdx,
+    column,
+    containerRef,
+    disposer,
+    index,
+    mode,
+    params.rowKey,
+    params.value,
+    pool,
+    record,
+    renderer,
+    rowKey,
+  ])
+
+  useLayoutEffect(() => () => {
+    const element = elementRef.current
+    const ownerColumn = elementColumnRef.current ?? columnRef.current
+    if (!element || !ownerColumn) return
+
+    detachElement(containerRef.current, element)
+    if (modeRef.current === 'reuse' && poolRef.current) {
+      poolRef.current.release(ownerColumn, element, paramsRef.current)
+    } else {
+      ownerColumn.gridColumnOptions?.disposeCellElement?.(
+        element,
+        'unmount',
+        paramsRef.current,
+      )
+    }
+    elementRef.current = undefined
+    elementColumnRef.current = undefined
+  }, [])
+}
 
 /**
  * 单个数据单元格渲染（multi 路径，显式 grid 定位）。详见 docs/design-notes/layout.md + header.md。
@@ -75,6 +267,8 @@ function BodyCell<RecordType>({
   isRowSelected,
   // 首列 cell 写 data-known-size（实测闭环，详见 docs/design-notes/virtualization.md）。
   effectiveRowHeight,
+  cellElementMode,
+  cellElementPool,
 }: {
   column: EngineLeafColumn<RecordType>
   colIdx: number
@@ -105,6 +299,8 @@ function BodyCell<RecordType>({
   isRowSelected?: (record: RecordType) => boolean
   /** 取本行最终/实测高（首列写 data-known-size，实测闭环）。 */
   effectiveRowHeight?: (index: number) => number
+  cellElementMode?: RecyclingCellElementMode
+  cellElementPool?: CellElementPool<RecordType>
 }) {
   const colSpan = merge?.colSpan ?? 1
   const text = getValueByDataIndex(record, column.dataIndex)
@@ -134,6 +330,17 @@ function BodyCell<RecordType>({
   // rowHoverable=false 时不加 dg-row-hover（关闭内置 hover 视觉）。
   const hoverClass = resolveHoverClass(rowHoverable, isHovered)
   const bodyEventProps = bodyCellInjectedProps.restRowProps
+  const innerRef = useRef<HTMLDivElement | null>(null)
+  useImperativeCellElement({
+    containerRef: innerRef,
+    mode: cellElementMode,
+    pool: cellElementPool,
+    column,
+    colIdx,
+    record,
+    index,
+    rowKey,
+  })
   return (
     <div
       key={`b-${colIdx}-${getRowKey(record, rowKey) ?? index}`}
@@ -210,22 +417,27 @@ function BodyCell<RecordType>({
       {...omitKey(omitKey(bodyEventProps, 'onMouseEnter'), 'onMouseLeave')}
     >
       <div
+        ref={cellElementMode ? innerRef : undefined}
         className="dg-cell-inner"
         // ellipsis 列默认 title 提示（hover 显示完整文本；非 ellipsis 列无 title）。
         //   showTitle:false 时 ellipsisTitle 已为 undefined（不加 native title，让 antd Tooltip 接管）。
         title={ellipsisTitle}
       >
-        {treeEnabled && treeState && colIdx === treeFirstDataColumnIdx
-          ? renderTreeIndent({ record, rowKey, treeState })
-          : null}
-        {renderCellContent({
-          components,
-          column,
-          record,
-          index,
-          rendered,
-          onCellProps: bodyCellInjectedProps.onCellProps,
-        })}
+        {cellElementMode ? null : (
+          <>
+            {treeEnabled && treeState && colIdx === treeFirstDataColumnIdx
+              ? renderTreeIndent({ record, rowKey, treeState })
+              : null}
+            {renderCellContent({
+              components,
+              column,
+              record,
+              index,
+              rendered,
+              onCellProps: bodyCellInjectedProps.onCellProps,
+            })}
+          </>
+        )}
       </div>
     </div>
   )
@@ -269,6 +481,8 @@ export function renderBodyCells<RecordType>({
   isRowSelected,
   // 首列 cell 写 data-known-size（实测闭环，详见 docs/design-notes/virtualization.md）。
   effectiveRowHeight,
+  cellElementMode,
+  cellElementPool,
 }: {
   leafColumns: Array<EngineLeafColumn<RecordType>>
   dataSource: Array<RecordType>
@@ -298,6 +512,8 @@ export function renderBodyCells<RecordType>({
   isRowSelected?: (record: RecordType) => boolean
   /** 取本行最终/实测高（首列写 data-known-size，实测闭环）。 */
   effectiveRowHeight?: (index: number) => number
+  cellElementMode?: RecyclingCellElementMode
+  cellElementPool?: CellElementPool<RecordType>
 }): Array<ReactNode> {
   // 按行预计算 onRow 返回值 + rowClassName（同行的每个单元格共享）。
   //   预计算避免在 BodyCell 内重复调用（onRow 是用户函数，重复调用既浪费也可能有副作用）。
@@ -388,6 +604,8 @@ export function renderBodyCells<RecordType>({
             isRowSelected={isRowSelected}
             // 首列写 data-known-size（实测闭环）。
             effectiveRowHeight={effectiveRowHeight}
+            cellElementMode={cellElementMode}
+            cellElementPool={cellElementPool}
           />,
         )
       }
@@ -452,6 +670,8 @@ export function renderBodyCells<RecordType>({
           isRowSelected={isRowSelected}
           // 首列写 data-known-size（实测闭环）。
           effectiveRowHeight={effectiveRowHeight}
+          cellElementMode={cellElementMode}
+          cellElementPool={cellElementPool}
         />,
       )
     }
