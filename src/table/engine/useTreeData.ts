@@ -128,6 +128,35 @@ function flattenTree<RecordType>(
   }
 }
 
+export function flattenTreeData<RecordType>(
+  records: Array<RecordType>,
+  childrenColumnName: string,
+  expandedKeySet: Set<React.Key>,
+  rowKey: string | ((record: RecordType) => string | number),
+): {
+  flattenedData: Array<RecordType>
+  rowInfoMap: Map<React.Key, TreeRowInfo>
+} {
+  const outRecords: Array<RecordType> = []
+  const outInfos: Array<TreeRowInfo> = []
+  flattenTree(
+    records,
+    childrenColumnName,
+    expandedKeySet,
+    rowKey,
+    0,
+    null,
+    outRecords,
+    outInfos,
+  )
+  const m = new Map<React.Key, TreeRowInfo>()
+  for (let i = 0; i < outRecords.length; i += 1) {
+    const k = getRowKey(outRecords[i], rowKey)
+    m.set(k, outInfos[i])
+  }
+  return { flattenedData: outRecords, rowInfoMap: m }
+}
+
 /**
  * 递归收集所有 key（不论展开）+ parent→children 映射 + 所有含 children 的 key 集合 — 详见 docs/design-notes/tree-data.md（全树结构）
  *
@@ -244,24 +273,12 @@ export function useTreeData<RecordType>(
       // 非树形：扁平化退化为原 dataSource；rowInfoMap 空。
       return { flattenedData: dataSource, rowInfoMap: new Map<React.Key, TreeRowInfo>() }
     }
-    const outRecords: Array<RecordType> = []
-    const outInfos: Array<TreeRowInfo> = []
-    flattenTree(
+    return flattenTreeData(
       dataSource,
       childrenColumnName,
       expandedKeySet,
       rowKey,
-      0,
-      null,
-      outRecords,
-      outInfos,
     )
-    const m = new Map<React.Key, TreeRowInfo>()
-    for (let i = 0; i < outRecords.length; i += 1) {
-      const k = getRowKey(outRecords[i], rowKey)
-      m.set(k, outInfos[i])
-    }
-    return { flattenedData: outRecords, rowInfoMap: m }
   }, [treeEnabled, dataSource, childrenColumnName, expandedKeySet, rowKey])
 
   return {

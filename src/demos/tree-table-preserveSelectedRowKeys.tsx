@@ -96,7 +96,7 @@ export default function TreeTablePreserveSelectedRowKeysDemo() {
             </li>
             <li>
               <strong>分页</strong>：15 父 × 2 子 + 分页 <code>defaultPageSize: 5</code> → 3 页/父
-              （切片基于扁平化后可见行数）。
+              （切片基于顶层父行；展开子行不占页大小预算）。
             </li>
           </ul>
         </div>

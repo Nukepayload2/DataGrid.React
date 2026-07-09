@@ -35,7 +35,7 @@ import {
 import { useRowExpand } from './engine/useRowExpand'
 import { useSorter } from './engine/useSorter'
 import { useFilter } from './engine/useFilter'
-import { useTreeData } from './engine/useTreeData'
+import { flattenTreeData, useTreeData } from './engine/useTreeData'
 import { useSemanticClassNames } from './useSemanticClassNames'
 import type { EngineExpandState, EngineTreeState } from './engine/types'
 import {
@@ -632,12 +632,14 @@ function TableInner<RecordType = any>(
   // paginationStateRef 在顶部声明（L343，在 useSorter 之前），供 useSorter/useFilter 的 onChange
   //   闭包注入最新分页。hook 内写 .current，外部读。
   const {
+    paginationEnabled,
     pagedDataSource,
     topPaginationNode,
     bottomPaginationNode,
   } = usePaginationAdapter<RecordType>({
     pagination,
     flattenedDataSource,
+    paginationDataSource: treeEnabled ? filteredDataSource : flattenedDataSource,
     paginationStateRef,
     onChange,
     getFiltersArg,
@@ -646,6 +648,23 @@ function TableInner<RecordType = any>(
     classNamesResolved,
     stylesResolved,
   })
+
+  const renderedDataSource = useMemo(() => {
+    if (!treeEnabled || !paginationEnabled) return pagedDataSource
+    return flattenTreeData(
+      pagedDataSource,
+      childrenColumnName,
+      tree.expandedKeySet,
+      rowKeyResolved,
+    ).flattenedData
+  }, [
+    treeEnabled,
+    paginationEnabled,
+    pagedDataSource,
+    childrenColumnName,
+    tree.expandedKeySet,
+    rowKeyResolved,
+  ])
 
   // === 汇总 summary 解析 ===
   // summary prop：函数 → 用 pagedDataSource（当前页数据）调用；ReactNode → 原样。
@@ -662,7 +681,7 @@ function TableInner<RecordType = any>(
   }, [summary, pagedDataSource])
 
   const emptyText = useTableEmptyText({
-    rowCount: pagedDataSource.length,
+    rowCount: renderedDataSource.length,
     locale: mergedLocale,
   })
 
@@ -740,7 +759,7 @@ function TableInner<RecordType = any>(
           <GridTable<RecordType>
             ref={engineRef as unknown as React.Ref<TableEngineHandle>}
             columnTree={columnTreeWithSortAndFilter}
-            dataSource={pagedDataSource}
+            dataSource={renderedDataSource}
             rowKey={rowKeyResolved}
             gridOptions={gridOptions}
             showHeader={showHeader}
@@ -775,7 +794,7 @@ function TableInner<RecordType = any>(
         <GridTable<RecordType>
           ref={engineRef as unknown as React.Ref<TableEngineHandle>}
           columnTree={columnTreeWithSortAndFilter}
-          dataSource={pagedDataSource}
+          dataSource={renderedDataSource}
           rowKey={rowKeyResolved}
           gridOptions={gridOptions}
           showHeader={showHeader}

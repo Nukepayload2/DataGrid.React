@@ -5,6 +5,9 @@
  * effectivePaginationState + paginationStateRef.current 写入 + slicePage 切片 + resolvePlacement +
  * showPagination + getPaginationSize + renderPaginationNode 两个）整体搬进 hook。
  *
+ * paginationDataSource 允许调用方把“分页统计/切片源”与实际渲染源分开。树形表格用顶层
+ * filteredDataSource 统计 pageSize，再在 Table 层把当前页顶层行扁平化成可见行，对齐 antd。
+ *
  * 关键：`paginationStateRef` 由调用方（Table.tsx）传入——它必须在 useSorter 之前声明（当前
  * Table.tsx L343），因为 useSorter/useFilter 的 onChange 包装闭包要读它。本 hook 只负责写。
  *
@@ -34,6 +37,7 @@ import {
 export interface UsePaginationAdapterOptions<RecordType> {
   pagination: false | TablePaginationConfig | undefined
   flattenedDataSource: Array<RecordType>
+  paginationDataSource?: Array<RecordType>
   paginationStateRef: React.MutableRefObject<TablePaginationState>
   onChange: TableProps<RecordType>['onChange']
   getFiltersArg: () => Record<string, Array<FilterValue> | null>
@@ -58,6 +62,7 @@ export function usePaginationAdapter<RecordType>(
   const {
     pagination,
     flattenedDataSource,
+    paginationDataSource = flattenedDataSource,
     paginationStateRef,
     onChange,
     getFiltersArg,
@@ -75,8 +80,7 @@ export function usePaginationAdapter<RecordType>(
 
   const paginationInfo = usePagination({
     pagination: paginationConfig,
-    // 树形模式下分页基于扁平化后数据源长度（仅可见行）；非树形同 filteredDataSource。
-    dataSourceLength: flattenedDataSource.length,
+    dataSourceLength: paginationDataSource.length,
     onPaginationChange: (nextCurrent, nextPageSize) => {
       // 翻页/改 pageSize → 触发 Table onChange(action:'paginate')。
       // paginationState 用回调参数构造（antd Pagination 不会传越界 page，current 已 effective）。
@@ -84,7 +88,7 @@ export function usePaginationAdapter<RecordType>(
       const total =
         typeof paginationConfig.total === 'number' && paginationConfig.total > 0
           ? paginationConfig.total
-          : flattenedDataSource.length
+          : paginationDataSource.length
       const nextState: TablePaginationState = {
         current: nextCurrent,
         pageSize: nextPageSize,
@@ -95,7 +99,7 @@ export function usePaginationAdapter<RecordType>(
         getFiltersArg(),
         currentSorterResult,
         // currentDataSource：分页**前**的全量数据源（与 antd 一致）。
-        { currentDataSource: flattenedDataSource, action: 'paginate' },
+        { currentDataSource: paginationDataSource, action: 'paginate' },
       )
     },
   })
@@ -111,10 +115,9 @@ export function usePaginationAdapter<RecordType>(
   // 分页切片（未启用 → 全量）。
   // 传入 paginationInfo.total 用于服务端模式检测——dataSource.length < total（server/async）
   // 时不切片（对齐 antd InternalTable.tsx:547-557），避免双重分页。
-  // 基于 flattenedDataSource（树形扁平化后）切片；非树形同 filteredDataSource。
   const pagedDataSource = paginationEnabled
     ? slicePage(
-        flattenedDataSource,
+        paginationDataSource,
         paginationInfo.current,
         paginationInfo.pageSize,
         paginationInfo.total,

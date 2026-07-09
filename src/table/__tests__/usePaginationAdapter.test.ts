@@ -21,6 +21,7 @@ function makeRef() {
 interface RenderOpts {
   pagination?: false | Record<string, any>
   data?: Array<Rec>
+  paginationData?: Array<Rec>
   onChange?: any
   size?: any
 }
@@ -32,6 +33,7 @@ function renderAdapter(overrides: RenderOpts = {}) {
     usePaginationAdapter<Rec>({
       pagination: overrides.pagination ?? undefined,
       flattenedDataSource: overrides.data ?? data,
+      paginationDataSource: overrides.paginationData,
       paginationStateRef,
       onChange,
       getFiltersArg: () => ({}),
@@ -116,6 +118,33 @@ describe('usePaginationAdapter', () => {
       const { result, paginationStateRef } = renderAdapter({ data: data.slice(0, 5) })
       expect(result.pagedDataSource.length).toBe(5)
       expect(paginationStateRef.current.total).toBe(5)
+    })
+
+    it('可用独立 paginationDataSource 统计和切片树形顶层行', () => {
+      const flattened = [
+        { key: 'root-0' },
+        { key: 'child-0' },
+        { key: 'root-1' },
+        { key: 'child-1' },
+        { key: 'root-2' },
+      ]
+      const roots = [
+        { key: 'root-0' },
+        { key: 'root-1' },
+        { key: 'root-2' },
+      ]
+      const { result, paginationStateRef } = renderAdapter({
+        data: flattened,
+        paginationData: roots,
+        pagination: { pageSize: 2 },
+      })
+
+      expect(paginationStateRef.current).toEqual({
+        current: 1,
+        pageSize: 2,
+        total: 3,
+      })
+      expect(result.pagedDataSource.map((record) => record.key)).toEqual(['root-0', 'root-1'])
     })
   })
 
