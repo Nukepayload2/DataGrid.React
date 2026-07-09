@@ -67,12 +67,12 @@ describe('useGridLayout', () => {
       expect(r.gridTemplateColumns).toBe('none')
     })
 
-    it('固定 px width + tableLayout=fixed → "Npx"', () => {
+    it('固定 px width + tableLayout=fixed → minmax(Npx, 1fr)', () => {
       const r = render({
         leafColumns: [leafColumn('a', 100), leafColumn('b', 200)],
         tableLayout: 'fixed',
       })
-      expect(r.gridTemplateColumns).toBe('100px 200px')
+      expect(r.gridTemplateColumns).toBe('minmax(100px, 1fr) minmax(200px, 1fr)')
     })
 
     it('固定 px width + tableLayout=auto（默认）→ minmax(Npx, max-content)', () => {

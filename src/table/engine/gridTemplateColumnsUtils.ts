@@ -23,7 +23,7 @@ export function computeColumnTrack(
   if (widthTrack !== undefined) {
     if (typeof column.width === 'string' && column.width.includes('%')) return widthTrack
     if (column.fixed) return `${widthTrack}`
-    return tableLayout === 'fixed' ? `${widthTrack}` : `minmax(${widthTrack}, max-content)`
+    return tableLayout === 'fixed' ? `minmax(${widthTrack}, 1fr)` : `minmax(${widthTrack}, max-content)`
   }
 
   return tableLayout === 'fixed' ? 'minmax(0, 1fr)' : 'minmax(min-content, 1fr)'

@@ -9,15 +9,18 @@ export interface CodeViewProps {
 export default function CodeView({ code }: CodeViewProps) {
   const { themeMode } = useTheme()
   const isDark = themeMode === 'dark'
+  const prismTheme = isDark ? themes.vsDark : themes.oneLight
+  const plainColor = prismTheme.plain.color ?? (isDark ? '#d4d4d4' : '#393a34')
 
   return (
     <div style={{ maxHeight: '70vh', overflow: 'auto' }}>
-      <Highlight code={code} language="tsx" theme={isDark ? themes.vsDark : themes.oneLight}>
+      <Highlight code={code} language="tsx" theme={prismTheme}>
         {({ className, style, tokens, getLineProps, getTokenProps }) => (
           <pre
             className={className}
             style={{
               ...style,
+              color: plainColor,
               margin: 0,
               borderRadius: 8,
               padding: '12px 0',

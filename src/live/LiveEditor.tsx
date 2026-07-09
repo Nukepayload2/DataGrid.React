@@ -1,7 +1,7 @@
 /** live 源码编辑器，负责编辑、应用、重置和编译/执行错误展示。 */
 import { useEffect, useState, type CSSProperties, type ComponentType } from 'react'
 import { Alert, Button } from 'antd'
-import { Highlight, themes } from 'prism-react-renderer'
+import { themes } from 'prism-react-renderer'
 import { useTheme } from '../theme/ThemeContext'
 
 /** 应用回调的载荷：成功传组件、失败传错误、重置传 (null,null)。 */
@@ -41,6 +41,7 @@ export default function LiveEditor({
   const { themeMode } = useTheme()
   const isDark = themeMode === 'dark'
   const prismTheme = isDark ? themes.vsDark : themes.oneLight
+  const plainColor = prismTheme.plain.color ?? (isDark ? '#d4d4d4' : '#393a34')
 
   const [code, setCode] = useState(initialCode)
   // 切换 demo 时同步编辑器内容，避免沿用上一个 demo 的本地 state。
@@ -114,74 +115,31 @@ export default function LiveEditor({
       <div
         style={{
           position: 'relative',
-          maxHeight: 360,
-          overflow: 'auto',
           borderRadius: 8,
           background: prismTheme.plain.backgroundColor,
         }}
       >
-        <Highlight code={code} language="tsx" theme={prismTheme}>
-          {({ className, style, tokens, getLineProps, getTokenProps }) => (
-            <div style={{ display: 'grid' }}>
-              {/* 高亮层（只读展示） */}
-              <pre
-                className={className}
-                aria-hidden="true"
-                style={{
-                  ...style,
-                  ...editorTypeStyle,
-                  gridArea: '1 / 1',
-                  pointerEvents: 'none',
-                  background: 'transparent',
-                  overflow: 'hidden',
-                }}
-              >
-                {tokens.map((line, i) => {
-                  // Stage 6 #3-4: 同 CodeView，不用 {...spread} 直接传，避免 react-doctor
-                  // jsx-key 与 eslint-plugin-react jsx-key 在 key 位置上的互斥警告。
-                  const { className: lineClassName, style: lineStyle } = getLineProps({
-                    line,
-                  })
-                  return (
-                    <div key={i} className={lineClassName} style={lineStyle}>
-                      {line.map((token, key) => {
-                        const {
-                          className: tokenClassName,
-                          style: tokenStyle,
-                        } = getTokenProps({ token })
-                        return (
-                          <span key={key} className={tokenClassName} style={tokenStyle} />
-                        )
-                      })}
-                    </div>
-                  )
-                })}
-              </pre>
-
-              {/* 输入层（透明文字 + 透明背景，仅 caret 可见） */}
-              <textarea
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                spellCheck={false}
-                autoCapitalize="off"
-                autoCorrect="off"
-                wrap="off"
-                style={{
-                  ...editorTypeStyle,
-                  gridArea: '1 / 1',
-                  resize: 'none',
-                  border: 'none',
-                  outline: 'none',
-                  color: 'transparent',
-                  backgroundColor: 'transparent',
-                  caretColor: isDark ? '#fff' : '#000',
-                  overflow: 'hidden',
-                  whiteSpace: 'pre',
-                }}
-              />
-            </div>
-          )}
-        </Highlight>
+        <textarea
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          spellCheck={false}
+          autoCapitalize="off"
+          autoCorrect="off"
+          wrap="off"
+          style={{
+            ...editorTypeStyle,
+            display: 'block',
+            width: '100%',
+            height: 360,
+            resize: 'vertical',
+            border: 'none',
+            outline: 'none',
+            color: plainColor,
+            backgroundColor: 'transparent',
+            caretColor: isDark ? '#fff' : '#000',
+            overflow: 'auto',
+          }}
+        />
       </div>
 
       {error && (

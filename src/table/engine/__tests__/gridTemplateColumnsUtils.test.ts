@@ -33,17 +33,18 @@ describe('gridTemplateColumnsUtils', () => {
     )
   })
 
-  it('uses fixed-layout tracks for absolute width and flexible columns', () => {
+  it('lets non-fixed absolute width columns fill remaining space in fixed layout', () => {
     expect(
       computeGridTemplateColumns({
         leafColumns: [
           column({ key: 'width', width: 120 }),
+          column({ key: 'fixed', fixed: 'end', width: 80 }),
           column({ key: 'fill' }),
         ],
         resizedWidths: new Map(),
         tableLayout: 'fixed',
       }),
-    ).toBe('120px minmax(0, 1fr)')
+    ).toBe('minmax(120px, 1fr) 80px minmax(0, 1fr)')
   })
 
   it('returns none when there are no leaf columns', () => {
