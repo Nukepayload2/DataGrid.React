@@ -7,13 +7,13 @@ export default defineConfig({
   plugins: [react(), viteSingleFile()],
   test: {
     environment: 'jsdom',
-    setupFiles: './src/test/setup.ts',
-    exclude: [...configDefaults.exclude, 'e2e/**'],
+    setupFiles: './tests/setup.ts',
+    include: ['tests/**/*.{ts,tsx}'],
+    exclude: [...configDefaults.exclude, 'e2e/**', 'tests/setup.ts'],
     coverage: {
       provider: 'v8',
       include: ['src/table/**/*.{ts,tsx}'],
       exclude: [
-        'src/table/**/__tests__/**',
         'src/table/**/types.ts',
         'src/table/**/*Types.ts',
         'src/table/index.ts',
