@@ -214,26 +214,22 @@ function ActionButtons({
   )
 }
 
-export default function VirtualListRecyclingDg() {
-  const statsRef = useRef<Stats>({
-    create: 0,
-    reuse: 0,
-    render: 0,
-    recycle: 0,
-    replace: 0,
-    discard: 0,
-    unmount: 0,
-    reactMount: 0,
-    reactRender: 0,
-    reactUnmount: 0,
-  })
+function RecyclingCounters({
+  statsRef,
+  logEnabled,
+  resetVersion,
+}: {
+  statsRef: React.MutableRefObject<Stats>
+  logEnabled: boolean
+  resetVersion: number
+}) {
   const [stats, setStats] = useState<Stats>(() => ({ ...statsRef.current }))
-  const [mode, setMode] = useState<'standard' | 'recycling'>('recycling')
-  const [showActionColumn, setShowActionColumn] = useState(false)
-  const [actionModal, setActionModal] = useState<ActionModalState>(null)
-  const [logEnabled, setLogEnabled] = useState(false)
-  const [version, setVersion] = useState(0)
   const lastLogStatsRef = useRef(statsRef.current)
+
+  useEffect(() => {
+    lastLogStatsRef.current = { ...statsRef.current }
+    setStats({ ...statsRef.current })
+  }, [resetVersion, statsRef])
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -241,7 +237,7 @@ export default function VirtualListRecyclingDg() {
       setStats((current) => (sameStats(current, next) ? current : next))
     }, 250)
     return () => window.clearInterval(id)
-  }, [])
+  }, [statsRef])
 
   useEffect(() => {
     if (!logEnabled) return undefined
@@ -265,7 +261,35 @@ export default function VirtualListRecyclingDg() {
       console.info('[virtual-list-recycling]', entry)
     }, 1000)
     return () => window.clearInterval(id)
-  }, [logEnabled])
+  }, [logEnabled, statsRef])
+
+  return (
+    <Typography.Text type="secondary" data-testid="recycling-counters">
+      native create {stats.create} / reuse {stats.reuse} / render {stats.render} / recycle {stats.recycle} / discard {stats.discard}
+      {' '}
+      React mount {stats.reactMount} / render {stats.reactRender} / unmount {stats.reactUnmount}
+    </Typography.Text>
+  )
+}
+
+export default function VirtualListRecyclingDg() {
+  const statsRef = useRef<Stats>({
+    create: 0,
+    reuse: 0,
+    render: 0,
+    recycle: 0,
+    replace: 0,
+    discard: 0,
+    unmount: 0,
+    reactMount: 0,
+    reactRender: 0,
+    reactUnmount: 0,
+  })
+  const [mode, setMode] = useState<'standard' | 'recycling'>('recycling')
+  const [showActionColumn, setShowActionColumn] = useState(false)
+  const [actionModal, setActionModal] = useState<ActionModalState>(null)
+  const [logEnabled, setLogEnabled] = useState(false)
+  const [version, setVersion] = useState(0)
 
   const data = useMemo(() => makeRows(8000), [])
   const renderText = useMemo(() => createTextRenderer<Row>(statsRef), [])
@@ -369,8 +393,6 @@ export default function VirtualListRecyclingDg() {
       reactRender: 0,
       reactUnmount: 0,
     }
-    lastLogStatsRef.current = statsRef.current
-    setStats({ ...statsRef.current })
     setVersion((current) => current + 1)
   }
 
@@ -391,11 +413,11 @@ export default function VirtualListRecyclingDg() {
             { label: 'Standard', value: 'standard' },
           ]}
         />
-        <Typography.Text type="secondary" data-testid="recycling-counters">
-          native create {stats.create} / reuse {stats.reuse} / render {stats.render} / recycle {stats.recycle} / discard {stats.discard}
-          {' '}
-          React mount {stats.reactMount} / render {stats.reactRender} / unmount {stats.reactUnmount}
-        </Typography.Text>
+        <RecyclingCounters
+          statsRef={statsRef}
+          logEnabled={logEnabled}
+          resetVersion={version}
+        />
         <Switch
           checked={showActionColumn}
           onChange={setShowActionColumn}
