@@ -59,6 +59,12 @@ type ActionModalState = {
   row: Row
 } | null
 
+type FrameStats = {
+  fps: number
+  p95: number
+  longFrames: number
+}
+
 const regions = ['NA', 'EU', 'APAC', 'LATAM']
 const owners = ['Ada', 'Grace', 'Linus', 'Ken', 'Radia', 'Margaret']
 const cities = ['Tokyo', 'Berlin', 'Seattle', 'Singapore', 'Paris', 'Shenzhen']
@@ -272,6 +278,56 @@ function RecyclingCounters({
   )
 }
 
+function FrameRateMeter({ resetVersion }: { resetVersion: number }) {
+  const [frameStats, setFrameStats] = useState<FrameStats>({
+    fps: 0,
+    p95: 0,
+    longFrames: 0,
+  })
+
+  useEffect(() => {
+    let rafId = 0
+    let lastTime = performance.now()
+    let lastPublish = lastTime
+    let frameTimes: number[] = []
+
+    const tick = (time: number) => {
+      const delta = time - lastTime
+      lastTime = time
+      if (delta > 0 && delta < 1000) frameTimes.push(delta)
+
+      if (time - lastPublish >= 1000) {
+        const sorted = [...frameTimes].sort((a, b) => a - b)
+        const p95Index = sorted.length > 0
+          ? Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))
+          : 0
+        const p95 = sorted[p95Index] ?? 0
+        const longFrames = frameTimes.filter((value) => value > 50).length
+        const elapsedSeconds = (time - lastPublish) / 1000
+        const fps = elapsedSeconds > 0 ? frameTimes.length / elapsedSeconds : 0
+        setFrameStats({
+          fps: Math.round(fps),
+          p95: Math.round(p95 * 10) / 10,
+          longFrames,
+        })
+        frameTimes = []
+        lastPublish = time
+      }
+
+      rafId = window.requestAnimationFrame(tick)
+    }
+
+    rafId = window.requestAnimationFrame(tick)
+    return () => window.cancelAnimationFrame(rafId)
+  }, [resetVersion])
+
+  return (
+    <Typography.Text type="secondary" data-testid="frame-rate-meter">
+      FPS {frameStats.fps} / p95 {frameStats.p95}ms / long {frameStats.longFrames}
+    </Typography.Text>
+  )
+}
+
 export default function VirtualListRecyclingDg() {
   const statsRef = useRef<Stats>({
     create: 0,
@@ -418,6 +474,7 @@ export default function VirtualListRecyclingDg() {
           logEnabled={logEnabled}
           resetVersion={version}
         />
+        <FrameRateMeter resetVersion={version} />
         <Switch
           checked={showActionColumn}
           onChange={setShowActionColumn}

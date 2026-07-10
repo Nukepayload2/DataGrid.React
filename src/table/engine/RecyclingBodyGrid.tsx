@@ -33,6 +33,7 @@ type CellRenderKind = 'element' | 'react'
 interface ReactSlot<RecordType> {
   key: string
   root: Root
+  container: HTMLDivElement
   columnIdentity: Identity
   renderer: GridColumnOptions<RecordType>['renderCellReact']
 }
@@ -166,11 +167,26 @@ function detach(element: HTMLElement): void {
 function clearReactSlot<RecordType>(
   store: RecyclingStore<RecordType>,
   outer: HTMLDivElement,
-): void {
+  replaceContainer = false,
+): HTMLDivElement | undefined {
   const slot = store.reactSlots.get(outer)
-  if (!slot) return
-  slot.root.unmount()
+  if (!slot) return undefined
+  let nextInner: HTMLDivElement | undefined
+  if (replaceContainer) {
+    nextInner = document.createElement('div')
+    nextInner.className = 'dg-cell-inner'
+    if (slot.container.parentNode === outer) {
+      outer.replaceChild(nextInner, slot.container)
+    } else {
+      outer.appendChild(nextInner)
+    }
+  }
+  window.setTimeout(() => {
+    slot.root.unmount()
+    detach(slot.container)
+  }, 0)
   store.reactSlots.delete(outer)
+  return nextInner
 }
 
 function makeOuterCell(): HTMLDivElement {
@@ -457,7 +473,7 @@ function renderInner<RecordType>(
     renderReactSlot(store, cell, nextParams)
     return
   }
-  clearReactSlot(store, cell.outer)
+  cell.inner = clearReactSlot(store, cell.outer, true) ?? cell.inner
   const renderer = cell.renderer ?? defaultRenderCellElement
   const oldElement = cell.content ?? acquireInner(store, cell.column)
   const nextElement = renderer(nextParams, oldElement)
@@ -500,10 +516,11 @@ function renderReactSlot<RecordType>(
     slot.renderer !== cell.reactRenderer ||
     slot.columnIdentity !== cell.columnIdentity
   ) {
-    clearReactSlot(store, cell.outer)
+    if (slot) cell.inner = clearReactSlot(store, cell.outer, true) ?? cell.inner
     slot = {
       key: `dg-react-slot-${store.nextReactSlotId}`,
       root: createRoot(cell.inner),
+      container: cell.inner,
       columnIdentity: cell.columnIdentity,
       renderer: cell.reactRenderer,
     }
