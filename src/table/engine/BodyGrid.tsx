@@ -35,6 +35,10 @@ import {
 } from './hoverController'
 import { renderTreeIndent } from './treeIndentRenderer'
 import { getRowKey, getValueByDataIndex } from './recordAccess'
+import {
+  resolveStandardBodyCellKey,
+  resolveStandardBodyRowKey,
+} from './recyclingIdentity'
 import type {
   EngineExpandState,
   EngineLeafColumn,
@@ -71,6 +75,7 @@ function BodyCell<RecordType>({
   onRow,
   rowClassName,
   rowHoverable = true,
+  renderRecyclingReactCells = false,
   // 行选中态判定 → 加 dg-row-selected 类（详见 docs/design-notes/selection.md）。
   isRowSelected,
   // 首列 cell 写 data-known-size（实测闭环，详见 docs/design-notes/virtualization.md）。
@@ -101,6 +106,7 @@ function BodyCell<RecordType>({
   rowClassName?: string | ((record: any, index: number) => string)
   /** rowHoverable 行 hover 开关，默认 true。 */
   rowHoverable?: boolean
+  renderRecyclingReactCells?: boolean
   /** 行选中态判定回调。未提供时不加 dg-row-selected 类。 */
   isRowSelected?: (record: RecordType) => boolean
   /** 取本行最终/实测高（首列写 data-known-size，实测闭环）。 */
@@ -108,9 +114,29 @@ function BodyCell<RecordType>({
 }) {
   const colSpan = merge?.colSpan ?? 1
   const text = getValueByDataIndex(record, column.dataIndex)
-  const rendered: ReactNode = column.render
-    ? column.render(text, record, index)
-    : text
+  const standardCellKey = resolveStandardBodyCellKey(record, rowKey, colIdx, index)
+  const reactRenderer = renderRecyclingReactCells
+    ? column.gridColumnOptions?.renderCellReact
+    : undefined
+  const rendered: ReactNode = reactRenderer
+    ? reactRenderer(
+        {
+          value: text,
+          record,
+          rowIndex: index,
+          columnIndex: colIdx,
+          columnKey: column.key,
+          dataIndex: column.dataIndex,
+          rowKey: getRowKey(record, rowKey),
+        },
+        {
+          key: standardCellKey,
+          props: { className: 'dg-recycling-react-slot' },
+        },
+      )
+    : column.render
+      ? column.render(text, record, index)
+      : text
   // ellipsis 列默认 title 悬浮提示（对齐 antd 默认行为）。详见 docs/design-notes/ellipsis.md。
   //   - 仅 ellipsis 列加 title（非 ellipsis 列不加，避免多余 tooltip）。
   //   - 取原始 dataIndex 值文本化（string/number）——对齐 antd 默认 title 来源（cellValue 文本化）。
@@ -136,7 +162,7 @@ function BodyCell<RecordType>({
   const bodyEventProps = bodyCellInjectedProps.restRowProps
   return (
     <div
-      key={`b-${colIdx}-${getRowKey(record, rowKey) ?? index}`}
+      key={standardCellKey}
       className={[
         'dg-cell',
         'dg-cell-body',
@@ -265,6 +291,7 @@ export function renderBodyCells<RecordType>({
   onRow,
   rowClassName,
   rowHoverable = true,
+  renderRecyclingReactCells = false,
   // 行选中态判定 → 加 dg-row-selected 类（详见 docs/design-notes/selection.md）。
   isRowSelected,
   // 首列 cell 写 data-known-size（实测闭环，详见 docs/design-notes/virtualization.md）。
@@ -294,6 +321,7 @@ export function renderBodyCells<RecordType>({
   rowClassName?: string | ((record: any, index: number) => string)
   /** rowHoverable 行 hover 开关，默认 true。 */
   rowHoverable?: boolean
+  renderRecyclingReactCells?: boolean
   /** 行选中态判定回调。 */
   isRowSelected?: (record: RecordType) => boolean
   /** 取本行最终/实测高（首列写 data-known-size，实测闭环）。 */
@@ -316,7 +344,8 @@ export function renderBodyCells<RecordType>({
       for (let r = index; r < index + rowSpanTracks && r < dataSource.length; r += 1) {
         const rec = dataSource[r]
         if (rec === undefined) continue
-        if (expandState.isExpandable(getRowKey(rec, rowKey))) extraTracks += 1
+        const key = getRowKey(rec, rowKey)
+        if (key !== undefined && expandState.isExpandable(key)) extraTracks += 1
       }
       rowSpanTracks += extraTracks
     }
@@ -359,9 +388,10 @@ export function renderBodyCells<RecordType>({
         // rowSpan-aware hover：合并格按区间相交判定。
         //   rowSpan=1 退化为 hoveredRowIndex===index。
         const isHovered = isRowSpanHovered(index, m.merge?.rowSpan ?? 1, hoveredRowIndex)
+        const standardCellKey = resolveStandardBodyCellKey(record, rowKey, colIdx, index)
         rowCells.push(
           <BodyCell<RecordType>
-            key={`b-${colIdx}-${getRowKey(record, rowKey) ?? index}`}
+            key={standardCellKey}
             column={column}
             colIdx={colIdx}
             record={record}
@@ -384,6 +414,7 @@ export function renderBodyCells<RecordType>({
             onRow={onRow}
             rowClassName={rowClassName}
             rowHoverable={rowHoverable}
+            renderRecyclingReactCells={renderRecyclingReactCells}
             // 行选中态判定 → 加 dg-row-selected 类。
             isRowSelected={isRowSelected}
             // 首列写 data-known-size（实测闭环）。
@@ -398,10 +429,10 @@ export function renderBodyCells<RecordType>({
       // 透传 props：对齐 antd body.row 签名 { index, ...props } + data-grid 扩展 record/rowKey。
       out.push(
         <BodyRow
-          key={`row-${getRowKey(record, rowKey) ?? index}`}
+          key={`row-${resolveStandardBodyRowKey(record, rowKey, index)}`}
           index={index}
           record={record}
-          rowKey={getRowKey(record, rowKey)}
+          rowKey={resolveStandardBodyRowKey(record, rowKey, index)}
         >
           {rowCells}
         </BodyRow>,
@@ -423,9 +454,10 @@ export function renderBodyCells<RecordType>({
       // rowSpan-aware hover：合并格按区间相交判定。
       //   rowSpan=1 退化为 hoveredRowIndex===index。
       const isHovered = isRowSpanHovered(index, m.merge?.rowSpan ?? 1, hoveredRowIndex)
+      const standardCellKey = resolveStandardBodyCellKey(record, rowKey, colIdx, index)
       out.push(
         <BodyCell<RecordType>
-          key={`b-${colIdx}-${getRowKey(record, rowKey) ?? index}`}
+          key={standardCellKey}
           column={column}
           colIdx={colIdx}
           record={record}
@@ -448,6 +480,7 @@ export function renderBodyCells<RecordType>({
           onRow={onRow}
           rowClassName={rowClassName}
           rowHoverable={rowHoverable}
+          renderRecyclingReactCells={renderRecyclingReactCells}
           // 行选中态判定 → 加 dg-row-selected 类。
           isRowSelected={isRowSelected}
           // 首列写 data-known-size（实测闭环）。

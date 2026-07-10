@@ -67,3 +67,12 @@ export { TABLE_LOCALE_DEFAULT, EXPAND_COLUMN, SELECTION_COLUMN } from './compatT
 
 /** 跨层 re-export：选择菜单项类型，作为公共表面的一部分（绝对保留）。 */
 export type { SelectionItem } from './engine/useRowSelection'
+
+export type {
+  DisposeCellElementReason,
+  GridCellElementRenderParams,
+  GridCellReactSlotProps,
+  GridCellRenderParams,
+  GridColumnOptions,
+  VirtualizationMode,
+} from './engine/recyclingCellTypes'

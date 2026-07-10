@@ -48,7 +48,8 @@ function computeExpandable<RecordType>(
   const { rowExpandable } = expandable
   dataSource.forEach((record) => {
     if (rowExpandable && !rowExpandable(record)) return
-    out.add(getRowKey(record, rowKey))
+    const key = getRowKey(record, rowKey)
+    if (key !== undefined) out.add(key)
   })
   return out
 }

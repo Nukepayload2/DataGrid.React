@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
 import { resolveBodyCellInjectedProps } from './bodyCellUtils'
 import {
   fixedClass,
@@ -27,6 +28,14 @@ import type {
 
 type Identity = string | number | object | undefined
 type ListenerEntry = [type: string, listener: EventListener]
+type CellRenderKind = 'element' | 'react'
+
+interface ReactSlot<RecordType> {
+  key: string
+  root: Root
+  columnIdentity: Identity
+  renderer: GridColumnOptions<RecordType>['renderCellReact']
+}
 
 interface ActiveCell<RecordType> {
   outer: HTMLDivElement
@@ -36,7 +45,9 @@ interface ActiveCell<RecordType> {
   columnIdentity: Identity
   rowIdentity: Identity
   params: GridCellElementRenderParams<RecordType>
+  renderKind: CellRenderKind
   renderer: GridColumnOptions<RecordType>['renderCellElement']
+  reactRenderer: GridColumnOptions<RecordType>['renderCellReact']
   disposer: GridColumnOptions<RecordType>['disposeCellElement']
   listeners: Array<ListenerEntry>
 }
@@ -50,6 +61,8 @@ interface PoolBucket<RecordType> {
 interface RecyclingStore<RecordType> {
   active: Map<Identity, Map<Identity, ActiveCell<RecordType>>>
   pools: Map<Identity, PoolBucket<RecordType>>
+  reactSlots: WeakMap<HTMLDivElement, ReactSlot<RecordType>>
+  nextReactSlotId: number
 }
 
 function resolveColumnIdentity<RecordType>(
@@ -85,6 +98,7 @@ function sameOptions<RecordType>(
 ): boolean {
   return (
     a?.renderCellElement === b?.renderCellElement &&
+    a?.renderCellReact === b?.renderCellReact &&
     a?.disposeCellElement === b?.disposeCellElement
   )
 }
@@ -149,6 +163,16 @@ function detach(element: HTMLElement): void {
   if (element.parentNode) element.parentNode.removeChild(element)
 }
 
+function clearReactSlot<RecordType>(
+  store: RecyclingStore<RecordType>,
+  outer: HTMLDivElement,
+): void {
+  const slot = store.reactSlots.get(outer)
+  if (!slot) return
+  slot.root.unmount()
+  store.reactSlots.delete(outer)
+}
+
 function makeOuterCell(): HTMLDivElement {
   const outer = document.createElement('div')
   const inner = document.createElement('div')
@@ -166,7 +190,7 @@ function getBucket<RecordType>(
   const existing = store.pools.get(identity)
   if (existing) {
     if (!sameOptions(existing.options, options)) {
-      clearBucket(existing, 'unmount')
+      clearBucket(store, existing, 'unmount')
       existing.options = options
     }
     return existing
@@ -181,6 +205,7 @@ function getBucket<RecordType>(
 }
 
 function clearBucket<RecordType>(
+  store: RecyclingStore<RecordType>,
   bucket: PoolBucket<RecordType>,
   reason: DisposeCellElementReason,
 ): void {
@@ -188,7 +213,10 @@ function clearBucket<RecordType>(
     bucket.options?.disposeCellElement?.(inner, reason, undefined)
     detach(inner)
   }
-  for (const outer of bucket.outer.splice(0)) detach(outer)
+  for (const outer of bucket.outer.splice(0)) {
+    clearReactSlot(store, outer)
+    detach(outer)
+  }
 }
 
 function acquireOuter<RecordType>(
@@ -213,6 +241,15 @@ function releaseCell<RecordType>(
   clearListeners(cell)
   detach(cell.outer)
   const bucket = getBucket(store, cell.column)
+  if (cell.renderKind === 'react') {
+    if (bucket.outer.length >= maxPoolSize) {
+      clearReactSlot(store, cell.outer)
+      detach(cell.outer)
+    } else {
+      bucket.outer.push(cell.outer)
+    }
+    return
+  }
   if (cell.content) {
     cell.disposer?.(cell.content, 'recycle', cell.params)
     detach(cell.content)
@@ -231,9 +268,11 @@ function releaseCell<RecordType>(
 }
 
 function unmountCell<RecordType>(
+  store: RecyclingStore<RecordType>,
   cell: ActiveCell<RecordType>,
 ): void {
   clearListeners(cell)
+  clearReactSlot(store, cell.outer)
   if (cell.content) {
     cell.disposer?.(cell.content, 'unmount', cell.params)
     detach(cell.content)
@@ -273,11 +312,15 @@ function getActiveCell<RecordType>(
 function paramsChanged<RecordType>(
   previous: ActiveCell<RecordType>,
   next: GridCellElementRenderParams<RecordType>,
+  renderKind: CellRenderKind,
   renderer: GridColumnOptions<RecordType>['renderCellElement'],
+  reactRenderer: GridColumnOptions<RecordType>['renderCellReact'],
   disposer: GridColumnOptions<RecordType>['disposeCellElement'],
 ): boolean {
   return (
+    previous.renderKind !== renderKind ||
     previous.renderer !== renderer ||
+    previous.reactRenderer !== reactRenderer ||
     previous.disposer !== disposer ||
     previous.params.value !== next.value ||
     previous.params.record !== next.record ||
@@ -410,6 +453,11 @@ function renderInner<RecordType>(
   cell: ActiveCell<RecordType>,
   nextParams: GridCellElementRenderParams<RecordType>,
 ): void {
+  if (cell.renderKind === 'react') {
+    renderReactSlot(store, cell, nextParams)
+    return
+  }
+  clearReactSlot(store, cell.outer)
   const renderer = cell.renderer ?? defaultRenderCellElement
   const oldElement = cell.content ?? acquireInner(store, cell.column)
   const nextElement = renderer(nextParams, oldElement)
@@ -432,6 +480,41 @@ function renderInner<RecordType>(
   }
 
   cell.content = nextElement
+  cell.params = nextParams
+}
+
+function renderReactSlot<RecordType>(
+  store: RecyclingStore<RecordType>,
+  cell: ActiveCell<RecordType>,
+  nextParams: GridCellElementRenderParams<RecordType>,
+): void {
+  if (!cell.reactRenderer) return
+  if (cell.content) {
+    cell.disposer?.(cell.content, 'replace', nextParams)
+    detach(cell.content)
+    cell.content = undefined
+  }
+  let slot = store.reactSlots.get(cell.outer)
+  if (
+    !slot ||
+    slot.renderer !== cell.reactRenderer ||
+    slot.columnIdentity !== cell.columnIdentity
+  ) {
+    clearReactSlot(store, cell.outer)
+    slot = {
+      key: `dg-react-slot-${store.nextReactSlotId}`,
+      root: createRoot(cell.inner),
+      columnIdentity: cell.columnIdentity,
+      renderer: cell.reactRenderer,
+    }
+    store.nextReactSlotId += 1
+    store.reactSlots.set(cell.outer, slot)
+  }
+  const element = cell.reactRenderer(nextParams, {
+    key: slot.key,
+    props: { className: 'dg-recycling-react-slot' },
+  })
+  slot.root.render(element)
   cell.params = nextParams
 }
 
@@ -471,6 +554,8 @@ export function RecyclingBodyGrid<RecordType>({
   const storeRef = useRef<RecyclingStore<RecordType>>({
     active: new Map(),
     pools: new Map(),
+    reactSlots: new WeakMap(),
+    nextReactSlotId: 0,
   })
 
   useLayoutEffect(() => {
@@ -487,7 +572,7 @@ export function RecyclingBodyGrid<RecordType>({
     for (const [identity, bucket] of Array.from(store.pools)) {
       const options = liveColumns.get(identity)
       if (!liveColumns.has(identity) || !sameOptions(bucket.options, options)) {
-        clearBucket(bucket, 'unmount')
+        clearBucket(store, bucket, 'unmount')
         store.pools.delete(identity)
       }
     }
@@ -519,7 +604,10 @@ export function RecyclingBodyGrid<RecordType>({
       const column = leafColumns[colIdx]
       const columnIdentity = resolveColumnIdentity(column)
       const renderer = column.gridColumnOptions?.renderCellElement
+      const reactRenderer = column.gridColumnOptions?.renderCellReact
       const disposer = column.gridColumnOptions?.disposeCellElement
+      const renderKind: CellRenderKind =
+        renderer || !reactRenderer ? 'element' : 'react'
       const isSortedColumn =
         !!column.sorter && column.sortOrder !== null && column.sortOrder !== undefined
 
@@ -538,9 +626,17 @@ export function RecyclingBodyGrid<RecordType>({
           rowKey: resolveDisplayRowKey(record, rowKey),
         }
         let cell = getActiveCell(store, rowIdentity, columnIdentity)
-        if (cell && (cell.renderer !== renderer || cell.disposer !== disposer)) {
+        if (
+          cell &&
+          (
+            cell.renderKind !== renderKind ||
+            cell.renderer !== renderer ||
+            cell.reactRenderer !== reactRenderer ||
+            cell.disposer !== disposer
+          )
+        ) {
           removeActiveCell(store, cell)
-          unmountCell(cell)
+          unmountCell(store, cell)
           cell = undefined
         }
         if (!cell) {
@@ -557,17 +653,21 @@ export function RecyclingBodyGrid<RecordType>({
             columnIdentity,
             rowIdentity,
             params,
+            renderKind,
             renderer,
+            reactRenderer,
             disposer,
             listeners: [],
           }
           setActiveCell(store, cell)
           grid.appendChild(outer)
           renderInner(store, cell, params)
-        } else if (paramsChanged(cell, params, renderer, disposer)) {
+        } else if (paramsChanged(cell, params, renderKind, renderer, reactRenderer, disposer)) {
           cell.column = column
           cell.params = params
+          cell.renderKind = renderKind
           cell.renderer = renderer
+          cell.reactRenderer = reactRenderer
           cell.disposer = disposer
           renderInner(store, cell, params)
         } else {
@@ -617,10 +717,10 @@ export function RecyclingBodyGrid<RecordType>({
   useLayoutEffect(() => () => {
     const store = storeRef.current
     for (const row of Array.from(store.active.values())) {
-      for (const cell of Array.from(row.values())) unmountCell(cell)
+      for (const cell of Array.from(row.values())) unmountCell(store, cell)
     }
     store.active.clear()
-    for (const bucket of store.pools.values()) clearBucket(bucket, 'unmount')
+    for (const bucket of store.pools.values()) clearBucket(store, bucket, 'unmount')
     store.pools.clear()
   }, [])
 

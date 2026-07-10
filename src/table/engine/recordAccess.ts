@@ -18,8 +18,8 @@ export function getValueByDataIndex(
 export function getRowKey<RecordType>(
   record: RecordType,
   rowKey: string | ((record: RecordType) => string | number),
-): string | number {
+): string | number | undefined {
   if (typeof rowKey === 'function') return rowKey(record)
-  const v = (record as any)?.[rowKey]
-  return v === undefined ? '' : v
+  const v = (record as Record<string, unknown> | null | undefined)?.[rowKey]
+  return typeof v === 'string' || typeof v === 'number' ? v : undefined
 }

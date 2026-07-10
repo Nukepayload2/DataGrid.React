@@ -106,7 +106,7 @@ export function useSelectionAdapter<RecordType>(
   const getSelectionValue = useCallback(
     (record: RecordType, index: number): GridSelectionValue => {
       const value = gridSelection?.getSelectionValue?.(record, index)
-      return value ?? (getRowKey(record, rowKeyResolved) as GridSelectionValue)
+      return value ?? (getRowKey(record, rowKeyResolved) ?? index)
     },
     [gridSelection?.getSelectionValue, rowKeyResolved],
   )
@@ -116,6 +116,7 @@ export function useSelectionAdapter<RecordType>(
     for (let index = 0; index < flattenedDataSource.length; index += 1) {
       const record = flattenedDataSource[index]
       const key = getRowKey(record, rowKeyResolved)
+      if (key === undefined) continue
       const value = getSelectionValue(record, index)
       if (!keyToValue.has(key)) keyToValue.set(key, value)
       if (!valueToKey.has(value)) valueToKey.set(value, key)
@@ -240,7 +241,8 @@ export function useSelectionAdapter<RecordType>(
             const existSet = new Set<React.Key>()
             const walk = (records: Array<RecordType>) => {
               for (const rec of records) {
-                existSet.add(getRowKey(rec, rowKeyResolved))
+                const key = getRowKey(rec, rowKeyResolved)
+                if (key !== undefined) existSet.add(key)
                 // 树形：递归收集子孙 key（折叠的也在）。
                 const children = rec && typeof rec === 'object'
                   ? (rec as any)[childrenColumnName]
@@ -267,13 +269,13 @@ export function useSelectionAdapter<RecordType>(
       const rows: Array<RecordType> = []
       for (const rec of flattenedDataSource) {
         const k = getRowKey(rec, rowKeyResolved)
-        if (keySet.has(k)) rows.push(rec)
+        if (k !== undefined && keySet.has(k)) rows.push(rec)
       }
       const prevKeySet = new Set<React.Key>(effectiveSelectedKeys)
       const changeRows: Array<RecordType> = []
       for (const rec of flattenedDataSource) {
         const key = getRowKey(rec, rowKeyResolved)
-        if (prevKeySet.has(key) !== keySet.has(key)) {
+        if (key !== undefined && prevKeySet.has(key) !== keySet.has(key)) {
           changeRows.push(rec)
         }
       }
@@ -284,12 +286,14 @@ export function useSelectionAdapter<RecordType>(
       resolvedRowSel.onChange?.(nextKeys, rows, { type: method })
       if (trigger?.record) {
         const key = getRowKey(trigger.record, rowKeyResolved)
-        resolvedRowSel.onSelect?.(
-          trigger.record,
-          keySet.has(key),
-          rows,
-          trigger.nativeEvent ?? new Event('change'),
-        )
+        if (key !== undefined) {
+          resolvedRowSel.onSelect?.(
+            trigger.record,
+            keySet.has(key),
+            rows,
+            trigger.nativeEvent ?? new Event('change'),
+          )
+        }
       } else if (method === 'all' || method === 'none') {
         resolvedRowSel.onSelectAll?.(method === 'all', rows, changeRows)
       } else if (method === 'invert') {

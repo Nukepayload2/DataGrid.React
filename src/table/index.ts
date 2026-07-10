@@ -66,6 +66,12 @@ export type {
   StickyConfig,
   ScrollBarFoldMode,
   TableLocale,
+  DisposeCellElementReason,
+  GridCellElementRenderParams,
+  GridCellReactSlotProps,
+  GridCellRenderParams,
+  GridColumnOptions,
+  VirtualizationMode,
 } from './types'
 
 /** `ColumnType` 的 antd 风格别名。 */

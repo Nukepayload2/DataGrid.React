@@ -113,7 +113,7 @@ function flattenTree<RecordType>(
     const hasChildren = Array.isArray(children) && children.length > 0
     outRecords.push(record)
     outInfos.push({ level, parentKey, hasChildren })
-    if (hasChildren && expandedKeySet.has(key)) {
+    if (key !== undefined && hasChildren && expandedKeySet.has(key)) {
       flattenTree(
         children,
         childrenColumnName,
@@ -152,7 +152,7 @@ export function flattenTreeData<RecordType>(
   const m = new Map<React.Key, TreeRowInfo>()
   for (let i = 0; i < outRecords.length; i += 1) {
     const k = getRowKey(outRecords[i], rowKey)
-    m.set(k, outInfos[i])
+    if (k !== undefined) m.set(k, outInfos[i])
   }
   return { flattenedData: outRecords, rowInfoMap: m }
 }
@@ -173,6 +173,7 @@ function collectAllKeys<RecordType>(
 ): void {
   for (const record of records) {
     const key = getRowKey(record, rowKey)
+    if (key === undefined) continue
     allKeySet.add(key)
     const children = record && typeof record === 'object'
       ? (record as any)[childrenColumnName]
@@ -181,7 +182,8 @@ function collectAllKeys<RecordType>(
       expandableKeySet.add(key)
       const childKeys: Array<React.Key> = []
       for (const child of children) {
-        childKeys.push(getRowKey(child, rowKey))
+        const childKey = getRowKey(child, rowKey)
+        if (childKey !== undefined) childKeys.push(childKey)
       }
       parentChildrenMap.set(key, childKeys)
       collectAllKeys(children, childrenColumnName, rowKey, parentChildrenMap, expandableKeySet, allKeySet)

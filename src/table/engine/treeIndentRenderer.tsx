@@ -24,6 +24,7 @@ export function renderTreeIndent<RecordType>({
   treeState: EngineTreeState
 }): ReactNode {
   const key = getRowKey(record, rowKey)
+  if (key === undefined) return null
   const info = treeState.rowInfoMap.get(key)
   // rowInfoMap 中应有该 key（扁平化时已写入）；兜底无信息则不渲染。
   if (!info) return null

@@ -42,7 +42,7 @@ export function computeExpandLayout<RecordType>({
 
     if (record !== undefined) {
       const key = getRowKey(record, rowKey)
-      if (isExpandable(key)) {
+      if (key !== undefined && isExpandable(key)) {
         expandTrackLine = rowLine + 1
         lineCursor += 2
       } else {

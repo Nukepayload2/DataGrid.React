@@ -420,6 +420,7 @@ function GridTableInner<RecordType = any>(
     !components?.body?.row &&
     !components?.body?.cell &&
     !leafColumns.some((column) => typeof column.onCell === 'function')
+  const recyclingDegradedToStandard = recyclingRequested && !recyclingBodyEnabled
 
   // 暴露 scrollTo（仅在虚拟模式下有效；非虚拟调用为 no-op）。
   useImperativeHandle(
@@ -655,6 +656,7 @@ function GridTableInner<RecordType = any>(
             onRow,
             rowClassName,
             rowHoverable,
+            renderRecyclingReactCells: recyclingDegradedToStandard,
             // 行选中态判定 → 加 dg-row-selected 类（详见 docs/design-notes/selection.md）。
             isRowSelected,
             // 首列写 data-known-size（实测闭环，详见 docs/design-notes/virtualization.md）。

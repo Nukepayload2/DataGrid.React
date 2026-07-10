@@ -51,8 +51,8 @@ export function buildExpandColumnNode<RecordType>(
     width,
     render: (_text: any, record: RecordType, _index: number) => {
       const key = getRowKey(record, rowKeyResolved)
-      const expandable_ = expand.expandableKeySet.has(key)
-      const expanded = expand.isExpanded(key)
+      const expandable_ = key !== undefined && expand.expandableKeySet.has(key)
+      const expanded = key !== undefined && expand.isExpanded(key)
       // 不可展开行：渲染禁用图标（视觉占位，与 antd expand demo "Not Expandable" 行一致）。
       // 可展开行：渲染可点击展开图标。
       if (customIcon) {
@@ -60,7 +60,7 @@ export function buildExpandColumnNode<RecordType>(
           expanded,
           record,
           onExpand: (_rec, _e) => {
-            if (!expandable_) return
+            if (!expandable_ || key === undefined) return
             expand.toggleExpand(key, record)
           },
         })
@@ -79,7 +79,7 @@ export function buildExpandColumnNode<RecordType>(
                 : undefined
           }
           onExpand={() => {
-            if (!expandable_) return
+            if (!expandable_ || key === undefined) return
             expand.toggleExpand(key, record)
           }}
         />

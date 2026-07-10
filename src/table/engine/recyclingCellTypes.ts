@@ -1,6 +1,8 @@
+import type { ReactElement } from 'react'
+
 export type VirtualizationMode = 'standard' | 'recycling'
 
-export interface GridCellElementRenderParams<RecordType> {
+export interface GridCellRenderParams<RecordType> {
   value: unknown
   record: RecordType
   rowIndex: number
@@ -8,6 +10,15 @@ export interface GridCellElementRenderParams<RecordType> {
   columnKey: string
   dataIndex?: string | number | Array<string | number>
   rowKey: string | number | undefined
+}
+
+export interface GridCellElementRenderParams<RecordType> extends GridCellRenderParams<RecordType> {}
+
+export interface GridCellReactSlotProps {
+  key: string
+  props: {
+    className: string
+  }
 }
 
 export type DisposeCellElementReason =
@@ -22,6 +33,10 @@ export interface GridColumnOptions<RecordType> {
     params: GridCellElementRenderParams<RecordType>,
     oldElement: HTMLElement | undefined,
   ) => HTMLElement
+  renderCellReact?: (
+    params: GridCellRenderParams<RecordType>,
+    slot: GridCellReactSlotProps,
+  ) => ReactElement | null
   disposeCellElement?: (
     element: HTMLElement,
     reason: DisposeCellElementReason,

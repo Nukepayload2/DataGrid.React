@@ -223,6 +223,7 @@ export function buildSelectionColumnNode<RecordType>(
     onCell: renderCell
       ? (record: RecordType, index: number) => {
           const key = getRowKey(record, rowKeyResolved)
+          if (key === undefined) return undefined
           const checked = selection.isSelected(key)
           const node = buildDefaultSelectionInput(
             type,
@@ -251,9 +252,9 @@ export function buildSelectionColumnNode<RecordType>(
     render: (_text: any, record: RecordType, index: number) => {
       const key = getRowKey(record, rowKeyResolved)
       const disabled = selection.isDisabled(record)
-      const checked = selection.isSelected(key)
+      const checked = key !== undefined && selection.isSelected(key)
       // 树形父子联动：父行半选态（checkStrictly=false + 部分子选中）。
-      const indeterminate = selection.isIndeterminate(key)
+      const indeterminate = key !== undefined && selection.isIndeterminate(key)
       const name = rowSel.getCheckboxProps?.(record)?.name
       // renderCell 存在时用其返回值的 children（或 ReactNode）替代默认 SelectionInput。
       if (renderCell) {
@@ -266,7 +267,7 @@ export function buildSelectionColumnNode<RecordType>(
             name={name}
             aria-label={typeof name === 'string' && name ? name : undefined}
             onChange={(_checked, event) => {
-              if (disabled) return
+              if (disabled || key === undefined) return
               const next = selection.toggleRow(key)
               fireSelectionChange(next, 'single', {
                 record,
@@ -298,11 +299,11 @@ export function buildSelectionColumnNode<RecordType>(
           type={type}
           checked={checked}
           indeterminate={indeterminate}
-          disabled={disabled}
+          disabled={disabled || key === undefined}
           name={name}
           aria-label={typeof name === 'string' && name ? name : undefined}
           onChange={(_checked, event) => {
-            if (disabled) return
+            if (disabled || key === undefined) return
             const next = selection.toggleRow(key)
             fireSelectionChange(next, 'single', {
               record,

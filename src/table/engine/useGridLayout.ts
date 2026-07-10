@@ -172,7 +172,7 @@ export function useGridLayout<RecordType>(
           const record = dataSource[i]
           if (record !== undefined) {
             const key = getRowKey(record, rowKey)
-            if (expandState.isExpandable(key)) {
+            if (key !== undefined && expandState.isExpandable(key)) {
               visibleTracks.push(expandState.isExpanded(key) ? '1fr' : '0fr')
             }
           }
@@ -197,7 +197,7 @@ export function useGridLayout<RecordType>(
           }
           tracks.push(baseTrack)
           const key = getRowKey(record, rowKey)
-          if (expandState.isExpandable(key)) {
+          if (key !== undefined && expandState.isExpandable(key)) {
             tracks.push(expandState.isExpanded(key) ? '1fr' : '0fr')
           }
         })

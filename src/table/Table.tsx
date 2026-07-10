@@ -782,7 +782,10 @@ function TableInner<RecordType = any>(
             rowHoverable={rowHoverable}
             isRowSelected={
               selectionEnabled
-                ? (record: RecordType) => selection.isSelected(getRowKey(record, rowKeyResolved))
+                ? (record: RecordType) => {
+                    const key = getRowKey(record, rowKeyResolved)
+                    return key !== undefined && selection.isSelected(key)
+                  }
                 : undefined
             }
             // Table 级 locale 透传到引擎 → FilterDropdown（filterConfirm/Reset/EmptyText/
@@ -820,7 +823,10 @@ function TableInner<RecordType = any>(
           //   （无选择 demo 零回归，避免每 cell 多一次回调）；record→key 用 canonical getRowKey（与引擎一致）。
           isRowSelected={
             selectionEnabled
-              ? (record: RecordType) => selection.isSelected(getRowKey(record, rowKeyResolved))
+              ? (record: RecordType) => {
+                  const key = getRowKey(record, rowKeyResolved)
+                  return key !== undefined && selection.isSelected(key)
+                }
               : undefined
           }
           // Table 级 locale 透传到引擎 → FilterDropdown（filterConfirm/Reset/EmptyText/

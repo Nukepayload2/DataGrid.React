@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Button, Segmented, Space, Switch, Typography } from 'antd'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Button, Modal, Segmented, Space, Switch, Typography } from 'antd'
 import { Table } from '../table'
 import type {
   ColumnType,
-} from '../table'
-import type {
   DisposeCellElementReason,
   GridCellElementRenderParams,
-} from '../table/engine/recyclingCellTypes'
+  GridCellReactSlotProps,
+} from '../table'
 
 type Row = {
   id: number
@@ -37,6 +36,9 @@ type Stats = {
   replace: number
   discard: number
   unmount: number
+  reactMount: number
+  reactRender: number
+  reactUnmount: number
 }
 
 type DebugEntry = {
@@ -49,6 +51,13 @@ type DebugEntry = {
 type RecyclingDebugWindow = Window & {
   __dgRecyclingLog?: DebugEntry[]
 }
+
+type ActionKind = 'details' | 'delete'
+
+type ActionModalState = {
+  action: ActionKind
+  row: Row
+} | null
 
 const regions = ['NA', 'EU', 'APAC', 'LATAM']
 const owners = ['Ada', 'Grace', 'Linus', 'Ken', 'Radia', 'Margaret']
@@ -142,7 +151,10 @@ function sameStats(a: Stats, b: Stats): boolean {
     a.recycle === b.recycle &&
     a.replace === b.replace &&
     a.discard === b.discard &&
-    a.unmount === b.unmount
+    a.unmount === b.unmount &&
+    a.reactMount === b.reactMount &&
+    a.reactRender === b.reactRender &&
+    a.reactUnmount === b.reactUnmount
   )
 }
 
@@ -155,7 +167,51 @@ function diffStats(current: Stats, previous: Stats): Stats {
     replace: current.replace - previous.replace,
     discard: current.discard - previous.discard,
     unmount: current.unmount - previous.unmount,
+    reactMount: current.reactMount - previous.reactMount,
+    reactRender: current.reactRender - previous.reactRender,
+    reactUnmount: current.reactUnmount - previous.reactUnmount,
   }
+}
+
+function ActionButtons({
+  row,
+  slot,
+  statsRef,
+  onAction,
+}: {
+  row: Row
+  slot?: GridCellReactSlotProps
+  statsRef: React.MutableRefObject<Stats>
+  onAction: (action: ActionKind, row: Row) => void
+}) {
+  useEffect(() => {
+    statsRef.current.reactMount += 1
+    return () => {
+      statsRef.current.reactUnmount += 1
+    }
+  }, [statsRef])
+
+  useEffect(() => {
+    statsRef.current.reactRender += 1
+  })
+
+  const rootProps = slot
+    ? {
+        ...slot.props,
+        className: `${slot.props.className} dg-recycling-actions`,
+      }
+    : { className: 'dg-recycling-actions' }
+
+  return (
+    <span {...rootProps}>
+      <Button type="link" size="small" onClick={() => onAction('details', row)}>
+        详情
+      </Button>
+      <Button type="link" size="small" danger onClick={() => onAction('delete', row)}>
+        删除
+      </Button>
+    </span>
+  )
 }
 
 export default function VirtualListRecyclingDg() {
@@ -167,9 +223,14 @@ export default function VirtualListRecyclingDg() {
     replace: 0,
     discard: 0,
     unmount: 0,
+    reactMount: 0,
+    reactRender: 0,
+    reactUnmount: 0,
   })
   const [stats, setStats] = useState<Stats>(() => ({ ...statsRef.current }))
   const [mode, setMode] = useState<'standard' | 'recycling'>('recycling')
+  const [showActionColumn, setShowActionColumn] = useState(false)
+  const [actionModal, setActionModal] = useState<ActionModalState>(null)
   const [logEnabled, setLogEnabled] = useState(false)
   const [version, setVersion] = useState(0)
   const lastLogStatsRef = useRef(statsRef.current)
@@ -230,8 +291,13 @@ export default function VirtualListRecyclingDg() {
     [],
   )
 
+  const openActionModal = useCallback((action: ActionKind, row: Row) => {
+    setActionModal({ action, row })
+  }, [])
+
   const columns = useMemo<ColumnType<Row>[]>(
-    () => [
+    () => {
+      const baseColumns: ColumnType<Row>[] = [
       { title: 'ID', dataIndex: 'id', width: 72 },
       { title: 'Account', dataIndex: 'account', width: 120 },
       { title: 'Status', dataIndex: 'status', width: 100, render: renderStandardStatus, gridColumnOptions: { renderCellElement: renderStatus, disposeCellElement: dispose } },
@@ -249,16 +315,45 @@ export default function VirtualListRecyclingDg() {
       { title: 'SLA', dataIndex: 'sla', width: 72 },
       { title: 'Notes', dataIndex: 'notes', width: 150 },
       { title: 'Flag', dataIndex: 'flag', width: 95 },
-    ].map((column) => ({
-      ...column,
-      render: column.render ?? renderStandardText,
-      gridColumnOptions: {
-        renderCellElement: renderText,
-        disposeCellElement: dispose,
-        ...column.gridColumnOptions,
-      },
-    })),
-    [dispose, renderPriority, renderStatus, renderText],
+      ]
+      if (showActionColumn) {
+        baseColumns.push({
+          key: 'actions',
+          title: '操作',
+          width: 120,
+          render: (_value, row) => (
+            <ActionButtons
+              row={row}
+              statsRef={statsRef}
+              onAction={openActionModal}
+            />
+          ),
+          gridColumnOptions: {
+            renderCellElement: undefined,
+            disposeCellElement: undefined,
+            renderCellReact: (params, slot) => (
+              <ActionButtons
+                key={slot.key}
+                row={params.record}
+                slot={slot}
+                statsRef={statsRef}
+                onAction={openActionModal}
+              />
+            ),
+          },
+        })
+      }
+      return baseColumns.map((column) => ({
+        ...column,
+        render: column.render ?? renderStandardText,
+        gridColumnOptions: {
+          renderCellElement: renderText,
+          disposeCellElement: dispose,
+          ...column.gridColumnOptions,
+        },
+      }))
+    },
+    [dispose, openActionModal, renderPriority, renderStatus, renderText, showActionColumn],
   )
 
   const resetStats = () => {
@@ -270,6 +365,9 @@ export default function VirtualListRecyclingDg() {
       replace: 0,
       discard: 0,
       unmount: 0,
+      reactMount: 0,
+      reactRender: 0,
+      reactUnmount: 0,
     }
     lastLogStatsRef.current = statsRef.current
     setStats({ ...statsRef.current })
@@ -294,8 +392,16 @@ export default function VirtualListRecyclingDg() {
           ]}
         />
         <Typography.Text type="secondary" data-testid="recycling-counters">
-          create {stats.create} / reuse {stats.reuse} / render {stats.render} / recycle {stats.recycle} / discard {stats.discard}
+          native create {stats.create} / reuse {stats.reuse} / render {stats.render} / recycle {stats.recycle} / discard {stats.discard}
+          {' '}
+          React mount {stats.reactMount} / render {stats.reactRender} / unmount {stats.reactUnmount}
         </Typography.Text>
+        <Switch
+          checked={showActionColumn}
+          onChange={setShowActionColumn}
+          checkedChildren="操作列"
+          unCheckedChildren="操作列"
+        />
         <Switch
           checked={logEnabled}
           onChange={setLogEnabled}
@@ -321,6 +427,15 @@ export default function VirtualListRecyclingDg() {
           }}
         />
       </div>
+      <Modal
+        title="这只是个演示"
+        open={actionModal !== null}
+        onCancel={() => setActionModal(null)}
+        onOk={() => setActionModal(null)}
+      >
+        <div>不支持指定的方法。</div>
+        <div>{actionModal ? JSON.stringify(actionModal.row) : ''}</div>
+      </Modal>
       <style>{`
         .dg-recycling-text {
           display: inline-block;
@@ -336,6 +451,15 @@ export default function VirtualListRecyclingDg() {
         .dg-recycling-priority-p0 { color: #cf1322; font-weight: 600; }
         .dg-recycling-priority-p1 { color: #0958d9; font-weight: 600; }
         .dg-recycling-priority-p2 { color: #595959; }
+        .dg-recycling-actions {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          white-space: nowrap;
+        }
+        .dg-recycling-actions .ant-btn {
+          padding-inline: 0;
+        }
       `}</style>
     </div>
   )

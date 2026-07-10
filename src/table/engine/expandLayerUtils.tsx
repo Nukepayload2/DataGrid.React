@@ -35,6 +35,7 @@ export function renderExpandedContents<RecordType>({
     const record = dataSource[i]
     if (record === undefined) continue
     const key = getRowKey(record, rowKey)
+    if (key === undefined) continue
     if (!expandState.isExpandable(key)) continue
     if (!expandState.isExpanded(key)) continue
     const layout = expandLayout.get(i)

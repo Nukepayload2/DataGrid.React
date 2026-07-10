@@ -81,13 +81,14 @@ export function useExpandRowBinding<RecordType>(
       const userProps = onRow?.(record, index) ?? {}
       const key = getRowKey(record, rowKeyResolved)
       const userOnClick = userProps.onClick
-      const expandableRecord = expand.expandableKeySet.has(key)
+      const expandableRecord = key !== undefined && expand.expandableKeySet.has(key)
       return {
         ...userProps,
         onClick: (e: React.MouseEvent<HTMLElement>) => {
           const skipInteraction = shouldSkipRowSelectionClick(e.target)
           if (
             rowClickSelectionEnabled &&
+            key !== undefined &&
             !skipInteraction &&
             !selection.isDisabled(record)
           ) {
@@ -125,7 +126,7 @@ export function useExpandRowBinding<RecordType>(
               })
             }
           }
-          if (expandRowByClick && expandableRecord && !skipInteraction) {
+          if (expandRowByClick && expandableRecord && key !== undefined && !skipInteraction) {
             expand.toggleExpand(key, record)
           }
           userOnClick?.(e)
@@ -160,7 +161,9 @@ export function useExpandRowBinding<RecordType>(
       const base = baseFn?.(record, index) ?? ''
       const key = getRowKey(record, rowKeyResolved)
       // 仅该行展开时追加（收起时不加，对齐 antd）。
-      const extra = expand.isExpanded(key) ? expandedRowClassNameFn(record, index) : ''
+      const extra = key !== undefined && expand.isExpanded(key)
+        ? expandedRowClassNameFn(record, index)
+        : ''
       return [base, extra].filter(Boolean).join(' ')
     }
   }, [expandedRowClassNameFn, rowClassName, expand, rowKeyResolved])

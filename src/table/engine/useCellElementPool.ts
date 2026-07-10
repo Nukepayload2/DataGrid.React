@@ -33,6 +33,7 @@ function sameOptions<RecordType>(
 ): boolean {
   return (
     a?.renderCellElement === b?.renderCellElement &&
+    a?.renderCellReact === b?.renderCellReact &&
     a?.disposeCellElement === b?.disposeCellElement
   )
 }
