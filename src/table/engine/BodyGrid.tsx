@@ -131,7 +131,6 @@ function BodyCell<RecordType>({
         },
         {
           key: standardCellKey,
-          props: { className: 'dg-recycling-react-slot' },
         },
       )
     : column.render

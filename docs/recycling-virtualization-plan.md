@@ -47,28 +47,6 @@ interface GridCellReactSlotProps {
    *   standard body cell key, identical to the normal body key rule.
    */
   key: string
-
-  /**
-   * 可 spread 到用户返回内容的单个根元素。
-   *
-   * props 不包含 key；React key 必须显式使用 slot.key。
-   * props.className 是表格生成的 virtual className，用于让用户根元素继承
-   * recycling path 和 degraded standard lifecycle 的统一样式入口。
-   *
-   * 裸 string / number 不属于 renderCellReact 的返回形态；
-   * recycling slot 需要有可承载 className 的元素用于定位和状态样式。
-   * 纯文本列应走 recycler 的内部默认 element renderer 或 renderCellElement。
-   * 如果需要 React 路线展示文本，用户应自行包一层元素并挂载 slot.props。
-   *
-   * Fragment 可以作为 React element 返回，但不能接收 className。
-   * 如果返回多元素 Fragment，不应把同一个 slot.props spread 到多个元素；
-   * 需要 className 时由用户包一层元素后只 spread 一次。
-   *
-   * 公开 API 不暴露 virtual slot index 或调试 data attribute。
-   */
-  props: {
-    className: string
-  }
 }
 
 interface GridColumnOptions<RecordType> {
@@ -86,7 +64,6 @@ gridColumnOptions: {
   renderCellReact: (params, slot) => (
     <StatusBadge
       key={slot.key}
-      {...slot.props}
       value={params.value}
       rowKey={params.rowKey}
     />
@@ -141,7 +118,7 @@ if (isDegraded) {
 }
 ```
 
-用户只读取 `slot.key`，并在需要根元素 className 时使用 `slot.props`；表格根据实际 lifecycle 给出正确 key 和 className。
+用户只读取 `slot.key`；表格根据实际 lifecycle 给出正确 key。
 
 ## 受控约束
 
@@ -165,7 +142,6 @@ requested recycling 但无法满足 simple body model 时，进入 standard body
 - 不调用 `renderCellElement`。
 - 若列提供 `renderCellReact`，仍调用 `renderCellReact`。
 - `slot.key` 使用 standard body cell key。
-- `slot.props.className` 仍提供，用户渲染代码不需要判断 lifecycle。
 - standard body 负责 React mount/unmount、merge、expand、tree、components body 等兼容行为。
 
 需要降级的能力包括：
@@ -212,7 +188,7 @@ degraded standard lifecycle：
 - 增加一两个 `renderCellReact` 列。
 - 大多数列仍使用 native renderer。
 - React slot demo 使用受控组件。
-- `renderCellReact` demo 优先展示单根元素用法，并把 `slot.props` 挂到根元素上。
+- `renderCellReact` demo 优先展示单根元素用法，并只使用 `slot.key` 作为 React key。
 - 纯文本展示继续使用 recycler 的内部默认 element renderer 或 `renderCellElement`，不使用 `renderCellReact` 返回裸 string / number。
 - 控制台日志默认关闭。
 - 计数面板区分 native create/reuse/render 和 React slot mount/render。
@@ -227,7 +203,7 @@ degraded standard lifecycle：
 - 工具栏增加“显示操作列”开关，默认关闭，避免影响当前 native recycling 计数基线。
 - 开关打开后，在列尾追加 `操作` 列；关闭后移除该列，用于验证 React slot 列加入/移除时的清理逻辑。
 - `操作` 列使用 `gridColumnOptions.renderCellReact`，不配置 `renderCellElement`，确保它走 React slot 路径；其它文本列继续使用 native renderer。
-- `操作` 列宽度固定，单元格渲染一个单根 React 元素，并把 `slot.props` spread 到根元素上。
+- `操作` 列宽度固定，单元格渲染一个单根 React 元素。
 - 根元素内使用 antd link buttons：`详情` / `删除`。
 - 点击 `详情` 或 `删除` 时弹出 antd Modal。
 - Modal 标题固定为 `这只是个演示`。
@@ -253,9 +229,8 @@ degraded standard lifecycle：
 - requested recycling + merge/tree/expand/components body 等降级时仍调用 `renderCellReact`。
 - 降级时 `slot.key` 等于 standard body cell key。
 - 降级时不调用 `renderCellElement`。
-- 用户代码使用 `key={slot.key}`，并在需要根元素 className 时使用 `slot.props`，true recycling 和降级路径都能渲染。
-- `renderCellReact` 返回裸 string / number 时有类型或运行时约束；文本内容应走 recycler 的内部默认 element renderer，或由用户包成可承载 `slot.props.className` 的 React element。
-- `renderCellReact` 返回多元素 Fragment 时，不应把同一个 `slot.props` spread 到多个元素；需要 className 时由用户包一层元素。
+- 用户代码使用 `key={slot.key}`，true recycling 和降级路径都能渲染。
+- `renderCellReact` 返回裸 string / number 时有类型或运行时约束；文本内容应走 recycler 的内部默认 element renderer，或由用户包成 React element。
 
 必要时补浏览器 smoke：
 

@@ -5,7 +5,6 @@ import type {
   ColumnType,
   DisposeCellElementReason,
   GridCellElementRenderParams,
-  GridCellReactSlotProps,
 } from '../table'
 
 type Row = {
@@ -181,12 +180,10 @@ function diffStats(current: Stats, previous: Stats): Stats {
 
 function ActionButtons({
   row,
-  slot,
   statsRef,
   onAction,
 }: {
   row: Row
-  slot?: GridCellReactSlotProps
   statsRef: React.MutableRefObject<Stats>
   onAction: (action: ActionKind, row: Row) => void
 }) {
@@ -201,15 +198,8 @@ function ActionButtons({
     statsRef.current.reactRender += 1
   })
 
-  const rootProps = slot
-    ? {
-        ...slot.props,
-        className: `${slot.props.className} dg-recycling-actions`,
-      }
-    : { className: 'dg-recycling-actions' }
-
   return (
-    <span {...rootProps}>
+    <span className="dg-recycling-actions">
       <Button type="link" size="small" onClick={() => onAction('details', row)}>
         详情
       </Button>
@@ -415,7 +405,6 @@ export default function VirtualListRecyclingDg() {
               <ActionButtons
                 key={slot.key}
                 row={params.record}
-                slot={slot}
                 statsRef={statsRef}
                 onAction={openActionModal}
               />

@@ -16,9 +16,6 @@ export interface GridCellElementRenderParams<RecordType> extends GridCellRenderP
 
 export interface GridCellReactSlotProps {
   key: string
-  props: {
-    className: string
-  }
 }
 
 export type DisposeCellElementReason =

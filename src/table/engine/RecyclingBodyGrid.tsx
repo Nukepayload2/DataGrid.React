@@ -529,7 +529,6 @@ function renderReactSlot<RecordType>(
   }
   const element = cell.reactRenderer(nextParams, {
     key: slot.key,
-    props: { className: 'dg-recycling-react-slot' },
   })
   slot.root.render(element)
   cell.params = nextParams
