@@ -1,5 +1,5 @@
-import { useLayoutEffect, useRef } from 'react'
-import { createRoot, type Root } from 'react-dom/client'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { resolveBodyCellInjectedProps } from './bodyCellUtils'
 import {
   fixedClass,
@@ -32,8 +32,8 @@ type CellRenderKind = 'element' | 'react'
 
 interface ReactSlot<RecordType> {
   key: string
-  root: Root
-  container: HTMLDivElement
+  inner: HTMLDivElement
+  params: GridCellElementRenderParams<RecordType>
   columnIdentity: Identity
   renderer: GridColumnOptions<RecordType>['renderCellReact']
 }
@@ -63,7 +63,9 @@ interface RecyclingStore<RecordType> {
   active: Map<Identity, Map<Identity, ActiveCell<RecordType>>>
   pools: Map<Identity, PoolBucket<RecordType>>
   reactSlots: WeakMap<HTMLDivElement, ReactSlot<RecordType>>
+  reactSlotList: Map<string, ReactSlot<RecordType>>
   nextReactSlotId: number
+  portalDirty: boolean
 }
 
 function resolveColumnIdentity<RecordType>(
@@ -175,17 +177,15 @@ function clearReactSlot<RecordType>(
   if (replaceContainer) {
     nextInner = document.createElement('div')
     nextInner.className = 'dg-cell-inner'
-    if (slot.container.parentNode === outer) {
-      outer.replaceChild(nextInner, slot.container)
+    if (slot.inner.parentNode === outer) {
+      outer.replaceChild(nextInner, slot.inner)
     } else {
       outer.appendChild(nextInner)
     }
   }
-  window.setTimeout(() => {
-    slot.root.unmount()
-    detach(slot.container)
-  }, 0)
+  store.reactSlotList.delete(slot.key)
   store.reactSlots.delete(outer)
+  store.portalDirty = true
   return nextInner
 }
 
@@ -288,7 +288,7 @@ function unmountCell<RecordType>(
   cell: ActiveCell<RecordType>,
 ): void {
   clearListeners(cell)
-  clearReactSlot(store, cell.outer)
+  cell.inner = clearReactSlot(store, cell.outer, true) ?? cell.inner
   if (cell.content) {
     cell.disposer?.(cell.content, 'unmount', cell.params)
     detach(cell.content)
@@ -473,7 +473,7 @@ function renderInner<RecordType>(
     renderReactSlot(store, cell, nextParams)
     return
   }
-  cell.inner = clearReactSlot(store, cell.outer, true) ?? cell.inner
+  clearReactSlot(store, cell.outer)
   const renderer = cell.renderer ?? defaultRenderCellElement
   const oldElement = cell.content ?? acquireInner(store, cell.column)
   const nextElement = renderer(nextParams, oldElement)
@@ -516,21 +516,24 @@ function renderReactSlot<RecordType>(
     slot.renderer !== cell.reactRenderer ||
     slot.columnIdentity !== cell.columnIdentity
   ) {
-    if (slot) cell.inner = clearReactSlot(store, cell.outer, true) ?? cell.inner
+    if (slot) clearReactSlot(store, cell.outer)
     slot = {
       key: `dg-react-slot-${store.nextReactSlotId}`,
-      root: createRoot(cell.inner),
-      container: cell.inner,
+      inner: cell.inner,
+      params: nextParams,
       columnIdentity: cell.columnIdentity,
       renderer: cell.reactRenderer,
     }
     store.nextReactSlotId += 1
     store.reactSlots.set(cell.outer, slot)
+    store.reactSlotList.set(slot.key, slot)
+    store.portalDirty = true
   }
-  const element = cell.reactRenderer(nextParams, {
-    key: slot.key,
-  })
-  slot.root.render(element)
+  if (slot.params !== nextParams || slot.inner !== cell.inner) {
+    slot.params = nextParams
+    slot.inner = cell.inner
+    store.portalDirty = true
+  }
   cell.params = nextParams
 }
 
@@ -571,8 +574,11 @@ export function RecyclingBodyGrid<RecordType>({
     active: new Map(),
     pools: new Map(),
     reactSlots: new WeakMap(),
+    reactSlotList: new Map(),
     nextReactSlotId: 0,
+    portalDirty: false,
   })
+  const [portalVersion, setPortalVersion] = useState(0)
 
   useLayoutEffect(() => {
     const grid = gridRef.current
@@ -712,6 +718,10 @@ export function RecyclingBodyGrid<RecordType>({
         if (cell.outer.parentNode !== grid) grid.appendChild(cell.outer)
       }
     }
+    if (store.portalDirty) {
+      store.portalDirty = false
+      setPortalVersion((current) => current + 1)
+    }
   }, [
     dataSource,
     effectiveRowHeight,
@@ -738,7 +748,16 @@ export function RecyclingBodyGrid<RecordType>({
     store.active.clear()
     for (const bucket of store.pools.values()) clearBucket(store, bucket, 'unmount')
     store.pools.clear()
+    store.reactSlotList.clear()
   }, [])
 
-  return null
+  const portals = useMemo(() => {
+    const store = storeRef.current
+    return Array.from(store.reactSlotList.values()).map((slot) => {
+      const element = slot.renderer?.(slot.params, { key: slot.key }) ?? null
+      return createPortal(element, slot.inner, slot.key)
+    })
+  }, [portalVersion])
+
+  return <>{portals}</>
 }
