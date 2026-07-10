@@ -1,62 +1,32 @@
-# Recycling virtualization plan
+# Recycling React slot plan
 
-本文记录 `gridOptions.virtualizationMode = 'recycling'` 的目标实现。该模式不是在 React cell 内复用子元素，而是让 recycling 路径完整接管虚拟数据区普通 body cells 的 DOM 创建、更新、复用和销毁。React 只保留表格外壳、滚动容器、header、summary、empty、pagination、filter dropdown、title、footer 等非大量数据 cell 结构。
+本文只记录 recycling 模式下一步要补的 React cell 能力：在 native fast path 之外，让少数列可以用 `renderCellReact` 渲染受控 React 内容。
 
 ## 目标
 
-在普通虚拟数据区中降低快速滚动时的 React reconciliation、DOM 创建/销毁和 GC 压力。
+给 recycling 模式增加一个面向 React 组件的列级 renderer：
 
-目标用例：
-
-- `size="small"`。
-- 一屏约 30 行、17 列。
-- 单元格内容是纯文本展示或非常轻量的 DOM。
-- 快速纵向滚动时，主要压力来自数据区普通 cell 的 React 组件 churn、外层 DOM churn、inner DOM churn 和 GC。
-
-recycling 模式的目标是：
-
-- React 不逐个渲染数据区 body cell。
-- 数据区普通 body cell 外层 `.dg-cell.dg-cell-body` 由 imperative recycler 创建和复用。
-- `.dg-cell-inner` 内部 HTMLElement 由列级 `renderCellElement` 创建和更新。
-- 滚动窗口变化时，由 body-level recycler 批量 diff、release、acquire、patch DOM。
+- 大多数列继续走 native HTMLElement fast path。
+- 少数需要 React 组件的列使用 `gridColumnOptions.renderCellReact`。
+- true recycling 场景下，React 组件按 virtual slot 复用，不随真实 row mount/unmount。
+- requested recycling 无法进入 true recycling 时，仍调用 `renderCellReact`，但使用 standard body cell key 和 standard body lifecycle。
+- 用户只写一个 `renderCellReact`，不需要判断当前是否降级。
 
 ## 非目标
 
-- 不让 `column.render` 返回 DOM element。`column.render` 仍是 antd 兼容 API，返回 `ReactNode`。
-- 不让 React 管理 recycling 数据区普通 cell。
-- 不让 React 管理 recycling cell 的 `.dg-cell-inner` 子元素。
-- 不接管 header、summary、empty、pagination、filter dropdown、title、footer。
-- 不支持 tree、expand、rowSpan/colSpan、`components.body.row`、`components.body.cell` 等 antd body 兼容能力。
-- 不改变 sticky 禁用虚拟化的现状；sticky 启用时 recycling 不启用。
-- 不把 recycling 作为默认虚拟化模式。
-- 不做横向列虚拟化。横向不可见列仍会参与当前虚拟行窗口的渲染，除非未来单独实现 column virtualization。
+- 不让 `column.render` 参与 recycling 专用语义。
+- 不让 `renderCellElement` 在 standard lifecycle 降级路径中执行。
+- 不提供 true recycling 内部的 row-key remount 模式。
+- 不支持非受控 React 组件作为 true recycling slot。
+- 不改变显式 `virtualizationMode: undefined | 'standard'` 的现有行为。
+- 不借这个功能实现横向列虚拟化。
 
 ## API
 
-### 表级开关
+新增列级 React renderer：
 
 ```ts
-type VirtualizationMode = 'standard' | 'recycling'
-
-interface TableProps<RecordType> {
-  gridOptions?: {
-    virtualizationMode?: VirtualizationMode
-  }
-}
-```
-
-语义：
-
-- `undefined`：遵循现有行为。满足 `virtual === true && scroll.y === true` 且虚拟化前置条件时，启用当前 React 管理的虚拟化。
-- `'standard'`：显式使用当前 React 管理的虚拟化渲染。
-- `'recycling'`：在支持条件满足时，由 imperative recycler 接管虚拟数据区普通 body cells。
-
-`undefined` 和 `'standard'` 必须与当前行为一致，不调用 `gridColumnOptions.renderCellElement`。
-
-### 列级命令式 renderer
-
-```ts
-interface GridCellElementRenderParams<RecordType> {
+interface GridCellRenderParams<RecordType> {
   value: unknown
   record: RecordType
   rowIndex: number
@@ -66,401 +36,251 @@ interface GridCellElementRenderParams<RecordType> {
   rowKey: string | number | undefined
 }
 
-type DisposeCellElementReason =
-  | 'recycle'
-  | 'replace'
-  | 'discard'
-  | 'unmount'
+interface GridCellReactSlotProps {
+  /**
+   * 用户返回 React element 时应使用的 key。
+   *
+   * true recycling slot path:
+   *   stable virtual slot key, independent from record / rowIndex.
+   *
+   * requested recycling degraded to standard body lifecycle:
+   *   standard body cell key, identical to the normal body key rule.
+   */
+  key: string
+
+  /**
+   * 可 spread 到用户返回内容的单个根元素。
+   *
+   * props 不包含 key；React key 必须显式使用 slot.key。
+   * props.className 是表格生成的 virtual className，用于让用户根元素继承
+   * recycling path 和 degraded standard lifecycle 的统一样式入口。
+   *
+   * 裸 string / number 不属于 renderCellReact 的返回形态；
+   * recycling slot 需要有可承载 className 的元素用于定位和状态样式。
+   * 纯文本列应走 recycler 的内部默认 element renderer 或 renderCellElement。
+   * 如果需要 React 路线展示文本，用户应自行包一层元素并挂载 slot.props。
+   *
+   * Fragment 可以作为 React element 返回，但不能接收 className。
+   * 如果返回多元素 Fragment，不应把同一个 slot.props spread 到多个元素；
+   * 需要 className 时由用户包一层元素后只 spread 一次。
+   *
+   * 公开 API 不暴露 virtual slot index 或调试 data attribute。
+   */
+  props: {
+    className: string
+  }
+}
 
 interface GridColumnOptions<RecordType> {
-  renderCellElement?: (
-    params: GridCellElementRenderParams<RecordType>,
-    oldElement: HTMLElement | undefined,
-  ) => HTMLElement
-  disposeCellElement?: (
-    element: HTMLElement,
-    reason: DisposeCellElementReason,
-    params: GridCellElementRenderParams<RecordType> | undefined,
-  ) => void
+  renderCellReact?: (
+    params: GridCellRenderParams<RecordType>,
+    slot: GridCellReactSlotProps,
+  ) => React.ReactElement | null
 }
 ```
 
-`gridOptions` / `gridColumnOptions` 的优先级高于 antd 兼容 API。`virtualizationMode = 'recycling'` 下，支持命令式 cell element 的列应使用 `gridColumnOptions.renderCellElement`，不依赖 `column.render`。
-
-`oldElement` 规则：
-
-- 只有 recycling 复用同列 inner element 时，`oldElement` 才可能是旧元素。
-- 若列没有空闲 inner element，`oldElement` 为 `undefined`。
-- 若 renderer 返回了不同于 `oldElement` 的 HTMLElement，旧元素按 `replace` 清理。
-- `standard` 和 `undefined` 不调用 `renderCellElement`。
-
-## 渲染边界
-
-### React 负责
-
-- 表格根结构。
-- 滚动容器。
-- grid 容器。
-- FillerRow / padding track。
-- header。
-- summary。
-- empty。
-- pagination。
-- filter dropdown。
-- title / footer。
-- 非 recycling 路径的 standard body。
-
-### Imperative recycler 负责
-
-在 recycling 启用时，数据区普通 body cells 完全由 recycler 管理：
-
-- 创建、更新、复用、销毁 `.dg-cell.dg-cell-body` 外层 DOM。
-- 设置外层 cell 的 className、style、dataset、ARIA 属性。
-- 设置 `data-row-index`。
-- 设置 `data-column-key`.
-- 设置 `data-known-size`。
-- 设置 `data-align`。
-- 设置 `gridColumn` / `gridRow`。
-- 设置 fixed column class、sticky style、edge shadow class。
-- 设置 hidden class。
-- 设置 selected / hover / sorted class。
-- 设置 semantic body row/cell class 和 style。
-- 绑定和更新 row hover 事件。
-- 绑定和更新 `onRow` 事件。
-- 管理 `.dg-cell-inner` 容器。
-- 调用列级 `renderCellElement` 和 `disposeCellElement`。
-
-recycling 数据区不允许 React 为每个 cell 创建组件，也不允许每个 cell 单独跑 React hook/effect。滚动窗口变化应由一个 body-level effect 或等价调度批量处理。
-
-## 支持范围
-
-recycling 只接管普通二维数据区：
-
-```text
-virtual row window x leafColumns
-```
-
-支持：
-
-- 扁平数据。
-- 普通叶子列。
-- fixed columns 相关外层 class/style。
-- hidden columns 的外层状态。
-- selected / hover / sorted class。
-- rowClassName。
-- onRow 事件 props。
-- semantic body row/cell class/style。
-- 固定或可测量行高模型要求的 `data-known-size`。
-
-不支持：
-
-- tree data。
-- expandable / expanded row content。
-- rowSpan / colSpan。
-- `components.body.row`。
-- `components.body.cell`。
-- `column.render` 的 ReactNode 输出。
-- 其它会破坏普通 `rowIndex x leafColumn` 映射的 body 能力。
-
-这些能力在 `standard` / `undefined` 下继续保持现状。
-
-## Merge plan 说明
-
-standard body 为了兼容 antd 的 `rowSpan` / `colSpan`，会根据列的 `onCell` 结果计算 merge plan。
-
-普通 body 是二维矩阵：
-
-```text
-rowIndex x leafColumn
-```
-
-`onCell` 可以返回：
-
-```ts
-{ rowSpan: 2 }
-{ colSpan: 3 }
-{ rowSpan: 0 }
-{ colSpan: 0 }
-```
-
-这会改变真实 DOM 结构：
-
-- `rowSpan` / `colSpan > 1`：一个真实 cell 占据多个逻辑位置。
-- `rowSpan` / `colSpan === 0`：当前位置被合并隐藏，不渲染真实 cell。
-- 逻辑矩阵和 DOM cell 不再一一对应。
-
-recycling 依赖稳定映射：
-
-```text
-visible logical cell -> one outer cell -> one .dg-cell-inner -> one managed HTMLElement
-```
-
-因此 recycling 不接入 merge plan。需要合并单元格时应使用 standard path。
-
-## 复用模型
-
-需要复用两层元素：
-
-1. outer cell element  
-   `.dg-cell.dg-cell-body`
-
-2. inner content element  
-   `renderCellElement` 返回的 HTMLElement，挂在 `.dg-cell-inner` 内。
-
-### 外层 cell 池
-
-外层 cell 可以按列池化，避免跨列带入脏状态：
-
-```text
-activeOuter: row identity -> column identity -> HTMLElement
-outerPool: column identity -> HTMLElement[]
-```
-
-outer cell release 时需要：
-
-- 移除或覆盖旧 className。
-- 移除或覆盖旧 style。
-- 清理旧 dataset / ARIA。
-- 清理旧事件。
-- 清空或复用 `.dg-cell-inner`。
-
-### 内层 element 池
-
-内层 element 也按列池化：
-
-```text
-activeInner: row identity -> column identity -> HTMLElement
-innerPool: column identity -> HTMLElement[]
-```
-
-同列复用时：
-
-1. 从 inner pool 取旧元素。
-2. 调用 `renderCellElement(params, oldElement)`。
-3. 将返回元素挂入 `.dg-cell-inner`。
-4. 如果返回元素不同于 oldElement，旧元素按 `replace` 清理。
-
-### identity 规则
-
-- row identity 优先使用 `rowKey`。
-- 没有 `rowKey` 时，fallback 到 `record` reference。
-- column identity 优先使用 `columnKey`。
-- 没有稳定 `columnKey` 时，fallback 到 column reference。
-- 内部管理不强求拼接字符串 key；可以使用嵌套 `Map` 或引用 ID。
-- DOM attribute、调试输出、计数面板等需要字符串时，再派生可显示字符串。
-
-### pool 上限
-
-- 每列 outer pool 和 inner pool 都应有上限。
-- 初始建议：`visibleRowCount + overscan * 2`。
-- 超出上限时丢弃元素，避免 pool 自身变成内存压力。
-
-## 数据变化规则
-
-排序、过滤、分页和替换 `dataSource` 都视为 active 数据映射变化。
-
-处理规则：
-
-- 不因数据变化销毁 pool。
-- active 元素先 release，再按新的虚拟窗口重新 acquire / patch / render。
-- 重新 render 时传入新的 `params.record`、`params.value`、`params.rowIndex`、`params.rowKey`。
-- 旧 DOM 内容由 recycler 和 `renderCellElement` 使用新 params 覆盖。
-- 如果没有 `rowKey` 且 `dataSource` 每次重建 record 对象，row identity 会随 reference 改变；这是允许的，代价是 active 映射更频繁重建。
-
-列变化规则：
-
-- column identity 不变且 `renderCellElement` / `disposeCellElement` identity 不变时，对应 pool 可以保留。
-- column identity 消失、renderer identity 改变或模式切换时，受影响 active 和 pool 元素需要 `unmount` 清理。
-- 不允许把 A 列 outer 或 inner 元素传给 B 列。
-
-## 实现结构
-
-建议新增独立 recycling 数据区路径：
-
-- `src/table/engine/RecyclingBodyGrid.tsx`
-- `src/table/engine/useRecyclingBody.ts`
-- `src/table/engine/recyclingCellTypes.ts`
-- `src/table/engine/recyclingDomUtils.ts`
-- `src/table/engine/recyclingIdentity.ts`
-
-`RecyclingBodyGrid` 在 React 中只渲染一个数据区 mount 容器，或复用现有 `.dg-grid` 作为 mount root 的直接子元素管理器。它不为每个 cell 返回 ReactNode。
-
-推荐形态：
+推荐用法：
 
 ```tsx
-function RecyclingBodyGrid(props) {
-  const rootRef = useRef<HTMLDivElement | null>(null)
-  useRecyclingBody(rootRef, props)
-  return null
+gridColumnOptions: {
+  renderCellReact: (params, slot) => (
+    <StatusBadge
+      key={slot.key}
+      {...slot.props}
+      value={params.value}
+      rowKey={params.rowKey}
+    />
+  ),
 }
 ```
 
-如果直接让 recycler 向 `.dg-grid` 追加 cell，必须保证：
+## Renderer 选择
 
-- 不破坏 header、filler、summary、empty 等 React 管理的 grid item。
-- recycling cell 的插入/删除不会被 React reconciliation 覆盖。
-- React key 管理范围和 imperative DOM 管理范围清晰隔离。
+requested recycling 先判定表体 lifecycle：
 
-更稳的做法是在 `.dg-grid` 内保留一个不影响布局的 mount 占位或明确的 imperative region，但不能为了每个 cell 多加 DOM 层。是否允许一个 region marker 节点需要在实现前评估 CSS Grid 行为；如果 marker 作为 grid item 会影响布局，则不能使用。
+- simple body model 满足：进入 true recycling lifecycle。
+- simple body model 不满足：进入 standard body lifecycle。
 
-## 外层 cell patch 规则
+true recycling lifecycle 下列级 renderer 优先级：
 
-recycler 每次 patch outer cell 时应完整设置当前状态，而不是在旧状态基础上局部追加。
+1. 有 `renderCellElement`：走 native HTMLElement fast path。
+2. 没有 `renderCellElement`，但有 `renderCellReact`：走 true React virtual slot recycling。
+3. 两者都没有：走 recycler 的内部默认 element renderer，由 recycler 管理 cell 定位、状态 class 和内容更新。
 
-必须覆盖：
+standard body lifecycle 降级路径下：
 
-- `className`
-- `style.cssText` 或逐项 style
-- `dataset.rowIndex`
-- `dataset.columnKey`
-- `dataset.knownSize`
-- `dataset.align`
-- `aria-colspan`
-- `aria-rowspan`
-- event handlers
-- `title` 或 inner title
+- 不调用 `renderCellElement`。
+- 有 `renderCellReact` 的列仍调用 `renderCellReact`。
+- 没有 `renderCellReact` 的列走现有 standard body 渲染。
 
-必须避免：
+显式 `undefined` / `'standard'` 保持现有行为，不调用 `renderCellElement` / `renderCellReact`。这里的“显式 standard”不同于“requested recycling 后因能力不满足而降级到 standard body lifecycle”。
 
-- 旧行 selected class 残留到新行。
-- 旧 hover class 残留到新行。
-- 旧 sorted class 残留到新列。
-- 旧 sticky offset 残留到非 fixed 列。
-- 旧 semantic style 残留。
-- 旧 `onRow` 事件残留。
+## Key 语义
 
-## Hover / selection / sorted 状态
+`slot.key` 是用户唯一需要使用的 key。
 
-这些状态由表格管理，不由用户 renderer 管理。
+true React virtual slot recycling：
 
-要求：
+- `slot.key` 是 virtual slot key。
+- key 不随 `record` / `rowIndex` / `rowKey` 改变。
+- 同一个 React 组件实例会在滚动后收到新的 `params`。
+- 组件必须完全由 props 驱动。
 
-- hover 状态变化时，recycler 可以只 patch 受影响行的 outer class，不重跑全部 `renderCellElement`。
-- selection 状态变化时，recycler 可以只 patch 受影响行的 outer class。
-- sorted column 变化时，recycler 可以只 patch 受影响列的 outer class。
-- 这些 patch 不应触发 inner renderer，除非 cell params 本身变化。
+requested recycling 降级到 standard body lifecycle：
 
-## 行高测量
+- 仍调用 `renderCellReact`。
+- `slot.key` 是 standard body cell key。
+- key 规则必须与普通 body cell 一致，不能由 virtual slot key 派生；row / column 缺少显式 key 时使用现有 standard body 的 identity fallback。
+- React lifecycle 与 standard body 一致。
 
-`useRowMeasurements` 依赖 body grid 直接子元素上的 `data-row-index` 和 `data-known-size`。
+这样用户不用写：
 
-recycling 外层 cell 必须继续满足：
-
-- 数据 cell 是 grid 容器可被测量逻辑发现的元素。
-- 首个可见列或约定列写入 `data-known-size`。
-- FillerRow 不写 `data-row-index`。
-- 行高变化时，测量逻辑能观察到真实 DOM 高度。
-
-如果 renderer 写入会改变行高，需要确认：
-
-- outer cell 高度能被测量。
-- `data-known-size` 能被及时更新。
-- 虚拟窗口 offsetTree 能收到变化。
-
-## 接入条件
-
-recycling 路径启用条件：
-
-```text
-virtualEnabled
-&& !stickyEnabled
-&& gridOptions.virtualizationMode === 'recycling'
-&& simple body model
+```ts
+if (isDegraded) {
+  // ...
+}
 ```
 
-simple body model 要求：
+用户只读取 `slot.key`，并在需要根元素 className 时使用 `slot.props`；表格根据实际 lifecycle 给出正确 key 和 className。
 
-- 无 tree。
-- 无 expand。
-- 无 rowSpan / colSpan / onCell merge。
-- 无 `components.body.row`。
-- 无 `components.body.cell`。
-- 无其它破坏普通二维 body 的能力。
+## 受控约束
 
-如果 requested recycling 但 simple body model 不满足，必须退回 standard path，保证功能正确。退回 standard path 时不调用 `renderCellElement`。
+true React virtual slot recycling 下，React 组件实例绑定 virtual slot，不绑定真实 row。
+
+因此：
+
+- `params.record` / `params.value` / `params.rowIndex` / `params.rowKey` 会随滚动更新。
+- 行相关状态必须按 `rowKey` 或业务 key 外置管理，并通过 props 传入。
+- 非受控 input、内部缓存 record、mount 时读取一次 record 后不响应 props 的组件不适合 true recycling slot。
+- 依赖 mount/unmount 表示“行进入/离开”的组件不适合 true recycling slot。
+
+如果某列必须依赖普通 React key 生命周期，该列不适合 true React virtual slot recycling。可选路径是放弃 recycling 专用 renderer，改用显式 standard virtualization 下的现有 React 渲染能力；或者在 requested recycling 已因表体能力降级时继续使用 `renderCellReact`，此时它会拿到 standard body cell key。不要把降级当作单列级受控开关。
+
+## 降级规则
+
+requested recycling 但无法满足 simple body model 时，进入 standard body lifecycle。
+
+降级时：
+
+- 不调用 `renderCellElement`。
+- 若列提供 `renderCellReact`，仍调用 `renderCellReact`。
+- `slot.key` 使用 standard body cell key。
+- `slot.props.className` 仍提供，用户渲染代码不需要判断 lifecycle。
+- standard body 负责 React mount/unmount、merge、expand、tree、components body 等兼容行为。
+
+需要降级的能力包括：
+
+- sticky 禁用虚拟化。
+- tree data。
+- expandable / expanded row content。
+- rowSpan / colSpan / `onCell` merge。
+- `components.body.row`。
+- `components.body.cell`。
+- 其它破坏普通 `rowIndex x leafColumn` 映射的 body 能力。
+
+## 实现建议
+
+新增或调整模块：
+
+- `src/table/engine/recyclingCellTypes.ts`
+- `src/table/engine/RecyclingBodyGrid.tsx`
+- `src/table/engine/useRecyclingReactSlots.tsx`
+- `src/table/engine/recyclingIdentity.ts`
+
+true recycling path：
+
+- recycler 继续管理 outer cell 和 `.dg-cell-inner`。
+- React slot 内容挂入 `.dg-cell-inner`。
+- React element key 使用 `slot.key`，此时它是 virtual slot key。
+- 对同一 slot 更新 params 时保持组件实例。
+- slot root 只在列移除、renderer identity 变化、模式切换、pool discard、表格卸载时 unmount。
+- 不把 A 列 React slot 复用于 B 列。
+
+degraded standard lifecycle：
+
+- 不进入 React slot pool。
+- 不创建 virtual slot root。
+- 由 standard body 渲染 cell。
+- 调用 `renderCellReact(params, slot)` 生成内容。
+- `slot.key` 来自 standard body cell key。
 
 ## Demo
 
-新增或调整独立 demo：
+更新 recycling demo：
 
-- `src/demos/virtual-list-recycling.tsx`
-- `src/demos/virtual-list-recycling.dg.tsx`
+- 保留 `standard` / `recycling` 对比开关。
+- 增加一两个 `renderCellReact` 列。
+- 大多数列仍使用 native renderer。
+- React slot demo 使用受控组件。
+- `renderCellReact` demo 优先展示单根元素用法，并把 `slot.props` 挂到根元素上。
+- 纯文本展示继续使用 recycler 的内部默认 element renderer 或 `renderCellElement`，不使用 `renderCellReact` 返回裸 string / number。
+- 控制台日志默认关闭。
+- 计数面板区分 native create/reuse/render 和 React slot mount/render。
+- requested recycling 降级场景可单独加一个小开关或独立 demo，展示用户代码不需要判断降级。
 
-demo 要求：
+### 操作列 demo 计划
 
-- 固定 `size="small"`。
-- 使用纯文本数据展示。
-- 约 17 列。
-- 容器高度控制到一屏约 30 行。
-- 开启 `virtual scroll={{ y: true }}`。
-- 支持 `standard` / `recycling` 切换。
-- 两种模式视觉一致，避免视觉差异影响性能判断。
-- recycling 模式使用 `gridColumnOptions.renderCellElement`。
-- standard 模式使用 `column.render` 或默认 React 内容。
-- 计数面板展示 create / reuse / render / recycle / discard。
-- console log 默认关闭；可提供手动开关或 `window.__dgRecyclingLog` 供排查。
+目标 demo：`http://localhost:5173/#/demos/virtual-list-recycling`。
 
-demo 说明要明确：
+在现有 recycling demo 上追加一个受控开关，用于展示少量 React 渲染列和大量 native renderer 列混合时的行为：
 
-- 当前不做横向列虚拟化。
-- standard 与 recycling 的主要差异是数据区普通 cell 是否由 React 逐 cell 管理。
-- 如果 cell 极轻，性能差异可能不明显；recycling 主要应降低快速滚动时的 React/DOM churn 和 GC 峰值。
+- 工具栏增加“显示操作列”开关，默认关闭，避免影响当前 native recycling 计数基线。
+- 开关打开后，在列尾追加 `操作` 列；关闭后移除该列，用于验证 React slot 列加入/移除时的清理逻辑。
+- `操作` 列使用 `gridColumnOptions.renderCellReact`，不配置 `renderCellElement`，确保它走 React slot 路径；其它文本列继续使用 native renderer。
+- `操作` 列宽度固定，单元格渲染一个单根 React 元素，并把 `slot.props` spread 到根元素上。
+- 根元素内使用 antd link buttons：`详情` / `删除`。
+- 点击 `详情` 或 `删除` 时弹出 antd Modal。
+- Modal 标题固定为 `这只是个演示`。
+- Modal 内容第一行固定为 `不支持指定的方法。`。
+- Modal 内容第二行展示当前行数据转换为 JSON 字符串后的结果。
+- 按钮点击只触发 Modal，不修改行数据，保持 React slot demo 为完全受控展示。
+- `standard` / `recycling` 对比开关保留；显式 `standard` 下该列走普通 React body 生命周期，requested `recycling` 且 simple body model 满足时走 React virtual slot recycling。
+- 计数面板后续可增加 React slot mount/render 计数，用来观察打开操作列后 React slot 实例数量是否接近可见槽位数。
+- 浏览器 smoke 需要覆盖：打开操作列、点击 `详情`、点击 `删除`、确认 Modal 标题、提示内容和当前行 JSON 字符串、切换 standard/recycling 后按钮仍可用、关闭操作列后无 console error / warn。
 
 ## 测试
 
 优先补 Vitest：
 
-- `undefined` / `'standard'` 不调用 `renderCellElement`。
-- requested recycling 且 simple body model 满足时，React 不逐个返回 body cell ReactNode。
-- recycler 创建 outer cell。
-- recycler 复用同列 outer cell。
-- recycler 不跨列复用 outer cell。
-- recycler 复用同列 inner element，并传为 `oldElement`。
-- recycler 不跨列复用 inner element。
-- renderer 返回新 inner element 时旧 element 触发 `replace`。
-- pool 超上限触发 `discard`。
-- 表格卸载触发 `unmount`。
-- 列移除或 renderer identity 变化时清理受影响 pool。
-- 排序、过滤、分页、替换 `dataSource` 时不销毁 pool，并用新 params patch / render。
-- 无 `rowKey` 时 record reference fallback 行为。
-- column key 缺失时 column reference fallback 行为。
-- hover 变化只 patch outer class，不重跑 inner renderer。
-- selection 变化只 patch outer class，不重跑 inner renderer。
-- sorted column 变化只 patch outer class，不重跑 inner renderer。
-- sticky / tree / expand / components body / merge 条件退回 standard path，且不调用 `renderCellElement`。
+- 显式 `undefined` / `'standard'` 不调用 `renderCellReact`。
+- requested recycling + simple body model + `renderCellReact` 创建 virtual slot key。
+- true recycling 滚动后同一 virtual slot key 复用 React 组件实例，并收到新 params。
+- true recycling 下 `slot.key` 不使用 `rowKey`。
+- true recycling 下 React slot 不跨列复用。
+- true recycling 下 hover / selection / sorted outer patch 默认不触发 React slot rerender。
+- renderer identity 变化时清理对应 React slot。
+- 列移除、模式切换、unmount 时清理 React slot。
+- requested recycling + merge/tree/expand/components body 等降级时仍调用 `renderCellReact`。
+- 降级时 `slot.key` 等于 standard body cell key。
+- 降级时不调用 `renderCellElement`。
+- 用户代码使用 `key={slot.key}`，并在需要根元素 className 时使用 `slot.props`，true recycling 和降级路径都能渲染。
+- `renderCellReact` 返回裸 string / number 时有类型或运行时约束；文本内容应走 recycler 的内部默认 element renderer，或由用户包成可承载 `slot.props.className` 的 React element。
+- `renderCellReact` 返回多元素 Fragment 时，不应把同一个 `slot.props` spread 到多个元素；需要 className 时由用户包一层元素。
 
-必要时补 Playwright smoke：
+必要时补浏览器 smoke：
 
-- 打开 recycling demo。
-- 切换 standard / recycling。
-- 快速滚动。
-- 验证可见文本正确。
-- 验证 recycling 模式 create 次数显著低于进入窗口的 cell 次数。
-- 验证空闲时计数不增长。
-- 验证 console 无 error / warn。
+- 打开 mixed recycling demo。
+- 滚动后 native 列复用计数增长。
+- React slot 列组件实例数接近可见槽位数。
+- 降级 demo 中 `renderCellReact` 仍显示正确内容。
+- console 无 error / warn。
 
-## 风险和约束
+## 风险
 
-- 这是 opt-in 高性能模式，用户承担命令式 inner DOM 的生命周期责任。
-- `disposeCellElement` 必须写清楚，否则用户绑定的 listener、observer、第三方实例会泄漏。
-- 不能把 React element、React state、context、effect 放进 recycling cell 内部。
-- 表格状态 class/style 必须由 recycler 管理，不能转嫁给用户 renderer。
-- Imperative DOM 与 React DOM 必须有清晰边界，避免 React reconciliation 删除或复用 recycler 管理的节点。
-- 外层 cell patch 必须覆盖旧状态，脏 class/style/event 是主要风险。
-- 行高测量必须继续工作，否则虚拟 offset 会漂移。
-- 不做横向列虚拟化时，宽表仍会渲染所有列，recycling 只解决纵向窗口下的 cell 管理成本。
+- true React slot recycling 与非受控业务状态天然冲突。文档和 demo 必须避免暗示非受控可用。
+- 降级路径仍调用 `renderCellReact`，需要保证它与 standard body 的 merge / expand / components body 行为组合正确。
+- `slot.key` 在两种 lifecycle 下含义不同，但用户不应读取其结构，只应传给 React。
+- React slot root 与 imperative DOM 的边界必须清晰，避免 React 删除 recycler 管理的 outer cell。
+- 如果未来允许把 hover / selection / sorted 作为 React slot props，会引入额外 rerender 成本，必须单独设计为 opt-in。
 
 ## 验收标准
 
-- `undefined` 和 `'standard'` 与当前虚拟化行为一致。
-- `'recycling'` 在普通虚拟数据区不由 React 逐 cell 渲染 body cells。
-- `'recycling'` 复用 outer body cell DOM。
-- `'recycling'` 复用同列 inner HTMLElement。
-- 表格管理 selected、hover、sorted、fixed、align、hidden、semantic 等外层状态。
-- hover / selection / sorted 变化不重跑 inner renderer。
-- 排序、过滤、分页、替换 `dataSource` 不销毁 pool，并能正确显示新数据。
-- 不支持的复杂 body 能力自动退回 standard path，功能正确，且不调用 `renderCellElement`。
-- demo 能稳定展示 30x17 small 文本表格快速滚动，并支持 standard / recycling 对比。
-- 快速滚动时 create/reuse/dispose 计数符合 outer + inner 按列池预期。
-- 空闲时计数不增长。
+- `renderCellReact` 在 true recycling 下使用 virtual slot key。
+- `renderCellReact` 在 requested recycling 降级时使用 standard body cell key。
+- 用户不需要判断当前是否降级。
+- 显式 `standard` / `undefined` 不调用 recycling 专用 renderer。
+- 降级 path 不调用 native `renderCellElement`。
+- true recycling path 中 React slot 滚动复用组件实例。
+- 降级 path 中 React lifecycle 与 standard body 一致。
+- 受控 React 组件在两条路径都显示正确数据。
 - `pnpm run tsc`、`pnpm run lint`、`pnpm run test`、`pnpm run build` 通过。
