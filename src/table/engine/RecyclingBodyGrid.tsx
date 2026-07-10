@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { memo, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { resolveBodyCellInjectedProps } from './bodyCellUtils'
 import {
@@ -67,6 +67,15 @@ interface RecyclingStore<RecordType> {
   nextReactSlotId: number
   portalDirty: boolean
 }
+
+const ReactSlotPortal = memo(function ReactSlotPortal({
+  slot,
+}: {
+  slot: ReactSlot<any>
+}) {
+  const element = slot.renderer?.(slot.params, { key: slot.key }) ?? null
+  return createPortal(element, slot.inner, slot.key)
+})
 
 function resolveColumnIdentity<RecordType>(
   column: EngineLeafColumn<RecordType>,
@@ -530,8 +539,13 @@ function renderReactSlot<RecordType>(
     store.portalDirty = true
   }
   if (slot.params !== nextParams || slot.inner !== cell.inner) {
-    slot.params = nextParams
-    slot.inner = cell.inner
+    slot = {
+      ...slot,
+      params: nextParams,
+      inner: cell.inner,
+    }
+    store.reactSlots.set(cell.outer, slot)
+    store.reactSlotList.set(slot.key, slot)
     store.portalDirty = true
   }
   cell.params = nextParams
@@ -753,10 +767,9 @@ export function RecyclingBodyGrid<RecordType>({
 
   const portals = useMemo(() => {
     const store = storeRef.current
-    return Array.from(store.reactSlotList.values()).map((slot) => {
-      const element = slot.renderer?.(slot.params, { key: slot.key }) ?? null
-      return createPortal(element, slot.inner, slot.key)
-    })
+    return Array.from(store.reactSlotList.values()).map((slot) => (
+      <ReactSlotPortal key={slot.key} slot={slot} />
+    ))
   }, [portalVersion])
 
   return <>{portals}</>
