@@ -313,11 +313,13 @@ export default function DocsPage({ section }: { section?: string }) {
           <section id="quick-start" style={SECTION_STYLE}>
             <Title level={2}>快速开始</Title>
             <Paragraph>
-              从 <Text code>./table</Text> 导入 <Text code>Table</Text>，传{' '}
-              <Text code>columns</Text> 与 <Text code>dataSource</Text> 即可：
+              安装 <Text code>@nukepayload2/data-grid</Text> 后，从包入口导入{' '}
+              <Text code>Table</Text>，传 <Text code>columns</Text> 与{' '}
+              <Text code>dataSource</Text> 即可：
             </Paragraph>
-            <Code>{`import { Table } from './table'
-import type { ColumnType } from './table/types'
+            <Code>{`import { Table } from '@nukepayload2/data-grid'
+import type { ColumnType } from '@nukepayload2/data-grid'
+import '@nukepayload2/data-grid/style.css'
 
 interface Record { key: string; name: string; age: number }
 
@@ -337,7 +339,8 @@ export default function Demo() {
             <Paragraph>
               也可用 <Text strong>JSX 风格</Text>声明列：
             </Paragraph>
-            <Code>{`import { Table } from './table'
+            <Code>{`import { Table } from '@nukepayload2/data-grid'
+import '@nukepayload2/data-grid/style.css'
 
 <Table dataSource={data}>
   <Table.Column title="Name" dataIndex="name" key="name" />
@@ -349,9 +352,8 @@ export default function Demo() {
           <section id="table-api" style={SECTION_STYLE}>
             <Title level={2}>Table API</Title>
             <Paragraph type="secondary">
-              <Text code>&lt;Table&gt;</Text> 的 props（以{' '}
-              <Text code>src/table/types.ts</Text> 的{' '}
-              <Text code>TableProps</Text> 导出为准）。
+              <Text code>&lt;Table&gt;</Text> 的 props（以包入口导出的{' '}
+              <Text code>TableProps</Text> 类型为准）。
             </Paragraph>
             <ApiTable rows={TABLE_API_ROWS} />
             <Title level={4}>Table 静态属性</Title>
