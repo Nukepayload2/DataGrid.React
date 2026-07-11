@@ -47,7 +47,7 @@ export function useSemanticClassNames(
   size: SizeType | undefined,
   bordered: boolean | undefined,
   virtual: boolean | undefined,
-  scroll: { x?: number | string; y?: true } | undefined,
+  scroll: { x?: true | number | string; y?: true } | undefined,
   pagination: false | TablePaginationConfig | undefined,
 ): {
   classNamesResolved: TableSemanticClassNames | undefined

@@ -51,7 +51,7 @@ export function useScrollMode(options: {
         getContainer?: () => HTMLElement | Window | undefined
       }
     | null
-  scroll?: { x?: number | string; y?: true }
+  scroll?: { x?: true | number | string; y?: true }
   virtual?: boolean
 }): UseScrollModeResult {
   const { sticky, scroll, virtual } = options

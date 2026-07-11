@@ -509,7 +509,12 @@ function GridTableInner<RecordType = any>(
   // 外层滚动包装统一由下方 renderScrollContainer 路由处理（非 sticky 一律 FloatingScrollBar）。
   // 虚拟：FloatingScrollBar 内部 .dg-scroll overflow-y:auto 双向（虚拟路径）。
   const scrollX = scroll?.x
-  const scrollMinWidth = scrollX !== undefined ? (typeof scrollX === 'number' ? `${scrollX}px` : scrollX) : undefined
+  const scrollMinWidth =
+    scrollX !== undefined && scrollX !== true
+      ? typeof scrollX === 'number'
+        ? `${scrollX}px`
+        : scrollX
+      : undefined
   // stickyTranslateStyle 来自 useGridScrollSync（task43 抽出，上方派生）。
   const gridFinalStyle: CSSProperties = scrollMinWidth
     ? { ...gridStyle, minWidth: scrollMinWidth, ...(stickyTranslateStyle ?? null) }

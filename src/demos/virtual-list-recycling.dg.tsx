@@ -64,6 +64,11 @@ type FrameStats = {
   longFrames: number
 }
 
+type RowCountOption = 8000 | 1048576
+
+const DEFAULT_ROW_COUNT: RowCountOption = 8000
+const LARGE_ROW_COUNT: RowCountOption = 1048576
+
 const regions = ['NA', 'EU', 'APAC', 'LATAM']
 const owners = ['Ada', 'Grace', 'Linus', 'Ken', 'Radia', 'Margaret']
 const cities = ['Tokyo', 'Berlin', 'Seattle', 'Singapore', 'Paris', 'Shenzhen']
@@ -332,12 +337,13 @@ export default function VirtualListRecyclingDg() {
     reactUnmount: 0,
   })
   const [mode, setMode] = useState<'standard' | 'recycling'>('recycling')
+  const [rowCount, setRowCount] = useState<RowCountOption>(DEFAULT_ROW_COUNT)
   const [showActionColumn, setShowActionColumn] = useState(false)
   const [actionModal, setActionModal] = useState<ActionModalState>(null)
   const [logEnabled, setLogEnabled] = useState(false)
   const [version, setVersion] = useState(0)
 
-  const data = useMemo(() => makeRows(8000), [])
+  const data = useMemo(() => makeRows(rowCount), [rowCount])
   const renderText = useMemo(() => createTextRenderer<Row>(statsRef), [])
   const renderStatus = useMemo(
     () =>
@@ -446,10 +452,20 @@ export default function VirtualListRecyclingDg() {
     resetStats()
   }
 
+  const onRowCountChange = (nextRowCount: RowCountOption) => {
+    setRowCount(nextRowCount)
+    resetStats()
+  }
+
   return (
     <div style={{ padding: 24 }}>
-      <Space style={{ marginBottom: 12 }} align="center" wrap>
+      <Space style={{ marginBottom: 8 }} align="center" wrap>
         <Typography.Text strong>Recycling virtual body</Typography.Text>
+        <Typography.Text type="secondary">
+          普通列使用 HTMLElement fast path；操作列使用 React element。
+        </Typography.Text>
+      </Space>
+      <Space style={{ marginBottom: 12 }} align="center" wrap>
         <Segmented
           value={mode}
           onChange={(value) => onModeChange(value as 'standard' | 'recycling')}
@@ -458,12 +474,14 @@ export default function VirtualListRecyclingDg() {
             { label: 'Standard', value: 'standard' },
           ]}
         />
-        <RecyclingCounters
-          statsRef={statsRef}
-          logEnabled={logEnabled}
-          resetVersion={version}
+        <Segmented
+          value={rowCount}
+          onChange={(value) => onRowCountChange(value as RowCountOption)}
+          options={[
+            { label: '8,000 rows', value: DEFAULT_ROW_COUNT },
+            { label: '1,048,576 rows', value: LARGE_ROW_COUNT },
+          ]}
         />
-        <FrameRateMeter resetVersion={version} />
         <Switch
           checked={showActionColumn}
           onChange={setShowActionColumn}
@@ -477,6 +495,14 @@ export default function VirtualListRecyclingDg() {
           unCheckedChildren="Console log"
         />
         <Button size="small" onClick={resetStats}>Reset counters</Button>
+      </Space>
+      <Space style={{ marginBottom: 12 }} align="center" wrap>
+        <RecyclingCounters
+          statsRef={statsRef}
+          logEnabled={logEnabled}
+          resetVersion={version}
+        />
+        <FrameRateMeter resetVersion={version} />
       </Space>
       <div style={{ height: 874 }}>
         <Table<Row>

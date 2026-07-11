@@ -78,7 +78,7 @@ export interface TableProps<RecordType = any> {
   /**
    * 滚动配置。
    *
-   * - `x`：横向滚动内容最小宽度（number→px，string→原样作 min-width）。
+   * - `x`：横向滚动配置。`true` 仅开启横向滚动；number→px、string→原样作 min-width。
    *   启用横向滚动时额外渲染**横向悬浮滚动条**
    *   （`HorizontalFloatingScrollBar`：细线 2px + hit 上下各 8px + hover 变粗 8px + 拖动/同步），
    *   定位在数据区域底部（summary 上方）。隐藏原生横向滚动条。
@@ -99,7 +99,7 @@ export interface TableProps<RecordType = any> {
    *   否则表体高度退化为内容自然高（视觉等价 undefined，但表头仍按 sticky 定位）。
    *   详见 `docs/design-notes/layout.md`（数据区域模式节）。
    */
-  scroll?: { x?: number | string; y?: true }
+  scroll?: { x?: true | number | string; y?: true }
   /**
    * 虚拟滚动开关。
    * 与 `scroll={{ y: true }}` 组合启用纵向虚拟滚动：只渲染可视区 + overscan 的行，

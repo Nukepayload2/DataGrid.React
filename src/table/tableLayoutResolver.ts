@@ -53,7 +53,7 @@ import {
 export function resolveTableLayout<RecordType>(
   tableLayoutProp: 'auto' | 'fixed' | undefined,
   visibleColumns: Array<ColumnOrSentinel<RecordType>>,
-  scrollX: number | string | undefined,
+  scrollX: true | number | string | undefined,
   scrollY: true | undefined,
   sticky: boolean | object | undefined,
 ): 'auto' | 'fixed' {

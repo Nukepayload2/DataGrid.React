@@ -150,7 +150,7 @@ function App() {
   )
 
   return (
-    <Layout style={{ height: '100vh', overflow: 'hidden' }}>
+    <Layout className="app-shell" style={{ height: '100vh', overflow: 'hidden' }}>
       <Header
         style={{
           display: 'flex',
@@ -211,6 +211,7 @@ function App() {
       </Header>
       <Layout hasSider style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
         <Sider
+          className="app-sider"
           collapsible
           collapsed={collapsed}
           onCollapse={setCollapsed}
@@ -231,7 +232,7 @@ function App() {
             style={{ height: '100%', overflowY: 'auto', overflowX: 'hidden', borderInlineEnd: 0 }}
           />
         </Sider>
-        <Content style={{ padding: 24, overflow: 'auto' }}>
+        <Content className="app-content" style={{ padding: 24, overflow: 'auto' }}>
           {view.kind === 'home' ? <HomePage /> : null}
 
           {view.kind === 'demo' && DemoComp ? (

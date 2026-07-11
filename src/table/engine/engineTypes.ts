@@ -660,7 +660,7 @@ export interface EngineTableProps<RecordType = any> {
    *     - 配合 `virtual=true`：开启纵向虚拟滚动（虚拟窗口高度=CSS 自适应可视高）。
    *     - `undefined`：无表体滚动区（零回归）。
    */
-  scroll?: { x?: number | string; y?: true }
+  scroll?: { x?: true | number | string; y?: true }
   /**
    * 虚拟滚动开关。`virtual=true` 且 `scroll.y === true` 时启用纵向虚拟滚动。
    * 详见对外 types.ts TableProps.virtual 注释 / docs/design-notes/virtualization.md。
