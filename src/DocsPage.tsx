@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import type { CSSProperties } from 'react'
-import { Typography, Alert, Tag } from 'antd'
+import { Typography, Tag } from 'antd'
 import type { ColumnType, StickyConfig } from './table'
 import { Table } from './table'
 import { navigate } from './demos/registry'
@@ -183,7 +183,7 @@ const COLUMN_API_ROWS: ApiRow[] = [
   { prop: 'ellipsis', desc: '内容过长时省略。true 使用默认 title 提示；{ showTitle:false } 关闭默认提示，方便自己包 Tooltip。', type: 'boolean | { showTitle?: boolean }', def: 'false' },
   { prop: 'hidden', desc: '隐藏列。true 时该叶子列不显示；分组列请通过隐藏子列控制。', type: 'boolean', def: 'false' },
   { prop: 'children', desc: '子列配置，用于多级表头。父列主要提供分组标题，实际数据列来自最底层叶子列。', type: 'ColumnType[]', def: '-' },
-  { prop: 'colSpan', desc: '表头横向跨列。大于 1 时表示该表头覆盖后续列；被覆盖列通常需要设置 colSpan: 0。不要与 children 多级表头混用。', type: 'number', def: '1' },
+  { prop: 'colSpan', desc: '表头横向跨列。大于 1 时表示该表头覆盖后续列；被覆盖列通常需要设置 colSpan: 0。', type: 'number', def: '1' },
   { prop: 'rowScope', desc: '把该列作为行标题列。常用于首列，让辅助技术知道这一列代表行名。', type: "'row'", def: '-' },
   { prop: 'onCell', desc: '给数据单元格注入属性。可返回 onClick、className、style，也可返回 colSpan/rowSpan 做单元格合并；编辑表格常用它传递编辑参数。', type: '(record, index)=>Record<string, any>', def: '-' },
   { prop: 'onHeaderCell', desc: '给表头单元格注入属性。可用于表头点击、拖拽标识、自定义 className 或 style。', type: '(column, index)=>HTMLAttributes', def: '-' },
@@ -403,19 +403,6 @@ export default function Demo() {
               <Text code>children</Text> 嵌套）。
             </Paragraph>
             <ApiTable rows={COLUMN_API_ROWS} />
-            <Alert
-              type="info"
-              showIcon
-              style={{ margin: '16px 0 0' }}
-              title="colSpan 与 children 不混用"
-              description={
-                <span>
-                  <Text code>column.colSpan</Text>（单层表头里某列横向跨多列）与{' '}
-                  <Text code>children</Text>（多级表头多层结构）是{' '}
-                  <strong>不同机制</strong>，不要在同一列上混用（与 antd 行为一致）。
-                </span>
-              }
-            />
           </section>
 
           {/* 5. 与 antd 差异 */}

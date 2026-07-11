@@ -232,7 +232,10 @@ function App() {
             style={{ height: '100%', overflowY: 'auto', overflowX: 'hidden', borderInlineEnd: 0 }}
           />
         </Sider>
-        <Content className="app-content" style={{ padding: 24, overflow: 'auto' }}>
+        <Content
+          className={view.kind === 'docs' ? 'app-content app-content-docs' : 'app-content'}
+          style={{ padding: view.kind === 'docs' ? '0 24px 24px' : 24, overflow: 'auto' }}
+        >
           {view.kind === 'home' ? <HomePage /> : null}
 
           {view.kind === 'demo' && DemoComp ? (
