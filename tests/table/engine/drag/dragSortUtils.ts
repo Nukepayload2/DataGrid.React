@@ -2,7 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   arrayMove,
   arrayMoveBlock,
+  computeDragInsertionTarget,
+  computeRowYieldRange,
   createRowDragOverlay,
+  insertionIndexToMoveIndex,
   removeRowDragOverlay,
   resolveRowKey,
   sameRowKey,
@@ -165,6 +168,45 @@ describe('dragSortUtils / sameRowKey (P1)', () => {
     // '1' 与 1 应判等（防 string/number 混用误判）。
     expect(sameRowKey('1', 1)).toBe(true)
     expect(sameRowKey(1, '1')).toBe(true)
+  })
+})
+
+describe('dragSortUtils / hit-test helpers', () => {
+  it('computes insertion target from sorted or unsorted axis bounds', () => {
+    const bounds = [
+      { index: 2, start: 40, end: 60 },
+      { index: 0, start: 0, end: 20 },
+      { index: 1, start: 20, end: 40 },
+    ]
+
+    expect(computeDragInsertionTarget(5, bounds, 10)).toEqual({
+      overIndex: 0,
+      indicatorOffset: -10,
+    })
+    expect(computeDragInsertionTarget(35, bounds, 10)).toEqual({
+      overIndex: 2,
+      indicatorOffset: 30,
+    })
+    expect(computeDragInsertionTarget(80, bounds, 10)).toEqual({
+      overIndex: 3,
+      indicatorOffset: 50,
+    })
+  })
+
+  it('returns null when no bounds are available', () => {
+    expect(computeDragInsertionTarget(0, [], 0)).toBeNull()
+  })
+
+  it('converts insertion position to arrayMove target index', () => {
+    expect(insertionIndexToMoveIndex(5, 2)).toBe(4)
+    expect(insertionIndexToMoveIndex(1, 2)).toBe(1)
+    expect(insertionIndexToMoveIndex(2, 2)).toBe(2)
+  })
+
+  it('computes row yield ranges and movement direction', () => {
+    expect(computeRowYieldRange(1, 4)).toEqual({ lo: 2, hi: 4, sign: -1 })
+    expect(computeRowYieldRange(4, 1)).toEqual({ lo: 1, hi: 3, sign: 1 })
+    expect(computeRowYieldRange(2, 2)).toEqual({ lo: 1, hi: 0, sign: 1 })
   })
 })
 

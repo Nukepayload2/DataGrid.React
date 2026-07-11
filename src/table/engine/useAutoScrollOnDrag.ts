@@ -70,7 +70,7 @@ export function findScrollContainer(root: HTMLElement | null): HTMLElement | nul
  * @param size 容器在该轴的尺寸（rect.width / rect.height）。
  * @returns 滚动 delta：负值 = 向起点方向滚（向上/向左），正值 = 向终点方向滚（向下/向右），0 = 不滚。
  */
-function computeAxisDelta(pointer: number, start: number, size: number): number {
+export function computeAxisDelta(pointer: number, start: number, size: number): number {
   const end = start + size
   // 指针距起点边缘的距离（顶部/左部）。
   const distFromStart = pointer - start

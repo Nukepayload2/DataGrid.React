@@ -116,6 +116,60 @@ export function sameRowKey(a: React.Key, b: React.Key): boolean {
   return String(a) === String(b)
 }
 
+export interface DragAxisBound {
+  index: number
+  start: number
+  end: number
+}
+
+export interface DragInsertionTarget {
+  overIndex: number
+  indicatorOffset: number
+}
+
+export interface RowYieldRange {
+  lo: number
+  hi: number
+  sign: 1 | -1
+}
+
+export function computeDragInsertionTarget(
+  pointer: number,
+  bounds: ReadonlyArray<DragAxisBound>,
+  containerStart: number,
+): DragInsertionTarget | null {
+  if (bounds.length === 0) return null
+  const sorted = bounds.slice().sort((a, b) => a.index - b.index)
+  for (const bound of sorted) {
+    const mid = (bound.start + bound.end) / 2
+    if (pointer < mid) {
+      return {
+        overIndex: bound.index,
+        indicatorOffset: bound.start - containerStart,
+      }
+    }
+  }
+  const last = sorted[sorted.length - 1]!
+  return {
+    overIndex: last.index + 1,
+    indicatorOffset: last.end - containerStart,
+  }
+}
+
+export function insertionIndexToMoveIndex(insertIndex: number, fromIndex: number): number {
+  return insertIndex > fromIndex ? insertIndex - 1 : insertIndex
+}
+
+export function computeRowYieldRange(fromIndex: number, overIndex: number): RowYieldRange {
+  if (fromIndex < overIndex) {
+    return { lo: fromIndex + 1, hi: overIndex, sign: -1 }
+  }
+  if (fromIndex > overIndex) {
+    return { lo: overIndex, hi: fromIndex - 1, sign: 1 }
+  }
+  return { lo: 1, hi: 0, sign: 1 }
+}
+
 export function createRowDragOverlay(container: HTMLElement, rowIndex: number): HTMLElement | null {
   const cells = Array.from(
     container.querySelectorAll<HTMLElement>(`[data-row-index="${rowIndex}"]`),

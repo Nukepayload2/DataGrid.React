@@ -13,11 +13,13 @@
  */
 
 import { useCallback, useRef, useState } from 'react'
+import type { ColumnResizeMode } from './resizeColumnUtils'
+import { computeColumnResize } from './resizeColumnUtils'
 
 /** 默认最小列宽（px）。防止拖到 0 导致列消失。 */
 const DEFAULT_MIN_WIDTH = 30
 
-export type ColumnResizeMode = 'Disabled' | 'ResizeLeft' | 'ResizeSibling'
+export type { ColumnResizeMode } from './resizeColumnUtils'
 
 /** useColumnResize 配置。 */
 export interface UseColumnResizeOptions {
@@ -170,26 +172,18 @@ export function useColumnResize(
         const delta = e.clientX - drag.startClientX
         const min = resolveMin(drag.key)
         const max = resolveMax(drag.key)
-        let next = drag.startWidth + delta
-        let siblingNext: number | undefined
-        if (mode === 'ResizeSibling' && drag.siblingKey && drag.siblingStartWidth !== undefined) {
-          const siblingMin = resolveMin(drag.siblingKey)
-          const siblingMax = resolveMax(drag.siblingKey)
-          const minDelta = Math.max(
-            min - drag.startWidth,
-            drag.siblingStartWidth - siblingMax,
-          )
-          const maxDelta = Math.min(
-            max - drag.startWidth,
-            drag.siblingStartWidth - siblingMin,
-          )
-          const boundedDelta = Math.min(Math.max(delta, minDelta), maxDelta)
-          next = drag.startWidth + boundedDelta
-          siblingNext = drag.siblingStartWidth - boundedDelta
-        } else {
-          if (next < min) next = min
-          if (next > max) next = max
-        }
+        const resize = computeColumnResize({
+          mode,
+          delta,
+          startWidth: drag.startWidth,
+          minWidth: min,
+          maxWidth: max,
+          siblingStartWidth: drag.siblingStartWidth,
+          siblingMinWidth: drag.siblingKey ? resolveMin(drag.siblingKey) : undefined,
+          siblingMaxWidth: drag.siblingKey ? resolveMax(drag.siblingKey) : undefined,
+        })
+        const next = resize.width
+        const siblingNext = resize.siblingWidth
         setResizedWidths((prev) => {
           const m = new Map(prev)
           m.set(drag.key, next)

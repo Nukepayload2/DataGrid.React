@@ -10,6 +10,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { findScrollContainer, useAutoScrollOnDrag } from './useAutoScrollOnDrag'
+import { computeDragInsertionTarget, insertionIndexToMoveIndex } from './dragSortUtils'
 // 纯函数簇抽到 columnDragSortUtils：arrayMoveColumns / isColumnLocked / isColumnDragLocked /
 // getColumnKey / findColumnCells / overlay DOM 命令式 / transform 矩阵解析 /
 // arrayMoveColumnsRespectLocks（核心：锁定列友好的列重排算法）。
@@ -282,29 +283,19 @@ export function useColumnDragSort<ColumnType>(
         colBounds.set(idx, { left: r.left, right: r.left + r.width })
       })
       if (colBounds.size === 0) return null
-      // 排序后的列 index 列表（升序）。
-      const sortedIndices = Array.from(colBounds.keys()).sort((a, b) => a - b)
-      for (let i = 0; i < sortedIndices.length; i += 1) {
-        const colIdx = sortedIndices[i]
-        const bound = colBounds.get(colIdx)!
-        const mid = (bound.left + bound.right) / 2
-        if (clientX < mid) {
-          // 落在该列左半 → 插入到该列之前（over = colIdx）。
-          // 指示线 left = 该列 left（相对容器）。
-          return {
-            overIndex: colIdx,
-            indicatorLeft: bound.left - containerRect.left,
-            containerTop: 0,
-            containerHeight: containerRect.height,
-          }
-        }
-      }
-      // 落在所有列之右 → 插入到末列之后。
-      const lastIdx = sortedIndices[sortedIndices.length - 1]
-      const lastBound = colBounds.get(lastIdx)!
+      const target = computeDragInsertionTarget(
+        clientX,
+        Array.from(colBounds.entries()).map(([index, bound]) => ({
+          index,
+          start: bound.left,
+          end: bound.right,
+        })),
+        containerRect.left,
+      )
+      if (!target) return null
       return {
-        overIndex: lastIdx + 1,
-        indicatorLeft: lastBound.right - containerRect.left,
+        overIndex: target.overIndex,
+        indicatorLeft: target.indicatorOffset,
         containerTop: 0,
         containerHeight: containerRect.height,
       }
@@ -318,8 +309,7 @@ export function useColumnDragSort<ColumnType>(
       if (!drag) return
       const result = hitTest(clientX)
       if (!result) return
-      let overIndex = result.overIndex
-      if (overIndex > drag.fromIndex) overIndex = overIndex - 1
+      const overIndex = insertionIndexToMoveIndex(result.overIndex, drag.fromIndex)
       drag.overIndex = overIndex
       setDragState({ fromIndex: drag.fromIndex, overIndex })
       setIndicator({

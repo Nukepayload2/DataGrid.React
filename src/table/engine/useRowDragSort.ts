@@ -17,7 +17,10 @@ import { findScrollContainer, useAutoScrollOnDrag } from './useAutoScrollOnDrag'
 import {
   arrayMove,
   arrayMoveBlock,
+  computeDragInsertionTarget,
+  computeRowYieldRange,
   createRowDragOverlay,
+  insertionIndexToMoveIndex,
   removeRowDragOverlay,
   resolveRowKey,
   sameRowKey,
@@ -250,27 +253,8 @@ export function useRowDragSort<RecordType>(
     (fromIndex: number, overIndex: number, delta: number, draggedHeight: number) => {
       const container = containerRef.current
       if (!container) return
-      // 让位区间边界（闭区间 [yieldLo, yieldHi]，fromIndex 本身排除——它是被拖行）。
-      let yieldLo: number
-      let yieldHi: number
-      // 让位方向：from<over 中间行向上让位（-draggedHeight），from>over 中间行向下让位（+draggedHeight）。
-      let yieldSign: 1 | -1
-      if (fromIndex < overIndex) {
-        // 中间行 (from, over]（不含 from，含 over）向上让位。
-        yieldLo = fromIndex + 1
-        yieldHi = overIndex
-        yieldSign = -1
-      } else if (fromIndex > overIndex) {
-        // 中间行 [over, from)（含 over，不含 from）向下让位。
-        yieldLo = overIndex
-        yieldHi = fromIndex - 1
-        yieldSign = 1
-      } else {
-        // from === over：无让位区间（yieldLo>yieldHi，下面区间判定恒 false）。
-        yieldLo = 1
-        yieldHi = 0
-        yieldSign = 1
-      }
+      const { lo: yieldLo, hi: yieldHi, sign: yieldSign } =
+        computeRowYieldRange(fromIndex, overIndex)
       const cells = container.querySelectorAll<HTMLElement>('[data-row-index]')
       cells.forEach((cell) => {
         const idxAttr = cell.getAttribute('data-row-index')
@@ -387,27 +371,19 @@ export function useRowDragSort<RecordType>(
         rowBounds.set(idx, { top: r.top, bottom: r.bottom })
       })
       if (rowBounds.size === 0) return null
-      // 排序后的行 index 列表（升序）。
-      const sortedIndices = Array.from(rowBounds.keys()).sort((a, b) => a - b)
-      for (let i = 0; i < sortedIndices.length; i += 1) {
-        const rowIdx = sortedIndices[i]
-        const bound = rowBounds.get(rowIdx)!
-        const mid = (bound.top + bound.bottom) / 2
-        if (clientY < mid) {
-          // 落在该行上半 → 插入到该行之前（over = rowIdx）。
-          // 指示线 top = 该行 top（相对容器）。
-          return {
-            overIndex: rowIdx,
-            indicatorTop: bound.top - containerRect.top,
-          }
-        }
-      }
-      // 落在所有行之下 → 插入到末尾之后。
-      const lastIdx = sortedIndices[sortedIndices.length - 1]
-      const lastBound = rowBounds.get(lastIdx)!
+      const target = computeDragInsertionTarget(
+        clientY,
+        Array.from(rowBounds.entries()).map(([index, bound]) => ({
+          index,
+          start: bound.top,
+          end: bound.bottom,
+        })),
+        containerRect.top,
+      )
+      if (!target) return null
       return {
-        overIndex: lastIdx + 1,
-        indicatorTop: lastBound.bottom - containerRect.top,
+        overIndex: target.overIndex,
+        indicatorTop: target.indicatorOffset,
       }
     },
     [containerRef],
@@ -439,8 +415,7 @@ export function useRowDragSort<RecordType>(
       // 把 from 移到 to）。hitTest 已返回插入位置（0..len）；转成"目标行 index"：
       //   - 插入位置 <= from：over = 插入位置（移到该位置）。
       //   - 插入位置 > from：over = 插入位置 - 1（因为 arrayMove 先删 from 再插，实际目标行 index = 插入位置 - 1）。
-      let overIndex = result.overIndex
-      if (overIndex > drag.fromIndex) overIndex = overIndex - 1
+      const overIndex = insertionIndexToMoveIndex(result.overIndex, drag.fromIndex)
       drag.overIndex = overIndex
       setDragState({ fromIndex: drag.fromIndex, overIndex })
       setIndicator({

@@ -55,6 +55,13 @@ import {
   type CSSProperties,
   type ReactNode,
 } from 'react'
+import {
+  EMPTY_FLOATING_SCROLLBAR_GEOMETRY,
+  computeFloatingDragScrollOffset,
+  computeFloatingScrollbarGeometry,
+  computeFloatingThumbOffset,
+  type FloatingScrollbarGeometry,
+} from './floatingScrollBarUtils'
 
 /**
  * 测量"表头区高度"（表头 sticky 区相对滚动容器顶部的距离）。
@@ -163,48 +170,14 @@ export interface FloatingScrollBarProps {
  * 纵向 thumb 几何缓存（由 recomputeVertical 写入；onScroll 读）。
  * 拆分 maxScroll 是为了 onScroll 不重复算减法。
  */
-interface VerticalGeometry {
-  /** 容器 scrollHeight（recompute 时刻的值）。 */
-  scrollHeight: number
-  /** 容器 clientHeight（recompute 时刻的值）。 */
-  clientHeight: number
-  /** 数据区可视高度 = clientHeight - headerH - summaryH。 */
-  trackHeight: number
-  /** thumb 高度（max(32, trackHeight * clientHeight / scrollHeight)）。 */
-  thumbHeight: number
-  /** 最大可滚动距离 = scrollHeight - clientHeight。 */
-  maxScroll: number
-  /** thumb 在 track 内最大偏移 = max(0, trackHeight - thumbHeight)。 */
-  thumbMaxOffset: number
-}
+type VerticalGeometry = FloatingScrollbarGeometry
 
 /** 横向 thumb 几何缓存（由 recomputeHorizontal 写入；onScroll 读）。 */
-interface HorizontalGeometry {
-  scrollWidth: number
-  clientWidth: number
-  trackWidth: number
-  thumbWidth: number
-  maxScroll: number
-  thumbMaxOffset: number
-}
+type HorizontalGeometry = FloatingScrollbarGeometry
 
 /** 空几何（display:none / 不溢出 时）：所有比值为 0、maxScroll=0 → doSync 早返回。 */
-const EMPTY_VERTICAL_GEOMETRY: VerticalGeometry = {
-  scrollHeight: 0,
-  clientHeight: 0,
-  trackHeight: 0,
-  thumbHeight: 0,
-  maxScroll: 0,
-  thumbMaxOffset: 0,
-}
-const EMPTY_HORIZONTAL_GEOMETRY: HorizontalGeometry = {
-  scrollWidth: 0,
-  clientWidth: 0,
-  trackWidth: 0,
-  thumbWidth: 0,
-  maxScroll: 0,
-  thumbMaxOffset: 0,
-}
+const EMPTY_VERTICAL_GEOMETRY: VerticalGeometry = EMPTY_FLOATING_SCROLLBAR_GEOMETRY
+const EMPTY_HORIZONTAL_GEOMETRY: HorizontalGeometry = EMPTY_FLOATING_SCROLLBAR_GEOMETRY
 
 /**
  * 悬浮滚动条包装组件（纵向 + 横向）。
@@ -353,8 +326,14 @@ export function FloatingScrollBar({
 
     const clientHeight = container.clientHeight
     const scrollHeight = container.scrollHeight
+    const trackHeight = Math.max(0, clientHeight - headerH - summaryH)
+    const geometry = computeFloatingScrollbarGeometry({
+      clientSize: clientHeight,
+      scrollSize: scrollHeight,
+      trackSize: trackHeight,
+    })
     // 内容不溢出 → 隐藏纵向悬浮条。
-    if (scrollHeight <= clientHeight + 1) {
+    if (!geometry.visible) {
       if (vVisibleRef.current) {
         vVisibleRef.current = false
         thumb.style.display = 'none'
@@ -362,20 +341,12 @@ export function FloatingScrollBar({
       vGeometryRef.current = EMPTY_VERTICAL_GEOMETRY
       return
     }
-    // track 高度 = clientHeight - headerH - summaryH（数据区可视高）。
-    const trackHeight = Math.max(0, clientHeight - headerH - summaryH)
-    // thumb 高度 = clientHeight × (clientHeight / scrollHeight)，最少 32px
-    // （让 thumb 视觉更清晰，避免滚动中「滚到中途看不见」）。
-    const thumbHeight = Math.max(32, trackHeight * (clientHeight / scrollHeight))
-    const maxScroll = scrollHeight - clientHeight
     const scrollTop = container.scrollTop
-    const thumbMaxOffset = Math.max(0, trackHeight - thumbHeight)
-    const ratio = maxScroll > 0 ? scrollTop / maxScroll : 0
-    const thumbOffset = ratio * thumbMaxOffset
+    const thumbOffset = computeFloatingThumbOffset(scrollTop, geometry)
 
     // thumb 几何 + 可见性：DOM 直写（与原 setVThumbStyle 等价，但不触发 React 重渲）。
-    if (thumb.style.height !== `${thumbHeight}px`) {
-      thumb.style.height = `${thumbHeight}px`
+    if (thumb.style.height !== `${geometry.thumbSize}px`) {
+      thumb.style.height = `${geometry.thumbSize}px`
     }
     if (!vVisibleRef.current) {
       vVisibleRef.current = true
@@ -383,14 +354,7 @@ export function FloatingScrollBar({
     }
 
     // 几何缓存（供 onScroll 的 doSync 读 —— doSync 不再读 container.scrollHeight/clientHeight）。
-    vGeometryRef.current = {
-      scrollHeight,
-      clientHeight,
-      trackHeight,
-      thumbHeight,
-      maxScroll,
-      thumbMaxOffset,
-    }
+    vGeometryRef.current = geometry
 
     // 位置（transform）也由 recompute 写一次（与 onScroll 单一写源，刚加载/RO 触发时立即对齐）。
     thumb.style.transform = `translateY(${thumbOffset}px)`
@@ -419,8 +383,13 @@ export function FloatingScrollBar({
 
     const clientWidth = container.clientWidth
     const scrollWidth = container.scrollWidth
+    const geometry = computeFloatingScrollbarGeometry({
+      clientSize: clientWidth,
+      scrollSize: scrollWidth,
+      trackSize: clientWidth,
+    })
     // 内容不横向溢出 → 隐藏横向悬浮条。
-    if (scrollWidth <= clientWidth + 1) {
+    if (!geometry.visible) {
       if (hVisibleRef.current) {
         hVisibleRef.current = false
         thumb.style.display = 'none'
@@ -428,31 +397,18 @@ export function FloatingScrollBar({
       hGeometryRef.current = EMPTY_HORIZONTAL_GEOMETRY
       return
     }
-    // thumb 宽度 = track 宽度 × (clientWidth / scrollWidth)，最少 32px（与纵向一致）。
-    const trackWidth = clientWidth
-    const thumbWidth = Math.max(32, trackWidth * (clientWidth / scrollWidth))
-    const maxScroll = scrollWidth - clientWidth
     const scrollLeft = container.scrollLeft
-    const thumbMaxOffset = Math.max(0, trackWidth - thumbWidth)
-    const ratio = maxScroll > 0 ? scrollLeft / maxScroll : 0
-    const thumbOffset = ratio * thumbMaxOffset
+    const thumbOffset = computeFloatingThumbOffset(scrollLeft, geometry)
 
-    if (thumb.style.width !== `${thumbWidth}px`) {
-      thumb.style.width = `${thumbWidth}px`
+    if (thumb.style.width !== `${geometry.thumbSize}px`) {
+      thumb.style.width = `${geometry.thumbSize}px`
     }
     if (!hVisibleRef.current) {
       hVisibleRef.current = true
       thumb.style.display = 'block'
     }
 
-    hGeometryRef.current = {
-      scrollWidth,
-      clientWidth,
-      trackWidth,
-      thumbWidth,
-      maxScroll,
-      thumbMaxOffset,
-    }
+    hGeometryRef.current = geometry
 
     thumb.style.transform = `translateX(${thumbOffset}px)`
   }, [])
@@ -492,8 +448,7 @@ export function FloatingScrollBar({
           // 已可见：用缓存几何算 ratio，仅读 scrollTop（不 reflow）。
           const g = vGeometryRef.current
           if (g.maxScroll > 0 && g.thumbMaxOffset > 0) {
-            const ratio = container.scrollTop / g.maxScroll
-            vThumb.style.transform = `translateY(${ratio * g.thumbMaxOffset}px)`
+            vThumb.style.transform = `translateY(${computeFloatingThumbOffset(container.scrollTop, g)}px)`
           }
         } else {
           // 兜底：内容从无溢出变溢出（display 由 recompute 刚从 none→block）。
@@ -509,8 +464,7 @@ export function FloatingScrollBar({
           if (hVisibleRef.current) {
             const g = hGeometryRef.current
             if (g.maxScroll > 0 && g.thumbMaxOffset > 0) {
-              const ratio = container.scrollLeft / g.maxScroll
-              hThumb.style.transform = `translateX(${ratio * g.thumbMaxOffset}px)`
+              hThumb.style.transform = `translateX(${computeFloatingThumbOffset(container.scrollLeft, g)}px)`
             }
           } else {
             recomputeHorizontalRef.current()
@@ -609,7 +563,6 @@ export function FloatingScrollBar({
     // 用 geometryRef 缓存（不读 container.scrollHeight/clientHeight，避免拖动起点 reflow）。
     const g = vGeometryRef.current
     if (g.maxScroll <= 0) return
-    const thumbMaxOffset = g.thumbMaxOffset
     vDragStateRef.current = {
       pointerId: e.pointerId,
       startY: e.clientY,
@@ -626,8 +579,7 @@ export function FloatingScrollBar({
       const ds = vDragStateRef.current
       if (!ds || ds.pointerId !== ev.pointerId) return
       const dy = ev.clientY - ds.startY
-      const scrollDelta = thumbMaxOffset > 0 ? (dy / thumbMaxOffset) * g.maxScroll : 0
-      container.scrollTop = ds.startScrollTop + scrollDelta
+      container.scrollTop = computeFloatingDragScrollOffset(ds.startScrollTop, dy, g)
     }
     const onUp = (ev: PointerEvent) => {
       const ds = vDragStateRef.current
@@ -654,7 +606,6 @@ export function FloatingScrollBar({
     e.stopPropagation()
     const g = hGeometryRef.current
     if (g.maxScroll <= 0) return
-    const thumbMaxOffset = g.thumbMaxOffset
     hDragStateRef.current = {
       pointerId: e.pointerId,
       startX: e.clientX,
@@ -670,8 +621,7 @@ export function FloatingScrollBar({
       const ds = hDragStateRef.current
       if (!ds || ds.pointerId !== ev.pointerId) return
       const dx = ev.clientX - ds.startX
-      const scrollDelta = thumbMaxOffset > 0 ? (dx / thumbMaxOffset) * g.maxScroll : 0
-      container.scrollLeft = ds.startScrollLeft + scrollDelta
+      container.scrollLeft = computeFloatingDragScrollOffset(ds.startScrollLeft, dx, g)
     }
     const onUp = (ev: PointerEvent) => {
       const ds = hDragStateRef.current

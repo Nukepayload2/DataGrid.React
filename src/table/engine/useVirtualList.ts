@@ -13,18 +13,10 @@ import {
 } from './rowSizeSystem'
 import { useRowMeasurements } from './useRowMeasurements'
 import type { SizeRange } from './rowSizeSystem'
+import type { VirtualRowMeasurement } from './virtualListUtils'
+import { computeScrollTarget, computeVirtualRange } from './virtualListUtils'
 
-/** 单行的纵向测量信息（offsetStart/offsetEnd 相对数据区顶部，不含表头）。 */
-export interface VirtualRowMeasurement {
-  /** 0-based 行索引。 */
-  index: number
-  /** 行顶部到数据区顶的距离（px）。 */
-  offsetStart: number
-  /** 行底部到数据区顶的距离（px）= offsetStart + size。 */
-  offsetEnd: number
-  /** 行高（px，来自 getRowHeight）。 */
-  size: number
-}
+export type { VirtualRowMeasurement } from './virtualListUtils'
 
 /** 滚动方向：'up' | 'down' | 'none'。 */
 export type ScrollDirection = 'up' | 'down' | 'none'
@@ -83,66 +75,6 @@ export interface UseVirtualListResult {
   }) => void
   /** 是否有平滑滚动正在进行中。 */
   scrollingInProgress: boolean
-}
-
-/** 在 fallback measurements 上二分定位起始行。 */
-function findNearestIndex(
-  measurements: Array<VirtualRowMeasurement>,
-  target: number,
-): number {
-  const n = measurements.length
-  if (n === 0) return 0
-  let lo = 0
-  let hi = n - 1
-  if (target <= measurements[0].offsetStart) return 0
-  if (target >= measurements[n - 1].offsetEnd) return n
-  while (lo <= hi) {
-    const mid = (lo + hi) >> 1
-    const m = measurements[mid]
-    if (target < m.offsetStart) {
-      hi = mid - 1
-    } else if (target >= m.offsetEnd) {
-      lo = mid + 1
-    } else {
-      return mid
-    }
-  }
-  return Math.max(0, Math.min(lo, n))
-}
-
-/** 在 offsetTree 上定位 scrollTop 对应的起始行。 */
-function findStartIndexByOffset(
-  target: number,
-  rowSizes: RowSizeState,
-  gap: number,
-): number {
-  const tree = rowSizes.offsetTree
-  if (tree.length === 0) return 0
-  if (target <= 0) return 0
-
-  let lo = 0
-  let hi = tree.length - 1
-  let pointIndex = 0
-  while (lo <= hi) {
-    const mid = (lo + hi) >> 1
-    const p = tree[mid]!
-    if (p.offset === target) {
-      pointIndex = mid
-      break
-    }
-    if (p.offset < target) {
-      pointIndex = mid
-      lo = mid + 1
-    } else {
-      hi = mid - 1
-    }
-  }
-  const point = tree[pointIndex]!
-  if (target <= point.offset) {
-    return point.index
-  }
-  const advance = Math.floor((target - point.offset + gap) / (point.size + gap))
-  return point.index + advance
 }
 
 /** smooth scroll 使用的缓动函数。 */
@@ -342,31 +274,17 @@ export function useVirtualList(options: UseVirtualListOptions): UseVirtualListRe
   const { scrollTop, viewportHeight } = scrollState
 
   const { start, end } = useMemo(() => {
-    if (!enabled || itemCount === 0) {
-      return { start: 0, end: itemCount }
-    }
-    const vs = viewportSizeRef.current
-    const st = scrollTopRef.current
-    if (vs <= 0) {
-      const initialCount = Math.min(itemCount, overscan * 2 + 1)
-      return { start: 0, end: initialCount }
-    }
-    const effectiveScrollTop = st - contentOffset
-    const effectiveViewport = Math.max(0, vs - contentOffset)
-
-    let rawStart: number
-    let rawEnd: number
-    if (hasOffsetTree) {
-      rawStart = findStartIndexByOffset(effectiveScrollTop, rowSizes, gap)
-      rawEnd = findStartIndexByOffset(effectiveScrollTop + effectiveViewport, rowSizes, gap)
-    } else {
-      rawStart = findNearestIndex(measurements, effectiveScrollTop)
-      rawEnd = findNearestIndex(measurements, effectiveScrollTop + effectiveViewport)
-    }
-
-    const startIdx = Math.max(0, rawStart - overscan)
-    const endIdx = Math.min(itemCount, Math.max(rawStart + 1, rawEnd) + overscan)
-    return { start: startIdx, end: endIdx }
+    return computeVirtualRange({
+      enabled,
+      itemCount,
+      overscan,
+      scrollTop: scrollTopRef.current,
+      viewportSize: viewportSizeRef.current,
+      contentOffset,
+      gap,
+      measurements,
+      rowSizes: hasOffsetTree ? rowSizes : undefined,
+    })
   }, [enabled, itemCount, hasOffsetTree, rowSizes, gap, measurements, overscan, scrollTop, viewportHeight, contentOffset])
 
   const paddingTop = useMemo(() => {
@@ -423,50 +341,21 @@ export function useVirtualList(options: UseVirtualListOptions): UseVirtualListRe
 
       const clientHeight = el.clientHeight
       const scrollHeight = el.scrollHeight
-      const maxScrollTop = Math.max(0, scrollHeight - clientHeight)
-
-      let targetTop: number
-      if (typeof top === 'number') {
-        targetTop = Math.max(0, top)
-      } else if (typeof index === 'number') {
-        if (itemCount === 0) return
-        const clampedIndex = index < 0
-          ? 0
-          : index >= itemCount
-            ? itemCount - 1
-            : index
-        const rowTop = effectiveOffsetOf(clampedIndex)
-        const rowSize = effectiveSizeOf(clampedIndex)
-        const vs = (viewportSizeRef.current || clientHeight) - contentOffset
-        if (align === 'nearest') {
-          const viewportTop = scrollTopRef.current - contentOffset
-          const viewportBottom = viewportTop + vs
-          if (rowTop >= viewportTop && rowTop + rowSize <= viewportBottom) {
-            return
-          }
-          const effectiveAlign: 'start' | 'end' =
-            rowTop < viewportTop ? 'start' : 'end'
-          targetTop =
-            effectiveAlign === 'end' ? rowTop + rowSize - vs : rowTop
-        } else {
-          switch (align) {
-            case 'center':
-              targetTop = rowTop + rowSize / 2 - vs / 2
-              break
-            case 'end':
-              targetTop = rowTop + rowSize - vs
-              break
-            case 'start':
-            default:
-              targetTop = rowTop
-              break
-          }
-        }
-        targetTop = Math.max(0, targetTop)
-      } else {
-        return
-      }
-      const finalTop = Math.ceil(Math.max(0, Math.min(maxScrollTop, targetTop + offset)))
+      const finalTop = computeScrollTarget({
+        itemCount,
+        index,
+        scrollTop: top,
+        offset,
+        align,
+        clientHeight,
+        scrollHeight,
+        contentOffset,
+        currentScrollTop: scrollTopRef.current,
+        viewportSize: viewportSizeRef.current || clientHeight,
+        offsetOf: effectiveOffsetOf,
+        sizeOf: effectiveSizeOf,
+      })
+      if (finalTop === null) return
 
       const currentScrollTop = scrollTopRef.current
       if (finalTop === currentScrollTop) {

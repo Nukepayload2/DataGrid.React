@@ -1,5 +1,6 @@
 import {
   Children,
+  Fragment,
   isValidElement,
   type ReactElement,
   type ReactNode,
@@ -205,9 +206,14 @@ export function toEngineColumns<RecordType>(
 export function convertChildrenToColumns<RecordType>(
   children: ReactNode,
 ): Array<ColumnType<RecordType>> {
-  const nodes = Children.toArray(children).filter((node): node is ReactElement => isValidElement(node))
-  return nodes.map((node) => {
+  const columns: Array<ColumnType<RecordType>> = []
+  Children.forEach(children, (node) => {
+    if (!isValidElement(node)) return
     const element = node as ReactElement<Record<string, any>>
+    if (element.type === Fragment) {
+      columns.push(...convertChildrenToColumns<RecordType>(element.props.children))
+      return
+    }
     const reactKey = element.key
     // 解构出 children（ColumnGroup 递归用），其余 props 作为列字段。
     const { children: nodeChildren, ...restProps } = element.props ?? {}
@@ -221,8 +227,9 @@ export function convertChildrenToColumns<RecordType>(
     if (nodeChildren !== undefined && nodeChildren !== null) {
       column.children = convertChildrenToColumns<RecordType>(nodeChildren)
     }
-    return column
+    columns.push(column)
   })
+  return columns
 }
 
 /**
