@@ -4,7 +4,7 @@
 
 ## 两层 API
 
-- `rowSelection`：antd 兼容层，继续承载 `selectedRowKeys`、`onChange`、`getCheckboxProps`、`selections`、`renderCell` 等字段。
+- `rowSelection`：antd 兼容层，继续承载 `selectedRowKeys`、`onChange`、`getCheckboxProps`、`getTitleCheckboxProps`、`columnTitle`、`onCell`、`selections`、`renderCell` 等字段。
 - `gridOptions.selection`：data-grid 原生层，新增：
   - `selectionMode?: 'disabled' | 'single' | 'multiple' | 'extended'`
   - `showSelectionColumn?: boolean`
@@ -70,6 +70,14 @@ data-grid 只需调整 antd wrapper 的 margin + 让 wrapper 居中适配列布�
 ```
 
 去掉 antd Checkbox/Radio wrapper 默认的 `margin-inline-end`（antd 默认 8px，用于 label 与文字间距；选择列无文字，margin 会使控件偏左）。对齐 antd `.ant-table-selection-column .ant-checkbox-wrapper { margin-inline-end: 0 }`。
+
+### 表头与选择列 props
+
+- `rowSelection.columnTitle`：自定义选择列表头内容。函数形态接收默认 checkbox/dropdown 节点，返回最终表头内容；ReactNode 形态直接替换表头内容。
+- `rowSelection.getTitleCheckboxProps`：注入表头全选 checkbox props。data-grid 当前消费 `disabled`、`name`、`aria-label`、`style`、`indeterminate` 子集，`checked` 仍由选择状态机控制。
+- `rowSelection.onCell(record, index)`：注入选择列单元格 props。`colSpan` / `rowSpan` 参与 data-grid 合并算法；其它字段会在提供 `components.body.cell` 时透传给自定义 cell。
+
+注意 data-grid 没有原生 `<td>/<th>`，选择列仍是 div grid item；这些 props 的挂载点遵循 data-grid 的 cell 适配语义，而不是直接替换 HTML table 单元格。
 
 ### onChange 签名桥接（`as unknown as` 双重断言）
 

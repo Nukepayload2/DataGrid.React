@@ -11,7 +11,6 @@
 
 ## 兼容缺口
 
-- `rowSelection` 仍有一部分 antd 字段未实现，例如 `columnTitle`、`onCell`、`getTitleCheckboxProps`、`onSelectMultiple`。
 - `expandable` 仍缺少部分字段，例如 `columnTitle` 和 `fixed`。
 - `components` 仍缺少原生表格 wrapper 级槽位和 `body` 函数形态。
 
@@ -19,9 +18,7 @@
 
 这些项目此前容易被误记为“限制”，但本质上是 API 适配或局部渲染增强，可以按优先级补齐：
 
-- `rowSelection.columnTitle`、`rowSelection.onCell`、`rowSelection.getTitleCheckboxProps`、`rowSelection.onSelectMultiple`。
 - `expandable.columnTitle`、`expandable.fixed`。
-- `scroll.scrollToFirstRowOnChange`。
 - `column.filtered`、`column.sortIcon`、`column.filterResetToDefaultFilteredValue`。
 - `filterDropdownProps` 更完整透传。
 - `dataIndex` 的 `DeepNamePath` 类型增强。
@@ -29,15 +26,20 @@
 
 以下项目能做，但需要先确认设计取舍或回归范围：
 
-- `scroll.y = number|string` 的 antd max-height 语义：可以和当前 `scroll.y: true` 的数据区模式并存，但需要明确优先级。
 - RTL：可实现，但需要系统性处理 fixed、sticky、滚动条、拖拽方向和阴影方向。
 - `components.header.row`、`components.body.wrapper`、`components.body` 函数形态：可提供 data-grid 语义下的适配，但不能等价替换原生 table DOM。
+
+明确不做的迁移项：
+
+- `scroll.y = number|string` 的 antd max-height 语义。data-grid 保持 `true | undefined`，避免继续要求调用方手算高度或在数字/字符串语义之间承担不可控后果。
 
 ## 已实现，不再作为限制
 
 - `locale` 已接入 antd `useLocale('Table')`：`TableProps.locale` 覆盖 ConfigProvider locale，ConfigProvider locale 覆盖默认英文；FilterDropdown、selection 内置项、排序/展开文案已纳入当前兼容面。
 - `pagination` 默认开启已对齐 antd：未传等价 `{}`，默认 10/页；`pagination={false}` 才关闭。
-- `rowSelection.onSelect`、`onSelectAll`、`onSelectInvert`、`onSelectNone` 已实现。
+- `scroll.scrollToFirstRowOnChange` 已实现：分页、排序、筛选变化默认滚回首行，可设 `false` 关闭。
+- `rowSelection.onSelect`、`onSelectMultiple`、`onSelectAll`、`onSelectInvert`、`onSelectNone` 已实现。
+- `rowSelection.columnTitle`、`rowSelection.onCell`、`rowSelection.getTitleCheckboxProps` 已实现。
 - 拖拽相关的 `gridOptions.autoScrollOnDrag`、`gridOptions.columnReorder`、`gridColumnOptions.dragColumnLock`、`gridOptions.multiRowReorder` 已作为当前采用的 data-grid 原生能力记录。
 
 ## 行为和布局限制

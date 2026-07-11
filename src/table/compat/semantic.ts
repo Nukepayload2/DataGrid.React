@@ -108,7 +108,7 @@ export interface TableSemanticInfo<RecordType = any> {
     size?: SizeType
     bordered?: boolean
     virtual?: boolean
-    scroll?: { x?: true | number | string; y?: true }
+    scroll?: { x?: true | number | string; y?: true; scrollToFirstRowOnChange?: boolean }
     pagination?: false | TablePaginationConfig
   }
   /**

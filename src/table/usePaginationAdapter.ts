@@ -40,6 +40,7 @@ export interface UsePaginationAdapterOptions<RecordType> {
   paginationDataSource?: Array<RecordType>
   paginationStateRef: React.MutableRefObject<TablePaginationState>
   onChange: TableProps<RecordType>['onChange']
+  onFirstRowChange?: () => void
   getFiltersArg: () => Record<string, Array<FilterValue> | null>
   currentSorterResult: SorterResult<RecordType> | Array<SorterResult<RecordType>>
   size: SizeType | undefined
@@ -65,6 +66,7 @@ export function usePaginationAdapter<RecordType>(
     paginationDataSource = flattenedDataSource,
     paginationStateRef,
     onChange,
+    onFirstRowChange,
     getFiltersArg,
     currentSorterResult,
     size,
@@ -82,6 +84,7 @@ export function usePaginationAdapter<RecordType>(
     pagination: paginationConfig,
     dataSourceLength: paginationDataSource.length,
     onPaginationChange: (nextCurrent, nextPageSize) => {
+      onFirstRowChange?.()
       // 翻页/改 pageSize → 触发 Table onChange(action:'paginate')。
       // paginationState 用回调参数构造（antd Pagination 不会传越界 page，current 已 effective）。
       if (!onChange) return

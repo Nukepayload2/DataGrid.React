@@ -4,7 +4,7 @@
  * 对齐 antd v6 `TableRowSelection` + `rowSelection.renderCell`。
  */
 
-import type { ReactNode } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
 import type {
   Align,
   FixedInput,
@@ -48,6 +48,12 @@ export interface TableRowSelection<RecordType = any> {
     selectedRows: Array<RecordType>,
     nativeEvent: Event,
   ) => void
+  /** 连续多选时触发（对齐 antd `rowSelection.onSelectMultiple`，antd v6 中已标记 deprecated）。 */
+  onSelectMultiple?: (
+    selected: boolean,
+    selectedRows: Array<RecordType>,
+    changeRows: Array<RecordType>,
+  ) => void
   /** 全选/全不选时触发（对齐 antd `rowSelection.onSelectAll`）。 */
   onSelectAll?: (
     selected: boolean,
@@ -65,6 +71,19 @@ export interface TableRowSelection<RecordType = any> {
   getCheckboxProps?: (record: RecordType) => RowCheckboxProps | undefined
   /** 选择列宽度（number→px，string→原样）。缺省走 token `--ant-table-selection-column-width`。 */
   columnWidth?: number | string
+  /** 自定义选择列表头内容（ReactNode 或 `(checkboxNode) => ReactNode`）。 */
+  columnTitle?: ReactNode | ((checkboxNode: ReactNode) => ReactNode)
+  /** 选择列单元格 props 注入（含 colSpan/rowSpan/className/style/事件等）。 */
+  onCell?: (record: RecordType, index: number) => Record<string, any> | undefined
+  /** 表头全选 checkbox props 注入（data-grid 消费 disabled/name/aria-label/style/indeterminate 子集）。 */
+  getTitleCheckboxProps?: () => {
+    disabled?: boolean
+    name?: string
+    style?: CSSProperties
+    indeterminate?: boolean
+    'aria-label'?: string
+    ariaLabel?: string
+  } | undefined
   /**
    * 选择列固定方向。antd 接受 'left'/'right'/'start'/'end'，内部归一化。
    * 与固定列组合（选择列作为首列固定 start）。

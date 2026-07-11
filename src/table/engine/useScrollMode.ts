@@ -51,7 +51,7 @@ export function useScrollMode(options: {
         getContainer?: () => HTMLElement | Window | undefined
       }
     | null
-  scroll?: { x?: true | number | string; y?: true }
+  scroll?: { x?: true | number | string; y?: true; scrollToFirstRowOnChange?: boolean }
   virtual?: boolean
 }): UseScrollModeResult {
   const { sticky, scroll, virtual } = options

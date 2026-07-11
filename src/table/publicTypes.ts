@@ -93,13 +93,15 @@ export interface TableProps<RecordType = any> {
    *     - `undefined`（缺省）：表格整体（无固定表头，内容全展开，无表体滚动区，零回归）。
    *     - **不支持数字**：旧 demo 用 `scroll={{ y: <number> }}` 的语义（max-height=number）已废弃，
    *       迁移到 `true`（CSS 自动适应高度）。
+   * - `scrollToFirstRowOnChange`：分页、排序、筛选变化后是否滚回首行。默认 `true`（对齐 antd），
+   *   可设 `false` 保持当前滚动位置。
    *
    * ★ 核心点：纯 CSS（flex/grid）让表体填满父容器可用高度，**不用 JS 算数字高度**。
    *   调用方需确保 `.dg-wrapper` 的父容器有明确高度（固定 height / flex / 100vh 等），
    *   否则表体高度退化为内容自然高（视觉等价 undefined，但表头仍按 sticky 定位）。
    *   详见 `docs/design-notes/layout.md`（数据区域模式节）。
    */
-  scroll?: { x?: true | number | string; y?: true }
+  scroll?: { x?: true | number | string; y?: true; scrollToFirstRowOnChange?: boolean }
   /**
    * 虚拟滚动开关。
    * 与 `scroll={{ y: true }}` 组合启用纵向虚拟滚动：只渲染可视区 + overscan 的行，
@@ -237,6 +239,9 @@ export interface TableProps<RecordType = any> {
    * 传入即自动在叶子列最前插入一个选择列（checkbox 或 radio），参与 grid 布局。
    * - 与多级表头 / 固定列 / 虚拟滚动组合：选择列作为首列叶子节点，由引擎统一处理（无需调用方感知）。
    * - `selectedRowKeys` 受控；勾选/全选/单选触发 `onChange(keys, rows, info)`。
+   * - 支持选择列表头与选择列注入：`columnTitle`、`getTitleCheckboxProps`、`onCell`。
+   * - 支持 antd 兼容回调：`onSelect`、`onSelectMultiple`、`onSelectAll`、`onSelectInvert`、
+   *   `onSelectNone`。
    * - `getCheckboxProps(record)` 返回 `{ disabled: true }` 的行不可勾选、不参与全选/半选。
    * - 若 `columns` 中含 `Table.SELECTION_COLUMN` 哨兵，选择列插在该哨兵位置而非默认最前
    *   （对齐 antd order-column demo）。

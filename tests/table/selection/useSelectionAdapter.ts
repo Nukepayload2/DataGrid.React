@@ -307,6 +307,30 @@ describe('useSelectionAdapter', () => {
       expect(onSelectInvert).toHaveBeenCalledWith(['c', 'd'])
     })
 
+    it('method=multiple → onSelectMultiple(selected, rows, changeRows)', () => {
+      const onSelectMultiple = vi.fn()
+      const { result } = renderAdapter({
+        rowSelection: {
+          selectedRowKeys: ['a'],
+          onSelectMultiple,
+        } as TableRowSelection<Rec>,
+      })
+      act(() => {
+        result.current.fireSelectionChange(['a', 'b', 'c'], 'multiple', {
+          record: flatData[2],
+          nativeEvent: new Event('change'),
+        })
+      })
+      expect(onSelectMultiple).toHaveBeenCalledTimes(1)
+      expect(onSelectMultiple.mock.calls[0][0]).toBe(true)
+      expect(onSelectMultiple.mock.calls[0][1]).toEqual([
+        flatData[0],
+        flatData[1],
+        flatData[2],
+      ])
+      expect(onSelectMultiple.mock.calls[0][2]).toEqual([flatData[1], flatData[2]])
+    })
+
     it('selectionEnabled=false → fireSelectionChange 静默返回', () => {
       const onChange = vi.fn()
       const { result } = renderAdapter({

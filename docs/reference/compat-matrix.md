@@ -25,11 +25,7 @@
 | API | 归类 | 支持度 | 差异/说明 | 证据 |
 |-----|------|--------|-----------|------|
 | `scroll.y = number\|string`（max-height 语义） | TableProps.scroll | 未实现 | dg 的 `scroll.y` 仅接受 `true`（启用容器内纵向滚动 + sticky 表头），不把 number 当作 max-height。antd/rc-table 把 number 当作表体 `max-height`。决策 7。 | antd `InternalTable.tsx:177`；rc-table `Table.d.ts:55` (`y?: number \| string`)；dg `types.ts:990, 1313`（`y?: true`）|
-| `scroll.scrollToFirstRowOnChange` | TableProps.scroll | 未实现 | antd 默认 `true`（分页/排序/筛选切换时滚回首行）。dg 无此字段。 | antd `InternalTable.tsx:178, 426-427`；dg `types.ts:990, 1313`（无此键）|
 | `direction: 'rtl'`（RTL 布局） | ConfigProvider | 未实现 | dg 无 RTL 支持；`direction` 通过 ConfigProvider 注入，dg 未消费。 | antd `ConfigProvider` direction；dg 全仓无 `direction`/`RTL` 字段（types.ts 无命中）|
-| `rowSelection.columnTitle` | rowSelection | 未实现 | 自定义选择列表头格内容（ReactNode 或 `(checkboxNode) => ReactNode`）。dg 无此字段。 | antd `interface.ts:243`；dg `types.ts:192-318`（无 `columnTitle`）|
-| `rowSelection.onCell` | rowSelection | 未实现 | 选择列单元格 props 注入。dg 无此字段。 | antd `interface.ts:253`；dg `types.ts:192-318`（无 `onCell`）|
-| `rowSelection.getTitleCheckboxProps` | rowSelection | 未实现 | 表头勾选框的 props（v6 新增）。dg 无此字段。 | antd `interface.ts:254-255`；dg `types.ts:192-318`（无此字段）|
 | `expandable.columnTitle` | expandable | 未实现 | 展开列列表头自定义内容。dg 未实现。 | antd rc-table `ExpandableConfig.columnTitle`；dg `types.ts:1084` |
 | `expandable.fixed` | expandable | 未实现 | 展开列固定方向（'left'\|'right'）。dg 未实现。 | antd `ExpandableConfig.fixed`；dg `types.ts:1107-1158`（无 `fixed`）|
 | `components.table` | components | 未实现 | 整个 `<table>` 替换。dg 无 table 元素。 | antd rc-table components；dg `types.ts:742-769`（TableComponents 仅 header/body，无 table）|
@@ -66,8 +62,8 @@
 
 | API | 归类 | 支持度 | 差异/说明 | 证据 |
 |-----|------|--------|-----------|------|
-| `scroll`（整体） | TableProps | 部分兼容 | `x` 接受 `number\|string`（rc-table 另接受 `true`）；`y` 仅 `true`（不接受 number=max-height）。`scrollToFirstRowOnChange` 未实现。 | rc-table `Table.d.ts:53-56`；dg `types.ts:990, 1313` |
-| `rowSelection`（整体） | rowSelection | 部分兼容 | 覆盖：`type/selectedRowKeys/defaultSelectedRowKeys/onChange/onSelect/onSelectAll/onSelectInvert/onSelectNone/getCheckboxProps/columnWidth/fixed/hideSelectAll/align/selections/preserveSelectedRowKeys/checkStrictly/renderCell`。缺：`columnTitle/onCell/getTitleCheckboxProps/onSelectMultiple`。 | antd `interface.ts:222-256`；dg `types.ts:130-193` |
+| `scroll`（整体） | TableProps | 部分兼容 | `x` 接受 `true\|number\|string`；`y` 仅 `true`（不接受 number=max-height）。`scrollToFirstRowOnChange` 已支持，默认开启，可设 `false` 关闭。 | rc-table `Table.d.ts:53-56`；dg `publicTypes.ts` / `Table.tsx` / `usePaginationAdapter.ts` |
+| `rowSelection`（整体） | rowSelection | 部分兼容 | 覆盖：`type/selectedRowKeys/defaultSelectedRowKeys/onChange/onSelect/onSelectMultiple/onSelectAll/onSelectInvert/onSelectNone/getCheckboxProps/getTitleCheckboxProps/columnTitle/onCell/columnWidth/fixed/hideSelectAll/align/selections/preserveSelectedRowKeys/checkStrictly/renderCell`。仍有 DOM 形态适配差异。 | antd `interface.ts:222-256`；dg `compat/selection.ts` / `selectionAdapter.tsx` / `useSelectionAdapter.ts` |
 | `expandable`（整体） | expandable | 部分兼容 | 覆盖：`expandedRowRender/expandedRowOffset/rowExpandable/expandedRowKeys/defaultExpandedRowKeys/onExpand/onExpandedRowsChange/columnWidth/expandIcon/defaultExpandAllRows/showExpandColumn/childrenColumnName/indentSize/expandRowByClick/expandedRowClassName`。缺：`columnTitle/fixed`。 | antd `ExpandableConfig`；dg `types.ts:1078-1158` |
 | `components`（整体） | components | 部分兼容 | 覆盖：`header.cell`/`body.cell`/`body.row`。缺：`table/header.table/header.wrapper/header.row/body.wrapper/body 函数形态`。语义有适配（cell/row 见「名兼义异」）。 | antd rc-table components；dg `types.ts:742-769` |
 | `sticky`（整体） | TableProps | 部分兼容 | 覆盖：`boolean \| { offsetHeader?, offsetScroll?, getContainer? }`，页面级 sticky 表头 + 底部 fake scrollbar。缺：`offsetSummary`。 | antd rc-table `interface.d.ts:199`；dg `types.ts:1017-1054, 1658` |
@@ -120,7 +116,7 @@
 
 | API | 归类 | 证据 |
 |-----|------|------|
-| `type/selectedRowKeys/defaultSelectedRowKeys/onChange/getCheckboxProps/columnWidth/fixed/hideSelectAll/align/selections/preserveSelectedRowKeys/checkStrictly/renderCell` | rowSelection | dg `types.ts:192-318` |
+| `type/selectedRowKeys/defaultSelectedRowKeys/onChange/getCheckboxProps/getTitleCheckboxProps/columnTitle/onCell/columnWidth/fixed/hideSelectAll/align/selections/preserveSelectedRowKeys/checkStrictly/renderCell/onSelect/onSelectMultiple/onSelectAll/onSelectInvert/onSelectNone` | rowSelection | dg `compat/selection.ts` / `selectionAdapter.tsx` / `useSelectionAdapter.ts` |
 | `Table.SELECTION_ALL/NONE/INVERT` 哨兵 | special | dg 引擎（useRowSelection）|
 
 ### 展开与哨兵
@@ -145,11 +141,11 @@
 
 > 迁移 antd → data-grid 时最易踩坑的 10 项（务必逐项核对）。
 
-1. **`scroll.y` 仅 `true\|undefined`**（antd 接受 `number=max-height`）。dg 不把 number 当 max-height，需要表体限高请用容器约束。决策 7。**`scroll.scrollToFirstRowOnChange` 完全未实现。** 证据：antd `InternalTable.tsx:177-178, 426-427`；dg `types.ts:990, 1313`。
+1. **`scroll.y` 仅 `true\|undefined`**（antd 接受 `number=max-height`）。dg 不把 number 当 max-height，需要表体限高请用容器约束。`scroll.scrollToFirstRowOnChange` 已支持，默认开启，可设 `false` 关闭。
 
 2. **`locale` 为部分兼容**（antd 18 字段）。已接入：`emptyText`、FilterDropdown 的 `filterConfirm/filterReset/filterEmptyText/filterSearchPlaceholder/filterCheckAll`、selection 内置菜单 `selectionAll/selectInvert/selectNone`、排序 hover title `triggerDesc/triggerAsc/cancelSort`、展开按钮 aria `expand/collapse`。未消费字段仍有 `filterTitle/selectAll/sortTitle` 等。证据：dg `Table.tsx`、`engine\FilterDropdown.tsx`、`engine\GridTable.tsx`、`types.ts:1027-1058`；antd `interface.ts:41-63`。
 
-3. **`rowSelection` 仍为部分兼容**。已补 `onSelect/onSelectAll/onSelectInvert/onSelectNone`；仍缺 `columnTitle/onCell/getTitleCheckboxProps/onSelectMultiple`。证据：antd `interface.ts:230-255`；dg `types.ts:130-193`。
+3. **`rowSelection` 仍为部分兼容**。常用字段已覆盖，包括 `columnTitle/onCell/getTitleCheckboxProps/onSelectMultiple`；剩余风险主要来自 data-grid 无原生 `<td>/<th>` DOM，选择列 cell/header props 的实际挂载点与 antd 有 div-grid 适配差异。
 
 4. **`expandable` 缺 `columnTitle/fixed`**。证据：antd `ExpandableConfig`；dg `types.ts:1084-1085, 1107-1158`。
 
@@ -169,19 +165,21 @@
 
 按「迁移影响面 × 实现成本」排序：
 
-1. **P0：`scroll.scrollToFirstRowOnChange`**（TOP #1）—— 分页/排序/筛选后滚回首行是 antd 常见默认行为，实现面相对局部。
-2. **P0：`rowSelection.columnTitle/onCell/getTitleCheckboxProps/onSelectMultiple`**（TOP #3）—— 都是 antd 在用、非 deprecated 的字段，迁移真实业务会立刻踩到；`onSelect` 系列中的常用项已实现，不再列为缺口。
-3. **P1：`scroll.y` 支持 `number|string` max-height 语义**（TOP #1）—— 表体限高是常见诉求，但需要和 data-grid 当前 `scroll.y: true` 数据区模式明确优先级。
-4. **P2：`expandable.columnTitle/fixed`**（TOP #4）—— API 适配面清楚，和现有展开列构造逻辑直接相关。
-5. **P2：`components` 缺槽位补齐**（TOP #5）—— 至少 `header.row`/`body.wrapper` 可以提供 data-grid 语义下的适配；完整 table DOM 替换仍受架构限制。
-6. **P3：`column.sortIcon/filtered/filterResetToDefaultFilteredValue` 与 `filterDropdownProps` 全透传**（TOP #9）。
-7. **P3：`sticky.offsetSummary`、`dataIndex` 深类型、RTL**（TOP #6/#8）—— 长尾，按需。
+1. **P1：`expandable.columnTitle/fixed`**（TOP #4）—— API 适配面清楚，和现有展开列构造逻辑直接相关。
+2. **P1：`components` 缺槽位补齐**（TOP #5）—— 至少 `header.row`/`body.wrapper` 可以提供 data-grid 语义下的适配；完整 table DOM 替换仍受架构限制。
+3. **P2：`column.sortIcon/filtered/filterResetToDefaultFilteredValue` 与 `filterDropdownProps` 全透传**（TOP #9）。
+4. **P2：`sticky.offsetSummary`、`dataIndex` 深类型、RTL**（TOP #6/#8）—— 长尾，按需。
+
+明确不作为迁移优先项：
+
+- `scroll.y` 支持 `number|string` max-height 语义。data-grid 维持 `true | undefined`，避免回到 antd Table 需要调用方计算高度、数字/字符串后果不可控的痛点。
 
 已不再作为优先缺口：
 
 - FilterDropdown i18n 已接入 `locale.filterConfirm/filterReset/filterEmptyText/filterSearchPlaceholder/filterCheckAll`。
 - `pagination` 默认开启已对齐 antd，`pagination={false}` 才关闭。
-- `rowSelection.onSelect/onSelectAll/onSelectInvert/onSelectNone` 已实现。
+- `scroll.scrollToFirstRowOnChange` 已实现，默认开启，可设 `false` 关闭。
+- `rowSelection.onSelect/onSelectMultiple/onSelectAll/onSelectInvert/onSelectNone/columnTitle/onCell/getTitleCheckboxProps` 已实现。
 - `gridOptions.autoScrollOnDrag`、`gridOptions.columnReorder`、`gridColumnOptions.dragColumnLock`、`gridOptions.multiRowReorder` 已作为 data-grid 原生能力采用。
 
 ---

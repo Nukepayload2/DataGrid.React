@@ -299,6 +299,18 @@ export function useSelectionAdapter<RecordType>(
       } else if (method === 'invert') {
         resolvedRowSel.onSelectInvert?.(nextKeys)
       }
+      if (method === 'multiple') {
+        const selected = trigger?.record
+          ? (() => {
+              const key = getRowKey(trigger.record as RecordType, rowKeyResolved)
+              return key !== undefined && keySet.has(key)
+            })()
+          : changeRows.some((rec) => {
+              const key = getRowKey(rec, rowKeyResolved)
+              return key !== undefined && keySet.has(key)
+            })
+        resolvedRowSel.onSelectMultiple?.(selected, rows, changeRows)
+      }
       if (method === 'none') {
         resolvedRowSel.onSelectNone?.()
       }

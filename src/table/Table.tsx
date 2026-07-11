@@ -16,6 +16,7 @@
 
 import {
   forwardRef,
+  useCallback,
   useContext,
   useImperativeHandle,
   useMemo,
@@ -318,6 +319,15 @@ function TableInner<RecordType = any>(
   // 的 pagination 参数始终反映当前分页（对齐 antd：onChange 的 pagination 始终反映当前分页）。
   // 初始值兜底（pagination 未启用时也安全——下方 useMemo 会算出"未启用"态注入）。
   const paginationStateRef = useRef<TablePaginationState>({ current: 1, pageSize: 0, total: 0 })
+  // 引擎层 ref（暴露 scrollTo 等）。本组件的 forwardRef ref 桥接到它。
+  const engineRef = useRef<TableEngineHandle | null>(null)
+  const rootRef = useRef<HTMLDivElement | null>(null)
+  const scrollToFirstRowOnChange = useCallback(() => {
+    if (scroll?.scrollToFirstRowOnChange === false) return
+    engineRef.current?.scrollTo({ scrollTop: 0 })
+    const scrollContainer = rootRef.current?.querySelector<HTMLElement>('.dg-scroll')
+    if (scrollContainer) scrollContainer.scrollTop = 0
+  }, [scroll?.scrollToFirstRowOnChange])
 
   const sortableColumns = useMemo(
     () =>
@@ -342,11 +352,11 @@ function TableInner<RecordType = any>(
     // 包装 onChange，把 useSorter 内部传入的占位 pagination `{}` 替换为当前实际分页状态
     // （paginationStateRef.current，对齐 antd：onChange 的 pagination 始终反映当前分页）。
     // filters/sorter/extra 原样透传（useSorter 内部已组装 filters={} / sorter / action:'sort'）。
-    onChange: onChange
-      ? (_pagination, filters, sorter, extra) => {
-          onChange(paginationStateRef.current, filters, sorter, extra)
-        }
-      : undefined,
+    onChange: (_pagination, filters, sorter, extra) => {
+      scrollToFirstRowOnChange()
+      if (!onChange) return
+      onChange(paginationStateRef.current, filters, sorter, extra)
+    },
   })
 
   // === 基础列筛选（须在选择 / 展开之前派生 filteredDataSource，供下游 hooks 消费）===
@@ -365,6 +375,7 @@ function TableInner<RecordType = any>(
     columns: sortableColumns,
     dataSource: sortedDataSource,
     onFilterChange: (filters, currentDataSource) => {
+      scrollToFirstRowOnChange()
       // 适配层注入最新 sorter（useSorter.currentSorterResult），组装完整 onChange。
       // sorter 取当前排序状态（非"本次筛选前的"也非"点击排序触发的 nextStates"——
       // 筛选不改变排序，sorter 应反映当前已应用的排序）。
@@ -544,10 +555,6 @@ function TableInner<RecordType = any>(
     [tableLayoutProp, visibleColumns, scroll?.x, scroll?.y, sticky],
   )
 
-  // 引擎层 ref（暴露 scrollTo 等）。本组件的 forwardRef ref 桥接到它。
-  const engineRef = useRef<TableEngineHandle | null>(null)
-  const rootRef = useRef<HTMLDivElement | null>(null)
-
   useImperativeHandle(
     ref,
     () => buildTableRefHandle<RecordType>(
@@ -642,6 +649,7 @@ function TableInner<RecordType = any>(
     paginationDataSource: treeEnabled ? filteredDataSource : flattenedDataSource,
     paginationStateRef,
     onChange,
+    onFirstRowChange: scrollToFirstRowOnChange,
     getFiltersArg,
     currentSorterResult,
     size,

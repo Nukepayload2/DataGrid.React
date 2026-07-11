@@ -149,7 +149,16 @@ export function buildSelectionColumnNode<RecordType>(
   rowKeyResolved: string | ((record: RecordType) => string | number),
   locale: TableLocale,
 ): EngineColumnNode<RecordType> {
-  const { columnWidth, fixed, hideSelectAll = false, align = 'center', renderCell } = rowSel
+  const {
+    columnWidth,
+    fixed,
+    hideSelectAll = false,
+    align = 'center',
+    renderCell,
+    columnTitle,
+    onCell: rowSelectionOnCell,
+    getTitleCheckboxProps,
+  } = rowSel
   const isRadio = selection.isRadio
   const type: 'checkbox' | 'radio' = isRadio ? 'radio' : 'checkbox'
   // 列宽默认：antd 选择列默认宽度 32px（token tableSelectionColumnWidth）。
@@ -175,23 +184,41 @@ export function buildSelectionColumnNode<RecordType>(
 
   // 表头格内容。
   const headerContent: ReactNode = (() => {
-    if (isRadio) return null // radio 无全选
-    if (hideSelectAll) return null
+    const wrapColumnTitle = (checkboxNode: ReactNode) => {
+      if (typeof columnTitle === 'function') return columnTitle(checkboxNode)
+      if (columnTitle !== undefined) return columnTitle
+      return checkboxNode
+    }
+    if (isRadio) return wrapColumnTitle(null) // radio 无全选
+    if (hideSelectAll) return wrapColumnTitle(null)
+    let titleCheckboxProps: ReturnType<NonNullable<typeof getTitleCheckboxProps>>
+    try {
+      titleCheckboxProps = getTitleCheckboxProps?.()
+    } catch {
+      titleCheckboxProps = undefined
+    }
+    const titleCheckboxAriaLabel =
+      titleCheckboxProps?.['aria-label'] ??
+      titleCheckboxProps?.ariaLabel ??
+      (typeof locale.selectionAll === 'string' ? locale.selectionAll : 'Select all')
     const checkbox = (
       <SelectionInput
         type="checkbox"
         checked={selection.allSelected}
-        indeterminate={selection.intermediate}
-        aria-label={typeof locale.selectionAll === 'string' ? locale.selectionAll : 'Select all'}
+        indeterminate={titleCheckboxProps?.indeterminate ?? selection.intermediate}
+        disabled={titleCheckboxProps?.disabled}
+        name={titleCheckboxProps?.name}
+        aria-label={titleCheckboxAriaLabel}
+        style={titleCheckboxProps?.style}
         onChange={() => {
+          if (titleCheckboxProps?.disabled) return
           const next = selection.toggleAll()
           const method: RowSelectMethod = selection.allSelected ? 'none' : 'all'
           fireSelectionChange(next, method)
         }}
       />
     )
-    if (!showSelectionDropdown) return checkbox
-    return (
+    const checkboxWithDropdown = showSelectionDropdown ? (
       <div className="dg-selection-header" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
         {checkbox}
         <SelectionsDropdown
@@ -206,7 +233,8 @@ export function buildSelectionColumnNode<RecordType>(
           }}
         />
       </div>
-    )
+    ) : checkbox
+    return wrapColumnTitle(checkboxWithDropdown)
   })()
 
   return {
@@ -220,10 +248,17 @@ export function buildSelectionColumnNode<RecordType>(
     // 接入 cellMerge：onCell 调 renderCell 提取 props.rowSpan/colSpan，返回给 cellMerge
     //   计算合并（被覆盖格 hidden 不渲染）。render 与 onCell 各调一次 renderCell（demo 的
     //   renderCell 须为纯函数，与 antd rc-table 一致）。
-    onCell: renderCell
+    onCell: renderCell || rowSelectionOnCell
       ? (record: RecordType, index: number) => {
+          let baseProps: Record<string, any> | undefined
+          try {
+            baseProps = rowSelectionOnCell?.(record, index)
+          } catch {
+            baseProps = undefined
+          }
+          if (!renderCell) return baseProps
           const key = getRowKey(record, rowKeyResolved)
-          if (key === undefined) return undefined
+          if (key === undefined) return baseProps
           const checked = selection.isSelected(key)
           const node = buildDefaultSelectionInput(
             type,
@@ -239,14 +274,17 @@ export function buildSelectionColumnNode<RecordType>(
           try {
             result = renderCell(checked, record, index, node)
           } catch {
-            return undefined
+            return baseProps
           }
           // ReactNode 形态：无 props 合并。
           if (result === null || typeof result !== 'object' || Array.isArray(result) || !('props' in result)) {
-            return undefined
+            return baseProps
           }
           // 对象形态：透传 props（含 rowSpan/colSpan，由 cellMerge 消费）。
-          return (result as { props?: Record<string, any> }).props
+          return {
+            ...(baseProps ?? null),
+            ...((result as { props?: Record<string, any> }).props ?? null),
+          }
         }
       : undefined,
     render: (_text: any, record: RecordType, index: number) => {
