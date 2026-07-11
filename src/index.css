@@ -49,20 +49,20 @@ body {
   display: block;
   padding: 6px 12px;
   border-left: 2px solid transparent;
-  color: rgba(0, 0, 0, 0.65);
+  color: var(--docs-text-secondary);
   line-height: 1.4;
   text-decoration: none;
   white-space: nowrap;
 }
 
 .docs-toc-link:hover {
-  color: #1677ff;
+  color: var(--docs-primary);
 }
 
 .docs-toc-link-active {
-  border-left-color: #1677ff;
-  color: #1677ff;
-  background: rgba(22, 119, 255, 0.06);
+  border-left-color: var(--docs-primary);
+  color: var(--docs-primary);
+  background: var(--docs-primary-bg);
 }
 
 .docs-content {

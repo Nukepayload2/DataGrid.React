@@ -45,18 +45,20 @@ scrollbar-width: none;          /* Firefox */
 
 | 状态 | 纵向 thumb | 横向 thumb |
 |---|---|---|
-| 默认 | width 2px，半透明灰 `--ant-color-text-placeholder`，贴右边缘（`right:0; left:auto`），transform 仅 translateY | height 2px，同色，贴底边缘（`bottom:0; top:auto`），transform 仅 translateX |
-| hover / hit 区 hover | width 8px，向左生长（右边缘不动），实色 `--ant-color-text-heading` | height 8px，向上生长（底边缘不动） |
+| 默认 | width 2px，半透明灰 `--ant-table-scroll-thumb-bg`，贴右边缘（`right:0; left:auto`），transform 仅 translateY | height 2px，同色，贴底边缘（`bottom:0; top:auto`），transform 仅 translateX |
+| hover / hit 区 hover | width `--ant-table-scroll-thumb-size`，向左生长（右边缘不动），`--ant-table-scroll-thumb-bg-hover` | height `--ant-table-scroll-thumb-size`，向上生长（底边缘不动） |
 | 圆角 | `var(--ant-table-sticky-scroll-bar-border-radius)`（=100，胶囊） | 同 |
 
 ## token 取值
 
-thumb 默认色与 hover 色消费 alias token，而非被 antd `getComponentToken` 剪枝的 component token：
+thumb 默认色、hover 色、track 色和展开尺寸消费 data-grid 显式补齐的 `--ant-table-scroll-*` 变量。这组变量来自 antd Table 内部派生 token：
 
 | 用途 | data-grid 消费 | antd 源 component token | 原因 |
 |---|---|---|---|
-| 默认色 | `--ant-color-text-placeholder` | `tableScrollThumbBg` / `tableStickyScrollBarBg` | 两者默认值与 alias `colorTextPlaceholder` 同值，getComponentToken 剪枝同值键 → 原 component token 在 DOM 上为空 → 解析为空 → 透明。改消费存活 alias token。 |
-| hover 色 | `--ant-color-text-heading` | `tableScrollThumbBgHover` | 同款剪枝模式 |
+| 默认色 | `--ant-table-scroll-thumb-bg` | `tableScrollThumbBg` / `stickyScrollBarBg` | `tableTokenToCssVars` 显式补齐，避免内部派生 token 未出现在 CSS vars 中。 |
+| hover 色 | `--ant-table-scroll-thumb-bg-hover` | `tableScrollThumbBgHover` | 同上，对齐 sticky fake scrollbar active/hover 色。 |
+| track 色 | `--ant-table-scroll-bg` | `tableScrollBg` | 同上，对齐 antd `scrollbarColor` 的 track 色。 |
+| 展开尺寸 | `--ant-table-scroll-thumb-size` | `tableScrollThumbSize` | 同上，默认 8px。 |
 | 圆角 | `--ant-table-sticky-scroll-bar-border-radius` | （component token） | 非数字 alias 引用，未被剪枝 |
 
 ## 页面级 sticky 的 fake scrollbar

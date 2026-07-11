@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ComponentType } from 'react'
 
 export interface DemoMeta {
@@ -38,9 +38,15 @@ export function groupByCategory(list: DemoMeta[]): CategoryGroup[] {
 
 /** 解析当前 hash 为路径段数组。 */
 function parseHash(): string[] {
-  const raw = window.location.hash.replace(/^#\/?/, '')
+  const raw = window.location.hash.replace(/^#\/?/, '').split('?')[0] ?? ''
   if (raw === '') return []
   return raw.split('/').filter(Boolean)
+}
+
+function parseHashSearch(): string {
+  const raw = window.location.hash
+  const queryStart = raw.indexOf('?')
+  return queryStart >= 0 ? raw.slice(queryStart + 1) : ''
 }
 
 export function useHashRoute(): string[] {
@@ -53,6 +59,18 @@ export function useHashRoute(): string[] {
     return () => window.removeEventListener('hashchange', onChange)
   }, [])
   return segments
+}
+
+export function useHashSearchParams(): URLSearchParams {
+  const [search, setSearch] = useState<string>(() =>
+    typeof window === 'undefined' ? '' : parseHashSearch(),
+  )
+  useEffect(() => {
+    const onChange = () => setSearch(parseHashSearch())
+    window.addEventListener('hashchange', onChange)
+    return () => window.removeEventListener('hashchange', onChange)
+  }, [])
+  return useMemo(() => new URLSearchParams(search), [search])
 }
 
 export function navigate(path: string): void {

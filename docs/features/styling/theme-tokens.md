@@ -30,17 +30,15 @@ data-grid 通过 `tokens.css` 定义 `--dg-*` 变量，并在 `useTableThemeVars
 
 antd `getComponentToken` 会**剪枝"默认值 === alias 同值"的 component token**（最小化输出）。这导致某些 Table component token 在 DOM 上为空，data-grid 直接消费会解析为空 → 视觉错（透明/默认色）。
 
-已知踩坑（改消费存活 alias）：
+已知踩坑：
 
-| 原 component token | 默认值（= alias） | 改消费 alias | 场景 |
+| 原 component token | 默认值（= alias） | data-grid 处理 | 场景 |
 |---|---|---|---|
-| `--ant-table-sticky-scroll-bar-bg` / `--ant-table-scroll-thumb-bg` | `colorTextPlaceholder` | `--ant-color-text-placeholder` | 悬浮条 thumb 默认色 |
-| `--ant-table-sticky-scroll-bar-bg-hover` / `--ant-table-scroll-thumb-bg-hover` | `colorTextHeading` | `--ant-color-text-heading` | 悬浮条 thumb hover 色 |
+| `tableScrollThumbBg` / `tableScrollThumbBgHover` / `tableScrollBg` / `tableScrollThumbSize` | Table 内部派生 token | `tableTokenToCssVars` 显式补齐 `--ant-table-scroll-*` | 悬浮条与 sticky fake scrollbar 配色 |
 | `--ant-table-header-filter-active-bg` | `colorFillContent` | `--ant-color-fill-content` | 漏斗 trigger hover bg |
 | `--ant-table-filter-dropdown-bg` | `colorBgContainer` | `--ant-color-bg-container` | 筛选下拉面板背景 |
-| `--ant-table-sticky-scroll-bar-bg` | `colorTextPlaceholder` | `--ant-color-text-placeholder` | sticky scrollbar |
 
-**规则**：消费前先核对 antd getComponentToken 是否会剪枝该键（默认值与 alias 同值则剪枝），若剪枝则改消费对应 alias token。
+**规则**：消费前先核对 antd getComponentToken 是否会剪枝该键。公开 component token 可改消费存活 alias；antd Table 内部派生 token（如 `tableScrollThumbBgHover`）需要在 token bridge 中显式补齐同语义 CSS var。
 
 ## 链接色复刻（genLinkStyle）
 

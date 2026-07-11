@@ -162,5 +162,26 @@ export function tableTokenToCssVars(
     prefix: cssVar.prefix,
     unitless: { TableExpandIconScale: true },
   })
-  return parseCssVarsString(cssVarsStr)
+  const vars = parseCssVarsString(cssVarsStr)
+
+  // antd Table 在 genStyle 里额外派生了虚拟/粘性滚动条内部 token：
+  // tableScrollThumbBg、tableScrollThumbBgHover、tableScrollBg、tableScrollThumbSize。
+  // 它们不是 prepareComponentToken 的公开 component token，transformToken 不会自动产出
+  // `--ant-table-scroll-*`，但 data-grid 的自研悬浮条需要消费同一套配色语义。
+  const cssPrefix = `--${cssVar.prefix}`
+  const tableScrollThumbBg = ({ ...defaultToken, ...userOverride }).stickyScrollBarBg
+  const tableScrollThumbBgHover = realToken.colorTextHeading
+  const tableScrollBg = realToken.colorSplit
+  if (tableScrollThumbBg !== undefined) {
+    vars[`${cssPrefix}-table-scroll-thumb-bg`] = String(tableScrollThumbBg)
+  }
+  if (tableScrollThumbBgHover !== undefined) {
+    vars[`${cssPrefix}-table-scroll-thumb-bg-hover`] = String(tableScrollThumbBgHover)
+  }
+  if (tableScrollBg !== undefined) {
+    vars[`${cssPrefix}-table-scroll-bg`] = String(tableScrollBg)
+  }
+  vars[`${cssPrefix}-table-scroll-thumb-size`] = '8px'
+
+  return vars
 }

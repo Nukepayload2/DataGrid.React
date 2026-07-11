@@ -1,6 +1,6 @@
 import { type CSSProperties, type ReactNode } from 'react'
+import { theme as antdTheme } from 'antd'
 import './compare.css'
-import { useTheme } from '../../theme/ThemeContext'
 import { useVirtualization } from '../VirtualizationContext'
 
 export interface SplitDemoProps {
@@ -67,18 +67,22 @@ export function SplitDemo({
   virtualizable = true,
   children,
 }: SplitDemoProps) {
-  const { themeMode } = useTheme()
-  const isDark = themeMode === 'dark'
+  const { token } = antdTheme.useToken()
   const { virtual } = useVirtualization()
 
   const containerStyle = {
     '--pane-min': `${minPaneWidth}px`,
+    '--compare-bg': token.colorBgContainer,
+    '--compare-fill': token.colorFillAlter,
+    '--compare-border': token.colorBorderSecondary,
+    '--compare-text-secondary': token.colorTextSecondary,
+    '--compare-primary': token.colorPrimary,
+    '--compare-primary-text': token.colorTextLightSolid,
   } as CSSProperties
 
   const containerClassName = [
     'dg-compare',
     stickyMode ? 'dg-compare--sticky' : '',
-    isDark ? 'dg-compare--dark' : '',
     virtualizable !== false && virtual ? 'dg-compare--virtual' : '',
   ]
     .filter(Boolean)
@@ -97,7 +101,7 @@ export function SplitDemo({
         </section>
       </div>
       {children ? (
-        <div className={isDark ? 'dg-compare__note dg-compare__note--dark' : 'dg-compare__note'}>
+        <div className="dg-compare__note">
           {children}
         </div>
       ) : null}

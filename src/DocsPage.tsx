@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import type { CSSProperties } from 'react'
-import { Typography, Tag } from 'antd'
+import { Typography, Tag, theme } from 'antd'
 import type { ColumnType, StickyConfig } from './table'
 import { Table } from './table'
 import { navigate } from './demos/registry'
@@ -32,7 +32,7 @@ const SECTION_STYLE: CSSProperties = {
 
 /** 行内代码块（多行）样式。 */
 const CODE_BLOCK_STYLE: CSSProperties = {
-  background: 'rgba(0,0,0,0.04)',
+  background: 'var(--docs-code-bg)',
   padding: '12px 16px',
   borderRadius: 6,
   overflow: 'auto',
@@ -69,7 +69,7 @@ const API_TABLE_COLUMNS: Array<ColumnType<ApiRow>> = [
     key: 'desc',
     width: '52%',
     render: (value) => (
-      <span style={{ color: 'rgba(0,0,0,0.75)', lineHeight: 1.65 }}>
+      <span style={{ color: 'var(--docs-text)', lineHeight: 1.65 }}>
         {value}
       </span>
     ),
@@ -234,6 +234,17 @@ const ANTD_DIFFS: Array<{ title: string; desc: string }> = [
 ]
 
 export default function DocsPage({ section }: { section?: string }) {
+  const { token } = theme.useToken()
+  const docsStyle = {
+    '--docs-text': token.colorText,
+    '--docs-text-secondary': token.colorTextSecondary,
+    '--docs-border': token.colorBorderSecondary,
+    '--docs-fill': token.colorFillAlter,
+    '--docs-code-bg': token.colorFillTertiary,
+    '--docs-primary': token.colorPrimary,
+    '--docs-primary-bg': token.colorPrimaryBg,
+  } as CSSProperties
+
   // 可选 props.section（来自路由 #/docs/<section>）—— 挂载后滚到对应 id。
   useEffect(() => {
     if (!section) return
@@ -252,7 +263,7 @@ export default function DocsPage({ section }: { section?: string }) {
   }
 
   return (
-    <div className="docs-layout">
+    <div className="docs-layout" style={docsStyle}>
       {/* 左：路由感知 TOC，避免 antd Anchor 把 hash 改成 #id。 */}
       <aside className="docs-toc" aria-label="文档目录">
         {TOC_ITEMS.map((item) => (
@@ -347,28 +358,28 @@ export default function Demo() {
             <ul style={{ paddingLeft: 20, lineHeight: 2 }}>
               <li>
                 <Text code>Table.Column</Text>
-                <span style={{ color: 'rgba(0,0,0,0.65)' }}>
+                <span style={{ color: 'var(--docs-text-secondary)' }}>
                   {' '}
                   — JSX 子元素声明单列（叶子列，禁止 children）。
                 </span>
               </li>
               <li>
                 <Text code>Table.ColumnGroup</Text>
-                <span style={{ color: 'rgba(0,0,0,0.65)' }}>
+                <span style={{ color: 'var(--docs-text-secondary)' }}>
                   {' '}
                   — JSX 子元素声明多级表头分组列。
                 </span>
               </li>
               <li>
                 <Text code>Table.EXPAND_COLUMN</Text>
-                <span style={{ color: 'rgba(0,0,0,0.65)' }}>
+                <span style={{ color: 'var(--docs-text-secondary)' }}>
                   {' '}
                   — 展开列占位哨兵，插入 columns 数组控制展开列位置。
                 </span>
               </li>
               <li>
                 <Text code>Table.SELECTION_COLUMN</Text>
-                <span style={{ color: 'rgba(0,0,0,0.65)' }}>
+                <span style={{ color: 'var(--docs-text-secondary)' }}>
                   {' '}
                   — 选择列占位哨兵，控制选择列位置。
                 </span>
@@ -377,7 +388,7 @@ export default function Demo() {
                 <Text code>Table.Summary</Text> /{' '}
                 <Text code>Table.Summary.Row</Text> /{' '}
                 <Text code>Table.Summary.Cell</Text>
-                <span style={{ color: 'rgba(0,0,0,0.65)' }}>
+                <span style={{ color: 'var(--docs-text-secondary)' }}>
                   {' '}
                   — 汇总栏组件族（fixed: true 时 sticky bottom）。
                 </span>
@@ -386,7 +397,7 @@ export default function Demo() {
                 <Text code>Table.SELECTION_ALL</Text> /{' '}
                 <Text code>Table.SELECTION_INVERT</Text> /{' '}
                 <Text code>Table.SELECTION_NONE</Text>
-                <span style={{ color: 'rgba(0,0,0,0.65)' }}>
+                <span style={{ color: 'var(--docs-text-secondary)' }}>
                   {' '}
                   — rowSelection.selections 内置哨兵项。
                 </span>
@@ -416,19 +427,19 @@ export default function Demo() {
                 <div
                   key={d.title}
                   style={{
-                    border: '1px solid #f0f0f0',
+                    border: '1px solid var(--docs-border)',
                     borderRadius: 6,
                     padding: '12px 16px',
-                    background: '#fafafa',
+                    background: 'var(--docs-fill)',
                   }}
                 >
                   <div style={{ marginBottom: 6 }}>
-                    <Tag color="orange" style={{ marginRight: 8 }}>
+                    <Tag style={{ marginRight: 8 }}>
                       差异 {i + 1}
                     </Tag>
                     <Text strong>{d.title}</Text>
                   </div>
-                  <div style={{ color: 'rgba(0,0,0,0.75)', fontSize: 13, lineHeight: 1.7 }}>
+                  <div style={{ color: 'var(--docs-text)', fontSize: 13, lineHeight: 1.7 }}>
                     {d.desc}
                   </div>
                 </div>

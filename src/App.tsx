@@ -9,6 +9,7 @@ import {
   type ComponentType,
 } from 'react'
 import {
+  AutoComplete,
   Breadcrumb,
   Button,
   Collapse,
@@ -17,6 +18,7 @@ import {
   Segmented,
   Switch,
   Typography,
+  theme as antdTheme,
 } from 'antd'
 import {
   FileTextOutlined,
@@ -24,7 +26,7 @@ import {
   MenuOutlined,
 } from '@ant-design/icons'
 import { demos } from './demos'
-import { groupByCategory, navigate, useHashRoute } from './demos/registry'
+import { groupByCategory, navigate, useHashRoute, useHashSearchParams } from './demos/registry'
 import HomePage from './HomePage'
 import DocsPage from './DocsPage'
 import CodeView from './CodeView'
@@ -60,8 +62,51 @@ type View =
   | { kind: 'docs'; section?: string }
   | { kind: 'notFound' }
 
+function HighlightText({ text, query }: { text: string; query: string }) {
+  const { token } = antdTheme.useToken()
+  const trimmed = query.trim()
+  if (!trimmed) return <>{text}</>
+  const lowerText = text.toLowerCase()
+  const lowerQuery = trimmed.toLowerCase()
+  const parts: Array<{ text: string; hit: boolean }> = []
+  let cursor = 0
+  while (cursor < text.length) {
+    const index = lowerText.indexOf(lowerQuery, cursor)
+    if (index < 0) {
+      parts.push({ text: text.slice(cursor), hit: false })
+      break
+    }
+    if (index > cursor) parts.push({ text: text.slice(cursor, index), hit: false })
+    parts.push({ text: text.slice(index, index + trimmed.length), hit: true })
+    cursor = index + trimmed.length
+  }
+  return (
+    <>
+      {parts.map((part, index) =>
+        part.hit ? (
+          <mark
+            key={index}
+            style={{
+              background: token.colorWarningBg,
+              color: 'inherit',
+              padding: 0,
+            }}
+          >
+            {part.text}
+          </mark>
+        ) : (
+          <span key={index}>{part.text}</span>
+        ),
+      )}
+    </>
+  )
+}
+
 function App() {
   const segments = useHashRoute()
+  const searchParams = useHashSearchParams()
+  const urlHighlight = searchParams.get('q')?.trim() ?? ''
+  const { token } = antdTheme.useToken()
   // 全局主题 store（单一真理源）。
   const { themeMode, setThemeMode } = useTheme()
   const isDark = themeMode === 'dark'
@@ -74,6 +119,9 @@ function App() {
   const [openKeys, setOpenKeys] = useState<string[]>([])
   // 主题编辑器 Modal 开关。
   const [themeModalOpen, setThemeModalOpen] = useState(false)
+  // 顶栏全局 demo 搜索输入。URL q 参数用于跳转后高亮，输入框跟随它同步。
+  const [globalSearch, setGlobalSearch] = useState('')
+  const [globalSearchOpen, setGlobalSearchOpen] = useState(false)
   // split demo 编辑产物。null = 未编辑/重置（默认模式渲染真实 DemoComp）。
   // view 变化（切 demo）时 useEffect 重置为 null。
   const [editedDg, setEditedDg] = useState<ComponentType<Record<string, unknown>> | null>(null)
@@ -130,24 +178,70 @@ function App() {
   )
   const splitSrc = useSplitDemoSource(isSplit ? demoName : undefined)
 
-  // Sider 菜单 items：主页 + Docs + divider + 按分类分组的 demo 列表。
+  useEffect(() => {
+    setGlobalSearch(urlHighlight)
+  }, [urlHighlight])
+
+  const globalSearchQuery = globalSearch.trim()
+  const globalSearchLower = globalSearchQuery.toLowerCase()
+  const globalSearchResults = useMemo(() => {
+    if (!globalSearchLower) return []
+    return demos
+      .filter((d) =>
+        [d.title, d.description ?? '', d.name, d.category].some((s) =>
+          s.toLowerCase().includes(globalSearchLower),
+        ),
+      )
+      .slice(0, 8)
+  }, [globalSearchLower])
+  const globalSearchOptions = useMemo(
+    () =>
+      globalSearchResults.map((d) => ({
+        value: d.name,
+        label: (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span>
+              <HighlightText text={d.title} query={globalSearchQuery} />
+            </span>
+            <span style={{ color: token.colorTextSecondary, fontSize: 12 }}>
+              <HighlightText text={d.category} query={globalSearchQuery} />
+              {d.description ? (
+                <>
+                  {' · '}
+                  <HighlightText text={d.description} query={globalSearchQuery} />
+                </>
+              ) : null}
+            </span>
+          </div>
+        ),
+      })),
+    [globalSearchQuery, globalSearchResults, token.colorTextSecondary],
+  )
+
+  // Sider 菜单 items：主页 + divider + 按分类分组的 demo 列表。
   const groups = useMemo(() => groupByCategory(demos), [])
   const menuItems = useMemo(
     () => [
-      { key: '/', icon: <HomeOutlined />, label: '主页' },
-      { key: '/docs', icon: <FileTextOutlined />, label: 'Docs' },
+      { key: '/', icon: <HomeOutlined />, label: '示例一览' },
       { type: 'divider' as const },
       ...groups.map((g) => ({
         key: `cat::${g.category}`,
         label: g.category,
         children: g.items.map((d) => ({
           key: `/demos/${d.name}`,
-          label: d.title,
+          label: <HighlightText text={d.title} query={urlHighlight} />,
         })),
       })),
     ],
-    [groups],
+    [groups, urlHighlight],
   )
+
+  const goSearchResult = (name: string) => {
+    const query = globalSearch.trim()
+    const suffix = query ? `?q=${encodeURIComponent(query)}` : ''
+    setGlobalSearchOpen(false)
+    navigate(`/demos/${name}${suffix}`)
+  }
 
   return (
     <Layout className="app-shell" style={{ height: '100vh', overflow: 'hidden' }}>
@@ -181,6 +275,35 @@ function App() {
         >
           data-grid
         </div>
+        <Button
+          type="text"
+          icon={<FileTextOutlined />}
+          onClick={() => navigate('/docs')}
+          style={{
+            color: '#fff',
+            background: view.kind === 'docs' ? 'rgba(255,255,255,0.18)' : undefined,
+          }}
+        >
+          Docs
+        </Button>
+
+        <AutoComplete
+          value={globalSearch}
+          options={globalSearchOptions}
+          open={globalSearchOpen && globalSearchQuery.length > 0}
+          onChange={(value) => {
+            setGlobalSearch(value)
+            setGlobalSearchOpen(value.trim().length > 0)
+          }}
+          onFocus={() => setGlobalSearchOpen(globalSearchQuery.length > 0)}
+          onBlur={() => setGlobalSearchOpen(false)}
+          onSelect={(value) => goSearchResult(value)}
+          placeholder="搜索示例..."
+          allowClear
+          style={{ width: 320, maxWidth: '32vw' }}
+          notFoundContent={globalSearchQuery ? '没有匹配的示例' : null}
+          filterOption={false}
+        />
 
         <div style={{ flex: 1 }} />
 
@@ -244,7 +367,14 @@ function App() {
                 style={{ marginBottom: 16 }}
                 items={[
                   { title: <Link onClick={() => navigate('/')}>首页</Link> },
-                  { title: view.title },
+                  {
+                    title: (
+                      <HighlightText
+                        text={view.title}
+                        query={urlHighlight}
+                      />
+                    ),
+                  },
                 ]}
               />
               {/*
