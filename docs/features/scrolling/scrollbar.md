@@ -46,7 +46,7 @@ scrollbar-width: none;          /* Firefox */
 | 状态 | 纵向 thumb | 横向 thumb |
 |---|---|---|
 | 默认 | width 2px，半透明灰 `--ant-table-scroll-thumb-bg`，贴右边缘（`right:0; left:auto`），transform 仅 translateY | height 2px，同色，贴底边缘（`bottom:0; top:auto`），transform 仅 translateX |
-| hover / hit 区 hover | width `--ant-table-scroll-thumb-size`，向左生长（右边缘不动），`--ant-table-scroll-thumb-bg-hover` | height `--ant-table-scroll-thumb-size`，向上生长（底边缘不动） |
+| hover / hit 区 hover | width `--ant-table-scroll-thumb-size`，向左生长（右边缘不动），`--dg-scrollbar-thumb-active-bg` | height `--ant-table-scroll-thumb-size`，向上生长（底边缘不动） |
 | 圆角 | `var(--ant-table-sticky-scroll-bar-border-radius)`（=100，胶囊） | 同 |
 
 ## token 取值
@@ -61,9 +61,11 @@ thumb 默认色、hover 色、track 色和展开尺寸消费 data-grid 显式补
 | 展开尺寸 | `--ant-table-scroll-thumb-size` | `tableScrollThumbSize` | 同上，默认 8px。 |
 | 圆角 | `--ant-table-sticky-scroll-bar-border-radius` | （component token） | 非数字 alias 引用，未被剪枝 |
 
+active/hover 最终绘制色使用 `--dg-scrollbar-thumb-active-bg`：以 `--ant-table-scroll-thumb-bg-hover` 为底色，按 25% 与透明色混合，避免直接使用 `colorTextHeading` 显得过重。
+
 ## 页面级 sticky 的 fake scrollbar
 
-`.dg-sticky-scroll-bar-thumb`（GridTable 的 StickyScrollBar thumb）：hover 变 `--ant-table-scroll-thumb-bg-hover`（fallback `rgba(0,0,0,0.88)`），对齐 antd `sticky.ts:55-57` 的 `&:hover, &-active → backgroundColor: tableScrollThumbBgHover`。仅 sticky 启用时渲染。
+`.dg-sticky-scroll-bar-thumb`（GridTable 的 StickyScrollBar thumb）：hover 以 `--ant-table-scroll-thumb-bg-hover` 为底色派生 `--dg-scrollbar-thumb-active-bg`。仅 sticky 启用时渲染。
 
 ## 与 antd 差异
 

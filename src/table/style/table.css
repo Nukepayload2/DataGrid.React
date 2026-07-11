@@ -961,12 +961,12 @@ body.dg-scrollbar-pointer-capturing * {
 /* 纵向 thumb hover。 */
 .dg-floating-scrollbar-thumb:hover {
   width: var(--ant-table-scroll-thumb-size, 8px);
-  background: var(--ant-table-scroll-thumb-bg-hover, rgba(0, 0, 0, 0.88));
+  background: var(--dg-scrollbar-thumb-active-bg);
   opacity: 1;
 }
 
 .dg-floating-scrollbar-thumb:active {
-  background: var(--ant-table-scroll-thumb-bg-hover, rgba(0, 0, 0, 0.88));
+  background: var(--dg-scrollbar-thumb-active-bg);
   cursor: grabbing;
 }
 
@@ -974,7 +974,7 @@ body.dg-scrollbar-pointer-capturing * {
 .dg-floating-scrollbar-v:hover .dg-floating-scrollbar-thumb,
 .dg-floating-scrollbar-v.dg-floating-scrollbar-dragging .dg-floating-scrollbar-thumb {
   width: var(--ant-table-scroll-thumb-size, 8px);
-  background: var(--ant-table-scroll-thumb-bg-hover, rgba(0, 0, 0, 0.88));
+  background: var(--dg-scrollbar-thumb-active-bg);
   opacity: 1;
   cursor: grabbing;
 }
@@ -1028,12 +1028,12 @@ body.dg-scrollbar-pointer-capturing * {
 /* 横向 thumb hover。 */
 .dg-floating-scrollbar-thumb-h:hover {
   height: var(--ant-table-scroll-thumb-size, 8px);
-  background: var(--ant-table-scroll-thumb-bg-hover, rgba(0, 0, 0, 0.88));
+  background: var(--dg-scrollbar-thumb-active-bg);
   opacity: 1;
 }
 
 .dg-floating-scrollbar-thumb-h:active {
-  background: var(--ant-table-scroll-thumb-bg-hover, rgba(0, 0, 0, 0.88));
+  background: var(--dg-scrollbar-thumb-active-bg);
   cursor: grabbing;
 }
 
@@ -1041,7 +1041,7 @@ body.dg-scrollbar-pointer-capturing * {
 .dg-floating-scrollbar-h:hover .dg-floating-scrollbar-thumb-h,
 .dg-floating-scrollbar-h.dg-floating-scrollbar-dragging .dg-floating-scrollbar-thumb-h {
   height: var(--ant-table-scroll-thumb-size, 8px);
-  background: var(--ant-table-scroll-thumb-bg-hover, rgba(0, 0, 0, 0.88));
+  background: var(--dg-scrollbar-thumb-active-bg);
   opacity: 1;
   cursor: grabbing;
 }
@@ -1088,7 +1088,7 @@ body.dg-scrollbar-pointer-capturing * {
 }
 
 .dg-sticky-scroll-bar.dg-sticky-scroll-bar-dragging .dg-sticky-scroll-bar-thumb {
-  background: var(--ant-table-scroll-thumb-bg-hover, rgba(0, 0, 0, 0.88));
+  background: var(--dg-scrollbar-thumb-active-bg);
   cursor: grabbing;
 }
 
@@ -1106,7 +1106,7 @@ body.dg-scrollbar-pointer-capturing * {
 
 /* 页面级 StickyScrollBar thumb hover。 */
 .dg-sticky-scroll-bar-thumb:hover {
-  background: var(--ant-table-scroll-thumb-bg-hover, rgba(0, 0, 0, 0.88));
+  background: var(--dg-scrollbar-thumb-active-bg);
   height: var(--ant-table-scroll-thumb-size, 8px);
 }
 

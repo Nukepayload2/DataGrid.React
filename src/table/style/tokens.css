@@ -118,6 +118,12 @@
   --dg-primary-color: var(--ant-color-primary);
   /* resizer 无 antd 对应（data-grid 自研拖拽手柄），视觉用主色，随主题主色变化。 */
   --dg-resizer-color: var(--ant-color-primary);
+  /* 悬浮滚动条 active 态：底色对接 antd tableScrollThumbBgHover，再降透明度避免过重。 */
+  --dg-scrollbar-thumb-active-bg: color-mix(
+    in srgb,
+    var(--ant-table-scroll-thumb-bg-hover, rgba(0, 0, 0, 0.88)) 25%,
+    transparent
+  );
 }
 
 /* size 桥接：large/middle/small 直连 antd 三档，compact 视觉等价 small。 */
