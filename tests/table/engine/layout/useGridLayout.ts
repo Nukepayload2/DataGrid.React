@@ -110,9 +110,9 @@ describe('useGridLayout', () => {
         dataSource: [baseRecord(1)],
         rowHeight: 30,
       })
-      // headerTracks + bodyTracks 拼接；flat 模式 + 无 summary → gridAutoFlow='column'
+      // headerTracks + bodyTracks 拼接；flat 模式也关闭 auto-flow，依赖显式定位。
       expect(r.gridTemplateRows.startsWith('40px 40px')).toBe(true)
-      expect(r.gridAutoFlow).toBe('column')
+      expect(r.gridAutoFlow).toBeUndefined()
     })
 
     it('headerHeight 字符串 "60px" → 直接用 toTrack("60px") = "60px"', () => {
@@ -228,8 +228,7 @@ describe('useGridLayout', () => {
       })
       // 40px header + auto(paddingTop) + 56px + 56px + auto(paddingBottom)
       expect(r.gridTemplateRows).toBe('40px auto 56px 56px auto')
-      // flat 模式 + 无 summary → gridAutoFlow='column'
-      expect(r.gridAutoFlow).toBe('column')
+      expect(r.gridAutoFlow).toBeUndefined()
     })
 
     it('虚拟 + boundedRowHeight → visible track="auto"', () => {
@@ -332,13 +331,13 @@ describe('useGridLayout', () => {
   })
 
   describe('gridAutoFlow 路由', () => {
-    it('mode=flat + 无 summary → "column"', () => {
+    it('mode=flat + 无 summary → undefined', () => {
       const r = render({
         mode: 'flat',
         dataSource: [baseRecord(1)],
         rowHeight: 30,
       })
-      expect(r.gridAutoFlow).toBe('column')
+      expect(r.gridAutoFlow).toBeUndefined()
     })
 
     it('mode=multi → undefined（即便无 summary）', () => {
@@ -408,7 +407,7 @@ describe('useGridLayout', () => {
       overrides: Partial<UseGridLayoutOptions<RecordType>>
       expected: {
         gridTemplateRows: string
-        gridAutoFlow: 'column' | undefined
+        gridAutoFlow: undefined
         summaryStartLine: number
         paddingTopLine: number
         paddingBottomLine: number
@@ -424,7 +423,7 @@ describe('useGridLayout', () => {
         },
         expected: {
           gridTemplateRows: 'auto',
-          gridAutoFlow: 'column',
+          gridAutoFlow: undefined,
           summaryStartLine: 0,
           paddingTopLine: 1,
           paddingBottomLine: 1,
@@ -456,7 +455,7 @@ describe('useGridLayout', () => {
         },
         expected: {
           gridTemplateRows: '40px auto auto auto auto auto',
-          gridAutoFlow: 'column',
+          gridAutoFlow: undefined,
           summaryStartLine: 0,
           paddingTopLine: 2,
           paddingBottomLine: 6,

@@ -6,8 +6,7 @@
  *   仅被 renderBodyCells 内部使用，故本文件不 export。
  * - `renderBodyCells`：数据区单元格批量渲染（multi 路径入口）。被 renderGrid 调用，本文件 export。
  *
- * 两种遍历顺序（components.body.row 是否提供）在 grid 显式定位下视觉等价
- * （gridColumn/gridRow 决定位置，与 DOM 顺序无关）——两条分支并行实现，未合并。
+ * 数据格 DOM 按 row-major 输出，和视觉行顺序保持一致，避免浏览器原生文字选择按列穿透多行。
  */
 import {
   type ReactNode,
@@ -264,9 +263,7 @@ function BodyCell<RecordType>({
  *   Provider 不渲染真实 DOM 节点，BodyCell 仍是 grid 直接子元素，grid 显式定位保证布局正确）。
  *   透传给 body.row 的 props：`{ index, children, record, rowKey }`（对齐 antd body.row 签名
  *   `{ index, ...props }`，data-grid 额外提供 record/rowKey 便于行级逻辑）。
- * - 否则：按**列**优先遍历（单元格 DOM 列连续，性能略优）。
- *
- * 两种遍历顺序在 grid 显式定位下视觉等价（gridColumn/gridRow 决定位置，与 DOM 顺序无关）。
+ * - 否则：同样按**行**优先遍历，保持 DOM 顺序与视觉行顺序一致。
  */
 export function renderBodyCells<RecordType>({
   leafColumns,
@@ -440,16 +437,17 @@ export function renderBodyCells<RecordType>({
     return out
   }
 
-  // 列优先遍历（无 body.row 时；单元格 DOM 列连续，性能略优）。
-  for (let colIdx = 0; colIdx < leafColumns.length; colIdx += 1) {
-    const column = leafColumns[colIdx]
-    const isSortedColumn =
-      !!column.sorter && column.sortOrder !== null && column.sortOrder !== undefined
-    for (let index = lo; index < hi; index += 1) {
-      const record = dataSource[index]
-      if (record === undefined) continue
+  // 行优先遍历（无 body.row 时）：DOM 顺序与视觉行顺序一致，便于原生文字选择。
+  for (let index = lo; index < hi; index += 1) {
+    const record = dataSource[index]
+    if (record === undefined) continue
+    const rowLine = rowLineBase(index)
+    for (let colIdx = 0; colIdx < leafColumns.length; colIdx += 1) {
+      const column = leafColumns[colIdx]
       const m = computeMerge(colIdx, index)
       if (m === null) continue
+      const isSortedColumn =
+        !!column.sorter && column.sortOrder !== null && column.sortOrder !== undefined
       // rowSpan-aware hover：合并格按区间相交判定。
       //   rowSpan=1 退化为 hoveredRowIndex===index。
       const isHovered = isRowSpanHovered(index, m.merge?.rowSpan ?? 1, hoveredRowIndex)
@@ -463,7 +461,7 @@ export function renderBodyCells<RecordType>({
           index={index}
           merge={m.merge}
           rowSpanTracks={m.rowSpanTracks}
-          rowLine={rowLineBase(index)}
+          rowLine={rowLine}
           info={leafSticky[colIdx]}
           isHovered={isHovered}
           isSortedColumn={isSortedColumn}

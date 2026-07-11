@@ -66,6 +66,7 @@ interface RecyclingStore<RecordType> {
   reactSlotList: Map<string, ReactSlot<RecordType>>
   nextReactSlotId: number
   portalDirty: boolean
+  lastOrderKey: string
 }
 
 const ReactSlotPortal = memo(function ReactSlotPortal({
@@ -334,6 +335,27 @@ function getActiveCell<RecordType>(
   return store.active.get(rowIdentity)?.get(columnIdentity)
 }
 
+function syncBodyDomOrder(
+  grid: HTMLDivElement,
+  desiredOrder: Array<HTMLDivElement>,
+): void {
+  if (desiredOrder.length <= 1) return
+  const desiredSet = new Set<Node>(desiredOrder)
+  let cursor: Node | null = null
+  for (const child of Array.from(grid.childNodes)) {
+    if (desiredSet.has(child)) {
+      cursor = child
+      break
+    }
+  }
+  for (const node of desiredOrder) {
+    if (node !== cursor) {
+      grid.insertBefore(node, cursor)
+    }
+    cursor = node.nextSibling
+  }
+}
+
 function paramsChanged<RecordType>(
   previous: ActiveCell<RecordType>,
   next: GridCellElementRenderParams<RecordType>,
@@ -591,6 +613,7 @@ export function RecyclingBodyGrid<RecordType>({
     reactSlotList: new Map(),
     nextReactSlotId: 0,
     portalDirty: false,
+    lastOrderKey: '',
   })
   const [portalVersion, setPortalVersion] = useState(0)
 
@@ -600,6 +623,13 @@ export function RecyclingBodyGrid<RecordType>({
     const store = storeRef.current
     const maxPoolSize = Math.max(1, virtualState.end - virtualState.start + 16)
     const targets = new Map<Identity, Set<Identity>>()
+    const desiredOrder: Array<HTMLDivElement> = []
+    const orderParts: Array<string> = [
+      String(virtualState.start),
+      String(virtualState.end),
+      leafColumns.map((column) => String(resolveColumnIdentity(column))).join(','),
+    ]
+    let orderDirty = false
 
     const liveColumns = new Map<Identity, GridColumnOptions<RecordType> | undefined>()
     for (const column of leafColumns) {
@@ -613,10 +643,11 @@ export function RecyclingBodyGrid<RecordType>({
       }
     }
 
-    for (const column of leafColumns) {
-      const columnIdentity = resolveColumnIdentity(column)
-      for (let index = virtualState.start; index < virtualState.end; index += 1) {
-        const record = dataSource[index]
+    for (let index = virtualState.start; index < virtualState.end; index += 1) {
+      const record = dataSource[index]
+      orderParts.push(`${index}:${String(record === undefined ? '' : resolveRowIdentity(record, rowKey))}`)
+      for (const column of leafColumns) {
+        const columnIdentity = resolveColumnIdentity(column)
         if (record === undefined) continue
         const rowIdentity = resolveRowIdentity(record, rowKey)
         let row = targets.get(rowIdentity)
@@ -636,20 +667,19 @@ export function RecyclingBodyGrid<RecordType>({
       }
     }
 
-    for (let colIdx = 0; colIdx < leafColumns.length; colIdx += 1) {
-      const column = leafColumns[colIdx]
-      const columnIdentity = resolveColumnIdentity(column)
-      const renderer = column.gridColumnOptions?.renderCellElement
-      const reactRenderer = column.gridColumnOptions?.renderCellReact
-      const disposer = column.gridColumnOptions?.disposeCellElement
-      const renderKind: CellRenderKind =
-        renderer || !reactRenderer ? 'element' : 'react'
-      const isSortedColumn =
-        !!column.sorter && column.sortOrder !== null && column.sortOrder !== undefined
-
-      for (let index = virtualState.start; index < virtualState.end; index += 1) {
-        const record = dataSource[index]
-        if (record === undefined) continue
+    for (let index = virtualState.start; index < virtualState.end; index += 1) {
+      const record = dataSource[index]
+      if (record === undefined) continue
+      for (let colIdx = 0; colIdx < leafColumns.length; colIdx += 1) {
+        const column = leafColumns[colIdx]
+        const columnIdentity = resolveColumnIdentity(column)
+        const renderer = column.gridColumnOptions?.renderCellElement
+        const reactRenderer = column.gridColumnOptions?.renderCellReact
+        const disposer = column.gridColumnOptions?.disposeCellElement
+        const renderKind: CellRenderKind =
+          renderer || !reactRenderer ? 'element' : 'react'
+        const isSortedColumn =
+          !!column.sorter && column.sortOrder !== null && column.sortOrder !== undefined
         const rowIdentity = resolveRowIdentity(record, rowKey)
         const value = getValueByDataIndex(record, column.dataIndex)
         const params: GridCellElementRenderParams<RecordType> = {
@@ -674,6 +704,7 @@ export function RecyclingBodyGrid<RecordType>({
           removeActiveCell(store, cell)
           unmountCell(store, cell)
           cell = undefined
+          orderDirty = true
         }
         if (!cell) {
           const outer = acquireOuter(store, column)
@@ -698,6 +729,7 @@ export function RecyclingBodyGrid<RecordType>({
           setActiveCell(store, cell)
           grid.appendChild(outer)
           renderInner(store, cell, params)
+          orderDirty = true
         } else if (paramsChanged(cell, params, renderKind, renderer, reactRenderer, disposer)) {
           cell.column = column
           cell.params = params
@@ -729,8 +761,17 @@ export function RecyclingBodyGrid<RecordType>({
           semanticBody,
           setHoveredRowIndex,
         })
-        if (cell.outer.parentNode !== grid) grid.appendChild(cell.outer)
+        if (cell.outer.parentNode !== grid) {
+          grid.appendChild(cell.outer)
+          orderDirty = true
+        }
+        desiredOrder.push(cell.outer)
       }
+    }
+    const orderKey = orderParts.join('|')
+    if (orderDirty || store.lastOrderKey !== orderKey) {
+      syncBodyDomOrder(grid, desiredOrder)
+      store.lastOrderKey = orderKey
     }
     if (store.portalDirty) {
       store.portalDirty = false

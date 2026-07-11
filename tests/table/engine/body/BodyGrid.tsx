@@ -84,14 +84,14 @@ const baseProps = {
 }
 
 describe('renderBodyCells - basic rendering', () => {
-  it('produces rows*cols cells (column-first branch) with correct BodyCell props', () => {
+  it('produces rows*cols cells in row-major order with correct BodyCell props', () => {
     const out = renderBodyCells<Row>({
       ...baseProps,
       leafColumns,
       dataSource,
     })
 
-    // 列优先：col0 三行 + col1 三行 = 6 个 cell
+    // 行优先：row0 两列 + row1 两列 + row2 两列 = 6 个 cell
     expect(out).toHaveLength(6)
     expect(out.every(n => isValidElement(n))).toBe(true)
 
@@ -104,7 +104,7 @@ describe('renderBodyCells - basic rendering', () => {
     expect(cells[0].props.rowLine).toBe(1)
     expect(cells[0].props.column.key).toBe('name')
     expect(cells[0].props.record).toEqual({ id: 1, name: 'Ada', age: 30 })
-    // 行优先展开顺序：col0 row0/1/2，col1 row0/1/2
+    // 行优先展开顺序：row0[col0,col1], row1[col0,col1], row2[col0,col1]
     expect(cells[5].props.colIdx).toBe(1)
     expect(cells[5].props.index).toBe(2)
     expect(cells[5].props.column.key).toBe('age')
@@ -122,8 +122,8 @@ describe('renderBodyCells - basic rendering', () => {
     const cells = collectBodyCellElements(out)
     expect(cells).toHaveLength(4) // 2 cols * 2 rows
     const indexes = cells.map(c => c.props.index)
-    // column-first: col0 [1,2], then col1 [1,2]
-    expect(indexes).toEqual([1, 2, 1, 2])
+    // row-major: row1[col0,col1], then row2[col0,col1]
+    expect(indexes).toEqual([1, 1, 2, 2])
   })
 
   it('skips undefined records at boundary (no crash, no cell)', () => {
@@ -147,19 +147,19 @@ describe('renderBodyCells - basic rendering', () => {
     })
     const cells = collectBodyCellElements(out)
     expect(cells[0].props.rowLine).toBe(100) // col0 row0
-    expect(cells[3].props.rowLine).toBe(100) // col1 row0 (column-first: cells[3] is col1's first row)
+    expect(cells[1].props.rowLine).toBe(100) // col1 row0 (row-major: cells[1] is row0's second cell)
   })
 })
 
-describe('renderBodyCells - BodyRow wrap branch vs column-first branch', () => {
-  it('column-first branch: out is flat BodyCell elements (no BodyRow wrapper)', () => {
+describe('renderBodyCells - BodyRow wrap branch vs default row-major branch', () => {
+  it('default row-major branch: out is flat BodyCell elements (no BodyRow wrapper)', () => {
     const out = renderBodyCells<Row>({
       ...baseProps,
       leafColumns,
       dataSource,
     })
 
-    // 列优先：6 个平铺 BodyCell 元素（无 BodyRow 包裹）
+    // 行优先：6 个平铺 BodyCell 元素（无 BodyRow 包裹）
     expect(out).toHaveLength(6)
     // 每个 out 元素本身即是 BodyCell（有 colIdx/column/index/...）
     expect(out.every(n => isValidElement(n) && 'colIdx' in (n as ReactElement<Record<string, any>>).props)).toBe(true)
@@ -217,9 +217,8 @@ describe('renderBodyCells - BodyRow wrap branch vs column-first branch', () => {
     expect(out).toHaveLength(3)
   })
 
-  it('BodyRow branch: column-first vs BodyRow produce same cell count and same set of (colIdx,index) pairs', () => {
-    // 两种遍历顺序在 grid 显式定位下视觉等价：cell 集合相同
-    const colFirst = collectBodyCellElements(renderBodyCells<Row>({
+  it('default branch vs BodyRow produce same row-major sequence of (colIdx,index) pairs', () => {
+    const defaultCells = collectBodyCellElements(renderBodyCells<Row>({
       ...baseProps, leafColumns, dataSource,
     }))
     const BodyRow = (({ children }: any) => <>{children}</>) as unknown as React.ComponentType<any>
@@ -228,11 +227,9 @@ describe('renderBodyCells - BodyRow wrap branch vs column-first branch', () => {
       components: { body: { row: BodyRow } } as EngineTableProps<Row>['components'],
     }))
 
-    expect(colFirst).toHaveLength(rowFirst.length)
+    expect(defaultCells).toHaveLength(rowFirst.length)
     const sortKey = (c: ReactElement<Record<string, any>>) => `${c.props.colIdx}-${c.props.index}`
-    const colFirstKeys = colFirst.map(sortKey).sort()
-    const rowFirstKeys = rowFirst.map(sortKey).sort()
-    expect(rowFirstKeys).toEqual(colFirstKeys)
+    expect(rowFirst.map(sortKey)).toEqual(defaultCells.map(sortKey))
   })
 })
 
@@ -539,7 +536,7 @@ describe('renderBodyCells - data-known-size (colIdx===0 only)', () => {
 })
 
 describe('renderBodyCells - hover behavior', () => {
-  it('inline onHoverEnter/onHoverLeave call setHoveredRowIndex via DOM events (column-first branch)', () => {
+  it('inline onHoverEnter/onHoverLeave call setHoveredRowIndex via DOM events (row-major branch)', () => {
     const setHoveredRowIndex = vi.fn()
     const out = renderBodyCells<Row>({
       ...baseProps,

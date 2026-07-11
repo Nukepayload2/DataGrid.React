@@ -144,6 +144,50 @@ describe('ColumnCells (FlatColumnCells) - 基本渲染', () => {
     expect(screen.getByText('<<Ada>>')).toBeInTheDocument()
     expect(screen.getByText('<<Bob>>')).toBeInTheDocument()
   })
+
+  it('写入显式 gridColumn/gridRow，支持 row-major 调用方排序', () => {
+    const column: EngineLeafColumn<Row> = { key: 'age', dataIndex: 'age', title: 'Age' }
+    renderWithProvider(
+      <ColumnCells<Row>
+        column={column}
+        colIdx={1}
+        dataSource={ds}
+        rowKey="id"
+        showHeader
+        hoveredRowIndex={null}
+        onHoverRow={() => {}}
+      />,
+    )
+
+    expect(queryHeaderCells()[0]).toHaveStyle({ gridColumn: '2', gridRow: '1' })
+    const cells = queryBodyCells()
+    expect(cells[0]).toHaveStyle({ gridColumn: '2', gridRow: '2' })
+    expect(cells[1]).toHaveStyle({ gridColumn: '2', gridRow: '3' })
+    expect(cells[2]).toHaveStyle({ gridColumn: '2', gridRow: '4' })
+  })
+
+  it('bodyRowIndex 模式只渲染指定行并保留真实 row index / grid row', () => {
+    const column: EngineLeafColumn<Row> = { key: 'name', dataIndex: 'name', title: 'Name' }
+    renderWithProvider(
+      <ColumnCells<Row>
+        column={column}
+        colIdx={0}
+        dataSource={[ds[2]]}
+        rowKey="id"
+        showHeader={false}
+        hoveredRowIndex={null}
+        onHoverRow={() => {}}
+        bodyRowIndex={2}
+        bodyGridRowOffset={1}
+      />,
+    )
+
+    expect(queryHeaderCells()).toHaveLength(0)
+    expect(queryBodyCells()).toHaveLength(1)
+    expect(queryBodyCells()[0]).toHaveAttribute('data-row-index', '2')
+    expect(queryBodyCells()[0]).toHaveStyle({ gridColumn: '1', gridRow: '4' })
+    expect(screen.getByText('Cy')).toBeInTheDocument()
+  })
 })
 
 describe('ColumnCells - onSorterClick 使用 column.key（防回归守护）', () => {

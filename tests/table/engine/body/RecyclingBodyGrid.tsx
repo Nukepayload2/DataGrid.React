@@ -26,11 +26,13 @@ function Harness({
   start,
   end,
   tick = 0,
+  rows = dataSource,
 }: {
   columns: Array<EngineLeafColumn<Row>>
   start: number
   end: number
   tick?: number
+  rows?: Array<Row>
 }) {
   const gridRef = useRef<HTMLDivElement | null>(null)
   const [ready, setReady] = useState(false)
@@ -43,7 +45,7 @@ function Harness({
         <RecyclingBodyGrid<Row>
           gridRef={gridRef}
           leafColumns={columns}
-          dataSource={dataSource}
+          dataSource={rows}
           virtualState={{ start, end }}
           rowLineBase={(index) => index + 2}
           leafSticky={[] as Array<LeafStickyInfo | undefined>}
@@ -152,5 +154,48 @@ describe('RecyclingBodyGrid', () => {
 
     await waitFor(() => expect(cell).toHaveClass('dg-row-hover'))
     expect(renderCellElement).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps body cell DOM order row-major when the virtual window changes', async () => {
+    const columns: Array<EngineLeafColumn<Row>> = [
+      { key: 'name', dataIndex: 'name', gridColumnOptions: { renderCellElement: textRenderer } },
+      { key: 'age', dataIndex: 'age', gridColumnOptions: { renderCellElement: textRenderer } },
+    ]
+    const { rerender } = render(
+      <Harness columns={columns} start={0} end={2} />,
+    )
+
+    await waitFor(() => expect(screen.getByText('Bob')).toBeInTheDocument())
+    const grid = screen.getByTestId('grid')
+    const readOrder = () =>
+      Array.from(grid.querySelectorAll('.dg-cell-body')).map((cell) => cell.textContent)
+
+    expect(readOrder()).toEqual(['Ada', '30', 'Bob', '25'])
+
+    rerender(<Harness columns={columns} start={1} end={3} />)
+
+    await waitFor(() => expect(screen.getByText('Cy')).toBeInTheDocument())
+    expect(readOrder()).toEqual(['Bob', '25', 'Cy', '40'])
+  })
+
+  it('keeps body cell DOM order row-major when row identities reorder inside the same window', async () => {
+    const columns: Array<EngineLeafColumn<Row>> = [
+      { key: 'name', dataIndex: 'name', gridColumnOptions: { renderCellElement: textRenderer } },
+      { key: 'age', dataIndex: 'age', gridColumnOptions: { renderCellElement: textRenderer } },
+    ]
+    const { rerender } = render(
+      <Harness columns={columns} start={0} end={2} rows={[dataSource[0], dataSource[1]]} />,
+    )
+
+    await waitFor(() => expect(screen.getByText('Bob')).toBeInTheDocument())
+    const grid = screen.getByTestId('grid')
+    const readOrder = () =>
+      Array.from(grid.querySelectorAll('.dg-cell-body')).map((cell) => cell.textContent)
+
+    expect(readOrder()).toEqual(['Ada', '30', 'Bob', '25'])
+
+    rerender(<Harness columns={columns} start={0} end={2} rows={[dataSource[1], dataSource[0]]} />)
+
+    await waitFor(() => expect(readOrder()).toEqual(['Bob', '25', 'Ada', '30']))
   })
 })

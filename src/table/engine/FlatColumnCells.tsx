@@ -37,10 +37,10 @@ import {
 } from './headerCellUtils'
 
 /**
- * 单层表头快速路径：grid-auto-flow:column 整列渲染（ColumnCells）。
+ * 单层表头快速路径单元格渲染。
  *
  * 与 HeaderCell（多级路径）的区别：
- * - 表头格不嵌套在 HeaderGrid 中，而是与表体格混排在同一 grid 容器（grid-auto-flow:column）。
+ * - 表头格不嵌套在 HeaderGrid 中，而是与表体格混排在同一 grid 容器。
  * - 单层表头无分组，column.key === sortKey（collectLeaves 产物无 parentPath），
  *   故 onSorterClick 直接用 column.key。
  * - 表头分隔线排除靠 data-leaf-last（单层末列），多级路径靠 data-group-last。
@@ -121,9 +121,13 @@ interface ColumnCellsProps<RecordType> {
    * flat 路径与 multi 路径 BodyCell 同款。undefined 时不写 data-known-size。
    */
   effectiveRowHeight?: (index: number) => number
+  /** 只渲染指定数据行；用于让 GridTable 按 row-major 组织 flat 路径 DOM。 */
+  bodyRowIndex?: number
+  /** 表体数据行之前的 grid track 数量；showHeader=true 时为 1，否则为 0。 */
+  bodyGridRowOffset?: number
 }
 
-/** 单层路径（grid-auto-flow:column）的列渲染：表头格 + 每数据行格。
+/** 单层路径的列渲染单元：可渲染表头格，或一个指定数据行的 body 格。
  *
  * 对齐：格子始终 stretch 占满列宽（不设 justifySelf），文字/内容对齐仅靠
  * .dg-cell[data-align] 的 flex justify-content + 内联 textAlign（与 antd 一致：
@@ -164,9 +168,16 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
     isRowSelected,
     // 首列 cell 写 data-known-size（实测闭环）。
     effectiveRowHeight,
+    bodyRowIndex,
+    bodyGridRowOffset = showHeader ? 1 : 0,
     // Table 级 locale（透传到本表头格内的 FilterDropdown）。
     filterLocale,
   } = props
+  const bodyRows = bodyRowIndex === undefined
+    ? dataSource.map((record, localIndex) => ({ record, index: localIndex }))
+    : dataSource[0] === undefined
+      ? []
+      : [{ record: dataSource[0], index: bodyRowIndex }]
 
   // onHeaderCell 返回值（flat 路径表头格 props 注入）。
   //   column.onHeaderCell 来自叶子列；返回值整体合并到表头格 div props。与 multi 路径 HeaderCell 同款。
@@ -290,6 +301,8 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
                 : undefined
           }
           style={{
+            gridColumn: `${colIdx + 1}`,
+            gridRow: '1',
             ...(column.align ? { textAlign: column.align } : null),
             ...mergedHeaderSticky,
             // 语义化 header.cell 部位 style（合并覆盖同名字段）。
@@ -370,7 +383,7 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
         </div>
       ) : null}
 
-      {dataSource.map((record, index) => {
+      {bodyRows.map(({ record, index }) => {
         const text = getValueByDataIndex(record, column.dataIndex)
         const rendered: ReactNode = column.render
           ? column.render(text, record, index)
@@ -429,6 +442,8 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
             //   = paddingXS(4px)，区别于普通列 cellPaddingInline。详见 BodyCell 同款注释 + docs/design-notes/selection.md。
             data-column-key={column.key}
             style={{
+              gridColumn: `${colIdx + 1}`,
+              gridRow: `${bodyGridRowOffset + index + 1}`,
               ...(column.align ? { textAlign: column.align } : null),
               ...stickyCellStyle(sticky),
               // 语义化 body.row 部位 style（行级）。

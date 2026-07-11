@@ -6,7 +6,7 @@
  * 计算 6 个派生值：
  *   - gridTemplateRows：表头行 + 数据行（含 paddingTop/paddingBottom 占位 track、展开 track、summary track）拼接
  *   - gridTemplateColumns：列 track（委托 computeGridTemplateColumns，本 hook 只调用不改）
- *   - gridAutoFlow：单层 flat 路径用 'column'；multi / summary 启用时关闭（用显式 grid-column/grid-row 定位）
+ *   - gridAutoFlow：历史兼容字段，当前所有路径关闭 auto-flow（用显式 grid-column/grid-row 定位）
  *   - summaryStartLine：summary 区起始 1-based grid line（无 summary 时 0）
  *   - paddingTopLine / paddingBottomLine：FillerRow 占位 track 的 grid-row 起始线（虚拟模式专用）
  *
@@ -39,7 +39,7 @@ export interface GridLayoutSummaryParsedLike {
 
 /** useGridLayout 入参。所有字段语义与原 GridTable.tsx 内联 useMemo 块的闭包变量一一对应。 */
 export interface UseGridLayoutOptions<RecordType> {
-  /** 渲染模式（'flat' = grid-auto-flow:column；'multi' = 显式定位）。 */
+  /** 渲染模式（flat/multi 均使用显式定位；保留 mode 参与依赖与分支判断）。 */
   mode: 'flat' | 'multi'
   /** 表头最大层级（columnTree 解析得到；showHeader 时用于 headerTracks 数量）。 */
   maxDepth: number
@@ -97,7 +97,7 @@ export interface UseGridLayoutResult {
   gridTemplateRows: string
   /** grid-template-columns 字符串（委托 computeGridTemplateColumns）。 */
   gridTemplateColumns: string
-  /** grid-auto-flow 值（flat 路径 + 无 summary → 'column'；其余 undefined）。 */
+  /** grid-auto-flow 值（历史兼容字段；当前所有路径均显式定位）。 */
   gridAutoFlow: CSSProperties['gridAutoFlow']
   /** summary 区起始 1-based grid line（无 summary → 0）。 */
   summaryStartLine: number
@@ -243,14 +243,12 @@ export function useGridLayout<RecordType>(
     const paddingTopLine = headerTracks.length + 1
     const paddingBottomLine = headerTracks.length + bodyTracks.length
 
-    // 多级表头路径：关闭 auto-flow（用显式 grid-column/grid-row 定位）。
-    // 单层路径：保持 grid-auto-flow:column。
-    // summary 启用时强制关闭 auto-flow（用显式定位）——summary Cell 用 gridColumn/gridRow 显式定位，
-    // auto-flow:column 会导致表体格 DOM 按列连续填充时与 summary Cell 的显式定位冲突。
+    // 所有路径关闭 auto-flow，统一用显式 grid-column/grid-row 定位。
+    // 这让 DOM 顺序可以按 row-major 输出，避免浏览器原生文字选择按列穿透多行。
     return {
       gridTemplateRows: [...headerTracks, ...bodyTracks, ...summaryTracks].join(' ') || 'none',
       gridTemplateColumns,
-      gridAutoFlow: mode === 'multi' || summaryEnabled ? undefined : ('column' as const),
+      gridAutoFlow: undefined,
       summaryStartLine,
       paddingTopLine,
       paddingBottomLine,

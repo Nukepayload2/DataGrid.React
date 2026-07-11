@@ -7,7 +7,7 @@
  * 两条渲染路径：
  *
  * 1) **快速路径（flat）**：单层表头且无合并 / 虚拟 / 展开 / 树形 / summary / empty。
- *    使用 `grid-auto-flow:column`：每列 DOM 连续（表头格 + 每数据行格）。
+ *    使用显式 grid 定位，DOM 按表头行、数据行顺序输出。
  *
  * 2) **多级表头路径（multi）**：columnTree 提供且 maxDepth>1，或任一能力要求显式定位
  *    （合并 / 虚拟 / 展开 / 树形 / summary / empty / components.body.row）。
@@ -29,7 +29,7 @@
  * - 行 hover / 行选中 / 行 className → docs/design-notes/layout.md + selection.md
  *
  * 整行 hover — 详见 docs/design-notes/layout.md：
- * grid-auto-flow:column / 显式定位下"同行"DOM 都不连续，纯 CSS 无法关联整行；
+ * 显式定位下纯 CSS 无法关联整行；
  * 用 JS 方案——根组件持有 hoveredRowIndex state，命中行所有 body cell 加 `dg-row-hover` 类。
  */
 
@@ -63,6 +63,7 @@ import { useGridLayout } from './useGridLayout'
 import { useGridScrollSync } from './useGridScrollSync'
 import { HeaderGrid } from './HeaderGrid'
 import { parseSummaryNode } from './Summary'
+import { getRowKey } from './recordAccess'
 import type {
   EngineColumnNode,
   EngineHeaderCell,
@@ -738,52 +739,92 @@ function GridTableInner<RecordType = any>(
       )
     }
 
-    // 单层快速路径：grid-auto-flow:column，每列 DOM 连续。
+    // 单层快速路径：显式定位，DOM 按表头行、数据行顺序输出。
     // 注意：虚拟模式下不会走到这里（虚拟强制 multi）。
+    const flatBodyGridRowOffset = showHeader ? 1 : 0
+    const renderFlatColumnCells = ({
+      column,
+      colIdx,
+      keyPrefix,
+      bodyRowIndex,
+      dataSourceOverride,
+      showHeaderOverride,
+    }: {
+      column: EngineLeafColumn<RecordType>
+      colIdx: number
+      keyPrefix: string
+      bodyRowIndex?: number
+      dataSourceOverride: Array<RecordType>
+      showHeaderOverride: boolean
+    }) => (
+      <ColumnCells<RecordType>
+        key={`${keyPrefix}-${column.key}`}
+        column={column}
+        colIdx={colIdx}
+        // 表头分隔线排除：单层末列标记（对齐 antd `thead th:not(:last-child)::before`）— 详见 docs/design-notes/header.md。
+        //   单层无分组，仅需末列排除；多级路径由 columnTree.markLastLeaves 算 data-group-last。
+        isLastLeaf={colIdx === leafColumns.length - 1}
+        dataSource={dataSourceOverride}
+        rowKey={rowKey}
+        showHeader={showHeaderOverride}
+        hoveredRowIndex={hoveredRowIndex}
+        onHoverRow={setHoveredRowIndex}
+        sticky={leafSticky[colIdx]}
+        headerStickyTop={headerStickyTop}
+        stickyHeaderOffset={stickyHeaderOffset}
+        // flat 单行表头 → headerRowOffsets=[0]，表头格 top:0。
+        headerStickyTopOffset={headerRowOffsets[0] ?? 0}
+        resizeEnabled={resizeEnabled}
+        resizeSiblingKey={resizeSiblingByKey.get(column.key)}
+        onResizerPointerDown={onResizerPointerDown}
+        resizingKey={resizingKey}
+        onSorterClick={onSorterClick}
+        onFilterApply={onFilterApply}
+        semanticHeader={semantic?.header}
+        semanticBody={semantic?.body}
+        components={components}
+        // onHeaderRow / onRow / rowClassName 透传到 flat 路径的表头格 + 表体单元格（与 multi 路径同款接入）。
+        onHeaderRow={onHeaderRow}
+        onRow={onRow}
+        rowClassName={rowClassName}
+        rowHoverable={rowHoverable}
+        getPopupContainer={getPopupContainer}
+        headerColumns={headerColumns}
+        // 行选中态判定 → 加 dg-row-selected 类（详见 docs/design-notes/selection.md）。
+        isRowSelected={isRowSelected}
+        // 实测闭环：flat 路径表体首列写 data-known-size（与 multi 路径 BodyCell 同款）。
+        effectiveRowHeight={effectiveRowHeight}
+        bodyRowIndex={bodyRowIndex}
+        bodyGridRowOffset={flatBodyGridRowOffset}
+        // Table 级 locale 透传到表头格内的 FilterDropdown。
+        filterLocale={filterLocale}
+      />
+    )
     return (
       <div className={gridClassName} style={gridFinalStyleWithSemantic} ref={setGridNode}>
-        {leafColumns.map((column, colIdx) => (
-          <ColumnCells<RecordType>
-            key={column.key}
-            column={column}
-            colIdx={colIdx}
-            // 表头分隔线排除：单层末列标记（对齐 antd `thead th:not(:last-child)::before`）— 详见 docs/design-notes/header.md。
-            //   单层无分组，仅需末列排除；多级路径由 columnTree.markLastLeaves 算 data-group-last。
-            isLastLeaf={colIdx === leafColumns.length - 1}
-            dataSource={dataSource}
-            rowKey={rowKey}
-            showHeader={showHeader}
-            hoveredRowIndex={hoveredRowIndex}
-            onHoverRow={setHoveredRowIndex}
-            sticky={leafSticky[colIdx]}
-            headerStickyTop={headerStickyTop}
-            stickyHeaderOffset={stickyHeaderOffset}
-            // flat 单行表头 → headerRowOffsets=[0]，表头格 top:0。
-            headerStickyTopOffset={headerRowOffsets[0] ?? 0}
-            resizeEnabled={resizeEnabled}
-            resizeSiblingKey={resizeSiblingByKey.get(column.key)}
-            onResizerPointerDown={onResizerPointerDown}
-            resizingKey={resizingKey}
-            onSorterClick={onSorterClick}
-            onFilterApply={onFilterApply}
-            semanticHeader={semantic?.header}
-            semanticBody={semantic?.body}
-            components={components}
-            // onHeaderRow / onRow / rowClassName 透传到 flat 路径的表头格 + 表体单元格（与 multi 路径同款接入）。
-            onHeaderRow={onHeaderRow}
-            onRow={onRow}
-            rowClassName={rowClassName}
-            rowHoverable={rowHoverable}
-            getPopupContainer={getPopupContainer}
-            headerColumns={headerColumns}
-            // 行选中态判定 → 加 dg-row-selected 类（详见 docs/design-notes/selection.md）。
-            isRowSelected={isRowSelected}
-            // 实测闭环：flat 路径表体首列写 data-known-size（与 multi 路径 BodyCell 同款）。
-            effectiveRowHeight={effectiveRowHeight}
-            // Table 级 locale 透传到表头格内的 FilterDropdown。
-            filterLocale={filterLocale}
-          />
-        ))}
+        {showHeader
+          ? leafColumns.map((column, colIdx) =>
+              renderFlatColumnCells({
+                column,
+                colIdx,
+                keyPrefix: 'h',
+                dataSourceOverride: [],
+                showHeaderOverride: true,
+              }),
+            )
+          : null}
+        {dataSource.map((record, rowIndex) =>
+          leafColumns.map((column, colIdx) =>
+            renderFlatColumnCells({
+              column,
+              colIdx,
+              keyPrefix: `b-${getRowKey(record, rowKey) ?? rowIndex}`,
+              bodyRowIndex: rowIndex,
+              dataSourceOverride: [record],
+              showHeaderOverride: false,
+            }),
+          ),
+        )}
       </div>
     )
   }
