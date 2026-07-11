@@ -25,6 +25,7 @@ data-grid 通过 `tokens.css` 定义 `--dg-*` 变量，并在 `useTableThemeVars
 | `--dg-header-icon-color` / `--dg-header-icon-hover-color` | header icon color | 表头图标色 |
 | `--dg-primary-color` | `--ant-color-primary` | 主色 |
 | `--dg-resizer-color` | `--ant-color-primary` | 列宽拖拽手柄色 |
+| `--dg-scrollbar-thumb-active-bg` | `--ant-table-scroll-thumb-bg-hover` 经 25% `color-mix(..., transparent)` 派生 | 悬浮滚动条 hover / active / dragging 色 |
 
 ## getComponentToken 剪枝坑
 
@@ -39,6 +40,8 @@ antd `getComponentToken` 会**剪枝"默认值 === alias 同值"的 component to
 | `--ant-table-filter-dropdown-bg` | `colorBgContainer` | `--ant-color-bg-container` | 筛选下拉面板背景 |
 
 **规则**：消费前先核对 antd getComponentToken 是否会剪枝该键。公开 component token 可改消费存活 alias；antd Table 内部派生 token（如 `tableScrollThumbBgHover`）需要在 token bridge 中显式补齐同语义 CSS var。
+
+悬浮滚动条 active 态是一个例外的 data-grid 派生色：`--dg-scrollbar-thumb-active-bg` 不引入新的主题颜色源，而是从补齐后的 `--ant-table-scroll-thumb-bg-hover` 派生。25% 只是视觉权重，用来降低 `colorTextHeading` 直出时的存在感；主题配置仍只需要覆盖 antd Table / alias token。
 
 ## 链接色复刻（genLinkStyle）
 

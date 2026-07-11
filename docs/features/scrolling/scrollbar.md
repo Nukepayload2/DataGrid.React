@@ -61,7 +61,13 @@ thumb 默认色、hover 色、track 色和展开尺寸消费 data-grid 显式补
 | 展开尺寸 | `--ant-table-scroll-thumb-size` | `tableScrollThumbSize` | 同上，默认 8px。 |
 | 圆角 | `--ant-table-sticky-scroll-bar-border-radius` | （component token） | 非数字 alias 引用，未被剪枝 |
 
-active/hover 最终绘制色使用 `--dg-scrollbar-thumb-active-bg`：以 `--ant-table-scroll-thumb-bg-hover` 为底色，按 25% 与透明色混合，避免直接使用 `colorTextHeading` 显得过重。
+active/hover 最终绘制色使用 `--dg-scrollbar-thumb-active-bg`：
+
+```css
+color-mix(in srgb, var(--ant-table-scroll-thumb-bg-hover) 25%, transparent)
+```
+
+这里的 25% 是对 antd hover token 的混合权重，不是独立硬编码色。底色仍然来自 `tableScrollThumbBgHover` / `colorTextHeading`，因此亮暗主题和主题编辑器覆盖都会继续生效；最终 alpha 会随源 token 自身透明度变化。以 antd light 默认 `rgba(0,0,0,0.88)` 为例，25% 混合后实际约为 `rgba(0,0,0,0.22)`，避免 active 态过重。
 
 ## 页面级 sticky 的 fake scrollbar
 

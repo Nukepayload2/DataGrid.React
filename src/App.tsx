@@ -110,6 +110,10 @@ function App() {
   // 全局主题 store（单一真理源）。
   const { themeMode, setThemeMode } = useTheme()
   const isDark = themeMode === 'dark'
+  const headerBackground = isDark ? '#141414' : token.colorBgContainer
+  const headerColor = isDark ? '#fff' : token.colorText
+  const headerActiveBackground = isDark ? 'rgba(255,255,255,0.18)' : token.colorFillSecondary
+  const headerControlBackground = isDark ? 'rgba(255,255,255,0.15)' : token.colorFillTertiary
   // 全局虚拟化开关（单一真理源）。
   const { virtual, setVirtual } = useVirtualization()
 
@@ -252,8 +256,8 @@ function App() {
           gap: 16,
           paddingInline: 16,
           // Header 背景跟随全局主题。
-          background: isDark ? '#141414' : '#001529',
-          borderBottom: isDark ? '1px solid #303030' : 'none',
+          background: headerBackground,
+          borderBottom: `1px solid ${isDark ? '#303030' : token.colorBorderSecondary}`,
         }}
       >
         {/* 汉堡：折叠/展开 Sider */}
@@ -261,11 +265,11 @@ function App() {
           type="text"
           icon={<MenuOutlined />}
           onClick={() => setCollapsed((c) => !c)}
-          style={{ color: '#fff' }}
+          style={{ color: headerColor }}
         />
         <div
           style={{
-            color: '#fff',
+            color: headerColor,
             fontSize: 18,
             fontWeight: 600,
             whiteSpace: 'nowrap',
@@ -280,8 +284,8 @@ function App() {
           icon={<FileTextOutlined />}
           onClick={() => navigate('/docs')}
           style={{
-            color: '#fff',
-            background: view.kind === 'docs' ? 'rgba(255,255,255,0.18)' : undefined,
+            color: headerColor,
+            background: view.kind === 'docs' ? headerActiveBackground : undefined,
           }}
         >
           Docs
@@ -319,9 +323,8 @@ function App() {
             { label: '🌙 Dark', value: 'dark' },
           ]}
           style={{
-            // 顶栏是深色底，Segmented 自身用浅色块（无论 light/dark 模式都看得清）。
-            background: 'rgba(255,255,255,0.15)',
-            color: '#fff',
+            background: headerControlBackground,
+            color: headerColor,
           }}
         />
         {/* 顶栏全局虚拟化开关。 */}
