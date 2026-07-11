@@ -466,6 +466,8 @@ function TableInner<RecordType = any>(
         fireSelectionChange,
         rowKeyResolved,
         mergedLocale,
+        selectionAnchorKey,
+        setSelectionAnchorKey,
       )
     : null
   const expandNode =

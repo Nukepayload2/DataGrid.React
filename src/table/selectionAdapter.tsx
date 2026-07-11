@@ -148,6 +148,8 @@ export function buildSelectionColumnNode<RecordType>(
   ) => void,
   rowKeyResolved: string | ((record: RecordType) => string | number),
   locale: TableLocale,
+  selectionAnchorKey: React.Key | null = null,
+  setSelectionAnchorKey: (k: React.Key | null) => void = () => {},
 ): EngineColumnNode<RecordType> {
   const {
     columnWidth,
@@ -269,6 +271,8 @@ export function buildSelectionColumnNode<RecordType>(
             rowSel,
             fireSelectionChange,
             rowKeyResolved,
+            selectionAnchorKey,
+            setSelectionAnchorKey,
           )
           let result: SelectionRenderCellResult
           try {
@@ -306,10 +310,21 @@ export function buildSelectionColumnNode<RecordType>(
             aria-label={typeof name === 'string' && name ? name : undefined}
             onChange={(_checked, event) => {
               if (disabled || key === undefined) return
-              const next = selection.toggleRow(key)
-              fireSelectionChange(next, 'single', {
+              const nativeEvent = event.nativeEvent ?? event
+              const shiftKey = 'shiftKey' in nativeEvent && nativeEvent.shiftKey === true
+              const useRange = type === 'checkbox' && shiftKey && selectionAnchorKey !== null
+              const next = useRange
+                ? resolveSelectionRangeKeys(
+                    selection,
+                    selectionAnchorKey,
+                    key,
+                    _checked,
+                  )
+                : selection.toggleRow(key)
+              setSelectionAnchorKey(key)
+              fireSelectionChange(next, useRange ? 'multiple' : 'single', {
                 record,
-                nativeEvent: event.nativeEvent ?? event,
+                nativeEvent,
               })
             }}
           />
@@ -342,10 +357,21 @@ export function buildSelectionColumnNode<RecordType>(
           aria-label={typeof name === 'string' && name ? name : undefined}
           onChange={(_checked, event) => {
             if (disabled || key === undefined) return
-            const next = selection.toggleRow(key)
-            fireSelectionChange(next, 'single', {
+            const nativeEvent = event.nativeEvent ?? event
+            const shiftKey = 'shiftKey' in nativeEvent && nativeEvent.shiftKey === true
+            const useRange = type === 'checkbox' && shiftKey && selectionAnchorKey !== null
+            const next = useRange
+              ? resolveSelectionRangeKeys(
+                  selection,
+                  selectionAnchorKey,
+                  key,
+                  _checked,
+                )
+              : selection.toggleRow(key)
+            setSelectionAnchorKey(key)
+            fireSelectionChange(next, useRange ? 'multiple' : 'single', {
               record,
-              nativeEvent: event.nativeEvent ?? event,
+              nativeEvent,
             })
           }}
         />
@@ -371,6 +397,8 @@ function buildDefaultSelectionInput<RecordType>(
     trigger?: SelectionChangeTrigger<RecordType>,
   ) => void,
   _rowKeyResolved: string | ((record: RecordType) => string | number),
+  selectionAnchorKey: React.Key | null,
+  setSelectionAnchorKey: (k: React.Key | null) => void,
 ) {
   const disabled = selection.isDisabled(record)
   const indeterminate = selection.isIndeterminate(key)
@@ -385,12 +413,38 @@ function buildDefaultSelectionInput<RecordType>(
       aria-label={typeof name === 'string' && name ? name : undefined}
       onChange={(_checked, event) => {
         if (disabled) return
-        const next = selection.toggleRow(key)
-        fireSelectionChange(next, 'single', {
+        const nativeEvent = event.nativeEvent ?? event
+        const shiftKey = 'shiftKey' in nativeEvent && nativeEvent.shiftKey === true
+        const useRange = type === 'checkbox' && shiftKey && selectionAnchorKey !== null
+        const next = useRange
+          ? resolveSelectionRangeKeys(
+              selection,
+              selectionAnchorKey,
+              key,
+              _checked,
+            )
+          : selection.toggleRow(key)
+        setSelectionAnchorKey(key)
+        fireSelectionChange(next, useRange ? 'multiple' : 'single', {
           record,
-          nativeEvent: event.nativeEvent ?? event,
+          nativeEvent,
         })
       }}
     />
   )
+}
+
+function resolveSelectionRangeKeys<RecordType>(
+  selection: UseRowSelectionResult<RecordType>,
+  anchorKey: React.Key,
+  currentKey: React.Key,
+  selected: boolean,
+): Array<React.Key> {
+  const rangeKeys = getRangeKeys(selection.selectableKeys, anchorKey, currentKey)
+  const currentKeys = Array.from(selection.selectedKeySet)
+  if (selected) {
+    return Array.from(new Set<React.Key>([...currentKeys, ...rangeKeys]))
+  }
+  const rangeKeySet = new Set<React.Key>(rangeKeys)
+  return currentKeys.filter((key) => !rangeKeySet.has(key))
 }

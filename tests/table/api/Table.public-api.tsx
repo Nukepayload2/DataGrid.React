@@ -1,7 +1,7 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ConfigProvider } from 'antd'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { Key } from 'react'
 import { Table, type ColumnType, type TableProps, type TableRowSelection } from '../../../src/table/index'
 
@@ -285,6 +285,42 @@ describe('Table public API behavior', () => {
     const headerCheckbox = screen.getByRole('checkbox', { name: 'select all blocked' })
     expect(headerCheckbox).toBeDisabled()
     expect(selectionChanges).toHaveLength(0)
+  })
+
+  it('triggers rowSelection.onSelectMultiple from checkbox shift range selection', async () => {
+    const onSelectMultiple: NonNullable<TableRowSelection<Person>['onSelectMultiple']> = vi.fn()
+    const people = [
+      ...data,
+      { key: 'carol', name: 'Carol', age: 35 },
+      { key: 'dan', name: 'Dan', age: 41 },
+    ]
+
+    render(
+      <Table<Person>
+        columns={baseColumns}
+        dataSource={people}
+        pagination={false}
+        rowSelection={{
+          onSelectMultiple,
+        }}
+      />,
+    )
+
+    const checkboxes = screen.getAllByRole('checkbox')
+    fireEvent.click(checkboxes[1]!)
+    await waitFor(() => {
+      expect(checkboxes[1]).toBeChecked()
+    })
+    fireEvent.click(checkboxes[3]!, { shiftKey: true })
+
+    await waitFor(() => {
+      expect(onSelectMultiple).toHaveBeenCalledTimes(1)
+    })
+    expect(onSelectMultiple).toHaveBeenCalledWith(
+      true,
+      [people[0], people[1], people[2]],
+      [people[1], people[2]],
+    )
   })
 
   it('scrolls to first row on pagination changes by default and allows disabling it', async () => {

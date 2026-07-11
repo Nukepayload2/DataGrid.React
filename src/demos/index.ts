@@ -108,6 +108,15 @@ export const demos: DemoMeta[] = [
     category: '行选择',
   },
   {
+    name: 'row-selection-advanced',
+    title: 'Row Selection Advanced',
+    description:
+      'rowSelection.columnTitle / getTitleCheckboxProps / onCell / onSelectMultiple + 双栏对照。',
+    element: () => import('./row-selection-advanced'),
+    compare: true,
+    category: '行选择',
+  },
+  {
     name: 'row-selection-native',
     title: 'Row Selection Native',
     description:
@@ -230,6 +239,15 @@ export const demos: DemoMeta[] = [
     description:
       '分页集成 + placement 位置 + 双栏对照。',
     element: () => import('./pagination'),
+    compare: true,
+    category: '分页与远程',
+  },
+  {
+    name: 'scroll-to-first-row',
+    title: 'Scroll To First Row',
+    description:
+      'scroll.scrollToFirstRowOnChange：分页变化后滚回首行，可关闭 + 双栏对照。',
+    element: () => import('./scroll-to-first-row'),
     compare: true,
     category: '分页与远程',
   },
