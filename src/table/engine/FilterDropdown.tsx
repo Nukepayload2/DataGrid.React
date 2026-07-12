@@ -372,6 +372,9 @@ export function FilterDropdown({
     setTimeout(() => setOpen(false), 0)
   }, [])
 
+  const controlledOpen = dropdownProps?.open
+  const effectiveOpen = controlledOpen !== undefined ? controlledOpen : open
+
   // 下拉面板内容（Checkbox.Group / Radio.Group / Tree + 按钮）。
   // 不用 antd Menu 包装（Menu.Item 内嵌 Checkbox/Radio 视觉不佳），改用 popupRender 直接渲染自定义面板。
   // antd Dropdown v6：popupRender 返回 ReactNode 作为弹出层内容。
@@ -423,13 +426,21 @@ export function FilterDropdown({
       // 自定义面板不消费内置筛选项；保留为空数组兼容 antd demo 原样拷贝。
       filters: [],
       close: closeFn,
-      visible: open,
+      visible: effectiveOpen,
     }
     if (typeof customDropdown === 'function') {
       return customDropdown(antdCompatProps)
     }
     return customDropdown as React.ReactNode
-  }, [isCustom, customDropdown, localSelected, confirmFn, clearFiltersFn, closeFn, open])
+  }, [
+    isCustom,
+    customDropdown,
+    localSelected,
+    confirmFn,
+    clearFiltersFn,
+    closeFn,
+    effectiveOpen,
+  ])
 
   const panel = isCustom ? (
     <div
@@ -478,7 +489,6 @@ export function FilterDropdown({
   // - onOpenChange：handleOpenChange 内部已调用 dropdownProps.onOpenChange，这里只传 handleOpenChange。
   // - overlayClassName 合并到 classNames.root（v6 推荐方式）。
   // - getPopupContainer / align 透传。
-  const controlledOpen = dropdownProps?.open
   const dropdownOverlayClass = [
     'dg-filter-dropdown-overlay',
     dropdownProps?.overlayClassName,
@@ -505,7 +515,7 @@ export function FilterDropdown({
   return (
     <Dropdown
       trigger={['click']}
-      open={controlledOpen !== undefined ? controlledOpen : open}
+      open={effectiveOpen}
       onOpenChange={handleOpenChange}
       popupRender={() => panel}
       classNames={{ root: dropdownOverlayClass }}
