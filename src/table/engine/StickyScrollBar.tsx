@@ -221,8 +221,9 @@ export function StickyScrollBar({
       style={{
         position: 'sticky',
         bottom: `${offsetScroll}px`,
-        // 8px hit 区保留；thumb 的 2px/8px 折叠展开由 CSS 控制。
+        // 8px hit 区保留；用负 margin 抵消布局高度，使 sticky 横向条像 FloatingScrollBar 一样悬浮。
         height: 'var(--ant-table-scroll-thumb-size, 8px)',
+        marginTop: 'calc(var(--ant-table-scroll-thumb-size, 8px) * -1)',
         // z-index 6 高于表头 corner（z5），避免同级；几何不重叠时无视觉变化，防未来回归。
         zIndex: 6,
         // bar 宽度与 grid 对齐：grid 多宽 bar 多宽（gridRef 提供 grid 宽度参考）。

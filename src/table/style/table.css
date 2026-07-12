@@ -1051,14 +1051,12 @@ body.dg-scrollbar-pointer-capturing * {
   height: var(--ant-table-scroll-thumb-size, 8px);
 }
 
-/* 页面级 StickyScrollBar 使用 8px hit 区，默认只露出 2px 指示条。 */
+/* 页面级 StickyScrollBar 使用 8px hit 区，默认只露出 2px 指示条。
+   组件用负 margin 抵消布局高度，因此视觉上与 FloatingScrollBar 一样悬浮，不占一行。 */
 .dg-sticky-scroll-bar {
   background: transparent;
-  border-top: 0 solid transparent;
-  transition:
-    background-color 0.2s ease,
-    border-color 0.2s ease,
-    opacity 0.2s ease;
+  pointer-events: auto;
+  transition: opacity 0.2s ease;
 }
 
 .dg-sticky-scroll-bar-thumb {
@@ -1071,14 +1069,8 @@ body.dg-scrollbar-pointer-capturing * {
   cursor: pointer;
   transition:
     height 0.2s ease,
-    background-color 0.2s ease;
-}
-
-.dg-sticky-scroll-bar:hover,
-.dg-sticky-scroll-bar.dg-sticky-scroll-bar-dragging,
-.dg-wrapper.dg-scrollbar-no-expand .dg-sticky-scroll-bar {
-  background: var(--ant-table-scroll-bg, rgba(5, 5, 5, 0.06));
-  border-top: var(--ant-line-width, 1px) var(--ant-line-type, solid) var(--ant-table-border-color, #f0f0f0);
+    background-color 0.2s ease,
+    opacity 0.2s ease;
 }
 
 .dg-sticky-scroll-bar:hover .dg-sticky-scroll-bar-thumb,

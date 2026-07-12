@@ -364,4 +364,76 @@ describe('Table public API behavior', () => {
     await user.click(screen.getByRole('listitem', { name: '3' }))
     expect(nextScrollContainer!.scrollTop).toBe(120)
   })
+
+  it('supports JSX Column and ColumnGroup children when columns prop is omitted', () => {
+    render(
+      <Table<Person> dataSource={data} pagination={false}>
+        <Table.ColumnGroup<Person> title="Profile">
+          <Table.Column<Person> title="Name" dataIndex="name" key="name" />
+          <Table.Column<Person> title="Age" dataIndex="age" key="age" />
+        </Table.ColumnGroup>
+      </Table>,
+    )
+
+    expect(screen.getByText('Profile')).toBeInTheDocument()
+    expect(screen.getByText('Name')).toBeInTheDocument()
+    expect(screen.getByText('Bob')).toBeInTheDocument()
+    expect(screen.getByText('32')).toBeInTheDocument()
+  })
+
+  it('keeps explicit columns authoritative over JSX children', () => {
+    render(
+      <Table<Person> columns={baseColumns.slice(0, 1)} dataSource={data} pagination={false}>
+        <Table.Column<Person> title="Age" dataIndex="age" key="age" />
+      </Table>,
+    )
+
+    expect(screen.getByText('Name')).toBeInTheDocument()
+    expect(screen.queryByText('Age')).not.toBeInTheDocument()
+    expect(screen.getByText('Bob')).toBeInTheDocument()
+    expect(screen.queryByText('32')).not.toBeInTheDocument()
+  })
+
+  it('renders title, footer and summary from the current paged data', () => {
+    render(
+      <Table<Person>
+        columns={baseColumns}
+        dataSource={data}
+        pagination={{ pageSize: 1 }}
+        title={(rows) => `Rows ${rows.length}`}
+        footer={(rows) => `Footer ${rows.length}`}
+        summary={(pageData) => (
+          <Table.Summary>
+            <Table.Summary.Row>
+              <Table.Summary.Cell index={0}>
+                Summary {pageData.map((row) => row.name).join(',')}
+              </Table.Summary.Cell>
+            </Table.Summary.Row>
+          </Table.Summary>
+        )}
+      />,
+    )
+
+    expect(screen.getByText('Rows 2')).toBeInTheDocument()
+    expect(screen.getByText('Footer 2')).toBeInTheDocument()
+    expect(screen.getByText('Summary Bob')).toBeInTheDocument()
+    expect(document.querySelector('.dg-wrapper')).toHaveClass('dg-content-scrolled')
+  })
+
+  it('adds sticky and data-area wrapper classes from table-level props', () => {
+    render(
+      <div style={{ height: 240 }}>
+        <Table<Person>
+          columns={baseColumns}
+          dataSource={data}
+          pagination={false}
+          sticky
+          scroll={{ y: true }}
+        />
+      </div>,
+    )
+
+    expect(document.querySelector('.dg-wrapper')).toHaveClass('dg-sticky')
+    expect(document.querySelector('.dg-wrapper')).toHaveClass('dg-data-area')
+  })
 })

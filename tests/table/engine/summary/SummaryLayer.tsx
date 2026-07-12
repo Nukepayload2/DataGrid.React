@@ -36,6 +36,37 @@ describe('SummaryLayer', () => {
     })
   })
 
+  it('renders nothing when summary is missing or inline placement has no row line', () => {
+    expect(
+      SummaryLayer({
+        summary: null,
+        startLine: 1,
+        leafSticky: [],
+      }),
+    ).toBeNull()
+
+    expect(
+      SummaryLayer({
+        summary,
+        startLine: 0,
+        leafSticky: [],
+      }),
+    ).toBeNull()
+  })
+
+  it('renders inline summary rows at the requested grid line', () => {
+    const layer = SummaryLayer({
+      summary,
+      startLine: 4,
+      leafSticky: [],
+    }) as Array<ReactElement<Record<string, unknown>>>
+
+    expect(layer).toHaveLength(2)
+    expect(layer[0].props.__rowLine).toBe(4)
+    expect(layer[1].props.__rowLine).toBe(5)
+    expect(layer[0].props.__fixed).toBe(true)
+  })
+
   it('renders extracted summary as an independent grid', () => {
     const layer = SummaryLayer({
       summary,

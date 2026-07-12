@@ -21,13 +21,13 @@ import {
   theme as antdTheme,
 } from 'antd'
 import {
-  FileTextOutlined,
   HomeOutlined,
   MenuOutlined,
 } from '@ant-design/icons'
 import { demos } from './demos'
 import { groupByCategory, navigate, replaceHash, useHashRoute, useHashSearchParams } from './demos/registry'
 import HomePage from './HomePage'
+import DemoHomePage from './DemoHomePage'
 import DocsPage from './DocsPage'
 import CodeView from './CodeView'
 import { useDemoSource } from './useDemoSource'
@@ -66,6 +66,7 @@ for (const demo of demos) {
 
 type View =
   | { kind: 'home' }
+  | { kind: 'demosHome' }
   | { kind: 'demo'; name: string; title: string }
   | { kind: 'docs'; section?: string }
   | { kind: 'notFound' }
@@ -151,7 +152,6 @@ function App() {
   const isDark = themeMode === 'dark'
   const headerBackground = isDark ? '#141414' : token.colorBgContainer
   const headerColor = isDark ? '#fff' : token.colorText
-  const headerActiveBackground = isDark ? 'rgba(255,255,255,0.18)' : token.colorFillSecondary
   const headerControlBackground = isDark ? 'rgba(255,255,255,0.15)' : token.colorFillTertiary
   // 全局虚拟化开关（单一真理源）。
   const { virtual, setVirtual } = useVirtualization()
@@ -162,6 +162,8 @@ function App() {
   const [openKeys, setOpenKeys] = useState<string[]>([])
   // 主题编辑器 Modal 开关。
   const [themeModalOpen, setThemeModalOpen] = useState(false)
+  // 窄屏 docs 目录 Drawer 开关（Header 左侧汉堡触发）。
+  const [docsTocOpen, setDocsTocOpen] = useState(false)
   // 顶栏全局 demo 搜索输入。URL q 参数用于跳转后高亮，输入框跟随它同步。
   const [globalSearch, setGlobalSearch] = useState('')
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false)
@@ -172,6 +174,7 @@ function App() {
 
   const view = useMemo<View>(() => {
     if (segments.length === 0) return { kind: 'home' }
+    if (segments[0] === 'demos' && !segments[1]) return { kind: 'demosHome' }
     if (segments[0] === 'demos' && segments[1]) {
       const meta = demoByName.get(segments[1]) ?? demoByAlias.get(segments[1])
       if (meta) return { kind: 'demo', name: meta.name, title: meta.title }
@@ -197,8 +200,8 @@ function App() {
   const selectedKey =
     view.kind === 'home'
       ? '/'
-      : view.kind === 'docs'
-        ? '/docs'
+      : view.kind === 'demosHome'
+        ? '/demos'
         : view.kind === 'demo'
           ? `/demos/${view.name}`
           : ''
@@ -228,6 +231,7 @@ function App() {
     demoName && !isSplit ? demoName : undefined,
   )
   const splitSrc = useSplitDemoSource(isSplit ? demoName : undefined)
+  const isDemoArea = view.kind === 'demosHome' || view.kind === 'demo'
 
   useEffect(() => {
     setGlobalSearch(urlHighlight)
@@ -284,7 +288,7 @@ function App() {
   const groups = useMemo(() => groupByCategory(demos), [])
   const menuItems = useMemo(
     () => [
-      { key: '/', icon: <HomeOutlined />, label: '示例一览' },
+      { key: '/demos', icon: <HomeOutlined />, label: '示例一览' },
       { type: 'divider' as const },
       ...groups.map((g) => ({
         key: `cat::${g.category}`,
@@ -324,13 +328,24 @@ function App() {
           borderBottom: `1px solid ${isDark ? '#303030' : token.colorBorderSecondary}`,
         }}
       >
-        {/* 汉堡：折叠/展开 Sider */}
-        <Button
-          type="text"
-          icon={<MenuOutlined />}
-          onClick={() => setCollapsed((c) => !c)}
-          style={{ color: headerColor }}
-        />
+        {isDemoArea ? (
+          <Button
+            className="app-header-menu-button"
+            type="text"
+            icon={<MenuOutlined />}
+            onClick={() => setCollapsed((c) => !c)}
+            style={{ color: headerColor }}
+          />
+        ) : view.kind === 'docs' ? (
+          <Button
+            className="app-header-menu-button docs-header-menu-button"
+            type="text"
+            icon={<MenuOutlined />}
+            aria-label="打开文档目录"
+            onClick={() => setDocsTocOpen(true)}
+            style={{ color: headerColor }}
+          />
+        ) : null}
         <div
           style={{
             color: headerColor,
@@ -343,97 +358,93 @@ function App() {
         >
           data-grid
         </div>
-        <Button
-          type="text"
-          icon={<FileTextOutlined />}
-          onClick={() => navigate('/docs')}
-          style={{
-            color: headerColor,
-            background: view.kind === 'docs' ? headerActiveBackground : undefined,
-          }}
-        >
-          Docs
-        </Button>
 
-        <AutoComplete
-          value={globalSearch}
-          options={globalSearchOptions}
-          open={globalSearchOpen && globalSearchQuery.length > 0}
-          onChange={(value) => {
-            setGlobalSearch(value)
-            setGlobalSearchOpen(value.trim().length > 0)
-          }}
-          onFocus={() => setGlobalSearchOpen(globalSearchQuery.length > 0)}
-          onBlur={() => setGlobalSearchOpen(false)}
-          onSelect={(value) => goSearchResult(value)}
-          placeholder="搜索示例..."
-          allowClear
-          style={{ width: 320, maxWidth: '32vw' }}
-          notFoundContent={globalSearchQuery ? '没有匹配的示例' : null}
-          filterOption={false}
-        />
+        {isDemoArea ? (
+          <AutoComplete
+            className="app-demo-search"
+            value={globalSearch}
+            options={globalSearchOptions}
+            open={globalSearchOpen && globalSearchQuery.length > 0}
+            onChange={(value) => {
+              setGlobalSearch(value)
+              setGlobalSearchOpen(value.trim().length > 0)
+            }}
+            onFocus={() => setGlobalSearchOpen(globalSearchQuery.length > 0)}
+            onBlur={() => setGlobalSearchOpen(false)}
+            onSelect={(value) => goSearchResult(value)}
+            placeholder="搜索示例..."
+            allowClear
+            notFoundContent={globalSearchQuery ? '没有匹配的示例' : null}
+            filterOption={false}
+          />
+        ) : null}
 
         <div style={{ flex: 1 }} />
 
-        {/* 顶栏按钮打开主题编辑器 Modal。 */}
-        <Button onClick={() => setThemeModalOpen(true)}>主题编辑器</Button>
-
-        {/* 顶栏全局 dark/light 切换。 */}
         <Segmented
+          className="app-theme-switcher"
           value={themeMode}
           onChange={(val) => setThemeMode(val as ThemeMode)}
           options={[
-            { label: '☀ Light', value: 'light' },
-            { label: '🌙 Dark', value: 'dark' },
+            { label: 'Light', value: 'light' },
+            { label: 'Dark', value: 'dark' },
           ]}
           style={{
             background: headerControlBackground,
             color: headerColor,
           }}
         />
-        {/* 顶栏全局虚拟化开关。 */}
-        <Switch
-          checked={virtual}
-          onChange={setVirtual}
-          checkedChildren="Virtual"
-          unCheckedChildren="Virtual"
-        />
+
+        {isDemoArea ? (
+          <div className="app-demo-actions">
+            <Button onClick={() => setThemeModalOpen(true)}>主题编辑器</Button>
+            <Switch
+              checked={virtual}
+              onChange={setVirtual}
+              checkedChildren="Virtual"
+              unCheckedChildren="Virtual"
+            />
+          </div>
+        ) : null}
       </Header>
-      <Layout hasSider style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        <Sider
-          className="app-sider"
-          collapsible
-          collapsed={collapsed}
-          onCollapse={setCollapsed}
-          width={220}
-          collapsedWidth={64}
-          theme={isDark ? 'dark' : 'light'}
-          trigger={null}
-        >
-          <Menu
-            mode="inline"
-            inlineCollapsed={collapsed}
+      <Layout hasSider={isDemoArea} style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        {isDemoArea ? (
+          <Sider
+            className="app-sider"
+            collapsible
+            collapsed={collapsed}
+            onCollapse={setCollapsed}
+            width={220}
+            collapsedWidth={64}
             theme={isDark ? 'dark' : 'light'}
-            selectedKeys={selectedKey ? [selectedKey] : []}
-            openKeys={openKeys}
-            onOpenChange={setOpenKeys}
-            onClick={({ key }) => navigate(key)}
-            items={menuItems}
-            style={{ height: '100%', overflowY: 'auto', overflowX: 'hidden', borderInlineEnd: 0 }}
-          />
-        </Sider>
+            trigger={null}
+          >
+            <Menu
+              mode="inline"
+              inlineCollapsed={collapsed}
+              theme={isDark ? 'dark' : 'light'}
+              selectedKeys={selectedKey ? [selectedKey] : []}
+              openKeys={openKeys}
+              onOpenChange={setOpenKeys}
+              onClick={({ key }) => navigate(key)}
+              items={menuItems}
+              style={{ height: '100%', overflowY: 'auto', overflowX: 'hidden', borderInlineEnd: 0 }}
+            />
+          </Sider>
+        ) : null}
         <Content
           className={view.kind === 'docs' ? 'app-content app-content-docs' : 'app-content'}
-          style={{ padding: view.kind === 'docs' ? '0 24px 24px' : 24, overflow: 'auto' }}
+          style={{ paddingInline: 24, overflow: 'auto' }}
         >
           {view.kind === 'home' ? <HomePage /> : null}
+          {view.kind === 'demosHome' ? <DemoHomePage /> : null}
 
           {view.kind === 'demo' && DemoComp ? (
-            <div>
+            <div className="demo-page">
               <Breadcrumb
                 style={{ marginBottom: 16 }}
                 items={[
-                  { title: <Link onClick={() => navigate('/')}>首页</Link> },
+                  { title: <Link onClick={() => navigate('/demos')}>示例一览</Link> },
                   {
                     title: (
                       <HighlightText
@@ -524,7 +535,13 @@ function App() {
             </div>
           ) : null}
 
-          {view.kind === 'docs' ? <DocsPage section={view.section} /> : null}
+          {view.kind === 'docs' ? (
+            <DocsPage
+              section={view.section}
+              tocOpen={docsTocOpen}
+              onTocOpenChange={setDocsTocOpen}
+            />
+          ) : null}
 
           {view.kind === 'notFound' ? (
             <div style={{ textAlign: 'center', paddingTop: 64 }}>

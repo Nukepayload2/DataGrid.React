@@ -67,6 +67,84 @@ describe('FilterDropdown trigger integration', () => {
   })
 })
 
+describe('FilterDropdown builtin dropdown integration', () => {
+  it('filters builtin menu items through default search text', async () => {
+    renderFilterDropdown({
+      filterSearch: true,
+      dropdownProps: { open: true },
+    })
+
+    const search = await screen.findByPlaceholderText('Search in filters')
+    expect(screen.getByText('London')).toBeInTheDocument()
+    expect(screen.getByText('New York')).toBeInTheDocument()
+
+    fireEvent.change(search, { target: { value: '  lon  ' } })
+
+    await waitFor(() => {
+      expect(screen.getByText('London')).toBeInTheDocument()
+      expect(screen.queryByText('New York')).not.toBeInTheDocument()
+    })
+  })
+
+  it('applies checked builtin menu values from OK and reset clears the draft', async () => {
+    const { onApply } = renderFilterDropdown({
+      filteredValue: ['london'],
+      dropdownProps: { open: true },
+    })
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Reset' }))
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+
+    expect(onApply).toHaveBeenCalledWith([])
+  })
+
+  it('applies single-select radio menu values', async () => {
+    const { onApply } = renderFilterDropdown({
+      filterMultiple: false,
+      dropdownProps: { open: true },
+    })
+
+    fireEvent.click(await screen.findByRole('radio', { name: 'New York' }))
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+
+    expect(onApply).toHaveBeenCalledWith(['ny'])
+  })
+
+  it('uses locale filterEmptyText for empty builtin filters', async () => {
+    renderFilterDropdown({
+      filters: [],
+      locale: { filterEmptyText: 'No column filters' },
+      dropdownProps: { open: true },
+    })
+
+    expect(await screen.findByText('No column filters')).toBeInTheDocument()
+  })
+
+  it('normalizes single-select tree checks before applying', async () => {
+    const { onApply } = renderFilterDropdown({
+      filters: [
+        {
+          text: 'Europe',
+          value: 'eu',
+          children: [{ text: 'London', value: 'london' }],
+        },
+      ],
+      filterMode: 'tree',
+      filterMultiple: false,
+      dropdownProps: { open: true },
+    })
+
+    expect(await screen.findByText('Europe')).toBeInTheDocument()
+    const treeCheckboxes = document.querySelectorAll('.ant-tree-checkbox')
+    expect(treeCheckboxes.length).toBeGreaterThanOrEqual(2)
+
+    fireEvent.click(treeCheckboxes[1]!)
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+
+    expect(onApply).toHaveBeenCalledWith(['london'])
+  })
+})
+
 describe('FilterDropdown custom dropdown integration', () => {
   it('passes antd-compatible custom dropdown props and confirms selected keys', async () => {
     let latestProps: DgFilterDropdownProps | null = null
