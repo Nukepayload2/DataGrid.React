@@ -12,7 +12,7 @@
  * pointerup 释放 capture。默认 min=30（防拖到 0），max=Infinity。
  */
 
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { ColumnResizeMode } from './resizeColumnUtils'
 import { computeColumnResize } from './resizeColumnUtils'
 
@@ -39,6 +39,17 @@ export interface UseColumnResizeOptions {
    * - ResizeSibling：拖拽分隔线同时改变左右相邻列宽，总宽不变。
    */
   mode?: ColumnResizeMode
+  /** 拖拽过程中列宽变化回调。 */
+  onResize?: (params: ColumnResizeCallbackParams) => void
+  /** 拖拽结束时列宽变化回调。 */
+  onResizeEnd?: (params: ColumnResizeCallbackParams) => void
+}
+
+export interface ColumnResizeCallbackParams {
+  key: string
+  width: number
+  siblingKey?: string
+  siblingWidth?: number
 }
 
 export interface UseColumnResizeResult {
@@ -81,6 +92,8 @@ export function useColumnResize(
     minWidth = DEFAULT_MIN_WIDTH,
     maxWidth = Infinity,
     mode = 'ResizeLeft',
+    onResize,
+    onResizeEnd,
   } = options
 
   // 用户拖拽后的列宽映射（key → px）。每次拖拽 move 都会 setState（新 Map），驱动重渲染。
@@ -98,9 +111,36 @@ export function useColumnResize(
     startClientX: number
     startWidth: number
     siblingStartWidth?: number
+    currentWidth: number
+    siblingCurrentWidth?: number
     pointerId: number
-    // 当前 move 计算出的最新宽度（pointerup 时无需再读，已在 state 中）
   } | null>(null)
+  const dragListenerRef = useRef<{
+    element: HTMLElement
+    nativeMove: (e: PointerEvent) => void
+    nativeUp: (e: PointerEvent) => void
+  } | null>(null)
+
+  useEffect(() => {
+    return () => {
+      const dragListeners = dragListenerRef.current
+      if (dragListeners) {
+        const drag = dragRef.current
+        if (drag) {
+          try {
+            dragListeners.element.releasePointerCapture(drag.pointerId)
+          } catch {
+            // ignore
+          }
+        }
+        dragListeners.element.removeEventListener('pointermove', dragListeners.nativeMove)
+        dragListeners.element.removeEventListener('pointerup', dragListeners.nativeUp)
+        dragListeners.element.removeEventListener('pointercancel', dragListeners.nativeUp)
+      }
+      dragListenerRef.current = null
+      dragRef.current = null
+    }
+  }, [])
 
   const resolveMin = useCallback(
     (key: string): number =>
@@ -159,6 +199,8 @@ export function useColumnResize(
         startClientX: event.clientX,
         startWidth,
         siblingStartWidth,
+        currentWidth: startWidth,
+        siblingCurrentWidth: siblingStartWidth,
         pointerId,
       }
       setResizingKey(key)
@@ -184,6 +226,8 @@ export function useColumnResize(
         })
         const next = resize.width
         const siblingNext = resize.siblingWidth
+        drag.currentWidth = next
+        drag.siblingCurrentWidth = siblingNext
         setResizedWidths((prev) => {
           const m = new Map(prev)
           m.set(drag.key, next)
@@ -191,6 +235,12 @@ export function useColumnResize(
             m.set(drag.siblingKey, siblingNext)
           }
           return m
+        })
+        onResize?.({
+          key: drag.key,
+          width: next,
+          siblingKey: drag.siblingKey,
+          siblingWidth: siblingNext,
         })
       }
       const nativeUp = (e: PointerEvent) => {
@@ -204,14 +254,26 @@ export function useColumnResize(
         el.removeEventListener('pointermove', nativeMove)
         el.removeEventListener('pointerup', nativeUp)
         el.removeEventListener('pointercancel', nativeUp)
+        onResizeEnd?.({
+          key: drag.key,
+          width: drag.currentWidth,
+          siblingKey: drag.siblingKey,
+          siblingWidth: drag.siblingCurrentWidth,
+        })
         dragRef.current = null
+        dragListenerRef.current = null
         setResizingKey(null)
       }
       el.addEventListener('pointermove', nativeMove)
       el.addEventListener('pointerup', nativeUp)
       el.addEventListener('pointercancel', nativeUp)
+      dragListenerRef.current = {
+        element: el,
+        nativeMove,
+        nativeUp,
+      }
     },
-    [enabled, mode, resolveMin, resolveMax],
+    [enabled, mode, resolveMin, resolveMax, onResize, onResizeEnd],
   )
 
   return { resizedWidths, resizingKey, onPointerDown }

@@ -370,6 +370,90 @@ describe('useSelectionAdapter', () => {
       expect(onSelectedValuesChange.mock.calls[0][0]).toEqual(['a', 'c'])
       expect(onSelectedValuesChange.mock.calls[0][2]).toEqual({ type: 'multiple' })
     })
+
+    it('native 非受控：fireSelectionChange 写入 selectedValues 并映射回 effectiveSelectedKeys', () => {
+      const { result } = renderAdapter({
+        gridSelection: {
+          selectionMode: 'multiple',
+          getSelectionValue: (rec) => `v-${rec.key}`,
+        },
+      })
+      act(() => {
+        result.current.fireSelectionChange(['a', 'c'], 'multiple')
+      })
+      expect(result.current.effectiveSelectedKeys).toEqual(['a', 'c'])
+    })
+
+    it('native 受控 selectedValues：fireSelectionChange 不写内部 state，但仍按业务 value 分发', () => {
+      const onSelectedValuesChange = vi.fn()
+      const { result } = renderAdapter({
+        gridSelection: {
+          selectionMode: 'multiple',
+          selectedValues: ['v-a'],
+          getSelectionValue: (rec) => `v-${rec.key}`,
+          onSelectedValuesChange,
+        },
+      })
+      act(() => {
+        result.current.fireSelectionChange(['a', 'b'], 'multiple')
+      })
+      expect(result.current.effectiveSelectedKeys).toEqual(['a'])
+      expect(onSelectedValuesChange.mock.calls[0][0]).toEqual(['v-a', 'v-b'])
+    })
+
+    it('trigger.record 取消选中 → onSelect selected=false 且 nativeEvent 原样透传', () => {
+      const onSelect = vi.fn()
+      const ev = new Event('change')
+      const { result } = renderAdapter({
+        rowSelection: {
+          selectedRowKeys: ['a', 'b'],
+          onSelect,
+        } as TableRowSelection<Rec>,
+      })
+      act(() => {
+        result.current.fireSelectionChange(['a'], 'single', {
+          record: flatData[1],
+          nativeEvent: ev,
+        })
+      })
+      expect(onSelect).toHaveBeenCalledWith(flatData[1], false, [flatData[0]], ev)
+    })
+
+    it('method=multiple 无 trigger 时根据 changeRows 推导 selected=false', () => {
+      const onSelectMultiple = vi.fn()
+      const { result } = renderAdapter({
+        rowSelection: {
+          selectedRowKeys: ['a', 'b'],
+          onSelectMultiple,
+        } as TableRowSelection<Rec>,
+      })
+      act(() => {
+        result.current.fireSelectionChange(['a'], 'multiple')
+      })
+      expect(onSelectMultiple).toHaveBeenCalledWith(false, [flatData[0]], [flatData[1]])
+    })
+  })
+
+  describe('disabled row selection state', () => {
+    it('resolved selection excludes disabled rows from changeable keys but preserves controlled checked keys', () => {
+      const dataWithDisabled: Array<Rec> = [
+        { key: 'a' },
+        { key: 'b', disabled: true },
+        { key: 'c' },
+      ]
+      const { result } = renderAdapter({
+        rowSelection: {
+          selectedRowKeys: ['b'],
+          getCheckboxProps: (record) => ({ disabled: record.disabled }),
+        } as TableRowSelection<Rec>,
+        flattenedDataSource: dataWithDisabled,
+      })
+
+      expect(result.current.effectiveSelectedKeys).toEqual(['b'])
+      expect(result.current.selection.selectableKeys).toEqual(['a', 'c'])
+      expect(result.current.selection.isDisabled(dataWithDisabled[1])).toBe(true)
+      expect(result.current.selection.toggleAll()).toEqual(['b', 'a', 'c'])
+    })
   })
 
   describe('preserveSelectedRowKeys 过滤', () => {

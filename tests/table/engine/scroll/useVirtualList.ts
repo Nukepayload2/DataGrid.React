@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { act, renderHook, waitFor } from '@testing-library/react'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   applySizeRanges,
   initialRowSizeState,
 } from '../../../../src/table/engine/rowSizeSystem'
+import { useVirtualList } from '../../../../src/table/engine/useVirtualList'
 import {
   computeScrollTarget,
   computeVirtualRange,
@@ -25,6 +27,67 @@ function measurements(count: number, size: number): Array<VirtualRowMeasurement>
   }
   return out
 }
+
+function createScrollElement(options: {
+  clientHeight: number
+  scrollHeight: number
+  scrollTop?: number
+}): HTMLDivElement {
+  const el = document.createElement('div')
+  let scrollTop = options.scrollTop ?? 0
+  Object.defineProperty(el, 'clientHeight', {
+    configurable: true,
+    get: () => options.clientHeight,
+  })
+  Object.defineProperty(el, 'scrollHeight', {
+    configurable: true,
+    get: () => options.scrollHeight,
+  })
+  Object.defineProperty(el, 'scrollTop', {
+    configurable: true,
+    get: () => scrollTop,
+    set: (value: number) => {
+      scrollTop = value
+    },
+  })
+  el.scrollTo = vi.fn((arg: ScrollToOptions | number, y?: number) => {
+    if (typeof arg === 'number') {
+      scrollTop = y ?? arg
+    } else {
+      scrollTop = arg.top ?? scrollTop
+    }
+  })
+  document.body.appendChild(el)
+  return el
+}
+
+function refOf<T extends HTMLElement>(current: T): React.RefObject<T> {
+  return { current }
+}
+
+function mockQueuedRaf(): { flush: () => void } {
+  const callbacks: FrameRequestCallback[] = []
+  vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((callback) => {
+    callbacks.push(callback)
+    return callbacks.length
+  })
+  vi.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation(() => {})
+  return {
+    flush: () => {
+      while (callbacks.length > 0) {
+        const callback = callbacks.shift()!
+        act(() => {
+          callback(performance.now())
+        })
+      }
+    },
+  }
+}
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+})
 
 describe('useVirtualList pure helpers / findNearestIndex', () => {
   it('finds the row containing a fallback offset', () => {
@@ -200,5 +263,184 @@ describe('useVirtualList pure helpers / computeScrollTarget', () => {
   it('returns null when no target can be resolved', () => {
     expect(computeScrollTarget({ ...base, itemCount: 0, index: 0 })).toBeNull()
     expect(computeScrollTarget({ ...base })).toBeNull()
+  })
+})
+
+describe('useVirtualList hook', () => {
+  it('publishes the initial viewport and updates range on scroll events', async () => {
+    mockQueuedRaf()
+    const el = createScrollElement({ clientHeight: 60, scrollHeight: 400 })
+    const containerRef = refOf(el)
+    const { result } = renderHook(() =>
+      useVirtualList({
+        itemCount: 20,
+        getRowHeight: () => 20,
+        containerRef,
+        overscan: 1,
+      }),
+    )
+
+    expect(result.current.viewportSize).toBe(60)
+    expect(result.current.scrollTop).toBe(0)
+    expect(result.current.start).toBe(0)
+    expect(result.current.end).toBe(4)
+
+    act(() => {
+      el.scrollTop = 80
+      el.dispatchEvent(new Event('scroll'))
+    })
+
+    expect(result.current.scrollTop).toBe(80)
+    expect(result.current.start).toBe(3)
+    expect(result.current.end).toBe(8)
+    expect(result.current.isScrolling).toBe(true)
+    expect(result.current.scrollDirection).toBe('down')
+
+    await waitFor(() => {
+      expect(result.current.scrollDirection).toBe('none')
+    })
+
+    await waitFor(() => {
+      expect(result.current.isScrolling).toBe(false)
+    })
+  })
+
+  it('returns the full range while disabled and skips scroll observation', () => {
+    const el = createScrollElement({ clientHeight: 60, scrollHeight: 400 })
+    const addEventListenerSpy = vi.spyOn(el, 'addEventListener')
+    const containerRef = refOf(el)
+    const { result } = renderHook(() =>
+      useVirtualList({
+        itemCount: 20,
+        getRowHeight: () => 20,
+        containerRef,
+        enabled: false,
+      }),
+    )
+
+    expect(result.current.start).toBe(0)
+    expect(result.current.end).toBe(20)
+    expect(result.current.viewportSize).toBe(0)
+    expect(addEventListenerSpy).not.toHaveBeenCalled()
+  })
+
+  it('scrolls immediately to explicit offsets and row indexes', () => {
+    mockQueuedRaf()
+    const el = createScrollElement({ clientHeight: 60, scrollHeight: 400 })
+    const containerRef = refOf(el)
+    const { result } = renderHook(() =>
+      useVirtualList({
+        itemCount: 20,
+        getRowHeight: () => 20,
+        containerRef,
+        overscan: 1,
+      }),
+    )
+
+    act(() => {
+      result.current.scrollTo({ scrollTop: 500 })
+    })
+    expect(el.scrollTop).toBe(340)
+    expect(result.current.scrollTop).toBe(340)
+
+    act(() => {
+      result.current.scrollTo({ index: 3, align: 'start', offset: 5 })
+    })
+    expect(el.scrollTop).toBe(65)
+    expect(result.current.scrollTop).toBe(65)
+  })
+
+  it('keeps nearest row scroll requests as no-ops when already visible', () => {
+    mockQueuedRaf()
+    const el = createScrollElement({ clientHeight: 80, scrollHeight: 400 })
+    const containerRef = refOf(el)
+    const { result } = renderHook(() =>
+      useVirtualList({
+        itemCount: 20,
+        getRowHeight: () => 20,
+        containerRef,
+      }),
+    )
+
+    act(() => {
+      result.current.scrollTo({ index: 2, align: 'nearest' })
+    })
+
+    expect(el.scrollTop).toBe(0)
+    expect(result.current.scrollTop).toBe(0)
+  })
+
+  it('uses measured row sizes when row measurement reports changes', () => {
+    const el = createScrollElement({ clientHeight: 80, scrollHeight: 500 })
+    const raf = mockQueuedRaf()
+    const containerRef = refOf(el)
+    const rows = [30, 30, 50]
+    rows.forEach((height, index) => {
+      const row = document.createElement('div')
+      row.dataset.rowIndex = String(index)
+      row.dataset.knownSize = '20'
+      Object.defineProperty(row, 'offsetHeight', {
+        configurable: true,
+        get: () => height,
+      })
+      Object.defineProperty(row, 'offsetParent', {
+        configurable: true,
+        get: () => el,
+      })
+      el.appendChild(row)
+    })
+
+    const { result } = renderHook(() =>
+      useVirtualList({
+        itemCount: 3,
+        getRowHeight: () => 20,
+        containerRef,
+        gap: 2,
+      }),
+    )
+
+    raf.flush()
+
+    expect(result.current.sizeOf(0)).toBe(30)
+    expect(result.current.sizeOf(2)).toBe(50)
+    expect(result.current.totalSize).toBe(116)
+  })
+
+  it('marks smooth scroll as in progress and clears it after the animation completes', () => {
+    const el = createScrollElement({ clientHeight: 60, scrollHeight: 400 })
+    const containerRef = refOf(el)
+    const rafCallbacks: FrameRequestCallback[] = []
+    vi.spyOn(globalThis, 'requestAnimationFrame').mockImplementation((callback) => {
+      rafCallbacks.push(callback)
+      return rafCallbacks.length
+    })
+    vi.spyOn(globalThis, 'cancelAnimationFrame').mockImplementation(() => {})
+
+    const { result } = renderHook(() =>
+      useVirtualList({
+        itemCount: 20,
+        getRowHeight: () => 20,
+        containerRef,
+      }),
+    )
+
+    act(() => {
+      result.current.scrollTo({ index: 10, behavior: 'smooth' })
+    })
+    expect(result.current.scrollingInProgress).toBe(true)
+
+    while (rafCallbacks.length > 0) {
+      const callback = rafCallbacks.shift()!
+      act(() => {
+        callback(performance.now())
+      })
+    }
+
+    act(() => {
+      el.dispatchEvent(new Event('scroll'))
+    })
+
+    expect(el.scrollTop).toBe(200)
+    expect(result.current.scrollingInProgress).toBe(false)
   })
 })
