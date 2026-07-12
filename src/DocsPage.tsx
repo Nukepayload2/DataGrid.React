@@ -296,7 +296,7 @@ export default function DocsPage({ section }: { section?: string }) {
             </Paragraph>
             <Paragraph>
               虚拟滚动面向 Excel 级数据规模优化，可选 HTML 元素渲染模式突破 React
-              渲染瓶颈。在 <a href="#/demos/virtual-list-recycling">1048576 行 17 列</a>{' '}
+              渲染瓶颈。在 <a href="#/demos/dom-recycled-virtual-list">1048576 行 17 列</a>{' '}
               数据上快速不间断滚动时，约 40 FPS。
             </Paragraph>
             <Paragraph type="secondary" style={{ fontSize: 12, marginTop: -4 }}>

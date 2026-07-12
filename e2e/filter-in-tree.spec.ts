@@ -7,7 +7,7 @@ test('filter-in-tree loads + applying filter changes row count + clean console',
     if (m.type() === 'error') errors.push(m.text())
   })
 
-  await page.goto('/#/demos/filter-in-tree')
+  await page.goto('/#/demos/tree-filter')
   await expect(page.locator('.dg-wrapper')).toBeVisible()
 
   const leftPane = page.locator('.dg-compare__pane').first()

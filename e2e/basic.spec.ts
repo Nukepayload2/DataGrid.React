@@ -7,7 +7,7 @@ test('basic loads + table visible + clean console', async ({ page }) => {
     if (m.type() === 'error') errors.push(m.text())
   })
 
-  await page.goto('/#/demos/basic')
+  await page.goto('/#/demos/basic-table')
   await expect(page.locator('.dg-wrapper')).toBeVisible()
 
   // Confirm chrome version for the record (driven via executablePath)

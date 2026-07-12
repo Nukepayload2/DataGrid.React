@@ -1,7 +1,7 @@
 /** live 源码编辑器，负责编辑、应用、重置和编译/执行错误展示。 */
-import { useEffect, useState, type CSSProperties, type ComponentType } from 'react'
+import { useEffect, useState, type ComponentType } from 'react'
 import { Alert, Button } from 'antd'
-import { themes } from 'prism-react-renderer'
+import CodeMirrorEditor from '../code/CodeMirrorEditor'
 import { useTheme } from '../theme/ThemeContext'
 
 /** 应用回调的载荷：成功传组件、失败传错误、重置传 (null,null)。 */
@@ -21,17 +21,6 @@ export interface LiveEditorProps {
   onApply: (Comp: ComponentType<Record<string, unknown>> | null, error: string | null) => void
 }
 
-// textarea 与高亮层必须共享排版字段，才能保持字符对齐。
-const editorTypeStyle: CSSProperties = {
-  margin: 0,
-  padding: '12px 12px',
-  fontSize: 13,
-  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-  lineHeight: 1.6,
-  whiteSpace: 'pre',
-  tabSize: 2,
-}
-
 export default function LiveEditor({
   initialCode,
   title,
@@ -39,10 +28,6 @@ export default function LiveEditor({
   onApply,
 }: LiveEditorProps) {
   const { themeMode } = useTheme()
-  const isDark = themeMode === 'dark'
-  const prismTheme = isDark ? themes.vsDark : themes.oneLight
-  const plainColor = prismTheme.plain.color ?? (isDark ? '#d4d4d4' : '#393a34')
-
   const [code, setCode] = useState(initialCode)
   // 切换 demo 时同步编辑器内容，避免沿用上一个 demo 的本地 state。
   useEffect(() => {
@@ -112,35 +97,13 @@ export default function LiveEditor({
         </div>
       </div>
 
-      <div
-        style={{
-          position: 'relative',
-          borderRadius: 8,
-          background: prismTheme.plain.backgroundColor,
-        }}
-      >
-        <textarea
-          value={code}
-          onChange={(e) => setCode(e.target.value)}
-          spellCheck={false}
-          autoCapitalize="off"
-          autoCorrect="off"
-          wrap="off"
-          style={{
-            ...editorTypeStyle,
-            display: 'block',
-            width: '100%',
-            height: 360,
-            resize: 'vertical',
-            border: 'none',
-            outline: 'none',
-            color: plainColor,
-            backgroundColor: 'transparent',
-            caretColor: isDark ? '#fff' : '#000',
-            overflow: 'auto',
-          }}
-        />
-      </div>
+      <CodeMirrorEditor
+        value={code}
+        onChange={setCode}
+        dark={themeMode === 'dark'}
+        height={360}
+        ariaLabel={title ?? '源码编辑'}
+      />
 
       {error && (
         <Alert

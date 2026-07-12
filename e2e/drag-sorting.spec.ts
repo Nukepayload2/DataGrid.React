@@ -7,7 +7,7 @@ test('drag-sorting loads + drag handle present + clean console', async ({ page }
     if (m.type() === 'error') errors.push(m.text())
   })
 
-  await page.goto('/#/demos/drag-sorting')
+  await page.goto('/#/demos/drag-row-sorting')
   await expect(page.locator('.dg-wrapper')).toBeVisible()
 
   const leftPane = page.locator('.dg-compare__pane').first()

@@ -26,7 +26,7 @@ import {
   MenuOutlined,
 } from '@ant-design/icons'
 import { demos } from './demos'
-import { groupByCategory, navigate, useHashRoute, useHashSearchParams } from './demos/registry'
+import { groupByCategory, navigate, replaceHash, useHashRoute, useHashSearchParams } from './demos/registry'
 import HomePage from './HomePage'
 import DocsPage from './DocsPage'
 import CodeView from './CodeView'
@@ -56,11 +56,50 @@ const lazyDemos = demos.map((d) => ({
   Comp: lazy(() => d.element().then((m) => ({ default: m.default }))),
 }))
 
+const demoByName = new Map(demos.map((demo) => [demo.name, demo]))
+const demoByAlias = new Map<string, (typeof demos)[number]>()
+for (const demo of demos) {
+  for (const alias of demo.aliases ?? []) {
+    demoByAlias.set(alias, demo)
+  }
+}
+
 type View =
   | { kind: 'home' }
   | { kind: 'demo'; name: string; title: string }
   | { kind: 'docs'; section?: string }
   | { kind: 'notFound' }
+
+function DemoMenuLabel({
+  title,
+  subtitle,
+  query,
+}: {
+  title: string
+  subtitle?: string
+  query: string
+}) {
+  const { token } = antdTheme.useToken()
+  return (
+    <span style={{ display: 'flex', minWidth: 0, flexDirection: 'column', lineHeight: 1.25 }}>
+      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
+        <HighlightText text={title} query={query} />
+      </span>
+      {subtitle ? (
+        <span
+          style={{
+            color: token.colorTextSecondary,
+            fontSize: 12,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          <HighlightText text={subtitle} query={query} />
+        </span>
+      ) : null}
+    </span>
+  )
+}
 
 function HighlightText({ text, query }: { text: string; query: string }) {
   const { token } = antdTheme.useToken()
@@ -134,12 +173,20 @@ function App() {
   const view = useMemo<View>(() => {
     if (segments.length === 0) return { kind: 'home' }
     if (segments[0] === 'demos' && segments[1]) {
-      const match = lazyDemos.find((d) => d.meta.name === segments[1])
-      if (match) return { kind: 'demo', name: match.meta.name, title: match.meta.title }
+      const meta = demoByName.get(segments[1]) ?? demoByAlias.get(segments[1])
+      if (meta) return { kind: 'demo', name: meta.name, title: meta.title }
     }
     if (segments[0] === 'docs') return { kind: 'docs', section: segments[1] }
     return { kind: 'notFound' }
   }, [segments])
+
+  useEffect(() => {
+    if (segments[0] !== 'demos' || !segments[1]) return
+    const meta = demoByAlias.get(segments[1])
+    if (!meta || meta.name === segments[1]) return
+    const query = searchParams.toString()
+    replaceHash(`/demos/${meta.name}${query ? `?${query}` : ''}`)
+  }, [searchParams, segments])
 
   const DemoComp =
     view.kind === 'demo'
@@ -192,9 +239,14 @@ function App() {
     if (!globalSearchLower) return []
     return demos
       .filter((d) =>
-        [d.title, d.description ?? '', d.name, d.category].some((s) =>
-          s.toLowerCase().includes(globalSearchLower),
-        ),
+        [
+          d.title,
+          d.subtitle ?? '',
+          d.description ?? '',
+          d.name,
+          ...(d.aliases ?? []),
+          d.category,
+        ].some((s) => s.toLowerCase().includes(globalSearchLower)),
       )
       .slice(0, 8)
   }, [globalSearchLower])
@@ -209,6 +261,12 @@ function App() {
             </span>
             <span style={{ color: token.colorTextSecondary, fontSize: 12 }}>
               <HighlightText text={d.category} query={globalSearchQuery} />
+              {d.subtitle ? (
+                <>
+                  {' · '}
+                  <HighlightText text={d.subtitle} query={globalSearchQuery} />
+                </>
+              ) : null}
               {d.description ? (
                 <>
                   {' · '}
@@ -233,11 +291,17 @@ function App() {
         label: g.category,
         children: g.items.map((d) => ({
           key: `/demos/${d.name}`,
-          label: <HighlightText text={d.title} query={urlHighlight} />,
+          label: (
+            <DemoMenuLabel
+              title={d.title}
+              subtitle={collapsed ? undefined : d.subtitle}
+              query={urlHighlight}
+            />
+          ),
         })),
       })),
     ],
-    [groups, urlHighlight],
+    [collapsed, groups, urlHighlight],
   )
 
   const goSearchResult = (name: string) => {
@@ -423,7 +487,7 @@ function App() {
                         <div
                           style={{
                             display: 'grid',
-                            gridTemplateColumns: '1fr 1fr',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))',
                             gap: 16,
                           }}
                         >

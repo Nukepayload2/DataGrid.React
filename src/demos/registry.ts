@@ -2,10 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ComponentType } from 'react'
 
 export interface DemoMeta {
-  /** 路由名，如 'basic'。对应访问路径 #/demos/basic。 */
+  /** 新主 id，也是主路由片段、demo 文件基名和源码加载 key。 */
   name: string
-  /** 展示标题。 */
+  /** 旧 id / 旧路由，用于兼容跳转和搜索。 */
+  aliases?: string[]
+  /** 中文展示标题。 */
   title: string
+  /** 关键 API 或配置项，用于菜单副标题和搜索。 */
+  subtitle?: string
   /** 一句话说明。 */
   description?: string
   /** 懒加载组件。 */
@@ -73,9 +77,20 @@ export function useHashSearchParams(): URLSearchParams {
   return useMemo(() => new URLSearchParams(search), [search])
 }
 
+export function normalizeHashPath(path: string): string {
+  return path.startsWith('#') ? path : `#${path.startsWith('/') ? '' : '/'}${path}`
+}
+
 export function navigate(path: string): void {
-  const normalized = path.startsWith('#') ? path : `#${path.startsWith('/') ? '' : '/'}${path}`
+  const normalized = normalizeHashPath(path)
   if (window.location.hash !== normalized) {
     window.location.hash = normalized
+  }
+}
+
+export function replaceHash(path: string): void {
+  const normalized = normalizeHashPath(path)
+  if (window.location.hash !== normalized) {
+    window.location.replace(`${window.location.pathname}${window.location.search}${normalized}`)
   }
 }

@@ -28,11 +28,18 @@ function DemoCard({ meta }: { meta: DemoMeta }) {
           </span>
         }
         description={
-          meta.description ? (
-            <Paragraph type="secondary" ellipsis={{ rows: 2 }} style={{ marginBottom: 0 }}>
-              {meta.description}
-            </Paragraph>
-          ) : null
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            {meta.subtitle ? (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                {meta.subtitle}
+              </Text>
+            ) : null}
+            {meta.description ? (
+              <Paragraph type="secondary" ellipsis={{ rows: 2 }} style={{ marginBottom: 0 }}>
+                {meta.description}
+              </Paragraph>
+            ) : null}
+          </div>
         }
       />
     </Card>
