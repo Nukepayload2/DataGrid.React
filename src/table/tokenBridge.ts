@@ -1,21 +1,152 @@
-import {
-  ignore as antdTokenIgnore,
-  unitless as antdTokenUnitless,
-} from 'antd/es/theme/useToken'
 import { transformToken } from '@ant-design/cssinjs/es/util/css-variables'
-// antd Table 组件 token 默认派生函数（从 alias token 派生 headerBg/rowHoverBg/headerSortActiveBg/
-// expandIconScale 等 30+ 条）。复用 antd 真实实现，避免在 data-grid 内手维护派生表。
-// 副作用：该模块顶层执行 `genStyleHooks('Table', ...)`（仅生成 hook，不立即注入样式），
-// 并引入 `@ant-design/fast-color`（antd 已有依赖，零新增体积）。
-import { prepareComponentToken as antdTablePrepareComponentToken } from 'antd/es/table/style/index'
+import { FastColor } from '@ant-design/fast-color'
 
-// prepareComponentToken 的公开类型是 union（`null | ComponentToken | GetDefaultTokenFn`），
-// 但运行时它始终是函数。tsgo 不允许直接 invoke union 类型，这里 cast 为确定性函数签名以便调用。
-type AntdTablePrepareComponentTokenFn = (
+const antdTokenUnitless: Record<string, boolean> = {
+  lineHeight: true,
+  lineHeightSM: true,
+  lineHeightLG: true,
+  lineHeightHeading1: true,
+  lineHeightHeading2: true,
+  lineHeightHeading3: true,
+  lineHeightHeading4: true,
+  lineHeightHeading5: true,
+  opacityLoading: true,
+  fontWeightStrong: true,
+  zIndexPopupBase: true,
+  zIndexBase: true,
+  opacityImage: true,
+}
+
+const antdTokenIgnore: Record<string, boolean> = {
+  motionBase: true,
+  motionUnit: true,
+}
+
+type AntdTableTokenInput = Record<string, unknown> & {
+  colorFillAlter: string
+  colorBgContainer: string
+  colorTextHeading: string
+  colorFillSecondary: string
+  colorFillContent: string
+  controlItemBgActive: string
+  controlItemBgActiveHover: string
+  padding: number
+  paddingSM: number
+  paddingXS: number
+  colorBorderSecondary: string
+  borderRadiusLG: number
+  controlHeight: number
+  colorTextPlaceholder: string
+  fontSize: number
+  fontSizeSM: number
+  lineHeight: number
+  lineWidth: number
+  colorIcon: string
+  colorIconHover: string
+  opacityLoading: number
+  controlInteractiveSize: number
+}
+
+/**
+ * antd Table 组件 token 默认派生函数。
+ *
+ * 源自 `G:\Projects\ant-design\components\table\style\index.ts` 的
+ * `prepareComponentToken`（antd 6.4.4），复制到本地以避免运行时依赖
+ * `antd/es/table/style/index` 这类 internal API。只保留纯 token 派生逻辑，不引入
+ * antd Table 样式注册、渲染或 rc-table/virtual-list。
+ */
+function prepareTableComponentToken(
   token: Record<string, unknown>,
-) => Record<string, unknown>
-const prepareTableComponentToken: AntdTablePrepareComponentTokenFn =
-  antdTablePrepareComponentToken as unknown as AntdTablePrepareComponentTokenFn
+): Record<string, unknown> {
+  const {
+    colorFillAlter,
+    colorBgContainer,
+    colorTextHeading,
+    colorFillSecondary,
+    colorFillContent,
+    controlItemBgActive,
+    controlItemBgActiveHover,
+    padding,
+    paddingSM,
+    paddingXS,
+    colorBorderSecondary,
+    borderRadiusLG,
+    controlHeight,
+    colorTextPlaceholder,
+    fontSize,
+    fontSizeSM,
+    lineHeight,
+    lineWidth,
+    colorIcon,
+    colorIconHover,
+    opacityLoading,
+    controlInteractiveSize,
+  } = token as AntdTableTokenInput
+
+  const colorFillSecondarySolid = new FastColor(colorFillSecondary)
+    .onBackground(colorBgContainer)
+    .toHexString()
+  const colorFillContentSolid = new FastColor(colorFillContent)
+    .onBackground(colorBgContainer)
+    .toHexString()
+  const colorFillAlterSolid = new FastColor(colorFillAlter)
+    .onBackground(colorBgContainer)
+    .toHexString()
+
+  const baseColorAction = new FastColor(colorIcon)
+  const baseColorActionHover = new FastColor(colorIconHover)
+
+  const expandIconHalfInner = controlInteractiveSize / 2 - lineWidth
+  const expandIconSize = expandIconHalfInner * 2 + lineWidth * 3
+
+  return {
+    headerBg: colorFillAlterSolid,
+    headerColor: colorTextHeading,
+    headerSortActiveBg: colorFillSecondarySolid,
+    headerSortHoverBg: colorFillContentSolid,
+    bodySortBg: colorFillAlterSolid,
+    rowHoverBg: colorFillAlterSolid,
+    rowSelectedBg: controlItemBgActive,
+    rowSelectedHoverBg: controlItemBgActiveHover,
+    rowExpandedBg: colorFillAlter,
+    cellPaddingBlock: padding,
+    cellPaddingInline: padding,
+    cellPaddingBlockMD: paddingSM,
+    cellPaddingInlineMD: paddingXS,
+    cellPaddingBlockSM: paddingXS,
+    cellPaddingInlineSM: paddingXS,
+    borderColor: colorBorderSecondary,
+    headerBorderRadius: borderRadiusLG,
+    footerBg: colorFillAlterSolid,
+    footerColor: colorTextHeading,
+    cellFontSize: fontSize,
+    cellFontSizeMD: fontSize,
+    cellFontSizeSM: fontSize,
+    headerSplitColor: colorBorderSecondary,
+    fixedHeaderSortActiveBg: colorFillSecondarySolid,
+    headerFilterHoverBg: colorFillContent,
+    filterDropdownMenuBg: colorBgContainer,
+    filterDropdownBg: colorBgContainer,
+    expandIconBg: colorBgContainer,
+    selectionColumnWidth: controlHeight,
+    stickyScrollBarBg: colorTextPlaceholder,
+    stickyScrollBarBorderRadius: 100,
+    expandIconMarginTop:
+      (fontSize * lineHeight - lineWidth * 3) / 2 -
+      Math.ceil((fontSizeSM * 1.4 - lineWidth * 3) / 2),
+    headerIconColor: baseColorAction
+      .clone()
+      .setA(baseColorAction.a * opacityLoading)
+      .toRgbString(),
+    headerIconHoverColor: baseColorActionHover
+      .clone()
+      .setA(baseColorActionHover.a * opacityLoading)
+      .toRgbString(),
+    expandIconHalfInner,
+    expandIconSize,
+    expandIconScale: controlInteractiveSize / expandIconSize,
+  }
+}
 
 export { antdTokenIgnore, antdTokenUnitless }
 

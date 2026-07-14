@@ -1,7 +1,7 @@
 /**
  * 主题 token → CSS vars 编排 + wrapperStyle 合并 hook。
  *
- * 集中 data-grid 对 antd 内部 API（`antd/es/theme/internal` 的 `useToken`）的依赖：
+ * 集中 data-grid 对 antd 主题 token 读取的依赖：
  * 把 `Table.tsx` 原内联的主题注入编排骨架抽到本 hook，调用方只需提供 `style` /
  * `stylesResolved` 即可拿到合并后的根容器 inline style。
  *
@@ -21,9 +21,7 @@
 
 import { useMemo } from 'react'
 import type { CSSProperties } from 'react'
-// 主题注入：直接复用 antd 真实的 token→CSS-var 注入工具（防猜测铁律）。详见
-// `docs/design-notes/theme-tokens.md` 的「注入路径」节。
-import { useToken as useAntdInternalToken } from 'antd/es/theme/internal'
+import { theme } from 'antd'
 import {
   antdTokenIgnore,
   antdTokenUnitless,
@@ -50,38 +48,32 @@ export function useTableThemeVars(
   tableTokenVars: Record<string, string>
   wrapperStyle: CSSProperties
 } {
-  // 主题注入：用 antd 内部 `useToken`（`antd/es/theme/internal`）拿 realToken
-  //   （未 var 化的原值，与 antd transformToken 输入完全一致），喂 antd 真实 `transformToken`
+  // 主题注入：用 antd 公开 `theme.useToken()` 拿 realToken
+  //   （未 var 化的原值，与 antd transformToken 输入一致），喂 antd 真实 `transformToken`
   //   产出与 .ant-table-wrapper 同名同值的全套 `--ant-*`。详见 `docs/design-notes/theme-tokens.md`。
   //
-  // useAntdInternalToken 返回 6 元组 `[mergedTheme, realToken, hashId, token, cssVar, zeroRuntime]`：
-  //   - realToken（index 1）= 未 var 化原值（公开 theme.useToken().token 已被 var 化为 'var(--ant-x)'，
-  //     不能直接喂 transformToken——会产出 --ant-x:var(--ant-y) 自引用空循环）。
-  //   - cssVar（index 4）= `{ prefix:'ant', key:'css-var-root' }`（默认；ConfigProvider cssVar
-  //     可覆盖 prefix/key，但 demo 不覆盖）。
+  // 公开 `theme.useToken()` 返回对象的 `token` 可直接喂 transformToken。
+  // cssVar 默认沿用 `{ prefix:'ant', key:'css-var-root' }`。
   //
-  // realToken.Table 仅含**用户在 ConfigProvider theme.components.Table 显式声明的覆盖项**
+  // token.Table 仅含**用户在 ConfigProvider theme.components.Table 显式声明的覆盖项**
   //   （不含 prepareComponentToken 派生的默认值——antd 是在 genCSSVarRegister 的 fn 回调里
   //   通过 getDefaultComponentToken + getComponentToken 在渲染时单独合并 + 删除与 alias 同值键）。
   //   data-grid 在注入时（tableTokenToCssVars）复刻此合并流程：prepareComponentToken 默认 + 用户覆盖。
   //
-  // useMemo 依赖 realToken：useCacheToken 内部用 tokenStr 缓存，realToken 引用在 theme/override
-  //   变化时更新（新对象）→ useMemo 重算 vars → 视觉同步。
-  const antdUseTokenResult = useAntdInternalToken()
-  // realToken 已是 GlobalToken（useToken 元组 index 1），强转为 Record<string, unknown>
-  //   以便 transformToken 处理（transformToken 接受任意 token 对象，TS 上用 Record 表达）。
-  //   经 unknown 中转避免 strict 类型校验。
-  const realToken = antdUseTokenResult[1] as unknown as Record<string, unknown> | undefined
-  const cssVar = antdUseTokenResult[4] as { prefix: string; key: string }
+  // useMemo 依赖 real token 引用：theme.useToken() 在 theme/override 变化时更新（新对象）
+  //   → useMemo 重算 vars → 视觉同步。
+  const { token: realToken } = theme.useToken()
+  const cssVar = { prefix: 'ant', key: 'css-var-root' }
+  const tokenRecord = realToken as unknown as Record<string, unknown> | undefined
 
   // alias var：transformToken(realToken, ...)，与 useCacheToken 内部同款调用。
   //   unitless/ignore/preserve 直接复用 antd 源文件导出的全集（不自己枚举，防猜测）。
   const aliasTokenVars = useMemo(
     () =>
-      realToken
-        ? tokenToCssVars(realToken, cssVar, {
-            unitless: antdTokenUnitless as Record<string, boolean>,
-            ignore: antdTokenIgnore as Record<string, boolean>,
+      tokenRecord
+        ? tokenToCssVars(tokenRecord, cssVar, {
+            unitless: antdTokenUnitless,
+            ignore: antdTokenIgnore,
             // preserve 集合 antd useToken.ts 内部声明为 const（未 export），复制稳定集合：
             //   screenXS..screenXXXL 各 min/max（preserve 让 transformToken 原样保留数值不转 CSS var）。
             preserve: {
@@ -95,7 +87,7 @@ export function useTableThemeVars(
             },
           })
         : {},
-    [realToken, cssVar],
+    [tokenRecord, cssVar],
   )
 
   // Table component var：完全复刻 antd genCSSVarRegister fn 回调（详见 tableTokenToCssVars 注释）。
@@ -105,10 +97,10 @@ export function useTableThemeVars(
   //   realToken 为 undefined（首次渲染前）时输出空对象（零回归）。
   const tableTokenVars = useMemo(
     () =>
-      realToken
-        ? tableTokenToCssVars(realToken, cssVar)
+      tokenRecord
+        ? tableTokenToCssVars(tokenRecord, cssVar)
         : {},
-    [realToken, cssVar],
+    [tokenRecord, cssVar],
   )
 
   // 语义化 root 部位 style（合并到根容器 style；semantic 覆盖同名字段）。

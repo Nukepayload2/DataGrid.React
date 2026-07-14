@@ -531,6 +531,7 @@ export function renderFeaturePage(topic: 'columns' | 'layout' | 'scrolling' | 'i
       title: '列能力入口',
       body: '列宽、固定列、隐藏列、响应式列和列默认值都以 ColumnType 为中心组织。',
       actions: [
+        { label: '全固定列宽 demo', kind: 'path' as const, value: '/demos/all-columns-fixed-width' },
         { label: '固定列 demo', kind: 'path' as const, value: '/demos/fixed-columns' },
         { label: '调整列宽 demo', kind: 'path' as const, value: '/demos/resizable-columns' },
         { label: '隐藏列 demo', kind: 'path' as const, value: '/demos/hidden-columns' },

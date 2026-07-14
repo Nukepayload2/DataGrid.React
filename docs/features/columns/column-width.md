@@ -65,11 +65,11 @@ transition:
 
 ### grid-track 策略表
 
-模拟 `<col width>` + `table-layout` 的「绝对 width 列=绝对宽不参与 fr 分配、无 width 列分剩余空间」语义：
+模拟 `<col width>` + `table-layout` 的「绝对 width 列通常保持绝对宽、无 width 列分剩余空间」语义；所有可见非 fixed 列都给 numeric/px width 时，按 antd 的全宽表格表现把这些 width 当作比例权重放大到容器宽度。
 
 | 列形态 | tableLayout=auto | tableLayout=fixed | 备注 |
 |---|---|---|---|
-| 绝对 width（number / `'100px'`），非 fixed | `minmax(width, max-content)` | `${width}` | auto: min=width 保底，max=content 可增长（对齐 antd `table-layout:auto` 下 `<col width>` 列宽=content 但至少 width） |
+| 绝对 width（number / `'100px'`），非 fixed | `minmax(width, max-content)` | `${width}`；若所有可见非 fixed 列都有 numeric/px width，则 `minmax(0, width-fr)` | auto: min=width 保底，max=content 可增长。全列 numeric/px width 时，用纯 CSS Grid 权重复刻 antd `<table width:100%>` 的等比放大 |
 | 绝对 width，fixed 列 | `${width}` | `${width}` | fixed 列**不论 tableLayout 一律严格 `${width}`**（不包 minmax，内容超 clip/ellipsis）。对齐 antd 6.4.4 实测：fixed 列恒严格 width，即便 mergedTableLayout 派生为 'auto'（fixColumn + scroll.x==='max-content' 场景，如 fixed-columns-header demo）也不被长内容撑开 |
 | 百分比 width（`'20%'`） | 原样 `${width}` | 原样 `${width}` | 不包 minmax——antd 不转换；grid `grid-template-columns: 20%` 相对容器 20%，语义一致。minmax 包装百分比在 grid 里 min/max 同为百分比无意义 |
 | 无 width，非 fixed | `minmax(min-content, 1fr)` | `minmax(0, 1fr)` | auto: min=min-content（内容可换行收缩保底，下限=最长不可拆词）/ max=1fr（拉伸填满剩余）。fixed: min=0 收缩触发 ellipsis / max=1fr 均分剩余 |
@@ -80,6 +80,7 @@ transition:
 - **auto 无 width 列曾用 `max-content`**：CSS grid 中 `max-content` track 不会拉伸填满容器——antd `table-layout:auto`+`<table width:100%>` 行为下无 width 列被拉伸吃掉剩余空间（实测 tree-data Name: antd 381 拉伸填满 vs data-grid 142.7 内容宽不填满）。改为 `minmax(min-content, 1fr)`：min 保底内容宽，max=1fr 在容器有剩余时拉伸填满。
 - **min 曾用 max-content**：max-content min 是单行内容宽硬下限，窄视口下内容永不换行、撑开溢出原生横滚条。把 min 收紧为 min-content（下限=最长不可拆词），让内容可换行被容器约束、grid 不溢出（max=1fr 仍负责容器有剩余时拉伸填满）。
 - **fixed 模式 width 列曾用 `minmax(width, 1fr)`**：所有列平等参与 1fr 分配 → virtual-list 9 列全等分为 222px，而 antd 是 width 列绝对宽 + 无 width 列分剩余。改为 `${width}` 绝对 track。
+- **所有列都有 numeric/px width 时曾停在声明宽度总和**：antd 在 `<table width:100%>` 下会把这些声明宽度作为比例权重放大到容器宽度。data-grid 增加全列 numeric/px width 特例，输出 `minmax(0, width-fr)`，不需要 JS 测量列宽。
 
 ### `.dg-grid { width: 100% }` 配合
 

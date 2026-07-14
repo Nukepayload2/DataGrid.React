@@ -13,15 +13,11 @@
  */
 
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { Dropdown, Empty } from 'antd'
+import { ConfigProvider, Dropdown, Empty } from 'antd'
 import type { DropdownProps } from 'antd'
 // filter 图标用 `@ant-design/icons` 的 FilterFilled（与 antd Table 默认 filterIcon 一致）。
 // 默认/激活态都用同一个 FilterFilled——激活视觉差异由 `.dg-filter-trigger-active`（color）驱动，不切换图标。
 import { FilterFilled } from '@ant-design/icons'
-// ConfigContext 从 antd 内部 es 路径导入（与 Table.tsx 一致；antd 主入口不导出 ConfigContext）。
-// renderEmpty 签名：RenderEmptyHandler = (componentName: string) => ReactNode。
-import { ConfigContext } from 'antd/es/config-provider/context'
-import type { RenderEmptyHandler } from 'antd/es/config-provider/defaultRenderEmpty'
 import type { EngineFilterItem } from './types'
 import type {
   ColumnFilterDropdownProps,
@@ -40,6 +36,10 @@ import {
 } from './filterDropdownUtils'
 // 内置面板（menu/tree + 搜索 + 占位 + 按钮）抽到 FilterBuiltinPanel 子组件（执行单元 #65）。
 import { FilterBuiltinPanel } from './FilterBuiltinPanel'
+
+const { ConfigContext } = ConfigProvider
+// renderEmpty 签名：`(componentName) => ReactNode`。
+type RenderEmptyHandler = (componentName: string) => React.ReactNode
 
 export interface FilterDropdownProps {
   /** 该列筛选项列表（来自列树 EngineHeaderCell.filters）。 */

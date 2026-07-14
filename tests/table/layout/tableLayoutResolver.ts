@@ -95,6 +95,60 @@ describe('resolveTableLayout', () => {
       ).toBe('fixed')
     })
 
+    it("escalates to 'fixed' when every real leaf column has a numeric or px width", () => {
+      expect(
+        resolveTableLayout(
+          undefined,
+          [leaf({ width: 80 }), leaf({ width: 120 }), leaf({ width: '160px' })],
+          undefined,
+          undefined,
+          undefined,
+        ),
+      ).toBe('fixed')
+    })
+
+    it("keeps 'auto' when any leaf column has percentage, non-px string, or missing width", () => {
+      expect(
+        resolveTableLayout(
+          undefined,
+          [leaf({ width: 80 }), leaf({ width: '30%' })],
+          undefined,
+          undefined,
+          undefined,
+        ),
+      ).toBe('auto')
+      expect(
+        resolveTableLayout(
+          undefined,
+          [leaf({ width: 80 }), leaf({ width: '12rem' })],
+          undefined,
+          undefined,
+          undefined,
+        ),
+      ).toBe('auto')
+      expect(
+        resolveTableLayout(
+          undefined,
+          [leaf({ width: 80 }), leaf()],
+          undefined,
+          undefined,
+          undefined,
+        ),
+      ).toBe('auto')
+    })
+
+    it("keeps 'auto' for all-width columns when scroll.x==='max-content'", () => {
+      expect(
+        resolveTableLayout(
+          undefined,
+          [leaf({ width: 80 }), leaf({ width: 120 })],
+          'max-content',
+          undefined,
+          undefined,
+        ),
+      ).toBe('auto')
+    })
+
     it("escalates to 'fixed' when scroll.y===true (fixHeader — container-fixed header)", () => {
       expect(resolveTableLayout(undefined, [leaf()], undefined, true, undefined)).toBe(
         'fixed',
@@ -205,6 +259,17 @@ describe('resolveTableLayout', () => {
       expect(resolveTableLayout(undefined, cols, undefined, undefined, undefined)).toBe(
         'auto',
       )
+
+      // 哨兵列不参与 all-width 判定；真实列都给 numeric/px width 时仍升级。
+      const allWidthCols: Array<ColumnOrSentinel<Rec>> = [
+        SELECTION_COLUMN,
+        leaf({ width: 80 }),
+        EXPAND_COLUMN,
+        leaf({ width: 120 }),
+      ]
+      expect(
+        resolveTableLayout(undefined, allWidthCols, undefined, undefined, undefined),
+      ).toBe('fixed')
 
       // 普通列带 fixed 时仍升级（哨兵不干扰判定）。
       const withFixed: Array<ColumnOrSentinel<Rec>> = [

@@ -718,8 +718,9 @@ export interface EngineTableProps<RecordType = any> {
    *     （绝对 width 列）；`.dg-grid` 加 `width:100%` + `.dg-wrapper{overflow-x:auto}`：
    *     内容>容器时出横向滚动条；内容<容器时撑满不留白。
    *   - `'fixed'`：约束模式——`.dg-grid` 加 `width:100%`；无 width 列 track 改为 `minmax(0, 1fr)`
-   *     （`min:0` 允许收缩触发 ellipsis）；绝对 width 列 track 改为 `minmax(width, 1fr)`
-   *     （min=width 保底 + 1fr 比例分剩余）。hidden 列仍 `0fr`；resized 列仍 px（不参与 1fr）。
+   *     （`min:0` 允许收缩触发 ellipsis）；普通 width 列通常保持绝对 track。若所有可见非 fixed
+   *     列都有 numeric/px width，则改为 `minmax(0, width-fr)`，按声明宽度比例填满容器。
+   *     hidden 列仍 `0fr`。
    *
    * **派生位置**：由适配层 Table.tsx 派生（对齐 antd mergedTableLayout），引擎层只消费、不派生。
    *

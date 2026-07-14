@@ -66,4 +66,45 @@ describe('gridTemplateColumnsUtils', () => {
       ),
     ).toBe('minmax(max-content, max-content)')
   })
+
+  it('uses numeric widths as proportional fr weights when every visible column has width', () => {
+    expect(
+      computeGridTemplateColumns({
+        leafColumns: [
+          column({ key: 'ticket', width: 72 }),
+          column({ key: 'queue', width: 112 }),
+          column({ key: 'owner', width: '96px' }),
+          column({ key: 'sla', width: 80 }),
+        ],
+        resizedWidths: new Map(),
+        tableLayout: 'fixed',
+      }),
+    ).toBe('minmax(0, 72fr) minmax(0, 112fr) minmax(0, 96fr) minmax(0, 80fr)')
+  })
+
+  it('keeps the existing fixed-layout tracks when any visible column lacks a numeric width', () => {
+    expect(
+      computeGridTemplateColumns({
+        leafColumns: [
+          column({ key: 'ticket', width: 72 }),
+          column({ key: 'queue' }),
+        ],
+        resizedWidths: new Map(),
+        tableLayout: 'fixed',
+      }),
+    ).toBe('minmax(72px, 1fr) minmax(0, 1fr)')
+  })
+
+  it('keeps resized widths as px instead of proportional fr weights', () => {
+    expect(
+      computeGridTemplateColumns({
+        leafColumns: [
+          column({ key: 'ticket', width: 72 }),
+          column({ key: 'queue', width: 112 }),
+        ],
+        resizedWidths: new Map([['ticket', 96]]),
+        tableLayout: 'fixed',
+      }),
+    ).toBe('96px minmax(112px, 1fr)')
+  })
 })

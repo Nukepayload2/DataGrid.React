@@ -6,6 +6,7 @@ const externalPackages = [
   'react-dom',
   'antd',
   '@ant-design/cssinjs',
+  '@ant-design/fast-color',
   '@ant-design/icons',
 ]
 

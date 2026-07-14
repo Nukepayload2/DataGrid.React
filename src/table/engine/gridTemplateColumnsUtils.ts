@@ -9,14 +9,49 @@ export interface ComputeGridTemplateColumnsOptions {
   tableLayout: 'auto' | 'fixed'
 }
 
+function widthFrWeight(
+  column: GridTemplateColumnLeaf,
+  resizedWidths: ReadonlyMap<string, number>,
+): number | undefined {
+  if (column.hidden || column.fixed) return undefined
+  const resized = resizedWidths.get(column.key)
+  if (resized !== undefined) return Number.isFinite(resized) && resized > 0 ? resized : undefined
+  if (typeof column.width === 'number') {
+    return Number.isFinite(column.width) && column.width > 0 ? column.width : undefined
+  }
+  if (typeof column.width !== 'string') return undefined
+  const match = column.width.trim().toLowerCase().match(/^(\d+(?:\.\d+)?)px$/)
+  if (!match) return undefined
+  const parsed = Number(match[1])
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined
+}
+
+function shouldUseWidthWeightedTracks(
+  leafColumns: ReadonlyArray<GridTemplateColumnLeaf>,
+  resizedWidths: ReadonlyMap<string, number>,
+  tableLayout: 'auto' | 'fixed',
+): boolean {
+  if (tableLayout !== 'fixed') return false
+  if (resizedWidths.size > 0) return false
+  const visibleColumns = leafColumns.filter((column) => !column.hidden)
+  if (visibleColumns.length === 0) return false
+  if (visibleColumns.some((column) => column.fixed)) return false
+  return visibleColumns.every((column) => widthFrWeight(column, resizedWidths) !== undefined)
+}
+
 export function computeColumnTrack(
   column: GridTemplateColumnLeaf,
   resizedWidths: ReadonlyMap<string, number>,
   tableLayout: 'auto' | 'fixed',
+  widthWeightedTrack = false,
 ): string {
   if (column.hidden) return '0fr'
 
   const resized = resizedWidths.get(column.key)
+  if (widthWeightedTrack) {
+    const weight = widthFrWeight(column, resizedWidths)
+    if (weight !== undefined) return `minmax(0, ${weight}fr)`
+  }
   if (resized !== undefined) return `${resized}px`
 
   const widthTrack = toTrack(column.width)
@@ -34,8 +69,13 @@ export function computeGridTemplateColumns({
   resizedWidths,
   tableLayout,
 }: ComputeGridTemplateColumnsOptions): string {
+  const widthWeightedTrack = shouldUseWidthWeightedTracks(
+    leafColumns,
+    resizedWidths,
+    tableLayout,
+  )
   const columnTracks = leafColumns.map((column) =>
-    computeColumnTrack(column, resizedWidths, tableLayout),
+    computeColumnTrack(column, resizedWidths, tableLayout, widthWeightedTrack),
   )
 
   return columnTracks.join(' ') || 'none'

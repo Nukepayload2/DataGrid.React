@@ -1,10 +1,10 @@
 import { useContext, useMemo, type ReactNode } from 'react'
 import { ConfigProvider, Empty, Spin } from 'antd'
 import type { SpinProps } from 'antd'
-import type { RenderEmptyHandler } from 'antd/es/config-provider/defaultRenderEmpty'
 import type { TableLocale } from './types'
 
 const { ConfigContext } = ConfigProvider
+type RenderEmptyHandler = (componentName: string) => ReactNode
 
 export function useTableEmptyText(args: {
   rowCount: number

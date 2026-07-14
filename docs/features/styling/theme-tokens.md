@@ -90,13 +90,13 @@ data-grid 侧：`.dg-wrapper.dg-style-class-root`（root class 注入到根容�
 ## 关联源码
 
 - [`src/table/style/tokens.css`](../../../src/table/style/tokens.css) — `--dg-*` 桥接定义 + `--ant-*` fallback。
-- [`src/table/useTableThemeVars.ts`](../../../src/table/useTableThemeVars.ts) — `aliasTokenVars`（基础 alias token）/ `tableTokenVars`（Table component token）派生与合并，集中 antd 内部 API 依赖（`useAntdInternalToken` + 4 个 `tokenBridge` 导出），输出 `wrapperStyle`（含 `stylesResolved.root` 合并）。
-- [`src/table/tokenBridge.ts`](../../../src/table/tokenBridge.ts) — `transformToken` + `useToken` realToken + `prepareComponentToken` 复刻，产出 alias var 与 Table component var 字符串。
+- [`src/table/useTableThemeVars.ts`](../../../src/table/useTableThemeVars.ts) — `aliasTokenVars`（基础 alias token）/ `tableTokenVars`（Table component token）派生与合并，集中 antd token 桥接逻辑（`useAntdInternalToken` + 4 个 `tokenBridge` 导出），输出 `wrapperStyle`（含 `stylesResolved.root` 合并）。
+- [`src/table/tokenBridge.ts`](../../../src/table/tokenBridge.ts) — `transformToken` + `useToken` realToken + 本地复制的 antd Table `prepareComponentToken` 纯 token 派生逻辑，产出 alias var 与 Table component var 字符串。
 - [`src/table/Table.tsx`](../../../src/table/Table.tsx) — 调用 `useTableThemeVars`，把 `wrapperStyle` 挂到 `.dg-wrapper` inline style。
 
 ## 注入路径（与 antd 同款，零猜测）
 
-直接复用 antd 真实的 token→CSS-var 注入工具（`transformToken` + `useToken` realToken + `prepareComponentToken`），让 `.dg-wrapper` 拿到与 antd `.ant-table-wrapper` **同名同值的全套 `--ant-*`**（alias + Table component token）。
+复用 antd 真实的 token→CSS-var 注入工具（`transformToken` + `useToken` realToken），并在本地复制 antd 6.4.4 Table `prepareComponentToken` 的纯 token 派生逻辑，让 `.dg-wrapper` 拿到与 antd `.ant-table-wrapper` **同名同值的全套 `--ant-*`**（alias + Table component token），同时避免运行时依赖 `antd/es/table/style/index` 这类 Table internal API。
 
 ### alias var（基础 alias token → `--ant-*`）
 
