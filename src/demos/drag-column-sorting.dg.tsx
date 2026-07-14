@@ -1,7 +1,8 @@
 import { useMemo, useRef, useState } from 'react'
 import { theme } from 'antd'
-import { Table, useColumnDragSort } from '../table'
+import { Table } from '../table'
 import type { ColumnType } from '../table'
+import { useColumnDragSort } from '../table/engine/useColumnDragSort'
 import { data, type RecordType } from './_compare/drag-column-sorting.shared'
 
 const dgBaseColumns: ColumnType<RecordType>[] = [

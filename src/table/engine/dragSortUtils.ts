@@ -9,15 +9,13 @@
  *
  * 全部为纯函数（不依赖 hook state/setter），可独立单测。useRowDragSort 仅做 import 替换。
  *
- * arrayMove / arrayMoveBlock 被 src/table/index.ts 从 useRowDragSort 再导出；为保持
- * index.ts 零改动，useRowDragSort.ts 用 re-export 暴露这两个函数。
+ * arrayMove / arrayMoveBlock 仅供内部拖拽 hook 与单测使用；包主入口不导出这些工具。
  */
 
 /**
  * arrayMove：把数组 from 位置的元素移到 to 位置（对齐 @dnd-kit/sortable）。
  *
- * 被 src/table/index.ts 从 useRowDragSort 再导出；为保持 index.ts 零改动，
- * useRowDragSort.ts 用 `export { arrayMove, arrayMoveBlock } from './dragSortUtils'` re-export。
+ * useRowDragSort.ts re-export 仅供内部路径和测试复用。
  */
 export function arrayMove<T>(arr: Array<T>, from: number, to: number): Array<T> {
   if (from === to || from < 0 || to < 0 || from >= arr.length || to >= arr.length) {

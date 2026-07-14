@@ -1,19 +1,4 @@
 export { Table, getRowKey } from './Table'
-export { useRowDragSort, arrayMove, arrayMoveBlock } from './engine/useRowDragSort'
-export type {
-  UseRowDragSortOptions,
-  UseRowDragSortResult,
-  DragIndicatorStyle,
-} from './engine/useRowDragSort'
-export {
-  useColumnDragSort,
-  arrayMoveColumns,
-} from './engine/useColumnDragSort'
-export type {
-  UseColumnDragSortOptions,
-  UseColumnDragSortResult,
-  ColumnDragIndicatorStyle,
-} from './engine/useColumnDragSort'
 export { EXPAND_COLUMN, SELECTION_COLUMN } from './types'
 export {
   SELECTION_ALL,

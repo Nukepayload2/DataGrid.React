@@ -31,7 +31,7 @@ transition:
 
 ### 拖拽调整时禁用过渡
 
-`.dg-grid.dg-grid-resizing` 由 `useColumnDragSort`（拖拽进行中）加上，`transition: none`——避免 0.3s 过渡与实时 width 更新叠加产生抖动/延迟。
+`.dg-grid.dg-grid-resizing` 由列宽拖拽流程加上，`transition: none`——避免 0.3s 过渡与实时 width 更新叠加产生抖动/延迟。
 
 ## 与 antd 差异
 

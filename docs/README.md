@@ -8,6 +8,7 @@
 - [`features/`](features): 按功能域查看列、布局、滚动、交互、样式和 API 行为。
 - [`decisions/0008-api-namespace-separation.md`](decisions/0008-api-namespace-separation.md): 了解兼容 API 与 data-grid 专属 API 的分层原则。
 - [`reference/compat-matrix.md`](reference/compat-matrix.md): data-grid 与 antd Table 的 API 兼容矩阵。
+- [`reference/public-api.md`](reference/public-api.md): 主入口公开 API、`gridOptions` 和 `gridColumnOptions` 成员。
 - [`reference/known-limitations.md`](reference/known-limitations.md): 当前确认的架构边界、兼容缺口和视觉对齐遗留项。
 - [`contributing/documentation-style.md`](contributing/documentation-style.md): 文档写法、源码注释迁移和目录落点约定。
 

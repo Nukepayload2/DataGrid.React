@@ -192,11 +192,14 @@
 | 字段 | 归属 | 说明 | antd 有无 |
 |------|------|------|-----------|
 | `gridOptions.rowHeight` / `minRowHeight` / `maxRowHeight` | 表级 | 行高约定：非虚拟路径作 grid track（不测）；虚拟路径作 RO 测量的未测兜底/初值（measured-first，antd 行高随内容）。 | 无 |
+| `gridOptions.virtualizationMode` | 表级 | 虚拟渲染模式：`standard` / `recycling`。仅在 `virtual` + `scroll.y=true` 时生效。 | 无 |
 | `gridOptions.headerHeight` | 表级 | 表头高度约定。 | 无 |
-| `gridOptions.resizable` / `resizableMinWidth` / `resizableMaxWidth` | 表级 | 列宽拖拽调整（antd v6 核查无 resizable）。 | 无 |
+| `gridOptions.resizable` / `columnResizeMode` / `resizableMinWidth` / `resizableMaxWidth` | 表级 | 列宽拖拽调整（antd v6 核查无 resizable）。 | 无 |
+| `gridOptions.scrollBarFoldMode` | 表级 | data-grid 悬浮滚动条显示/折叠策略。 | 无 |
 | `gridOptions.selection` | 表级 | data-grid 原生选择行为：`selectionMode/showSelectionColumn/selectedValues/getSelectionValue` 等；优先级高于 antd 兼容层 `rowSelection`，但不污染兼容 API。 | 无 |
 | `gridOptions.columnReorder` | 表级 | 列重排总开关。 | 无 |
 | `gridOptions.autoScrollOnDrag` / `multiRowReorder` | 表级 | 当前采用命名的拖拽增强项。 | 无 |
 | `gridColumnOptions.dragColumnLock` | 列级 | 列级拖拽锁定选项。 | 无 |
+| `gridColumnOptions.renderCellElement` / `renderCellReact` / `disposeCellElement` | 列级 | recycling 虚拟化的低层 cell 渲染/清理 hook。普通业务优先使用 `render`、`onCell` 和 `components.body.cell`。 | 无 |
 
 > 注：`dragToPinColumn` / `hideColumnOnDragAway` / `rowDropTargets` / `dragPreview` / `cellDragSource` 等名称仍属于候选扩展，放在 [ag-grid-drag-candidates.md](ag-grid-drag-candidates.md) 作为外部能力参考，不计入当前兼容矩阵。

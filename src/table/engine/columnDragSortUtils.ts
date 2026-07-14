@@ -15,8 +15,7 @@
 /**
  * arrayMove：把数组 from 位置的元素移到 to 位置（对齐 @dnd-kit/sortable）。
  *
- * 被 src/table/index.ts 从 useColumnDragSort 再导出；为保持 index.ts 零改动，
- * useColumnDragSort.ts 用 `export { arrayMoveColumns } from './columnDragSortUtils'` re-export。
+ * arrayMoveColumns 仅供内部拖拽 hook 与单测使用；包主入口不导出这些工具。
  */
 export function arrayMoveColumns<T>(arr: Array<T>, from: number, to: number): Array<T> {
   if (from === to || from < 0 || to < 0 || from >= arr.length || to >= arr.length) {

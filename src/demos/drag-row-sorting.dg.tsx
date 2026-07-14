@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
-import { Table, useRowDragSort } from '../table'
+import { Table } from '../table'
 import type { ColumnType } from '../table'
+import { useRowDragSort } from '../table/engine/useRowDragSort'
 import { theme } from 'antd'
 import { initialData, type RecordType } from './_compare/drag-row-sorting.shared'
 const dgColumns: ColumnType<RecordType>[] = [
@@ -67,4 +68,3 @@ export default function DragSortingDg({
     </div>
   )
 }
-

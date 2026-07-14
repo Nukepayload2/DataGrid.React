@@ -145,14 +145,31 @@ export interface TableProps<RecordType = any> {
    *   函数 → 按列 key 逐列定制。默认 min 30 / max Infinity。
    */
   gridOptions?: {
+    /** 行高约定。虚拟模式下未测量行以该值作为兜底；非虚拟固定行高场景用于 grid track。 */
     rowHeight?: number | ((record: RecordType, index: number) => number)
+    /**
+     * 虚拟渲染模式。
+     *
+     * - `standard`（默认）：普通虚拟滚动，React 正常渲染当前窗口。
+     * - `recycling`：启用 DOM/slot 复用路径，适合超大数据量和高频滚动。
+     *
+     * 仅在 `virtual` 且 `scroll={{ y: true }}` 时生效。启用 recycling 后，自定义 cell 低层渲染
+     * 应通过 `column.gridColumnOptions.renderCellElement/renderCellReact/disposeCellElement` 配置。
+     */
     virtualizationMode?: VirtualizationMode
+    /** 有界行高下限；需与 `maxRowHeight` 同时设置才启用有界模型。 */
     minRowHeight?: number
+    /** 有界行高上限；需与 `minRowHeight` 同时设置才启用有界模型。 */
     maxRowHeight?: number
+    /** 表头行高约定。多级表头下每一层表头使用同一高度。 */
     headerHeight?: number | string
+    /** 是否启用列宽拖拽。`true` 且未设置 `columnResizeMode` 时等同 `ResizeLeft`。 */
     resizable?: boolean
+    /** 列宽拖拽模式：禁用、只改左侧列、或左右兄弟列联动。 */
     columnResizeMode?: 'Disabled' | 'ResizeLeft' | 'ResizeSibling'
+    /** 列宽拖拽最小宽度。函数形态按列 key 返回约束。 */
     resizableMinWidth?: number | ((key: string) => number)
+    /** 列宽拖拽最大宽度。函数形态按列 key 返回约束。 */
     resizableMaxWidth?: number | ((key: string) => number)
     /**
      * 悬浮滚动条折叠/显示策略。
@@ -213,8 +230,7 @@ export interface TableProps<RecordType = any> {
      * 单列粒度由 `gridColumnOptions.dragColumnLock` 控制：
      * 某列可发起拖 ⟺ `columnReorder !== false && dragColumnLock === undefined`。
      *
-     * **透传**：drag-column-sorting demo 从此 option 透传到 `useColumnDragSort({ reorder: ... })`。
-     * 默认 true 保证非该 demo 的其它列拖场景零回归。
+     * 默认 true 保证非列拖场景零回归。拖拽实现属于 data-grid 内部能力，用户侧只配置开关。
      */
     columnReorder?: boolean
     /**
@@ -228,8 +244,7 @@ export interface TableProps<RecordType = any> {
      * **边界**：被拖行未选中 → 只移它（现状）；selection 含被拖行+其它 → 成块移；
      * 目标落在选中块内部 → no-op。单选 / 无 selection 时**零回归**（selection 数 ≤1 时退化为单行重排）。
      *
-     * **透传**：drag-multi-row-reorder demo 从此 option 透传到 `useRowDragSort({ multiRowReorder,
-     * selectedRowKeys, rowKey })`。
+     * 拖拽实现属于 data-grid 内部能力，用户侧只配置开关。
      */
     multiRowReorder?: boolean
   }

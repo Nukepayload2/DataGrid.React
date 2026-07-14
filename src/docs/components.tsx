@@ -111,6 +111,7 @@ export function DocsDataGrid<T extends object>({
         dataSource={dataSource}
         pagination={false}
         rowKey={rowKey}
+        sticky
         scroll={scrollX ? { x: scrollX } : undefined}
         size="small"
       />

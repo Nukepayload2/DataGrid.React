@@ -2,8 +2,9 @@ import { useRef, useState } from 'react'
 import type { CSSProperties } from 'react'
 import type { ReactNode } from 'react'
 import { Button, theme } from 'antd'
-import { Table, useRowDragSort } from '../table'
+import { Table } from '../table'
 import type { ColumnType } from '../table'
+import { useRowDragSort } from '../table/engine/useRowDragSort'
 import { initialData, type RecordType } from './_compare/drag-handle-row-sorting.shared'
 function InlineHolderOutlined({ style }: { style?: CSSProperties }): ReactNode {
   return (
@@ -94,4 +95,3 @@ export default function DragSortingHandlerDg({
     </div>
   )
 }
-

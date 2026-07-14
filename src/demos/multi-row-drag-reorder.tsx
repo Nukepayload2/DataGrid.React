@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { Button, Space, Switch, theme } from 'antd'
 import type { FC } from 'react'
 import { Table } from '../table'
-import { useRowDragSort } from '../table'
+import { useRowDragSort } from '../table/engine/useRowDragSort'
 import type { ColumnType, TableRowSelection } from '../table'
 import { useVirtualization } from './VirtualizationContext'
 import { DemoToolbar } from './_compare/DemoToolbar'
@@ -136,5 +136,4 @@ export default function DragMultiRowReorderDemo() {
     </div>
   )
 }
-
 

@@ -25,8 +25,7 @@ import {
   updateColumnDragOverlay,
 } from './columnDragSortUtils'
 
-// 公共导出面保持不变：index.ts 仍 `export { arrayMoveColumns } from './engine/useColumnDragSort'`。
-// 通过 re-export 让 arrayMoveColumns 的定义源（columnDragSortUtils）与 index.ts 路径同时可用。
+// 内部 demo/引擎工具导出：包主入口不导出拖拽 hooks，用户通过 gridOptions/gridColumnOptions 开关使用拖拽能力。
 export { arrayMoveColumns } from './columnDragSortUtils'
 
 /** 垂直指示线样式（调用方在外层相对定位容器内渲染一条绝对定位竖线）。 */

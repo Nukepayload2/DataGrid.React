@@ -22,10 +22,14 @@ data-grid 把“与 antd Table 不同语义或完全不存在”的表格能力�
 | 字段 | 原位置 | 迁入 | antd 有无 | 证据 |
 |------|--------|------|-----------|------|
 | `rowHeight` | `TableProps.rowHeight`（顶层） | `gridOptions.rowHeight` | 无（antd 行高随内容） | antd `interface.ts` 全文 + rc-table `interface.d.ts`：无 `rowHeight`；dg 顶层 `types.ts:1327`（顶层 `rowHeight?`，注释明示「与 antd 不兼容」），`gridOptions.rowHeight` 见 `types.ts:1342-1343` |
+| `virtualizationMode` | 无 | `gridOptions.virtualizationMode` | 无 | data-grid 专属虚拟渲染模式：`standard` / `recycling` |
+| `minRowHeight` / `maxRowHeight` | 无 | `gridOptions.minRowHeight/maxRowHeight` | 无 | data-grid 有界行高模型 |
 | `headerHeight` | `TableProps.headerHeight`（顶层） | `gridOptions.headerHeight` | 无 | antd 无；dg 顶层 `types.ts:1348` |
 | `resizable` | `TableProps.resizable`（顶层） | `gridOptions.resizable` | 无（**antd v6 核查无 `resizable`**） | antd `interface.ts:151-195`（ColumnType 无 resizable）+ rc-table 无；dg 顶层 `types.ts:1404` |
+| `columnResizeMode` | 无 | `gridOptions.columnResizeMode` | 无 | data-grid 列宽拖拽模式 |
 | `resizableMinWidth` | `TableProps.resizableMinWidth`（顶层） | `gridOptions.resizableMinWidth` | 无 | dg 顶层 `types.ts:1409` |
 | `resizableMaxWidth` | `TableProps.resizableMaxWidth`（顶层） | `gridOptions.resizableMaxWidth` | 无 | dg 顶层 `types.ts:1414` |
+| `scrollBarFoldMode` | 无 | `gridOptions.scrollBarFoldMode` | 无 | data-grid 悬浮滚动条显示/折叠策略 |
 | `selection` | 无 | `gridOptions.selection` | 无 | antd 只有 `rowSelection` 兼容层；`gridOptions.selection` 承载 data-grid 原生 `selectionMode/showSelectionColumn/selectedValues` |
 | `autoScrollOnDrag` | 无 | `gridOptions.autoScrollOnDrag` | 无 | data-grid 拖拽增强：行/列拖到滚动容器边缘时自动滚动 |
 | `columnReorder` | 无 | `gridOptions.columnReorder` | 无 | data-grid 列拖拽重排总开关 |
@@ -54,9 +58,12 @@ interface ColumnType<RecordType> {
 interface GridColumnOptions<RecordType> {
   /** 列拖拽锁定：undefined=不锁定；lockDrag=不可发起拖；lockPosition=不可发起拖且 index 恒定。 */
   dragColumnLock?: 'lockDrag' | 'lockPosition'
-  /** 单元格作为 HTML5 拖拽源（拖到外部应用，dataTransfer JSON）。 */
-  cellDragSource?: boolean | ((record: RecordType, index: number) => RecordType | string)
-  // …其它列级专属选项
+  /** recycling cell 的低层 HTMLElement 渲染 hook。 */
+  renderCellElement?: (params, oldElement) => HTMLElement
+  /** recycling cell 的 React slot 渲染 hook。 */
+  renderCellReact?: (params, slot) => ReactElement | null
+  /** 清理 renderCellElement 创建的 HTMLElement 副作用。 */
+  disposeCellElement?: (element, reason, params) => void
 }
 ```
 
@@ -84,4 +91,5 @@ interface GridColumnOptions<RecordType> {
 ## 与其它文档的关系
 
 - [compat-matrix.md](compat-matrix.md)：判定每个字段属于「antd 兼容」还是「dg 专属」。dg 专属字段在矩阵末尾「data-grid 专属 → gridOptions/gridColumnOptions」一节列出，本文档是其命名空间归属的策略依据。
+- [public-api.md](public-api.md)：记录当前主入口承诺导出的 API，以及 `gridOptions` / `gridColumnOptions` 的完整成员表。
 - [ag-grid-drag-candidates.md](ag-grid-drag-candidates.md)：整理外部拖拽能力的参考行为、命名约束和当前采用的中性字段名。

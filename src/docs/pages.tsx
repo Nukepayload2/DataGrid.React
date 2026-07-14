@@ -38,6 +38,23 @@ interface GapRow {
   action: string
 }
 
+interface ApiExportRow {
+  key: string
+  name: string
+  kind: string
+  stability: string
+  description: string
+}
+
+interface ApiOptionRow {
+  key: string
+  field: string
+  type: string
+  defaultValue: string
+  stability: string
+  description: string
+}
+
 const QUICK_START_INSTALL = `import { Table } from '@nukepayload2/data-grid'
 import type { ColumnType } from '@nukepayload2/data-grid'
 import '@nukepayload2/data-grid/style.css'`
@@ -101,11 +118,45 @@ const GRID_OPTIONS_CODE = `<Table
   rowKey="id"
   gridOptions={{
     rowHeight: 48,
+    virtualizationMode: 'standard',
     columnReorder: true,
     autoScrollOnDrag: true,
     multiRowReorder: true,
   }}
 />`
+
+const RECYCLING_CODE = `<Table
+  columns={columns}
+  dataSource={rows}
+  rowKey="id"
+  virtual
+  scroll={{ y: true, x: 1200 }}
+  gridOptions={{
+    rowHeight: 48,
+    virtualizationMode: 'recycling',
+  }}
+/>`
+
+const GRID_COLUMN_OPTIONS_CODE = `const columns: ColumnType<Row>[] = [
+  {
+    title: 'Name',
+    dataIndex: 'name',
+    key: 'name',
+    gridColumnOptions: {
+      dragColumnLock: 'lockDrag',
+    },
+  },
+  {
+    title: 'Status',
+    dataIndex: 'status',
+    key: 'status',
+    gridColumnOptions: {
+      renderCellReact: (params, slot) => (
+        <StatusBadge key={slot.key} value={params.value} />
+      ),
+    },
+  },
+]`
 
 const overviewRows: OverviewRow[] = [
   {
@@ -171,6 +222,54 @@ const tablePropRows: PropRow[] = [
   { key: 'classNames', field: 'classNames / styles', purpose: '语义化样式槽位。', note: '局部覆盖 root、header、body、cell 等部位。' },
   { key: 'sticky', field: 'sticky', purpose: '页面级 sticky 表头。', note: '适合和外层滚动容器组合使用。' },
   { key: 'gridOptions', field: 'gridOptions', purpose: 'data-grid 专属表级能力。', note: '例如行高、列宽拖拽、原生选择和拖拽增强。' },
+]
+
+const publicApiRows: ApiExportRow[] = [
+  { key: 'table', name: 'Table', kind: 'value', stability: 'stable', description: 'data-grid 表格组件。' },
+  { key: 'getRowKey', name: 'getRowKey', kind: 'value', stability: 'stable', description: '与 Table 内部一致的 rowKey 解析工具。' },
+  { key: 'sentinel', name: 'EXPAND_COLUMN / SELECTION_COLUMN', kind: 'value', stability: 'stable', description: 'antd 兼容哨兵列，用于控制展开列和选择列位置。' },
+  { key: 'selection-sentinel', name: 'SELECTION_ALL / SELECTION_NONE / SELECTION_INVERT', kind: 'value', stability: 'stable', description: 'antd 兼容选择菜单哨兵。' },
+  { key: 'summary', name: 'Summary / Table.Summary', kind: 'value', stability: 'stable', description: 'antd 兼容 summary API。' },
+  { key: 'table-types', name: 'TableProps / ColumnType / TableRef', kind: 'type', stability: 'stable', description: '主要公开类型入口。' },
+  { key: 'grid-types', name: 'GridSelectionOptions / GridColumnOptions / VirtualizationMode', kind: 'type', stability: 'stable', description: 'data-grid 专属命名空间类型。' },
+]
+
+const gridOptionRows: ApiOptionRow[] = [
+  { key: 'rowHeight', field: 'rowHeight', type: 'number | (record, index) => number', defaultValue: '虚拟模式 56', stability: 'stable', description: '行高约定；虚拟模式未测量行用它兜底。' },
+  { key: 'virtualizationMode', field: 'virtualizationMode', type: "'standard' | 'recycling'", defaultValue: "'standard'", stability: 'stable', description: '虚拟渲染模式；只在 virtual + scroll.y=true 时生效。' },
+  { key: 'minRowHeight', field: 'minRowHeight', type: 'number', defaultValue: 'undefined', stability: 'stable', description: '有界行高下限；需与 maxRowHeight 同时设置。' },
+  { key: 'maxRowHeight', field: 'maxRowHeight', type: 'number', defaultValue: 'undefined', stability: 'stable', description: '有界行高上限；需与 minRowHeight 同时设置。' },
+  { key: 'headerHeight', field: 'headerHeight', type: 'number | string', defaultValue: 'auto', stability: 'stable', description: '表头行高约定，多级表头每层使用同一高度。' },
+  { key: 'resizable', field: 'resizable', type: 'boolean', defaultValue: 'false', stability: 'stable', description: '启用列宽拖拽；true 且未设 columnResizeMode 时等同 ResizeLeft。' },
+  { key: 'columnResizeMode', field: 'columnResizeMode', type: "'Disabled' | 'ResizeLeft' | 'ResizeSibling'", defaultValue: "'Disabled'", stability: 'stable', description: '列宽拖拽模式。' },
+  { key: 'resizableMinWidth', field: 'resizableMinWidth', type: 'number | (key) => number', defaultValue: '30', stability: 'stable', description: '列宽拖拽最小宽度。' },
+  { key: 'resizableMaxWidth', field: 'resizableMaxWidth', type: 'number | (key) => number', defaultValue: 'Infinity', stability: 'stable', description: '列宽拖拽最大宽度。' },
+  { key: 'scrollBarFoldMode', field: 'scrollBarFoldMode', type: 'ScrollBarFoldMode', defaultValue: '常驻细条', stability: 'stable', description: '悬浮滚动条显示和折叠策略。' },
+  { key: 'selection', field: 'selection', type: 'GridSelectionOptions', defaultValue: 'undefined', stability: 'stable', description: 'data-grid 原生选择配置，优先级高于 rowSelection。' },
+  { key: 'autoScrollOnDrag', field: 'autoScrollOnDrag', type: 'boolean', defaultValue: 'true', stability: 'stable', description: '行/列拖到滚动容器边缘时自动滚动。' },
+  { key: 'columnReorder', field: 'columnReorder', type: 'boolean', defaultValue: 'true', stability: 'stable', description: '列拖拽重排总开关。' },
+  { key: 'multiRowReorder', field: 'multiRowReorder', type: 'boolean', defaultValue: 'true', stability: 'stable', description: '多选行拖拽时按选中块整体移动。' },
+]
+
+const selectionOptionRows: ApiOptionRow[] = [
+  { key: 'selectionMode', field: 'selectionMode', type: "'disabled' | 'single' | 'multiple' | 'extended'", defaultValue: '按 rowSelection.type 推导', stability: 'stable', description: '原生行点击选择模式。' },
+  { key: 'showSelectionColumn', field: 'showSelectionColumn', type: 'boolean', defaultValue: 'true', stability: 'stable', description: '是否显示选择列；关闭后仍可通过行点击或受控值选中。' },
+  { key: 'getSelectionValue', field: 'getSelectionValue', type: '(record, index) => GridSelectionValue', defaultValue: '回退到 rowKey', stability: 'stable', description: '提取业务选中值；推荐返回稳定且唯一的 string/number。' },
+  { key: 'selectedValues', field: 'selectedValues', type: 'readonly GridSelectionValue[]', defaultValue: 'undefined', stability: 'stable', description: '受控业务选中值。' },
+  { key: 'defaultSelectedValues', field: 'defaultSelectedValues', type: 'readonly GridSelectionValue[]', defaultValue: 'undefined', stability: 'stable', description: '非受控初始业务选中值。' },
+  { key: 'onSelectedValuesChange', field: 'onSelectedValuesChange', type: '(values, rows, info) => void', defaultValue: 'undefined', stability: 'stable', description: '业务选中值变化回调。' },
+]
+
+const scrollBarFoldRows: ApiOptionRow[] = [
+  { key: 'showOnTableHover', field: 'showOnTableHover', type: 'boolean', defaultValue: 'false', stability: 'stable', description: 'true 时仅 hover/触摸表格后显示悬浮滚动条。' },
+  { key: 'expandOnHover', field: 'expandOnHover', type: 'boolean', defaultValue: 'true', stability: 'stable', description: 'hover 滚动条 hit 区时是否从细指示器展开为粗滚动条。' },
+]
+
+const gridColumnOptionRows: ApiOptionRow[] = [
+  { key: 'dragColumnLock', field: 'dragColumnLock', type: "'lockDrag' | 'lockPosition'", defaultValue: 'undefined', stability: 'stable', description: '列拖拽锁定；lockPosition 还保持最终 index 不变。' },
+  { key: 'renderCellElement', field: 'renderCellElement', type: '(params, oldElement) => HTMLElement', defaultValue: 'undefined', stability: 'advanced', description: 'recycling cell 的低层 HTMLElement 渲染 hook。' },
+  { key: 'renderCellReact', field: 'renderCellReact', type: '(params, slot) => ReactElement | null', defaultValue: 'undefined', stability: 'advanced', description: 'recycling cell 的 React slot 渲染 hook，返回元素必须使用 slot.key。' },
+  { key: 'disposeCellElement', field: 'disposeCellElement', type: '(element, reason, params) => void', defaultValue: 'undefined', stability: 'advanced', description: '清理 renderCellElement 创建的 HTMLElement 副作用。' },
 ]
 
 const columnPropRows: PropRow[] = [
@@ -410,6 +509,16 @@ export function renderApiNamespace() {
         <p>可迁移的表格能力保留在 Table props 和 Column props 中，例如 columns、rowSelection、expandable、pagination、sorter 和 filters。</p>
       </DocSection>
       <DocSection id="native" eyebrow="专属能力" title="data-grid 能力进入 gridOptions">
+        <DocsDataGrid<ApiOptionRow>
+          columns={[
+            { title: '字段', dataIndex: 'field', key: 'field', width: 220 },
+            { title: '类型', dataIndex: 'type', key: 'type', width: 260 },
+            { title: '说明', dataIndex: 'description', key: 'description', width: 420 },
+          ]}
+          dataSource={gridOptionRows.slice(0, 6)}
+          rowKey="key"
+          scrollX={900}
+        />
         <DocsCode code={GRID_OPTIONS_CODE} height={260} ariaLabel="gridOptions 示例代码" />
       </DocSection>
     </>
@@ -517,6 +626,71 @@ export function renderTableApi() {
   )
 }
 
+function apiOptionColumns() {
+  return [
+    { title: '字段', dataIndex: 'field', key: 'field', width: 220 },
+    { title: '类型', dataIndex: 'type', key: 'type', width: 300 },
+    { title: '默认值', dataIndex: 'defaultValue', key: 'defaultValue', width: 160 },
+    { title: '稳定性', dataIndex: 'stability', key: 'stability', width: 120 },
+    { title: '说明', dataIndex: 'description', key: 'description', width: 420 },
+  ]
+}
+
+export function renderPublicApi() {
+  return (
+    <>
+      <DocSection
+        id="exports"
+        eyebrow="入口"
+        title="主入口导出"
+        description="这些 API 从包主入口导出并面向用户承诺。"
+      >
+        <DocsDataGrid<ApiExportRow>
+          columns={[
+            { title: '名称', dataIndex: 'name', key: 'name', width: 320 },
+            { title: '类型', dataIndex: 'kind', key: 'kind', width: 120 },
+            { title: '稳定性', dataIndex: 'stability', key: 'stability', width: 120 },
+            { title: '说明', dataIndex: 'description', key: 'description', width: 460 },
+          ]}
+          dataSource={publicApiRows}
+          rowKey="key"
+          scrollX={1020}
+        />
+      </DocSection>
+
+      <DocSection
+        id="native"
+        eyebrow="命名空间"
+        title="data-grid 专属 API"
+        description="antd 没有的能力统一进入 gridOptions 或 gridColumnOptions。"
+      >
+        <DocsDataGrid<ApiOptionRow>
+          description="表级专属能力。"
+          columns={apiOptionColumns()}
+          dataSource={gridOptionRows}
+          rowKey="key"
+          scrollX={1220}
+        />
+        <DocsDataGrid<ApiOptionRow>
+          description="列级专属能力。"
+          columns={apiOptionColumns()}
+          dataSource={gridColumnOptionRows}
+          rowKey="key"
+          scrollX={1220}
+        />
+      </DocSection>
+
+      <DocSection id="internal" eyebrow="边界" title="拖拽 hooks 不作为公开 API">
+        <DocsNote title="使用方式">
+          拖拽能力由 data-grid 内部实现，用户只配置 <Text code>gridOptions.columnReorder</Text>、
+          <Text code>gridOptions.autoScrollOnDrag</Text>、<Text code>gridOptions.multiRowReorder</Text>
+          和 <Text code>gridColumnOptions.dragColumnLock</Text>。不要依赖内部 hook 路径。
+        </DocsNote>
+      </DocSection>
+    </>
+  )
+}
+
 export function renderColumnApi() {
   return (
     <DocSection id="column-props" eyebrow="列" title="Column props">
@@ -588,14 +762,46 @@ export function renderGridOptions() {
       >
         <DocsCode code={GRID_OPTIONS_CODE} height={260} ariaLabel="gridOptions 示例代码" />
       </DocSection>
-      <DocSection id="examples" eyebrow="常见项" title="常用增强能力">
-        <ul className="docs-bullet-list">
-          <li>行高和测量策略。</li>
-          <li>列拖拽和列拖拽锁定。</li>
-          <li>行拖拽自动滚动。</li>
-          <li>多行成块重排。</li>
-          <li>DOM 复用虚拟化。</li>
-        </ul>
+      <DocSection id="examples" eyebrow="表级" title="gridOptions 成员">
+        <DocsDataGrid<ApiOptionRow>
+          columns={apiOptionColumns()}
+          dataSource={gridOptionRows}
+          rowKey="key"
+          scrollX={1220}
+        />
+      </DocSection>
+      <DocSection id="selection" eyebrow="选择" title="gridOptions.selection">
+        <DocsDataGrid<ApiOptionRow>
+          columns={apiOptionColumns()}
+          dataSource={selectionOptionRows}
+          rowKey="key"
+          scrollX={1220}
+        />
+      </DocSection>
+      <DocSection id="scrollbar" eyebrow="滚动条" title="scrollBarFoldMode">
+        <DocsDataGrid<ApiOptionRow>
+          columns={apiOptionColumns()}
+          dataSource={scrollBarFoldRows}
+          rowKey="key"
+          scrollX={1220}
+        />
+      </DocSection>
+      <DocSection id="column-options" eyebrow="列级" title="gridColumnOptions">
+        <DocsDataGrid<ApiOptionRow>
+          columns={apiOptionColumns()}
+          dataSource={gridColumnOptionRows}
+          rowKey="key"
+          scrollX={1220}
+        />
+        <DocsCode code={GRID_COLUMN_OPTIONS_CODE} height={300} ariaLabel="gridColumnOptions 示例代码" />
+      </DocSection>
+      <DocSection id="recycling" eyebrow="虚拟化" title="recycling 渲染模式">
+        <DocsNote title="使用条件">
+          <Text code>virtualizationMode: 'recycling'</Text> 只在 <Text code>virtual</Text> 与
+          <Text code>{'scroll={{ y: true }}'}</Text> 同时启用时生效。普通业务优先使用默认
+          <Text code>standard</Text>，只有超大表格或低层 DOM 集成需要 recycling。
+        </DocsNote>
+        <DocsCode code={RECYCLING_CODE} height={260} ariaLabel="recycling 虚拟化示例代码" />
       </DocSection>
     </>
   )

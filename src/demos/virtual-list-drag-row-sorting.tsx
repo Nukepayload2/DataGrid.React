@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Button, Space, Switch, theme } from 'antd'
 import type { CSSProperties, ReactNode } from 'react'
 import { Table } from '../table'
-import { useRowDragSort } from '../table'
 import type { ColumnType } from '../table'
+import { useRowDragSort } from '../table/engine/useRowDragSort'
 import { DemoToolbar } from './_compare/DemoToolbar'
 
 interface VRow {
@@ -165,4 +165,3 @@ export default function DragVirtualListDemo() {
     </div>
   )
 }
-

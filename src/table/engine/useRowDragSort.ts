@@ -27,9 +27,7 @@ import {
   updateRowDragOverlay,
 } from './dragSortUtils'
 
-// 公共导出面保持不变：index.ts 仍
-//   `export { useRowDragSort, arrayMove, arrayMoveBlock } from './engine/useRowDragSort'`。
-// 通过 re-export 让 arrayMove/arrayMoveBlock 的定义源（dragSortUtils）与 index.ts 路径同时可用。
+// 内部 demo/引擎工具导出：包主入口不导出拖拽 hooks，用户通过 gridOptions/gridColumnOptions 开关使用拖拽能力。
 export { arrayMove, arrayMoveBlock } from './dragSortUtils'
 
 /** 指示线样式（调用方在外层相对定位容器内渲染一条绝对定位横线）。 */
