@@ -13,6 +13,7 @@ import {
   renderQuickStart,
   renderRenderingModel,
   renderScrollY,
+  renderSemanticDom,
   renderTableApi,
 } from './pages'
 
@@ -153,6 +154,18 @@ export const docs: DocEntry[] = [
       { id: 'demos', title: '优先 demo' },
     ],
     render: renderFeaturePage('styling'),
+  },
+  {
+    slug: 'semantic-dom',
+    group: '功能指南',
+    title: 'Semantic DOM',
+    description: 'classNames / styles 的 13 个语义槽位、data-grid DOM 落点和 a11y 边界。',
+    sections: [
+      { id: 'slots', title: '13 槽位落点矩阵' },
+      { id: 'a11y', title: 'a11y 属性兼容矩阵' },
+      { id: 'demo', title: '交互验证' },
+    ],
+    render: renderSemanticDom,
   },
   {
     slug: 'api-extension',

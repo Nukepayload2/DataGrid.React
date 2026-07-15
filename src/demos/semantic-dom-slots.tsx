@@ -1,156 +1,211 @@
-import type { CSSProperties } from 'react'
-import { SplitDemo } from './_compare/SplitDemo'
+import { useState } from 'react'
+import { Button, Tag, Tooltip } from 'antd'
+import { InfoCircleOutlined } from '@ant-design/icons'
+import { navigate } from './registry'
 import SemanticDomDg from './semantic-dom-slots.dg'
 import SemanticDomAntd from './semantic-dom-slots.antd'
 
-interface A11yRow {
-  attr: string
-  antd: string
-  dgNow: string
-  dgAfter: string
+type SemanticSlotStatus = 'supported' | 'mapped' | 'limited'
+
+interface SemanticSlot {
+  key: string
+  title: string
+  status: SemanticSlotStatus
+  dgTarget: string
+  dgDescription: string
+  antdTarget: string
+  antdDescription: string
 }
 
-const a11yMatrix: A11yRow[] = [
+const semanticSlots: SemanticSlot[] = [
   {
-    attr: 'role="table"（根）',
-    antd: '天然（<table>）',
-    dgNow: '缺失',
-    dgAfter: '不加（无行容器，单独 role=table 无效）',
+    key: 'root',
+    title: 'root',
+    status: 'supported',
+    dgTarget: '.dg-wrapper',
+    dgDescription: '根元素，承载表格容器的基础样式、尺寸和主题变量。',
+    antdTarget: '.ant-table-wrapper',
+    antdDescription: '根元素，包含字体大小、背景色、圆角、滚动条颜色等表格容器的基础样式。',
   },
   {
-    attr: 'role="rowgroup"（thead/tbody）',
-    antd: '天然（<thead>/<tbody>）',
-    dgNow: '缺失',
-    dgAfter: '不加（dg 无 thead/tbody 容器）',
+    key: 'title',
+    title: 'title',
+    status: 'supported',
+    dgTarget: '.dg-title',
+    dgDescription: '标题元素，包含表格标题的样式和布局。',
+    antdTarget: '.ant-table-title',
+    antdDescription: '标题元素，包含表格标题的样式和布局。',
   },
   {
-    attr: 'role="row"（tr）',
-    antd: '天然（<tr>）',
-    dgNow: '缺失',
-    dgAfter: '不加（dg 行＝多 cell 无容器，role=row 需子级 cell 才有效）',
+    key: 'content',
+    title: 'content',
+    status: 'supported',
+    dgTarget: '.dg-grid',
+    dgDescription: '内容元素，包含表头和表体所在的 CSS Grid 区域。',
+    antdTarget: '.ant-table-content',
+    antdDescription: '内容元素，包含表格内容区域的样式和布局。',
   },
   {
-    attr: 'role="columnheader"（th）',
-    antd: '天然（<th>）',
-    dgNow: '缺失',
-    dgAfter: '不加（需父级 role=row）',
+    key: 'header.wrapper',
+    title: 'header.wrapper',
+    status: 'limited',
+    dgTarget: '无独立 thead 容器',
+    dgDescription: 'data-grid 没有独立表头容器 DOM；该槽位保留 API 形状，但不会形成 antd 的 thead 层级。',
+    antdTarget: '.ant-table-thead',
+    antdDescription: '头部容器元素，包含表头的布局和容器样式。',
   },
   {
-    attr: 'role="gridcell"（td）',
-    antd: '天然（<td>）',
-    dgNow: '缺失',
-    dgAfter: '不加（需父级 role=row）',
+    key: 'header.row',
+    title: 'header.row',
+    status: 'mapped',
+    dgTarget: '表头行内所有 header cell',
+    dgDescription: '表头行样式透传到同一逻辑行的所有表头单元格。',
+    antdTarget: 'thead > tr',
+    antdDescription: '头部行元素，包含表头行的布局和样式。',
   },
   {
-    attr: 'role="rowheader"（rowScope 列）',
-    antd: '天然（<th scope="row">）',
-    dgNow: '缺失',
-    dgAfter: '不加（需父级 role=row）',
+    key: 'header.cell',
+    title: 'header.cell',
+    status: 'supported',
+    dgTarget: '.dg-cell-header',
+    dgDescription: '表头单元格元素，包含背景、文字、排序状态和边框等样式。',
+    antdTarget: 'th.ant-table-cell',
+    antdDescription: '头部单元格元素，包含定位、内边距、背景色、文字颜色和字体权重等样式。',
   },
   {
-    attr: 'aria-sort（可排序列表头）',
-    antd: '显式（useSorter.tsx:246-248）',
-    dgNow: '✅ 已补（ascending/descending，未排序不设）',
-    dgAfter: '✅ 已补',
+    key: 'section',
+    title: 'section',
+    status: 'supported',
+    dgTarget: '.dg-scroll-wrap',
+    dgDescription: '表格包装容器，承载滚动区域、边框和浮动滚动条上下文。',
+    antdTarget: '.ant-table-container',
+    antdDescription: '容器元素，包含清除浮动、最大宽度、滚动条背景等表格包装容器样式。',
   },
   {
-    attr: 'aria-expanded（展开行）',
-    antd: '显式（ExpandIcon.tsx）',
-    dgNow: '✅ 已有（engine/ExpandIcon.tsx:60-61）',
-    dgAfter: '✅ 已有',
+    key: 'body.wrapper',
+    title: 'body.wrapper',
+    status: 'limited',
+    dgTarget: '无独立 tbody 容器',
+    dgDescription: 'data-grid 没有独立表体容器 DOM；表体直接由 grid cell 组成。',
+    antdTarget: '.ant-table-tbody',
+    antdDescription: '主体容器元素，包含表格主体的布局和容器样式。',
   },
   {
-    attr: 'aria-label（表头/控件）',
-    antd: '部分（select-all 等）',
-    dgNow: '部分（selection aria、resize separator）',
-    dgAfter: '部分（同 antd）',
+    key: 'body.row',
+    title: 'body.row',
+    status: 'mapped',
+    dgTarget: '表体行内所有 body cell',
+    dgDescription: '数据行样式透传到同一逻辑行的所有数据单元格。',
+    antdTarget: 'tbody > tr',
+    antdDescription: '主体行元素，包含数据行的悬浮效果、选中状态、展开状态等交互样式。',
   },
   {
-    attr: 'aria-colspan（合并数据格）',
-    antd: '天然（<td colspan>）',
-    dgNow: '✅ 已补（colSpan>=2 时设）',
-    dgAfter: '✅ 已补',
+    key: 'body.cell',
+    title: 'body.cell',
+    status: 'supported',
+    dgTarget: '.dg-cell-body',
+    dgDescription: '主体单元格元素，包含内边距、换行、合并格和行标题视觉样式。',
+    antdTarget: 'td.ant-table-cell',
+    antdDescription: '主体单元格元素，包含相对定位、内边距、文字换行等数据单元格的基础样式。',
   },
   {
-    attr: 'aria-rowspan（合并数据格）',
-    antd: '天然（<td rowspan>）',
-    dgNow: '✅ 已补（rowSpanTracks>=2 时设）',
-    dgAfter: '✅ 已补',
+    key: 'footer',
+    title: 'footer',
+    status: 'supported',
+    dgTarget: '.dg-footer',
+    dgDescription: '底部元素，包含表格底部内容的背景、文字和布局样式。',
+    antdTarget: '.ant-table-footer',
+    antdDescription: '底部元素，包含表格底部的背景色、文字颜色等样式。',
+  },
+  {
+    key: 'pagination.root',
+    title: 'pagination.root',
+    status: 'supported',
+    dgTarget: '.dg-pagination',
+    dgDescription: '分页根元素，承载分页器的布局和外层语义样式。',
+    antdTarget: '.ant-pagination',
+    antdDescription: '分页根元素，包含分页组件的基础样式和布局。',
+  },
+  {
+    key: 'pagination.item',
+    title: 'pagination.item',
+    status: 'mapped',
+    dgTarget: 'antd Pagination item',
+    dgDescription: '分页单项样式透传到内部 antd Pagination 的 item 层。',
+    antdTarget: '.ant-pagination-item / prev / next',
+    antdDescription: '分页单项元素，包含分页项的样式和交互效果。',
   },
 ]
 
-interface SlotRow {
-  slot: string
-  color: string
-  dgRender: string
-  antdRender: string
+const statusLabel: Record<SemanticSlotStatus, string> = {
+  supported: '已落点',
+  mapped: '透传',
+  limited: '受限',
 }
 
-const slotMatrix: SlotRow[] = [
-  { slot: 'root', color: '#ff00ff', dgRender: '.dg-wrapper', antdRender: '.ant-table-wrapper' },
-  { slot: 'section', color: '#00ffff', dgRender: '.dg-scroll', antdRender: '.ant-table' },
-  { slot: 'content', color: '#ffff00', dgRender: '.dg-grid', antdRender: '.ant-table-container' },
-  { slot: 'title', color: '#ff5500', dgRender: '.dg-title', antdRender: '.ant-table-title' },
-  { slot: 'footer', color: '#00ff55', dgRender: '.dg-footer', antdRender: '.ant-table-footer' },
-  {
-    slot: 'header.wrapper',
-    color: '#5500ff',
-    dgRender: '❌ 不渲染（无 thead 容器）',
-    antdRender: '.ant-table-thead',
-  },
-  {
-    slot: 'header.row',
-    color: '#ff0055',
-    dgRender: '✅ 透传到表头行所有 cell',
-    antdRender: '<tr>',
-  },
-  {
-    slot: 'header.cell',
-    color: '#ff5555',
-    dgRender: '.dg-cell-header',
-    antdRender: '<th>',
-  },
-  {
-    slot: 'body.wrapper',
-    color: '#55ff00',
-    dgRender: '❌ 不渲染（无 tbody 容器）',
-    antdRender: '.ant-table-tbody',
-  },
-  {
-    slot: 'body.row',
-    color: '#0055ff',
-    dgRender: '✅ 透传到表体行所有 cell',
-    antdRender: '<tr>',
-  },
-  {
-    slot: 'body.cell',
-    color: '#5555ff',
-    dgRender: '.dg-cell-body',
-    antdRender: '<td>',
-  },
-  {
-    slot: 'pagination.root',
-    color: '#ffaa00',
-    dgRender: '.dg-pagination',
-    antdRender: '.ant-pagination',
-  },
-  {
-    slot: 'pagination.item',
-    color: '#aa00ff',
-    dgRender: '透传到 antd Pagination',
-    antdRender: '.ant-pagination-item',
-  },
-]
+const statusColor: Record<SemanticSlotStatus, string> = {
+  supported: 'success',
+  mapped: 'processing',
+  limited: 'warning',
+}
 
-const cellBorder: CSSProperties = {
-  border: '1px solid #f0f0f0',
-  padding: '6px 8px',
-  verticalAlign: 'top',
+function SemanticSlotList({
+  variant,
+  activeSlot,
+  onActiveSlotChange,
+}: {
+  variant: 'data-grid' | 'antd'
+  activeSlot?: string
+  onActiveSlotChange: (slot: string | undefined) => void
+}) {
+  const isDataGrid = variant === 'data-grid'
+
+  return (
+    <ul className="semantic-slot-list">
+      {semanticSlots.map((slot) => {
+        const active = activeSlot === slot.key
+        const target = isDataGrid ? slot.dgTarget : slot.antdTarget
+        const description = isDataGrid ? slot.dgDescription : slot.antdDescription
+
+        return (
+          <li
+            key={slot.key}
+            className={active ? 'semantic-slot-item semantic-slot-item-active' : 'semantic-slot-item'}
+            onMouseEnter={() => onActiveSlotChange(slot.key)}
+            onMouseLeave={() => onActiveSlotChange(undefined)}
+            onFocus={() => onActiveSlotChange(slot.key)}
+            onBlur={() => onActiveSlotChange(undefined)}
+          >
+            <div className="semantic-slot-heading">
+              <div className="semantic-slot-title">
+                <h5>{slot.title}</h5>
+              </div>
+              <div className="semantic-slot-actions">
+                {isDataGrid ? <Tag color={statusColor[slot.status]}>{statusLabel[slot.status]}</Tag> : null}
+                <Tooltip title={target}>
+                  <Button
+                    aria-label={`${slot.title} 落点信息`}
+                    type="text"
+                    size="small"
+                    icon={<InfoCircleOutlined />}
+                  />
+                </Tooltip>
+              </div>
+            </div>
+            <p>{description}</p>
+          </li>
+        )
+      })}
+    </ul>
+  )
 }
 
 export default function SemanticDomDemo() {
+  const [hoveredSlot, setHoveredSlot] = useState<string | undefined>()
+  const [hoveredAntdSlot, setHoveredAntdSlot] = useState<string | undefined>()
+
   return (
-    <div style={{ padding: 24 }}>
+    <div className="semantic-dom-demo">
       <div
         style={{
           marginBottom: 16,
@@ -162,114 +217,49 @@ export default function SemanticDomDemo() {
           color: 'rgba(0,0,0,0.75)',
         }}
       >
-        <strong>Semantic DOM 兼容对照：</strong> 左右并排呈现 data-grid 与 antd Table，13 槽位
-        classNames/styles 各染一种霓虹色 outline。点击 <strong>Age</strong> 表头排序，用 devtools
-        Elements 面板观察两侧表头 <code>aria-sort</code> 同步变化。完整矩阵见下方说明区 +
-        <code> docs/semantic-dom-compat.md</code>。
+        <strong>Semantic DOM：</strong> 左侧 data-grid 使用与 antd Semantic DOM 示例同名的
+        <code> semantic-mark-*</code> classNames 标记 13 个槽位；右侧列表说明每个槽位在
+        data-grid DOM 中的落点。data-grid 已支持可排序表头的 <code>aria-sort</code>：
+        点击 <strong>Age</strong> 表头时输出 <code>ascending</code> / <code>descending</code>，
+        未排序时不输出该属性。
+        <Button
+          type="link"
+          style={{ paddingInline: 6 }}
+          onClick={() => navigate('/docs/semantic-dom')}
+        >
+          Learn more
+        </Button>
       </div>
 
-      <SplitDemo
-        minPaneWidth={520}
-        virtualizable={false}
-        left={<SemanticDomDg />}
-        right={<SemanticDomAntd />}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-          <div>
-            <h3 style={{ margin: '0 0 8px' }}>13 槽位染色对照</h3>
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                fontSize: 12,
-              }}
-            >
-              <thead>
-                <tr style={{ background: '#fafafa', textAlign: 'left' }}>
-                  <th style={cellBorder}>槽位</th>
-                  <th style={cellBorder}>色标</th>
-                  <th style={cellBorder}>data-grid 渲染</th>
-                  <th style={cellBorder}>antd 渲染</th>
-                </tr>
-              </thead>
-              <tbody>
-                {slotMatrix.map((row) => (
-                  <tr key={row.slot}>
-                    <td style={cellBorder}>
-                      <code>{row.slot}</code>
-                    </td>
-                    <td style={{ ...cellBorder, width: 24 }}>
-                      <span
-                        style={{
-                          display: 'inline-block',
-                          width: 16,
-                          height: 16,
-                          background: row.color,
-                          border: '1px solid rgba(0,0,0,0.15)',
-                        }}
-                      />
-                    </td>
-                    <td style={cellBorder}>{row.dgRender}</td>
-                    <td style={cellBorder}>{row.antdRender}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)', marginTop: 6 }}>
-              <strong>预期差异</strong>：dg 的 <code>header.wrapper</code> /
-              <code> body.wrapper</code> 不染色（架构限制）；<code>header.row</code> /
-              <code> body.row</code> 染色分散到行内所有 cell（grid 无 tr）；其余 9 槽位两侧视觉等价。
-            </p>
-          </div>
+      <div className="semantic-demo-grid">
+        <div className="semantic-demo-preview">
+          <SemanticDomDg activeSlot={hoveredSlot} bordered />
+        </div>
 
-          <div>
-            <h3 style={{ margin: '0 0 8px' }}>a11y 属性兼容矩阵</h3>
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                fontSize: 12,
-              }}
-            >
-              <thead>
-                <tr style={{ background: '#fafafa', textAlign: 'left' }}>
-                  <th style={cellBorder}>属性 / role</th>
-                  <th style={cellBorder}>antd（真 table）</th>
-                  <th style={cellBorder}>dg 现状</th>
-                  <th style={cellBorder}>dg 补齐后</th>
-                </tr>
-              </thead>
-              <tbody>
-                {a11yMatrix.map((row) => (
-                  <tr key={row.attr}>
-                    <td style={cellBorder}>
-                      <code>{row.attr}</code>
-                    </td>
-                    <td style={cellBorder}>{row.antd}</td>
-                    <td style={cellBorder}>{row.dgNow}</td>
-                    <td style={cellBorder}>{row.dgAfter}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p style={{ fontSize: 12, color: 'rgba(0,0,0,0.55)', marginTop: 6 }}>
-              <strong>架构天花板</strong>：dg 用 div + CSS Grid 渲染，行＝多 cell 直接铺在 grid 上
-              <strong> 无行容器</strong>，故 role=table/row/rowgroup/columnheader/gridcell/rowheader
-              无法构成有效 ARIA 结构（需父子层级）。详见
-              <code> docs/design-notes/layout.md</code> 与 <code>docs/semantic-dom-compat.md</code>。
-            </p>
-          </div>
+        <aside className="semantic-slot-panel" aria-label="Semantic DOM slots">
+          <SemanticSlotList
+            variant="data-grid"
+            activeSlot={hoveredSlot}
+            onActiveSlotChange={setHoveredSlot}
+          />
+        </aside>
 
-          {/* aria-sort 专项 */}
-          <div>
-            <h3 style={{ margin: '0 0 8px' }}>aria-sort 专项验证</h3>
-            <p style={{ margin: 0, fontSize: 12, color: 'rgba(0,0,0,0.75)' }}>
-              点击 Age 表头排序，两侧表头 <code>aria-sort</code> 在
-              <code> ascending</code> → <code>descending</code> → （未设）循环，语义一致。
-            </p>
+        <div className="semantic-antd-compare">
+          <h3>antd 对比</h3>
+          <div className="semantic-antd-compare-grid">
+            <div className="semantic-demo-preview">
+              <SemanticDomAntd activeSlot={hoveredAntdSlot} bordered />
+            </div>
+            <aside className="semantic-slot-panel" aria-label="antd Semantic DOM slots">
+              <SemanticSlotList
+                variant="antd"
+                activeSlot={hoveredAntdSlot}
+                onActiveSlotChange={setHoveredAntdSlot}
+              />
+            </aside>
           </div>
         </div>
-      </SplitDemo>
+      </div>
     </div>
   )
 }

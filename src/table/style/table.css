@@ -962,11 +962,12 @@ body.dg-scrollbar-pointer-capturing * {
 .dg-floating-scrollbar-thumb:hover {
   width: var(--ant-table-scroll-thumb-size, 8px);
   background: var(--dg-scrollbar-thumb-active-bg);
-  opacity: 1;
+  opacity: var(--dg-scrollbar-thumb-expanded-opacity, 0.25);
 }
 
 .dg-floating-scrollbar-thumb:active {
   background: var(--dg-scrollbar-thumb-active-bg);
+  opacity: var(--dg-scrollbar-thumb-expanded-opacity, 0.25);
   cursor: grabbing;
 }
 
@@ -975,13 +976,28 @@ body.dg-scrollbar-pointer-capturing * {
 .dg-floating-scrollbar-v.dg-floating-scrollbar-dragging .dg-floating-scrollbar-thumb {
   width: var(--ant-table-scroll-thumb-size, 8px);
   background: var(--dg-scrollbar-thumb-active-bg);
-  opacity: 1;
+  opacity: var(--dg-scrollbar-thumb-expanded-opacity, 0.25);
   cursor: grabbing;
 }
 
 /* expandOnHover=false：不折叠成 2px 指示器，始终保持展开尺寸。 */
 .dg-wrapper.dg-scrollbar-no-expand .dg-floating-scrollbar-thumb {
   width: var(--ant-table-scroll-thumb-size, 8px);
+  background: var(--dg-scrollbar-thumb-active-bg);
+  opacity: var(--dg-scrollbar-thumb-expanded-opacity, 0.25);
+}
+
+.dg-wrapper.dg-scrollbar-table-hover.dg-scrollbar-no-expand:not(:hover):not(
+    .dg-scrollbar-touched
+  )
+  .dg-floating-scrollbar-thumb {
+  opacity: 0;
+}
+
+.dg-wrapper.dg-scrollbar-table-hover.dg-scrollbar-no-expand
+  .dg-floating-scrollbar-v.dg-floating-scrollbar-dragging
+  .dg-floating-scrollbar-thumb {
+  opacity: var(--dg-scrollbar-thumb-expanded-opacity, 0.25);
 }
 
 /* 横向悬浮条 hit 容器。
@@ -1029,11 +1045,12 @@ body.dg-scrollbar-pointer-capturing * {
 .dg-floating-scrollbar-thumb-h:hover {
   height: var(--ant-table-scroll-thumb-size, 8px);
   background: var(--dg-scrollbar-thumb-active-bg);
-  opacity: 1;
+  opacity: var(--dg-scrollbar-thumb-expanded-opacity, 0.25);
 }
 
 .dg-floating-scrollbar-thumb-h:active {
   background: var(--dg-scrollbar-thumb-active-bg);
+  opacity: var(--dg-scrollbar-thumb-expanded-opacity, 0.25);
   cursor: grabbing;
 }
 
@@ -1042,13 +1059,28 @@ body.dg-scrollbar-pointer-capturing * {
 .dg-floating-scrollbar-h.dg-floating-scrollbar-dragging .dg-floating-scrollbar-thumb-h {
   height: var(--ant-table-scroll-thumb-size, 8px);
   background: var(--dg-scrollbar-thumb-active-bg);
-  opacity: 1;
+  opacity: var(--dg-scrollbar-thumb-expanded-opacity, 0.25);
   cursor: grabbing;
 }
 
 /* expandOnHover=false：不折叠成 2px 指示器，始终保持展开尺寸。 */
 .dg-wrapper.dg-scrollbar-no-expand .dg-floating-scrollbar-thumb-h {
   height: var(--ant-table-scroll-thumb-size, 8px);
+  background: var(--dg-scrollbar-thumb-active-bg);
+  opacity: var(--dg-scrollbar-thumb-expanded-opacity, 0.25);
+}
+
+.dg-wrapper.dg-scrollbar-table-hover.dg-scrollbar-no-expand:not(:hover):not(
+    .dg-scrollbar-touched
+  )
+  .dg-floating-scrollbar-thumb-h {
+  opacity: 0;
+}
+
+.dg-wrapper.dg-scrollbar-table-hover.dg-scrollbar-no-expand
+  .dg-floating-scrollbar-h.dg-floating-scrollbar-dragging
+  .dg-floating-scrollbar-thumb-h {
+  opacity: var(--dg-scrollbar-thumb-expanded-opacity, 0.25);
 }
 
 /* 页面级 StickyScrollBar 使用 8px hit 区，默认只露出 2px 指示条。
@@ -1077,10 +1109,13 @@ body.dg-scrollbar-pointer-capturing * {
 .dg-sticky-scroll-bar.dg-sticky-scroll-bar-dragging .dg-sticky-scroll-bar-thumb,
 .dg-wrapper.dg-scrollbar-no-expand .dg-sticky-scroll-bar-thumb {
   height: var(--ant-table-scroll-thumb-size, 8px);
+  background: var(--dg-scrollbar-thumb-active-bg);
+  opacity: var(--dg-scrollbar-thumb-expanded-opacity, 0.25);
 }
 
 .dg-sticky-scroll-bar.dg-sticky-scroll-bar-dragging .dg-sticky-scroll-bar-thumb {
   background: var(--dg-scrollbar-thumb-active-bg);
+  opacity: var(--dg-scrollbar-thumb-expanded-opacity, 0.25);
   cursor: grabbing;
 }
 
@@ -1099,6 +1134,7 @@ body.dg-scrollbar-pointer-capturing * {
 /* 页面级 StickyScrollBar thumb hover。 */
 .dg-sticky-scroll-bar-thumb:hover {
   background: var(--dg-scrollbar-thumb-active-bg);
+  opacity: var(--dg-scrollbar-thumb-expanded-opacity, 0.25);
   height: var(--ant-table-scroll-thumb-size, 8px);
 }
 

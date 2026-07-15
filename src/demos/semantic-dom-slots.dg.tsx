@@ -9,51 +9,79 @@ import type {
 import { semanticData, type SemanticRecord } from './_compare/semantic-dom-slots.shared'
 
 const dgClassNames: TableClassNames<SemanticRecord> = {
-  root: 'dg-semi-slot-root',
-  section: 'dg-semi-slot-section',
-  content: 'dg-semi-slot-content',
-  title: 'dg-semi-slot-title',
-  footer: 'dg-semi-slot-footer',
+  root: 'semantic-mark-root',
+  section: 'semantic-mark-section',
+  content: 'semantic-mark-content',
+  title: 'semantic-mark-title',
+  footer: 'semantic-mark-footer',
   header: {
-    wrapper: 'dg-semi-slot-header-wrapper',
-    row: 'dg-semi-slot-header-row',
-    cell: 'dg-semi-slot-header-cell',
+    wrapper: 'semantic-mark-header-wrapper',
+    row: 'semantic-mark-header-row',
+    cell: 'semantic-mark-header-cell',
   },
   body: {
-    wrapper: 'dg-semi-slot-body-wrapper',
-    row: 'dg-semi-slot-body-row',
-    cell: 'dg-semi-slot-body-cell',
+    wrapper: 'semantic-mark-body-wrapper',
+    row: 'semantic-mark-body-row',
+    cell: 'semantic-mark-body-cell',
   },
   pagination: {
-    root: 'dg-semi-slot-pagination-root',
-    item: 'dg-semi-slot-pagination-item',
+    root: 'semantic-mark-pagination-root',
+    item: 'semantic-mark-pagination-item',
   },
 }
 
-const slotOutline = (color: string): CSSProperties => ({
-  outline: `2px dashed ${color}`,
-  outlineOffset: -2,
-})
-const dgStyles: TableStyles<SemanticRecord> = {
-  root: slotOutline('#ff00ff'),
-  section: slotOutline('#00ffff'),
-  content: slotOutline('#ffff00'),
-  title: slotOutline('#ff5500'),
-  footer: slotOutline('#00ff55'),
-  header: {
-    wrapper: slotOutline('#5500ff'),
-    row: slotOutline('#ff0055'),
-    cell: slotOutline('#ff5555'),
-  },
-  body: {
-    wrapper: slotOutline('#55ff00'),
-    row: slotOutline('#0055ff'),
-    cell: slotOutline('#5555ff'),
-  },
-  pagination: {
-    root: slotOutline('#ffaa00'),
-    item: slotOutline('#aa00ff'),
-  },
+type SemanticSlotKey =
+  | 'root'
+  | 'section'
+  | 'content'
+  | 'title'
+  | 'footer'
+  | 'header.wrapper'
+  | 'header.row'
+  | 'header.cell'
+  | 'body.wrapper'
+  | 'body.row'
+  | 'body.cell'
+  | 'pagination.root'
+  | 'pagination.item'
+
+const slotOutline = (
+  slot: SemanticSlotKey,
+  activeSlot?: string,
+): CSSProperties | undefined => {
+  if (activeSlot !== slot) return undefined
+
+  return {
+    outline: '2px solid #1677ff',
+    outlineOffset: -2,
+    boxShadow: '0 0 0 2px rgba(22, 119, 255, 0.16)',
+  }
+}
+
+const createDgStyles = (activeSlot?: string): TableStyles<SemanticRecord> | undefined => {
+  if (!activeSlot) return undefined
+
+  return {
+    root: slotOutline('root', activeSlot),
+    section: slotOutline('section', activeSlot),
+    content: slotOutline('content', activeSlot),
+    title: slotOutline('title', activeSlot),
+    footer: slotOutline('footer', activeSlot),
+    header: {
+      wrapper: slotOutline('header.wrapper', activeSlot),
+      row: slotOutline('header.row', activeSlot),
+      cell: slotOutline('header.cell', activeSlot),
+    },
+    body: {
+      wrapper: slotOutline('body.wrapper', activeSlot),
+      row: slotOutline('body.row', activeSlot),
+      cell: slotOutline('body.cell', activeSlot),
+    },
+    pagination: {
+      root: slotOutline('pagination.root', activeSlot),
+      item: slotOutline('pagination.item', activeSlot),
+    },
+  }
 }
 
 const dgColumns: ColumnType<SemanticRecord>[] = [
@@ -74,9 +102,11 @@ const dgColumns: ColumnType<SemanticRecord>[] = [
 ]
 
 export default function SemanticDomDg({
+  activeSlot,
   bordered = false,
   virtual = false,
 }: {
+  activeSlot?: string
   bordered?: boolean
   virtual?: boolean
 }) {
@@ -92,9 +122,9 @@ export default function SemanticDomDg({
         columns={dgColumns}
         dataSource={semanticData}
         classNames={dgClassNames}
-        styles={dgStyles}
-        title={() => 'data-grid Title'}
-        footer={() => 'data-grid Footer'}
+        styles={createDgStyles(activeSlot)}
+        title={() => 'table title'}
+        footer={() => 'table footer'}
         size="small"
         bordered={bordered}
         pagination={dgPagination}

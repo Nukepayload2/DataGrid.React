@@ -135,7 +135,7 @@ export default function HomePage() {
       </section>
 
       <Row gutter={[16, 16]} className="resource-value-grid">
-        <Col xs={24} md={8}>
+        <Col xs={24} md={12} lg={6}>
           <div className="resource-value">
             <Text type="secondary">兼容</Text>
             <Title level={3}>接近 antd Table 的使用方式</Title>
@@ -145,7 +145,7 @@ export default function HomePage() {
             </Paragraph>
           </div>
         </Col>
-        <Col xs={24} md={8}>
+        <Col xs={24} md={12} lg={6}>
           <div className="resource-value">
             <Text type="secondary">性能</Text>
             <Title level={3}>面向大数据和复杂滚动</Title>
@@ -154,12 +154,21 @@ export default function HomePage() {
             </Paragraph>
           </div>
         </Col>
-        <Col xs={24} md={8}>
+        <Col xs={24} md={12} lg={6}>
           <div className="resource-value">
             <Text type="secondary">设计</Text>
             <Title level={3}>CSS Grid 驱动的表格布局</Title>
             <Paragraph>
               列轨道、合并单元格、隐藏列、固定列和悬浮滚动条由同一套布局模型管理，减少宽度和滚动错位。
+            </Paragraph>
+          </div>
+        </Col>
+        <Col xs={24} md={12} lg={6}>
+          <div className="resource-value">
+            <Text type="secondary">基线</Text>
+            <Title level={3}>最低支持 Chrome 105+</Title>
+            <Paragraph>
+              发布 CSS 按 Chrome 105 检查；完整动效体验建议 Chrome 107+。
             </Paragraph>
           </div>
         </Col>

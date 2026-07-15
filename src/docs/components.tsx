@@ -45,15 +45,19 @@ export function DocArticle({
   onNavigate,
   children,
 }: DocArticleProps) {
+  const hasMeta = Boolean(doc.appliesTo || doc.updated)
+
   return (
     <article className="docs-article">
       <header className="docs-article-header">
         <Title level={1}>{doc.title}</Title>
         <Paragraph className="docs-article-lede">{doc.description}</Paragraph>
-        <div className="docs-article-meta">
-          <Tag>{doc.appliesTo ?? 'data-grid'}</Tag>
-          {doc.updated ? <Text type="secondary">更新于 {doc.updated}</Text> : null}
-        </div>
+        {hasMeta ? (
+          <div className="docs-article-meta">
+            {doc.appliesTo ? <Tag>{doc.appliesTo}</Tag> : null}
+            {doc.updated ? <Text type="secondary">更新于 {doc.updated}</Text> : null}
+          </div>
+        ) : null}
       </header>
 
       {children}

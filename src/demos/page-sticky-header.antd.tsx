@@ -6,16 +6,16 @@ const stickyContainer = (): HTMLElement | Window =>
   document.querySelector<HTMLElement>('.ant-layout-content') ?? window
 
 const statusColor: Record<DataType['status'], string> = {
-  'On track': 'green',
-  'At risk': 'gold',
-  Blocked: 'red',
+  正常: 'green',
+  有风险: 'gold',
+  受阻: 'red',
 }
 
 const antdColumns: TableColumnsType<DataType> = [
-  { title: 'Initiative', width: '22%', dataIndex: 'initiative', key: 'initiative' },
-  { title: 'Owner', width: '14%', dataIndex: 'owner', key: 'owner' },
+  { title: '事项', width: '22%', dataIndex: 'initiative', key: 'initiative' },
+  { title: '负责人', width: '14%', dataIndex: 'owner', key: 'owner' },
   {
-    title: 'Status',
+    title: '状态',
     width: '12%',
     dataIndex: 'status',
     key: 'status',
@@ -25,9 +25,9 @@ const antdColumns: TableColumnsType<DataType> = [
       </Tag>
     ),
   },
-  { title: 'Impact', width: '12%', dataIndex: 'impact', key: 'impact' },
-  { title: 'Target', width: '10%', dataIndex: 'target', key: 'target' },
-  { title: 'Notes', width: '30%', dataIndex: 'notes', key: 'notes' },
+  { title: '影响范围', width: '12%', dataIndex: 'impact', key: 'impact' },
+  { title: '目标', width: '10%', dataIndex: 'target', key: 'target' },
+  { title: '备注', width: '30%', dataIndex: 'notes', key: 'notes' },
 ]
 
 export default function StickyAntd() {
@@ -46,11 +46,11 @@ export default function StickyAntd() {
         <AntdTable.Summary>
           <AntdTable.Summary.Row>
             <AntdTable.Summary.Cell index={0} colSpan={2}>
-              Total initiatives
+              事项总数
             </AntdTable.Summary.Cell>
             <AntdTable.Summary.Cell index={2}>{rows.length}</AntdTable.Summary.Cell>
             <AntdTable.Summary.Cell index={3} colSpan={3}>
-              Reviewed in document flow
+              在文档流中评审
             </AntdTable.Summary.Cell>
           </AntdTable.Summary.Row>
         </AntdTable.Summary>

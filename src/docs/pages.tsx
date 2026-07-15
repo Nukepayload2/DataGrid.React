@@ -38,6 +38,22 @@ interface GapRow {
   action: string
 }
 
+interface SemanticSlotRow {
+  key: string
+  slot: string
+  antd: string
+  dataGrid: string
+  note: string
+}
+
+interface A11yRow {
+  key: string
+  attr: string
+  antd: string
+  dataGrid: string
+  conclusion: string
+}
+
 interface ApiExportRow {
   key: string
   name: string
@@ -298,6 +314,36 @@ const limitationRows: GapRow[] = [
   { key: 'rtl', topic: 'RTL', boundary: '尚未系统处理方向、fixed、sticky 和拖拽方向。', action: '需要独立设计和回归范围。' },
 ]
 
+const semanticSlotRows: SemanticSlotRow[] = [
+  { key: 'root', slot: 'root', antd: '.ant-table-wrapper', dataGrid: '.dg-wrapper', note: '根元素，承载表格容器和主题变量。' },
+  { key: 'title', slot: 'title', antd: '.ant-table-title', dataGrid: '.dg-title', note: '标题元素，两侧均直接落点。' },
+  { key: 'content', slot: 'content', antd: '.ant-table-content', dataGrid: '.dg-grid', note: 'data-grid 内容区是 CSS Grid 主体。' },
+  { key: 'header-wrapper', slot: 'header.wrapper', antd: '.ant-table-thead', dataGrid: '无独立 thead 容器', note: 'data-grid 保留 API 形状，但不伪造不存在的 thead 层级。' },
+  { key: 'header-row', slot: 'header.row', antd: 'thead > tr', dataGrid: '表头行内所有 header cell', note: 'data-grid 无 tr，行级样式透传到同一逻辑行的所有表头单元格。' },
+  { key: 'header-cell', slot: 'header.cell', antd: 'th.ant-table-cell', dataGrid: '.dg-cell-header', note: '表头单元格直接落点，包含排序状态。' },
+  { key: 'section', slot: 'section', antd: '.ant-table-container', dataGrid: '.dg-scroll-wrap', note: '包装滚动和内容区域。' },
+  { key: 'body-wrapper', slot: 'body.wrapper', antd: '.ant-table-tbody', dataGrid: '无独立 tbody 容器', note: 'data-grid 表体由 grid cell 直接组成。' },
+  { key: 'body-row', slot: 'body.row', antd: 'tbody > tr', dataGrid: '表体行内所有 body cell', note: 'data-grid 无 tr，行级样式透传到同一逻辑行的所有数据单元格。' },
+  { key: 'body-cell', slot: 'body.cell', antd: 'td.ant-table-cell', dataGrid: '.dg-cell-body', note: '主体单元格直接落点。' },
+  { key: 'footer', slot: 'footer', antd: '.ant-table-footer', dataGrid: '.dg-footer', note: '底部元素，两侧均直接落点。' },
+  { key: 'pagination-root', slot: 'pagination.root', antd: '.ant-pagination', dataGrid: '.dg-pagination', note: '分页根元素。' },
+  { key: 'pagination-item', slot: 'pagination.item', antd: '.ant-pagination-item / prev / next', dataGrid: 'antd Pagination item', note: 'data-grid 内部复用 antd Pagination，item 样式透传到分页项。' },
+]
+
+const semanticA11yRows: A11yRow[] = [
+  { key: 'table', attr: 'role="table"（根）', antd: '天然（<table>）', dataGrid: '不输出', conclusion: '无 rowgroup / row 层级时，单独声明 role=table 不能形成有效表格语义。' },
+  { key: 'rowgroup', attr: 'role="rowgroup"（thead/tbody）', antd: '天然（<thead>/<tbody>）', dataGrid: '不输出', conclusion: 'CSS Grid 路径没有 thead / tbody 容器，避免伪造不存在的层级。' },
+  { key: 'row', attr: 'role="row"（tr）', antd: '天然（<tr>）', dataGrid: '不输出', conclusion: 'data-grid 的一行由多个 grid cell 直接铺开，没有可承载 role=row 的行容器。' },
+  { key: 'columnheader', attr: 'role="columnheader"（th）', antd: '天然（<th>）', dataGrid: '不输出', conclusion: 'columnheader 需要位于有效 row 中，当前 DOM 结构不满足父子关系。' },
+  { key: 'gridcell', attr: 'role="gridcell"（td）', antd: '天然（<td>）', dataGrid: '不输出', conclusion: 'gridcell 需要位于有效 row 中，当前 DOM 结构不满足父子关系。' },
+  { key: 'rowheader', attr: 'role="rowheader"（rowScope 列）', antd: '天然（<th scope="row">）', dataGrid: '不输出', conclusion: 'rowheader 同样依赖 row 层级；data-grid 保留 rowScope 对照，但不伪造 ARIA 树。' },
+  { key: 'aria-sort', attr: 'aria-sort（可排序列表头）', antd: '显式', dataGrid: '已支持', conclusion: 'Age 列排序时输出 ascending / descending；未排序时不输出属性。' },
+  { key: 'aria-expanded', attr: 'aria-expanded（展开行）', antd: '显式', dataGrid: '已支持', conclusion: '展开按钮语义与 antd 对齐。' },
+  { key: 'aria-label', attr: 'aria-label（表头/控件）', antd: '部分支持', dataGrid: '部分支持', conclusion: '选择控件、调整列宽控件等交互点输出明确标签。' },
+  { key: 'aria-colspan', attr: 'aria-colspan（合并数据格）', antd: '天然（<td colspan>）', dataGrid: '已支持', conclusion: 'colSpan >= 2 的数据格输出 aria-colspan。' },
+  { key: 'aria-rowspan', attr: 'aria-rowspan（合并数据格）', antd: '天然（<td rowspan>）', dataGrid: '已支持', conclusion: 'rowSpanTracks >= 2 的数据格输出 aria-rowspan。' },
+]
+
 export function renderIntro({ onOpen }: DocsPageContext) {
   return (
     <>
@@ -350,7 +396,7 @@ export function renderQuickStart({ onOpen }: DocsPageContext) {
   return (
     <>
       <DocSection id="install" eyebrow="安装" title="导入组件和样式">
-        <DocsCode code={QUICK_START_INSTALL} height={180} ariaLabel="安装和导入代码" />
+        <DocsCode code={QUICK_START_INSTALL} height={120} ariaLabel="安装和导入代码" />
       </DocSection>
 
       <DocSection
@@ -359,7 +405,7 @@ export function renderQuickStart({ onOpen }: DocsPageContext) {
         title="最小表格"
         description="先用 columns、dataSource 和稳定 rowKey 跑通最小可用表格。"
       >
-        <DocsCode code={QUICK_START_MINIMAL} height={340} ariaLabel="最小表格代码" />
+        <DocsCode code={QUICK_START_MINIMAL} height={280} ariaLabel="最小表格代码" />
       </DocSection>
 
       <DocSection
@@ -368,7 +414,7 @@ export function renderQuickStart({ onOpen }: DocsPageContext) {
         title="JSX 列声明"
         description="需要和条件渲染混用时，可以改成 JSX 声明。"
       >
-        <DocsCode code={JSX_COLUMNS} height={160} ariaLabel="JSX 列声明代码" />
+        <DocsCode code={JSX_COLUMNS} height={120} ariaLabel="JSX 列声明代码" />
       </DocSection>
 
       <DocSection id="next" eyebrow="继续" title="下一步">
@@ -568,6 +614,7 @@ export function renderFeaturePage(topic: 'columns' | 'layout' | 'scrolling' | 'i
       title: '样式和主题',
       body: '全局走 antd ConfigProvider token，局部结构差异使用 classNames 和 styles 语义槽位。',
       actions: [
+        { label: 'Semantic DOM 文档', kind: 'doc' as const, value: 'semantic-dom' },
         { label: '组件主题令牌 demo', kind: 'path' as const, value: '/demos/component-theme-tokens' },
         { label: '语义化样式 demo', kind: 'path' as const, value: '/demos/semantic-styling' },
         { label: '语义化 DOM 插槽 demo', kind: 'path' as const, value: '/demos/semantic-dom-slots' },
@@ -596,6 +643,59 @@ export function renderFeaturePage(topic: 'columns' | 'layout' | 'scrolling' | 'i
       ) : null}
       <DocSection id="demos" eyebrow="对照" title="优先查看的 demo">
         <DocsActionList actions={content.actions} onOpen={onOpen} />
+      </DocSection>
+    </>
+  )
+}
+
+export function renderSemanticDom({ onOpen }: DocsPageContext) {
+  return (
+    <>
+      <DocSection
+        id="slots"
+        eyebrow="classNames / styles"
+        title="13 槽位落点矩阵"
+        description="data-grid 对齐 antd Table 的 Semantic DOM 槽位命名，但 CSS Grid 渲染路径不会伪造 thead、tbody、tr 这类不存在的 DOM 层级。"
+      >
+        <DocsDataGrid<SemanticSlotRow>
+          columns={[
+            { title: '槽位', dataIndex: 'slot', key: 'slot', width: 180, render: (value) => <Text code>{value}</Text> },
+            { title: 'antd 落点', dataIndex: 'antd', key: 'antd', width: 240 },
+            { title: 'data-grid 落点', dataIndex: 'dataGrid', key: 'dataGrid', width: 260 },
+            { title: '说明', dataIndex: 'note', key: 'note', width: 420 },
+          ]}
+          dataSource={semanticSlotRows}
+          rowKey="key"
+          scrollX={1100}
+        />
+      </DocSection>
+
+      <DocSection
+        id="a11y"
+        eyebrow="a11y"
+        title="a11y 属性兼容矩阵"
+        description="可在不破坏 ARIA 父子层级的前提下补齐的属性直接输出；需要 table / row 层级的角色不伪造。"
+      >
+        <DocsDataGrid<A11yRow>
+          columns={[
+            { title: '属性 / role', dataIndex: 'attr', key: 'attr', width: 260, render: (value) => <Text code>{value}</Text> },
+            { title: 'antd', dataIndex: 'antd', key: 'antd', width: 220 },
+            { title: 'data-grid', dataIndex: 'dataGrid', key: 'dataGrid', width: 160 },
+            { title: '结论', dataIndex: 'conclusion', key: 'conclusion', width: 480 },
+          ]}
+          dataSource={semanticA11yRows}
+          rowKey="key"
+          scrollX={1120}
+        />
+      </DocSection>
+
+      <DocSection id="demo" eyebrow="demo" title="交互验证">
+        <DocsActionList
+          actions={[
+            { label: '打开 Semantic DOM demo', kind: 'path', value: '/demos/semantic-dom-slots' },
+          ]}
+          onOpen={onOpen}
+        />
       </DocSection>
     </>
   )

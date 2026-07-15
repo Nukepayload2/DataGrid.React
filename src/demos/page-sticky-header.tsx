@@ -89,41 +89,36 @@ export default function StickyDemo() {
       <article style={articleStyle}>
         <header style={{ marginBottom: 32 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-            <Tag color="blue">Controls review</Tag>
-            <Tag>Document flow</Tag>
-            <Tag>External scroll</Tag>
+            <Tag color="blue">管控评审</Tag>
+            <Tag>文档流</Tag>
+            <Tag>外部滚动</Tag>
           </div>
           <h1 style={{ margin: 0, fontSize: 32, lineHeight: 1.25 }}>
-            Sticky table headers in a long workspace document
+            长篇工作区文档中的粘性表头
           </h1>
           <p style={{ ...paragraphStyle, marginTop: 16, maxWidth: 860 }}>
-            This page mimics a team review note: narrative text, long tables, and follow-up
-            sections all live in the same scroll container. The tables do not create their
-            own vertical scroll areas; the app content scrolls as one document.
+            本页模拟团队评审记录：说明文字、长表格和后续章节都位于同一个滚动容器中。
+            表格不会创建自己的垂直滚动区域；应用内容会作为一篇文档整体滚动。
           </p>
         </header>
 
         <section style={{ marginBottom: 24 }}>
-          <h2 style={{ margin: '0 0 12px', fontSize: 20 }}>Context</h2>
+          <h2 style={{ margin: '0 0 12px', fontSize: 20 }}>背景</h2>
           <p style={paragraphStyle}>
-            Product, support, and compliance teams often review table-heavy pages inside a
-            document workspace. The sticky header needs to remain useful while the reader
-            moves through the rows and adjacent narrative sections, instead of being trapped
-            inside a fixed-height table viewport.
+            产品、支持和合规团队经常在文档工作区中评审表格密集的页面。
+            读者浏览行数据和相邻说明章节时，粘性表头需要持续可用，而不是被限制在固定高度的表格视口内。
           </p>
           <p style={paragraphStyle}>
-            The first table uses data-grid page-level sticky mode. The second table keeps the
-            same document structure with antd for comparison.
+            第一张表使用 data-grid 的页面级粘性模式。第二张表保留相同的文档结构，并使用 antd 作为对照。
           </p>
         </section>
 
         <section>
           <SectionTitle kicker="Data grid">
-            Quarterly controls register
+            季度管控登记表
           </SectionTitle>
           <p style={paragraphStyle}>
-            The table below is part of the article flow. Its header hangs against the app
-            content viewport while the surrounding document continues to scroll.
+            下方表格是文章内容流的一部分。周围文档继续滚动时，它的表头会贴附在应用内容视口上。
           </p>
           <div style={controlBarStyle}>
             <span style={{ color: token.colorTextSecondary, fontSize: 13 }}>
@@ -131,14 +126,14 @@ export default function StickyDemo() {
             </span>
             <Space wrap>
               <Switch
-                checkedChildren="showOnTableHover"
-                unCheckedChildren="showOnTableHover"
+                checkedChildren="表格悬停显示"
+                unCheckedChildren="表格悬停显示"
                 checked={showOnTableHover}
                 onChange={setShowOnTableHover}
               />
               <Switch
-                checkedChildren="expandOnHover"
-                unCheckedChildren="expandOnHover"
+                checkedChildren="悬停展开"
+                unCheckedChildren="悬停展开"
                 checked={expandOnHover}
                 onChange={setExpandOnHover}
               />
@@ -150,27 +145,24 @@ export default function StickyDemo() {
         <div style={dividerStyle} />
 
         <section style={{ marginBottom: 32 }}>
-          <h2 style={{ margin: '0 0 12px', fontSize: 20 }}>Review notes</h2>
+          <h2 style={{ margin: '0 0 12px', fontSize: 20 }}>评审备注</h2>
           <p style={paragraphStyle}>
-            Teams add notes between tables after each review pass. In a real document this
-            region might contain decisions, linked tickets, exceptions, and follow-up owners.
-            Keeping the table in the outer scroll flow makes the sticky header behave like a
-            document affordance instead of a widget affordance.
+            团队会在每轮评审后在表格之间补充备注。在真实文档中，这个区域可能包含决策、
+            关联工单、例外事项和后续负责人。将表格保留在外层滚动流中，可以让粘性表头更像文档能力，
+            而不是单个组件能力。
           </p>
           <p style={paragraphStyle}>
-            The content between the two tables is intentionally in the same flow so the
-            transition from one sticky table region to the next is visible when scrolling.
+            两张表之间的内容刻意放在同一个流中，因此滚动时可以看到一个粘性表格区域切换到下一个区域的过程。
           </p>
         </section>
 
         <section>
           <SectionTitle kicker="Ant Design">
-            Reference table in the same document
+            同一文档中的参考表格
           </SectionTitle>
           <p style={paragraphStyle}>
-            This reference table uses the same rows, columns, and external vertical scroll
-            pattern. It is stacked below the data-grid table rather than placed in a separate
-            pane.
+            这张参考表使用相同的行、列和外部垂直滚动模式。它堆叠在 data-grid 表格下方，
+            而不是放在单独面板中。
           </p>
           <StickyAntd />
         </section>

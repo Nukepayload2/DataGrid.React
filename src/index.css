@@ -61,6 +61,120 @@ body {
   margin: 24px 0;
 }
 
+.semantic-dom-demo {
+  padding: 24px;
+}
+
+.semantic-demo-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.semantic-demo-preview,
+.semantic-slot-panel,
+.semantic-demo-details {
+  min-width: 0;
+}
+
+.semantic-slot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 620px;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+
+.semantic-slot-item {
+  padding: 10px 12px;
+  border: 1px solid rgba(5, 5, 5, 0.08);
+  border-radius: 6px;
+  background: #fff;
+  transition:
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.semantic-slot-item-active {
+  border-color: #1677ff;
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.12);
+}
+
+.semantic-slot-heading {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.semantic-slot-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.semantic-slot-title h5 {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.semantic-slot-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+}
+
+.semantic-slot-item p {
+  margin: 6px 0 0;
+  color: rgba(0, 0, 0, 0.62);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.semantic-demo-details {
+  margin-top: 24px;
+}
+
+.semantic-antd-compare {
+  grid-column: 1 / -1;
+  margin-top: 16px;
+  min-width: 0;
+}
+
+.semantic-antd-compare h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.semantic-antd-compare-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr);
+  gap: 16px;
+  align-items: start;
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .semantic-demo-grid,
+  .semantic-antd-compare-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .semantic-slot-list {
+    max-height: none;
+  }
+}
+
 .resource-home {
   width: 100%;
   max-width: 1040px;
@@ -255,8 +369,8 @@ body {
 }
 
 .docs-article-header {
-  margin-bottom: 32px;
-  padding-bottom: 22px;
+  margin-bottom: 24px;
+  padding-bottom: 18px;
   border-bottom: 1px solid var(--docs-border);
 }
 
@@ -289,7 +403,7 @@ body {
 }
 
 .docs-section {
-  margin: 0 0 38px;
+  margin: 0 0 24px;
   scroll-margin-top: 80px;
 }
 

@@ -13,16 +13,16 @@ const sticky: StickyConfig = {
 }
 
 const statusColor: Record<DataType['status'], string> = {
-  'On track': 'green',
-  'At risk': 'gold',
-  Blocked: 'red',
+  正常: 'green',
+  有风险: 'gold',
+  受阻: 'red',
 }
 
 const dgColumns: ColumnType<DataType>[] = [
-  { title: 'Initiative', width: 240, dataIndex: 'initiative', key: 'initiative' },
-  { title: 'Owner', width: 150, dataIndex: 'owner', key: 'owner' },
+  { title: '事项', width: 240, dataIndex: 'initiative', key: 'initiative' },
+  { title: '负责人', width: 150, dataIndex: 'owner', key: 'owner' },
   {
-    title: 'Status',
+    title: '状态',
     width: 120,
     dataIndex: 'status',
     key: 'status',
@@ -32,9 +32,9 @@ const dgColumns: ColumnType<DataType>[] = [
       </Tag>
     ),
   },
-  { title: 'Impact', width: 140, dataIndex: 'impact', key: 'impact' },
-  { title: 'Target', width: 120, dataIndex: 'target', key: 'target' },
-  { title: 'Notes', width: 460, dataIndex: 'notes', key: 'notes' },
+  { title: '影响范围', width: 140, dataIndex: 'impact', key: 'impact' },
+  { title: '目标', width: 120, dataIndex: 'target', key: 'target' },
+  { title: '备注', width: 460, dataIndex: 'notes', key: 'notes' },
 ]
 
 export interface StickyDgProps {
@@ -54,11 +54,11 @@ export default function StickyDg({ scrollBarFoldMode }: StickyDgProps) {
         <Table.Summary>
           <Table.Summary.Row>
             <Table.Summary.Cell index={0} colSpan={2}>
-              Total initiatives
+              事项总数
             </Table.Summary.Cell>
             <Table.Summary.Cell index={2}>{rows.length}</Table.Summary.Cell>
             <Table.Summary.Cell index={3} colSpan={3}>
-              Reviewed in document flow
+              在文档流中评审
             </Table.Summary.Cell>
           </Table.Summary.Row>
         </Table.Summary>
