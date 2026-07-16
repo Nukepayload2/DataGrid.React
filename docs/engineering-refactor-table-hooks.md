@@ -265,7 +265,7 @@ export function useExpandRowBinding<RecordType>(
 
 ## 6. 验证方法
 
-- 类型：`pnpm run tsc`（tsgo -b）必须 0 错。
+- 类型：`pnpm run tsc`（tsc -b）必须 0 错。
 - 单测：`pnpm test`（vitest run）全绿（含新测试 + 既有 469 测试不回归）。
 - 行为等价：verifier 比对 git diff，确认抽取为**纯机械搬运**（逻辑/依赖数组/闭包不变）。
 - 浏览器手测：批 2 完成后，用户起 `! pnpm dev`，chrome-devtools 隔离 agent 跑 demo 对比（选择/展开/分页/排序/筛选/拖拽 demo 重点）。

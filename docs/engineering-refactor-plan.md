@@ -65,7 +65,7 @@ data-grid 已经具备组件库雏形：核心表格实现、demo 对照站、�
 
 1. 新增 Vitest 最小测试栈。
 2. 先覆盖无 DOM 的纯逻辑模块。
-3. 保留现有 `tsgo` 和 `oxlint`，把 `test` 纳入日常验证命令。
+3. 保留现有 `tsc` 和 `oxlint`，把 `test` 纳入日常验证命令。
 4. 选取少量高价值 demo 作为后续真浏览器 smoke 候选，但不在第一阶段引入 Playwright。
 
 建议脚本：
@@ -293,7 +293,7 @@ Playwright 用例数量应保持很少，只做 smoke 和难测路径，不承�
 
 定位：
 
-- `react-doctor` 不能替代 `tsgo`、Vite build、oxlint 或 Vitest。
+- `react-doctor` 不能替代 `tsc`、Vite build、oxlint 或 Vitest。
 - 它适合补 hooks/effects、render 性能、a11y、安全和 React correctness 风险。
 - 初期只作为诊断报告，不作为强阻断。
 
@@ -333,4 +333,4 @@ Playwright 用例数量应保持很少，只做 smoke 和难测路径，不承�
 - antd 内部 API 依赖集中、可审计。
 - public API、native options、engine internal types 分层清晰。
 - 性能优化有基线、有目标、有回归验证。
-- `react-doctor`、`tsgo`、oxlint、Vitest 各自承担清晰职责。
+- `react-doctor`、`tsc`、oxlint、Vitest 各自承担清晰职责。

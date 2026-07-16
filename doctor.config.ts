@@ -1,7 +1,7 @@
 // react-doctor configuration — Stage 6 advisory mode.
 //
 // Goal (docs/engineering-refactor-plan.md §Stage 6): introduce react-doctor
-// as a NON-BLOCKING diagnostic tool. It supplements tsgo / Vite build /
+// as a NON-BLOCKING diagnostic tool. It supplements tsc / Vite build /
 // oxlint / Vitest; it does NOT replace them and MUST NOT break the existing
 // gate. All findings are collected for task#29 evaluation + user sign-off
 // before any rule is bumped to warn/error.
