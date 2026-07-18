@@ -6,9 +6,9 @@
 
 `.dg-cell-summary`：
 
-- 底色 `--dg-body-bg`（与表体一致白底；antd summary 默认无特殊背景，与表体连续）。
-- `border-bottom: var(--dg-border)`（与 antd summary 末行底部边框一致）。
-- `box-shadow: 0 -1px 0 var(--dg-border-color)`（顶部 1px 分割线，与表体最后一行区分——对齐 antd `.ant-table-summary` 的 `box-shadow: 0 -1px 0 border-color`）。
+- 底色 `--ant-color-bg-container`（与表体一致白底；antd summary 默认无特殊背景，与表体连续）。
+- `border-bottom: var(--ant-line-width) var(--ant-line-type) var(--ant-table-border-color)`（与 antd summary 末行底部边框一致）。
+- `box-shadow: 0 -1px 0 var(--ant-table-border-color)`（顶部 1px 分割线，与表体最后一行区分——对齐 antd `.ant-table-summary` 的 `box-shadow: 0 -1px 0 border-color`）。
 
 ### 顶部线为何用 box-shadow 而非 border-top
 
@@ -21,7 +21,7 @@ fixed 模式下 Cell inline style 设 `position: sticky; bottom: 0; z-index: 2`�
 ```css
 .dg-cell-summary[style*='position: sticky'],
 .dg-cell-summary[style*='position:sticky'] {
-  background: var(--dg-body-bg);
+  background: var(--ant-color-bg-container);
 }
 ```
 

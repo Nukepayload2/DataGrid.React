@@ -1,4 +1,4 @@
-/* data-grid Table token fallback 与 --ant-* 桥接。详见迁移文档和 theme-tokens.md。 */
+/* data-grid Table token fallback 与 antd CSS var 桥接。详见迁移文档和 theme-tokens.md。 */
 
 /* 未接入 antd 主题时的 fallback；接入后由 Table.tsx 的同名 inline vars 覆盖。 */
 .dg-wrapper {
@@ -6,6 +6,8 @@
   --ant-table-header-bg: #fafafa;
   --ant-table-header-color: rgba(0, 0, 0, 0.88);
   --ant-table-header-split-color: #f0f0f0;
+  --ant-table-header-icon-color: rgba(0, 0, 0, 0.45);
+  --ant-table-header-icon-hover-color: rgba(0, 0, 0, 0.88);
 
   /* —— 颜色：表体 / 行态（Table component token）—— */
   --ant-table-row-hover-bg: #fafafa;
@@ -94,47 +96,10 @@
   /* 表格行高 fallback。 */
   --ant-line-height: 1.5715;
 
-  /* —— data-grid 自身布局变量（非 antd token）—— */
-  --dg-row-hover-bg: var(--ant-table-row-hover-bg);
-  --dg-header-bg: var(--ant-table-header-bg);
-  --dg-header-color: var(--ant-table-header-color);
-  --dg-body-bg: var(--ant-table-color-bg-container, var(--ant-color-bg-container));
-  --dg-border-color: var(--ant-table-border-color);
-  --dg-header-split-color: var(--ant-table-header-split-color);
-  --dg-footer-bg: var(--ant-table-footer-bg);
-  --dg-footer-color: var(--ant-table-footer-color);
-  --dg-font-size: var(--ant-table-cell-font-size);
-  --dg-cell-padding-block: var(--ant-table-cell-padding-block);
-  --dg-cell-padding-inline: var(--ant-table-cell-padding-inline);
-  --dg-radius: var(--ant-table-header-border-radius);
-  --dg-border: var(--ant-line-width) var(--ant-line-type) var(--ant-table-border-color);
-
-  /* —— 排序 / 图标 / 主色 桥接 —— */
-  --dg-header-sort-hover-bg: var(--ant-table-header-sort-hover-bg);
-  --dg-header-sort-active-bg: var(--ant-table-header-sort-active-bg);
-  --dg-body-sort-bg: var(--ant-table-body-sort-bg);
-  --dg-header-icon-color: var(--ant-table-header-icon-color);
-  --dg-header-icon-hover-color: var(--ant-table-header-icon-hover-color);
-  --dg-primary-color: var(--ant-color-primary);
-  /* resizer 无 antd 对应（data-grid 自研拖拽手柄），视觉用主色，随主题主色变化。 */
-  --dg-resizer-color: var(--ant-color-primary);
+  /* —— data-grid 异构布局变量（非 antd 主题 API）—— */
   /* 悬浮滚动条展开态：用 hover 底色配合 opacity 控制透明度。 */
   --dg-scrollbar-thumb-active-bg: var(--ant-table-scroll-thumb-bg-hover, rgba(0, 0, 0, 0.88));
   --dg-scrollbar-thumb-expanded-opacity: 0.25;
 }
 
-/* size 桥接：large/middle/small 直连 antd 三档，compact 视觉等价 small。 */
-.dg-wrapper.dg-size-large {
-  /* 显式 'large'：等价默认（无 size 类），这里仅为 sizeToClass 返回值提供明确的类（无样式覆写）。 */
-}
-.dg-wrapper.dg-size-middle {
-  --dg-cell-padding-block: var(--ant-table-cell-padding-block-md);
-  --dg-cell-padding-inline: var(--ant-table-cell-padding-inline-md);
-  --dg-font-size: var(--ant-table-cell-font-size-md);
-}
-
-.dg-wrapper.dg-size-small {
-  --dg-cell-padding-block: var(--ant-table-cell-padding-block-sm);
-  --dg-cell-padding-inline: var(--ant-table-cell-padding-inline-sm);
-  --dg-font-size: var(--ant-table-cell-font-size-sm);
-}
+/* size 具体消费在 table.css 中用 size-specific selector 处理，避免覆盖 inline --ant-table-* var。 */

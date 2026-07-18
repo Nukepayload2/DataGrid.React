@@ -210,19 +210,19 @@ export default function ComponentTokenDemo() {
                     任意 token（27 个）。</li>
                   <li><strong>差异原因</strong>：data-grid 经 <code>tableTokenToCssVars</code> 把 token
                     映射为 <code>.dg-wrapper</code> inline <code>--ant-*</code> CSS 变量，由
-                    <code>--dg-font-size</code> 等桥接变量按 size 消费；antd v6 cssinjs 原生消费
+                    data-grid 直接消费 <code>--ant-table-cell-font-size</code> 等 antd CSS var；antd v6 cssinjs 原生消费
                     <code>:where(.ant-table)</code> component token。详见
-                    <code>docs/design-notes/theme-tokens.md</code>。</li>
+                    <code>docs/features/styling/theme-tokens.md</code>。</li>
                 </ul>
               </li>
               <li>
                 <strong>scroll.y 取值差异</strong>
                 <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                   <li><strong>差异行为</strong>：data-grid 用 <code>scroll:&#123;y:true&#125;</code>
-                    （CSS 自适应高度，父容器 240px）；antd 用 <code>scroll:&#123;y:240&#125;</code>（数字）。</li>
+                    （表格占满父容器可用空间，不向 Table 传计算高度）；antd 用 <code>scroll:&#123;y:240&#125;</code>（数字）。</li>
                   <li><strong>触发条件</strong>：Fixed Header 开关 ON。</li>
-                  <li><strong>差异原因</strong>：data-grid 的 <code>y:true</code> 走数据区域模式
-                    （高度由父容器决定），antd 仅接受数字。</li>
+                  <li><strong>差异原因</strong>：data-grid 的 <code>y:true</code> 只开启数据区域模式，
+                    高度由自适应布局提供；antd 仅接受数字。</li>
                 </ul>
               </li>
               <li>
@@ -236,4 +236,3 @@ export default function ComponentTokenDemo() {
     </div>
   )
 }
-

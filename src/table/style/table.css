@@ -1,11 +1,11 @@
-/* data-grid 引擎样式。消费 tokens.css 的 --dg-* / --ant-* 变量。 */
+/* data-grid 引擎样式。优先消费 antd CSS var；--dg-* 仅用于 data-grid 异构布局变量。 */
 
 .dg-wrapper {
-  font-size: var(--dg-font-size);
-  /* 显式 color 对齐 antd resetComponent(colorText)，详见 docs/design-notes/theme-tokens.md。 */
+  font-size: var(--ant-table-cell-font-size);
+  /* 显式 color 对齐 antd resetComponent(colorText)，详见 docs/features/styling/theme-tokens.md。 */
   color: var(--ant-color-text);
-  background: var(--dg-body-bg);
-  border-radius: var(--dg-radius) var(--dg-radius) 0 0;
+  background: var(--ant-color-bg-container);
+  border-radius: var(--ant-table-header-border-radius) var(--ant-table-header-border-radius) 0 0;
   /* 横向滚动统一交给内部 .dg-scroll / FloatingScrollBar。 */
   overflow-x: hidden;
   overflow-y: hidden;
@@ -91,7 +91,7 @@ body.dg-scrollbar-pointer-capturing * {
 
 .dg-title,
 .dg-footer {
-  padding: var(--dg-cell-padding-block) var(--dg-cell-padding-inline);
+  padding: var(--ant-table-cell-padding-block) var(--ant-table-cell-padding-inline);
 }
 
 /* 分页器外层容器。 */
@@ -119,15 +119,15 @@ body.dg-scrollbar-pointer-capturing * {
 }
 
 .dg-footer {
-  color: var(--dg-footer-color);
-  background: var(--dg-footer-bg);
+  color: var(--ant-table-footer-color);
+  background: var(--ant-table-footer-bg);
 }
 
 .dg-grid {
   /* 行列模板由 GridTable inline style 注入 */
   text-align: start;
   /* 显式补齐 font-size，避免被 Spin 包裹截断继承链。 */
-  font-size: var(--dg-font-size);
+  font-size: var(--ant-table-cell-font-size);
   /* 隐藏列/行展开的轨道动画。 */
   transition:
     grid-template-columns 0.3s ease,
@@ -135,7 +135,7 @@ body.dg-scrollbar-pointer-capturing * {
 }
 
 .dg-cell {
-  padding: var(--dg-cell-padding-block) var(--dg-cell-padding-inline);
+  padding: var(--ant-table-cell-padding-block) var(--ant-table-cell-padding-inline);
   background: transparent;
   overflow-wrap: break-word;
   position: relative;
@@ -144,6 +144,42 @@ body.dg-scrollbar-pointer-capturing * {
   /* 显式补齐 line-height，避免默认行高偏矮。 */
   line-height: var(--ant-line-height);
   /* 默认不拉伸子节点，让内容自然分布 */
+}
+
+/* Size-specific rules consume antd's MD/SM Table vars directly.
+   Do not override --ant-table-cell-* here: those vars are injected inline on .dg-wrapper. */
+.dg-wrapper.dg-size-middle,
+.dg-wrapper.dg-size-middle .dg-grid {
+  font-size: var(--ant-table-cell-font-size-md);
+}
+
+.dg-wrapper.dg-size-small,
+.dg-wrapper.dg-size-small .dg-grid {
+  font-size: var(--ant-table-cell-font-size-sm);
+}
+
+.dg-wrapper.dg-size-middle .dg-title,
+.dg-wrapper.dg-size-middle .dg-footer,
+.dg-wrapper.dg-size-middle .dg-cell,
+.dg-wrapper.dg-size-middle .dg-row-expanded {
+  padding: var(--ant-table-cell-padding-block-md) var(--ant-table-cell-padding-inline-md);
+}
+
+.dg-wrapper.dg-size-small .dg-title,
+.dg-wrapper.dg-size-small .dg-footer,
+.dg-wrapper.dg-size-small .dg-cell,
+.dg-wrapper.dg-size-small .dg-row-expanded {
+  padding: var(--ant-table-cell-padding-block-sm) var(--ant-table-cell-padding-inline-sm);
+}
+
+.dg-wrapper.dg-size-middle .dg-filter-trigger {
+  margin-inline: var(--ant-padding-xxs, 4px)
+    calc(var(--ant-table-cell-padding-inline-md, 8px) / 2 * -1);
+}
+
+.dg-wrapper.dg-size-small .dg-filter-trigger {
+  margin-inline: var(--ant-padding-xxs, 4px)
+    calc(var(--ant-table-cell-padding-inline-sm, 8px) / 2 * -1);
 }
 
 .dg-cell[data-align='center'] {
@@ -178,10 +214,10 @@ body.dg-scrollbar-pointer-capturing * {
 
 /* 表头格 */
 .dg-cell-header {
-  background: var(--dg-header-bg);
-  color: var(--dg-header-color);
+  background: var(--ant-table-header-bg);
+  color: var(--ant-table-header-color);
   font-weight: 600;
-  border-bottom: var(--dg-border);
+  border-bottom: var(--ant-line-width) var(--ant-line-type) var(--ant-table-border-color);
   transition: background-color 0.2s ease;
 }
 
@@ -195,7 +231,7 @@ body.dg-scrollbar-pointer-capturing * {
 
 /* bordered 模式下给分组格补回底边。 */
 .dg-wrapper.dg-bordered .dg-cell-header-group {
-  border-bottom: var(--dg-border);
+  border-bottom: var(--ant-line-width) var(--ant-line-type) var(--ant-table-border-color);
 }
 
 /* 跨列叶子表头格默认居中。 */
@@ -211,14 +247,14 @@ body.dg-scrollbar-pointer-capturing * {
   top: 50%;
   width: 1px;
   height: 1.6em;
-  background-color: var(--dg-header-split-color);
+  background-color: var(--ant-table-header-split-color);
   transform: translateY(-50%);
   transition: background-color 0.2s;
 }
 
 /* 表体格 */
 .dg-cell-body {
-  border-bottom: var(--dg-border);
+  border-bottom: var(--ant-line-width) var(--ant-line-type) var(--ant-table-border-color);
   transition: background-color 0.2s ease;
 }
 
@@ -227,7 +263,7 @@ body.dg-scrollbar-pointer-capturing * {
   position: relative;
   z-index: 10;
   transition: none;
-  background: var(--dg-body-bg);
+  background: var(--ant-color-bg-container);
 }
 
 .dg-cell.dg-drag-row-source {
@@ -236,7 +272,7 @@ body.dg-scrollbar-pointer-capturing * {
 
 .dg-drag-row-overlay {
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
-  background: var(--dg-body-bg);
+  background: var(--ant-color-bg-container);
 }
 
 .dg-cell.dg-drag-row-yield {
@@ -248,13 +284,13 @@ body.dg-scrollbar-pointer-capturing * {
   position: relative;
   z-index: 10;
   transition: none;
-  background: var(--dg-body-bg);
+  background: var(--ant-color-bg-container);
   cursor: move;
   user-select: none;
 }
 
 .dg-cell-header.dg-drag-column-active {
-  background: var(--dg-header-bg);
+  background: var(--ant-table-header-bg);
 }
 
 .dg-cell.dg-drag-column-source {
@@ -263,7 +299,7 @@ body.dg-scrollbar-pointer-capturing * {
 
 .dg-drag-column-overlay {
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
-  background: var(--dg-body-bg);
+  background: var(--ant-color-bg-container);
   cursor: move;
 }
 
@@ -288,7 +324,7 @@ body.dg-scrollbar-pointer-capturing * {
 /* 行 hover 由 `.dg-row-hover` 标记驱动，并保留单格 hover fallback。 */
 .dg-cell-body:hover,
 .dg-cell-body.dg-row-hover {
-  background: var(--dg-row-hover-bg);
+  background: var(--ant-table-row-hover-bg);
 }
 
 /* 选中行背景。 */
@@ -316,12 +352,12 @@ body.dg-scrollbar-pointer-capturing * {
 
 /* bordered：wrapper 外框。 */
 .dg-wrapper.dg-bordered {
-  border: var(--dg-border);
+  border: var(--ant-line-width) var(--ant-line-type) var(--ant-table-border-color);
 }
 
 /* bordered：单元格竖线。 */
 .dg-wrapper.dg-bordered .dg-cell {
-  border-inline-end: var(--dg-border);
+  border-inline-end: var(--ant-line-width) var(--ant-line-type) var(--ant-table-border-color);
 }
 
 /* 嵌套非 bordered 子表的边线隔离。 */
@@ -336,26 +372,26 @@ body.dg-scrollbar-pointer-capturing * {
 
 /* bordered title 底部分隔线（title 与表体之间）。 */
 .dg-wrapper.dg-bordered .dg-title {
-  border-bottom: var(--dg-border);
+  border-bottom: var(--ant-line-width) var(--ant-line-type) var(--ant-table-border-color);
 }
 
 /* bordered footer 顶部分隔线（表体与 footer 之间）。 */
 .dg-wrapper.dg-bordered .dg-footer {
-  border-top: var(--dg-border);
+  border-top: var(--ant-line-width) var(--ant-line-type) var(--ant-table-border-color);
 }
 
 /* footer 存在时补全整体底部圆角。 */
 .dg-wrapper:has(.dg-footer) {
-  border-radius: var(--dg-radius);
+  border-radius: var(--ant-table-header-border-radius);
 }
 
 /* bordered 模式下固定列的组合边框。 */
 .dg-wrapper.dg-bordered .dg-sticky-shadow-end {
-  border-inline-start: var(--dg-border);
+  border-inline-start: var(--ant-line-width) var(--ant-line-type) var(--ant-table-border-color);
 }
 
 .dg-wrapper.dg-bordered .dg-sticky-shadow-start {
-  border-inline-end: var(--dg-border);
+  border-inline-end: var(--ant-line-width) var(--ant-line-type) var(--ant-table-border-color);
 }
 
 /* 固定列基础 sticky 定位。 */
@@ -363,12 +399,12 @@ body.dg-scrollbar-pointer-capturing * {
 .dg-cell-fixed-end {
   position: sticky;
   z-index: 2;
-  background: var(--dg-body-bg);
+  background: var(--ant-color-bg-container);
 }
 
 .dg-cell-header.dg-cell-fixed-start,
 .dg-cell-header.dg-cell-fixed-end {
-  background: var(--dg-header-bg);
+  background: var(--ant-table-header-bg);
   z-index: 3;
 }
 
@@ -382,18 +418,18 @@ body.dg-scrollbar-pointer-capturing * {
 /* 固定列需要不透明背景盖住滚动内容。 */
 .dg-cell-fixed-start,
 .dg-cell-fixed-end {
-  background: var(--dg-body-bg);
+  background: var(--ant-color-bg-container);
 }
 
 .dg-cell-header.dg-cell-fixed-start,
 .dg-cell-header.dg-cell-fixed-end {
-  background: var(--dg-header-bg);
+  background: var(--ant-table-header-bg);
 }
 
 /* fixed 列 hover 背景。 */
 .dg-cell-fixed-start.dg-row-hover,
 .dg-cell-fixed-end.dg-row-hover {
-  background: var(--dg-row-hover-bg);
+  background: var(--ant-table-row-hover-bg);
 }
 
 /* 固定列边缘阴影。 */
@@ -431,13 +467,13 @@ body.dg-scrollbar-pointer-capturing * {
 
 .dg-cell-header-vsticky {
   /* 配合 inline style 的 position/top/z-index；这里只补背景，避免表头被表体透过。 */
-  background: var(--dg-header-bg);
+  background: var(--ant-table-header-bg);
 }
 
 /* 表头纵向 sticky 时，固定列表头格仍保持不透明背景。 */
 .dg-cell-header.dg-cell-fixed-start,
 .dg-cell-header.dg-cell-fixed-end {
-  background: var(--dg-header-bg);
+  background: var(--ant-table-header-bg);
 }
 
 /* 省略号。 */
@@ -470,12 +506,12 @@ body.dg-scrollbar-pointer-capturing * {
   align-items: center;
   cursor: pointer;
   padding: 0 2px;
-  color: var(--dg-header-icon-color, rgba(0, 0, 0, 0.45));
+  color: var(--ant-table-header-icon-color, rgba(0, 0, 0, 0.45));
   transition: color 0.3s;
 }
 
 .dg-selection-dropdown-trigger:hover {
-  color: var(--dg-header-icon-hover-color, rgba(0, 0, 0, 0.88));
+  color: var(--ant-table-header-icon-hover-color, rgba(0, 0, 0, 0.88));
 }
 
 /* 选择列单元格 padding。 */
@@ -487,8 +523,8 @@ body.dg-scrollbar-pointer-capturing * {
 /* rowScope 行标题列。 */
 .dg-cell.dg-cell-rowscope {
   font-weight: 600;
-  background: var(--dg-header-bg);
-  color: var(--dg-header-color);
+  background: var(--ant-table-header-bg);
+  color: var(--ant-table-header-color);
 }
 
 /* 列宽拖拽手柄。 */
@@ -550,7 +586,7 @@ body.dg-scrollbar-pointer-capturing * {
   margin: 0;
   padding: 0;
   border: 0.8px solid var(--ant-table-border-color);
-  background: var(--dg-body-bg);
+  background: var(--ant-color-bg-container);
   border-radius: var(--ant-border-radius);
   cursor: pointer;
   position: relative;
@@ -636,7 +672,7 @@ body.dg-scrollbar-pointer-capturing * {
 /* 展开内容容器。 */
 .dg-row-expanded {
   background: var(--ant-table-row-expanded-bg);
-  padding: var(--dg-cell-padding-block) var(--dg-cell-padding-inline);
+  padding: var(--ant-table-cell-padding-block) var(--ant-table-cell-padding-inline);
   box-sizing: border-box;
 }
 
@@ -662,22 +698,22 @@ body.dg-scrollbar-pointer-capturing * {
 
 /* 排序列表头 hover 背景。 */
 .dg-cell-header.dg-column-has-sorters:hover {
-  background: var(--dg-header-sort-hover-bg);
+  background: var(--ant-table-header-sort-hover-bg);
 }
 
 /* 当前排序列表头背景。 */
 .dg-cell-header.dg-column-sort {
-  background: var(--dg-header-sort-active-bg);
+  background: var(--ant-table-header-sort-active-bg);
 }
 
 /* 当前排序列表体背景。 */
 .dg-cell-body.dg-column-sort {
-  background: var(--dg-body-sort-bg);
+  background: var(--ant-table-body-sort-bg);
 }
 
 /* 排序列 hover 时维持 sort 底色。 */
 .dg-cell-body.dg-column-sort.dg-row-hover {
-  background: var(--dg-body-sort-bg);
+  background: var(--ant-table-body-sort-bg);
 }
 
 /* 表头标题和排序图标容器。 */
@@ -700,7 +736,7 @@ body.dg-scrollbar-pointer-capturing * {
 /* 排序图标容器。 */
 .dg-column-sorter {
   margin-inline-start: 4px;
-  color: var(--dg-header-icon-color);
+  color: var(--ant-table-header-icon-color);
   font-size: 0;
   display: inline-flex;
   align-items: center;
@@ -725,7 +761,7 @@ body.dg-scrollbar-pointer-capturing * {
 /* 激活的 caret。 */
 .dg-column-sorter-up.dg-column-sorter-active,
 .dg-column-sorter-down.dg-column-sorter-active {
-  color: var(--dg-primary-color);
+  color: var(--ant-color-primary);
 }
 
 /* active caret 的负 margin 对齐。 */
@@ -735,11 +771,11 @@ body.dg-scrollbar-pointer-capturing * {
 
 /* 排序图标 hover 态。 */
 .dg-cell-header.dg-column-has-sorters:hover .dg-column-sorter {
-  color: var(--dg-header-icon-hover-color);
+  color: var(--ant-table-header-icon-hover-color);
 }
 .dg-cell-header.dg-column-has-sorters:hover .dg-column-sorter-up.dg-column-sorter-active,
 .dg-cell-header.dg-column-has-sorters:hover .dg-column-sorter-down.dg-column-sorter-active {
-  color: var(--dg-primary-color);
+  color: var(--ant-color-primary);
 }
 
 /* 排序图标不阻挡 click。 */
@@ -752,17 +788,17 @@ body.dg-scrollbar-pointer-capturing * {
   margin-inline-start: 2px;
   font-size: 11px;
   line-height: 1;
-  color: var(--dg-header-icon-color);
+  color: var(--ant-table-header-icon-color);
   font-variant-numeric: tabular-nums;
   transition: color 0.2s ease;
 }
 
 /* 优先级徽标 hover/active 态。 */
 .dg-cell-header.dg-column-has-sorters:hover .dg-column-sorter-priority {
-  color: var(--dg-header-icon-hover-color);
+  color: var(--ant-table-header-icon-hover-color);
 }
 .dg-cell-header.dg-column-sort .dg-column-sorter-priority {
-  color: var(--dg-primary-color);
+  color: var(--ant-color-primary);
 }
 
 /* 表头格右侧操作区：sorter + filter。 */
@@ -787,9 +823,9 @@ body.dg-scrollbar-pointer-capturing * {
   justify-content: center;
   margin-block: calc(var(--ant-padding-xxs, 4px) * -1);
   margin-inline: var(--ant-padding-xxs, 4px)
-    calc(var(--dg-cell-padding-inline, 16px) / 2 * -1);
+    calc(var(--ant-table-cell-padding-inline, 16px) / 2 * -1);
   padding: 0 var(--ant-padding-xxs, 4px);
-  color: var(--dg-header-icon-color);
+  color: var(--ant-table-header-icon-color);
   font-size: var(--ant-font-size-sm, 14px);
   min-height: 30px;
   /* 用基础 borderRadius。 */
@@ -806,10 +842,10 @@ body.dg-scrollbar-pointer-capturing * {
 
 /* 漏斗激活态。 */
 .dg-filter-trigger.dg-filter-trigger-active {
-  color: var(--dg-primary-color);
+  color: var(--ant-color-primary);
 }
 .dg-filter-trigger.dg-filter-trigger-active:hover {
-  color: var(--dg-primary-color);
+  color: var(--ant-color-primary);
   background: var(--ant-color-fill-content);
 }
 
@@ -864,26 +900,26 @@ body.dg-scrollbar-pointer-capturing * {
   display: flex;
   justify-content: space-between;
   padding: 7px 8px;
-  border-top: 1px solid var(--dg-border-color);
+  border-top: 1px solid var(--ant-table-border-color);
 }
 
 /* 纯 filter 列表头格 hover 不单独改背景。 */
 
 /* summary 单元格。 */
 .dg-cell-summary {
-  background: var(--dg-body-bg);
-  border-bottom: var(--dg-border);
+  background: var(--ant-color-bg-container);
+  border-bottom: var(--ant-line-width) var(--ant-line-type) var(--ant-table-border-color);
 }
 
 /* summary 顶部分割线。 */
 .dg-cell-summary {
-  box-shadow: 0 -1px 0 var(--dg-border-color);
+  box-shadow: 0 -1px 0 var(--ant-table-border-color);
 }
 
 /* sticky bottom 时保持不透明背景。 */
 .dg-cell-summary[style*='position: sticky'],
 .dg-cell-summary[style*='position:sticky'] {
-  background: var(--dg-body-bg);
+  background: var(--ant-color-bg-container);
 }
 
 /* summary 对齐。 */

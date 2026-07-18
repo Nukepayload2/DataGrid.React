@@ -6,9 +6,9 @@ data-grid 的整体容器结构与 antd `<table>` 三层包裹（`table-wrapper 
 
 `.dg-wrapper` 是 data-grid 表格根容器（`src/table/style/table.css`），承担：
 
-- 文字色：显式声明 `color: var(--ant-color-text)`，对齐 antd `resetComponent(token)` 给 `.ant-table` 根节点设的 `color: colorText`（默认 rgba(0,0,0,0.88)）。data-grid 原本未声明 color，body 文字会继承浏览器默认纯黑（rgb(0,0,0)），与 antd 不符。表头格 `.dg-cell-header` 另用 `--dg-header-color`（colorTextHeading）覆盖，不受影响。
-- 底色：`background: var(--dg-body-bg)`。
-- 圆角：`border-radius: var(--dg-radius) var(--dg-radius) 0 0`（顶圆底直，对齐 antd `.ant-table` 默认顶圆）。
+- 文字色：显式声明 `color: var(--ant-color-text)`，对齐 antd `resetComponent(token)` 给 `.ant-table` 根节点设的 `color: colorText`（默认 rgba(0,0,0,0.88)）。data-grid 原本未声明 color，body 文字会继承浏览器默认纯黑（rgb(0,0,0)），与 antd 不符。表头格 `.dg-cell-header` 另用 `--ant-table-header-color`（colorTextHeading）覆盖，不受影响。
+- 底色：`background: var(--ant-color-bg-container)`。
+- 圆角：`border-radius: var(--ant-table-header-border-radius) var(--ant-table-header-border-radius) 0 0`（顶圆底直，对齐 antd `.ant-table` 默认顶圆）。
 - `overflow-x: hidden; overflow-y: hidden`：原生横滚动条**永不出现**（横向滚动统一交给内部 `FloatingScrollBar` / `dg-scroll`），仅保留圆角裁剪语义。
 
 ## 行 hover 机制（grid-auto-flow:column 下"同行"DOM 不连续）

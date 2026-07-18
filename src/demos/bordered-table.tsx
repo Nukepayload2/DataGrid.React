@@ -44,7 +44,7 @@ export default function BorderedDemo() {
                 <strong>有 footer 时底部圆角</strong>
                 <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                   <li><strong>差异行为</strong>：有 footer 时，表格四角圆角
-                    （<code>border-radius: var(--dg-radius)</code>）。两侧一致（无差异）。</li>
+                    （<code>border-radius: var(--ant-table-header-border-radius)</code>）。两侧一致（无差异）。</li>
                   <li><strong>触发条件</strong>：表格设了 <code>footer</code> 且 bordered 开启。</li>
                   <li><strong>差异原因</strong>：无差异。antd <code>.ant-table-footer</code> 在有 footer 时
                     去掉自身顶圆角、补底圆角配合 <code>.ant-table</code> 顶圆角实现四角圆；data-grid 用
@@ -110,4 +110,3 @@ export default function BorderedDemo() {
     </div>
   )
 }
-

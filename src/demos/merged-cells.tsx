@@ -61,7 +61,7 @@ export default function ColspanRowspanDemo() {
                 <li><strong>触发条件</strong>：<code>rowScope='row'</code>（始终）。</li>
                 <li><strong>差异原因</strong>：antd 把该列渲染为 <code>&lt;th scope="row"&gt;</code> 自动套
                   <code>tbody&gt;tr&gt;th</code> 样式；data-grid 用 <code>.dg-cell-rowscope</code> 消费
-                  <code>--dg-header-bg/--dg-header-color</code> + <code>font-weight:600</code> 还原。两侧视觉一致。</li>
+                  <code>--ant-table-header-bg/--ant-table-header-color</code> + <code>font-weight:600</code> 还原。两侧视觉一致。</li>
               </ul>
             </li>
             <li>
@@ -92,4 +92,3 @@ export default function ColspanRowspanDemo() {
     </div>
   )
 }
-

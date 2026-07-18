@@ -12,6 +12,7 @@ import {
   Space,
   Table as AntdTable,
   Tag,
+  theme,
 } from 'antd'
 import { Table } from '../table'
 import type {
@@ -28,21 +29,13 @@ import {
   type TableTokenKey,
   type ThemeMode,
 } from '../theme/ThemeContext'
-import { useToken } from 'antd/es/theme/internal'
-import { prepareComponentToken as antdTablePrepareComponentToken } from 'antd/es/table/style/index'
+import { deriveTableComponentTokenDefaults } from '../table/tokenBridge'
 
 /** 两侧共享的表格尺寸档位。 */
 type SharedSize = 'large' | 'medium' | 'small'
 
 /** 按 key 读取的 antd realToken 视图。 */
 type RealToken = Record<string, unknown>
-
-/** antd Table token 派生函数的稳定签名。 */
-type AntdTablePrepareComponentTokenFn = (
-  token: RealToken,
-) => Record<string, unknown>
-const prepareTableComponentToken: AntdTablePrepareComponentTokenFn =
-  antdTablePrepareComponentToken as unknown as AntdTablePrepareComponentTokenFn
 
 const dgColumns: ColumnType<RecordType>[] = [
   { title: 'Name', dataIndex: 'name' },
@@ -138,11 +131,10 @@ export function ThemeEditorPanel() {
     hasAnyOverride,
   } = useTheme()
 
-  // useToken()[1] 是 algorithm 派生后的 realToken。
-  const antdTokenTuple = useToken()
-  const realToken = (antdTokenTuple[1] ?? {}) as unknown as RealToken
+  const { token } = theme.useToken()
+  const realToken = token as unknown as RealToken
 
-  const tableDefaults = prepareTableComponentToken(realToken)
+  const tableDefaults = deriveTableComponentTokenDefaults(realToken)
 
   const [size, setSize] = useState<SharedSize>('large')
   const [yScroll, setYScroll] = useState(false)
@@ -464,7 +456,7 @@ export function ThemeEditorPanel() {
           >
             data-grid（useToken → .dg-wrapper --ant-* 注入）
           </div>
-          {/* scroll.y:true 需要父容器有明确高度。 */}
+          {/* scroll.y:true 只开启数据区域模式；Table 自适应占满这里提供的可用空间。 */}
           <div style={yScroll ? { height: 240 } : undefined}>
             <Table<RecordType>
               size={size}
@@ -520,7 +512,7 @@ export function ThemeEditorPanel() {
           经 Table.tsx <code>useToken</code> realToken +{' '}
           <code>transformToken</code> 把 token 注入{' '}
           <code>.dg-wrapper</code> inline <code>--ant-*</code> CSS variables
-          （tokens.css 桥接 <code>--dg-*</code>）；antd 经 cssinjs 原生消费。两侧
+          并直接消费 antd Table var；<code>--dg-*</code> 仅保留自研滚动、行高等异构变量。antd 经 cssinjs 原生消费。两侧
           视觉应一致，差异即注入覆盖 gap。
         </p>
         <p style={{ margin: '0 0 8px' }}>

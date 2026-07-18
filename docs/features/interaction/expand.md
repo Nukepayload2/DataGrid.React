@@ -52,7 +52,7 @@ data-grid 复刻：
 - grid item，跨整行 `grid-column: 1/-1`。
 - `overflow: hidden; min-height: 0`：配合展开内容 track 的 `0fr`（收起裁剪到 0）/ `1fr`（展开自然高）。
 - 背景 `--ant-table-row-expanded-bg`（antd 展开行淡灰底）。
-- 内边距：`var(--dg-cell-padding-block) var(--dg-cell-padding-inline)`（与单元格 padding 一致）。
+- 内边距：`var(--ant-table-cell-padding-block) var(--ant-table-cell-padding-inline)`（与单元格 padding 一致）。
 
 ## 展开列单元格
 

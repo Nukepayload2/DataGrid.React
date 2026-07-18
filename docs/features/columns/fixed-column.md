@@ -24,9 +24,9 @@ sticky 需要一个"可滚动祖先"。`GridTable` 在 `scroll.x` 或存在 fixe
 
 固定列横向滚动时必须有不透明背景才能盖住底层滚动内容（非 hover 态下 `.dg-cell` 透明）：
 
-- 固定表体格 `.dg-cell-fixed-*`：`background: var(--dg-body-bg)`
-- 固定表头格 `.dg-cell-header.dg-cell-fixed-*`：`background: var(--dg-header-bg)`
-- hover 时固定列也保持不透明底色（覆盖 `.dg-cell-body:hover` 的 row-hover-bg）：`.dg-cell-fixed-*.dg-row-hover` → `--dg-row-hover-bg`
+- 固定表体格 `.dg-cell-fixed-*`：`background: var(--ant-color-bg-container)`
+- 固定表头格 `.dg-cell-header.dg-cell-fixed-*`：`background: var(--ant-table-header-bg)`
+- hover 时固定列也保持不透明底色（覆盖 `.dg-cell-body:hover` 的 row-hover-bg）：`.dg-cell-fixed-*.dg-row-hover` → `--ant-table-row-hover-bg`
 
 ## 边缘阴影（::after 浮层机制）
 

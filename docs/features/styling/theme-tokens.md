@@ -1,31 +1,23 @@
 # 主题注入与 tokens 桥接（theme tokens）
 
-data-grid 通过 `tokens.css` 定义 `--dg-*` 变量，并在 `useTableThemeVars.ts` 注入全套 `--ant-*` alias token 到 `.dg-wrapper`。本文说明 token 桥接策略、getComponentToken 剪枝坑、链接色复刻、style-class demo，以及与 antd 的差异。
+data-grid 通过 `useTableThemeVars.ts` 把 antd alias token 和 Table component token 注入为同名 `--ant-*` / `--ant-table-*` CSS variables，并在 `tokens.css` 提供无主题 fallback。本文说明 token 桥接策略、getComponentToken 剪枝坑、链接色复刻、style-class demo，以及与 antd 的差异。
 
 ## token 桥接（`tokens.css`）
 
-`tokens.css` 定义两套变量：
+`tokens.css` 的对外主题变量是 antd 同名变量：
 
-- `--dg-*`：data-grid 自有变量（如 `--dg-font-size`、`--dg-body-bg`、`--dg-header-bg`、`--dg-border`、`--dg-radius` 等），多数桥接自 `--ant-*` alias token（未接主题时 fallback 到 antd 默认值）。
-- `--ant-*`：antd alias token（由 `useTableThemeVars` 内的 `aliasTokenVars` 注入 `.dg-wrapper`，未接主题时 tokens.css fallback 兜底）。
+- `--ant-*`：antd alias token，例如 `--ant-color-bg-container`、`--ant-color-primary`、`--ant-line-width`。
+- `--ant-table-*`：antd Table component token，例如 `--ant-table-header-bg`、`--ant-table-row-hover-bg`、`--ant-table-cell-padding-block`。
 
-`--dg-*` 桥接示例：
+data-grid CSS 优先直接消费这些变量。只有 data-grid 的异构实现才保留 `--dg-*`：
 
-| data-grid | 桥接 antd | 用途 |
+| data-grid 内部变量 | 来源 | 用途 |
 |---|---|---|
-| `--dg-font-size` | `--ant-table-cell-font-size[-md/-sm]` | cell 字号（随 size） |
-| `--dg-body-bg` | `--ant-table-bg`（fallback `--ant-color-bg-container`） | 表体底色 |
-| `--dg-header-bg` | `--ant-table-header-bg` | 表头底色 |
-| `--dg-header-color` | `--ant-table-header-color`（= colorTextHeading） | 表头文字色 |
-| `--dg-border` | `--ant-table-border-color` + line-width + line-type | 边框 |
-| `--dg-radius` | `--ant-table-header-border-radius`（= borderRadiusLG） | 表格外框圆角 |
-| `--dg-row-hover-bg` | `--ant-table-row-hover-bg` | 行 hover 底色 |
-| `--dg-header-split-color` | `--ant-table-header-split-color` | 表头分割竖线色 |
-| `--dg-header-sort-hover-bg` / `--dg-header-sort-active-bg` / `--dg-body-sort-bg` | sort 相关 component token | 排序底色 |
-| `--dg-header-icon-color` / `--dg-header-icon-hover-color` | header icon color | 表头图标色 |
-| `--dg-primary-color` | `--ant-color-primary` | 主色 |
-| `--dg-resizer-color` | `--ant-color-primary` | 列宽拖拽手柄色 |
-| `--dg-scrollbar-thumb-active-bg` | `--ant-table-scroll-thumb-bg-hover` 经 25% `color-mix(..., transparent)` 派生 | 悬浮滚动条 hover / active / dragging 色 |
+| `--dg-row-min-h` / `--dg-row-max-h` | `gridOptions.minRowHeight/maxRowHeight` inline 注入 | 有界行高模型 |
+| `--dg-scrollbar-thumb-active-bg` | `--ant-table-scroll-thumb-bg-hover` | 自研悬浮滚动条 active/hover/dragging 色 |
+| `--dg-scrollbar-thumb-expanded-opacity` | 固定内部视觉权重 | 自研悬浮滚动条展开态透明度 |
+
+能与 antd Table 概念完全重合的颜色、字号、边框、圆角、padding、排序和筛选图标色，不再定义 `--dg-*` 对外桥接名。
 
 ## getComponentToken 剪枝坑
 
@@ -41,7 +33,7 @@ antd `getComponentToken` 会**剪枝"默认值 === alias 同值"的 component to
 
 **规则**：消费前先核对 antd getComponentToken 是否会剪枝该键。公开 component token 可改消费存活 alias；antd Table 内部派生 token（如 `tableScrollThumbBgHover`）需要在 token bridge 中显式补齐同语义 CSS var。
 
-悬浮滚动条 active 态是一个例外的 data-grid 派生色：`--dg-scrollbar-thumb-active-bg` 不引入新的主题颜色源，而是从补齐后的 `--ant-table-scroll-thumb-bg-hover` 派生。25% 只是视觉权重，用来降低 `colorTextHeading` 直出时的存在感；主题配置仍只需要覆盖 antd Table / alias token。
+悬浮滚动条 active 态是一个例外的 data-grid 派生色：`--dg-scrollbar-thumb-active-bg` 不引入新的主题颜色源，而是从补齐后的 `--ant-table-scroll-thumb-bg-hover` 派生。透明度只是视觉权重，用来降低 `colorTextHeading` 直出时的存在感；主题配置仍只需要覆盖 antd Table / alias token。
 
 ## 链接色复刻（genLinkStyle）
 
@@ -61,9 +53,9 @@ antd `getComponentToken` 会**剪枝"默认值 === alias 同值"的 component to
 
 ## font-size 重置（`.dg-grid`）
 
-`.dg-grid` 显式 `font-size: var(--dg-font-size)`，等效 antd `.ant-table` 根节点的 `font-size: tableFontSize`（= cellFontSize）重置。
+`.dg-grid` 显式 `font-size: var(--ant-table-cell-font-size)`，等效 antd `.ant-table` 根节点的 `font-size: tableFontSize`（= cellFontSize）重置。
 
-**loading（Spin 包裹）场景下继承链断裂**：Table.tsx 在 loading 时用 antd `<Spin>` 包裹 tableContent，DOM 变为 `.dg-wrapper → .ant-spin → .ant-spin-container → .dg-grid → cell`。antd Spin 根 `.ant-spin` 显式 `font-size: var(--ant-font-size)`（= 14，基础字号，不随 Table component token 变），落在 `.dg-wrapper` 与 `.dg-grid` 之间——`.dg-grid` 未声明 font-size 时继承最近的祖先 `.ant-spin` 的 14px（而非 `.dg-wrapper` 的 `--dg-font-size`），cell 沿继承拿 14。→ component-token demo cellFontSize=16 时 cell 实际 14px，与 antd 差 2px。本规则显式声明修复。
+**loading（Spin 包裹）场景下继承链断裂**：Table.tsx 在 loading 时用 antd `<Spin>` 包裹 tableContent，DOM 变为 `.dg-wrapper → .ant-spin → .ant-spin-container → .dg-grid → cell`。antd Spin 根 `.ant-spin` 显式 `font-size: var(--ant-font-size)`（= 14，基础字号，不随 Table component token 变），落在 `.dg-wrapper` 与 `.dg-grid` 之间——`.dg-grid` 未声明 font-size 时继承最近的祖先 `.ant-spin` 的 14px（而非 `.dg-wrapper` 的 `--ant-table-cell-font-size`），cell 沿继承拿 14。→ component-token demo cellFontSize=16 时 cell 实际 14px，与 antd 差 2px。本规则显式声明修复。
 
 ## style-class demo（root classNames 注入）
 
@@ -89,8 +81,8 @@ data-grid 侧：`.dg-wrapper.dg-style-class-root`（root class 注入到根容�
 
 ## 关联源码
 
-- [`src/table/style/tokens.css`](../../../src/table/style/tokens.css) — `--dg-*` 桥接定义 + `--ant-*` fallback。
-- [`src/table/useTableThemeVars.ts`](../../../src/table/useTableThemeVars.ts) — `aliasTokenVars`（基础 alias token）/ `tableTokenVars`（Table component token）派生与合并，集中 antd token 桥接逻辑（`useAntdInternalToken` + 4 个 `tokenBridge` 导出），输出 `wrapperStyle`（含 `stylesResolved.root` 合并）。
+- [`src/table/style/tokens.css`](../../../src/table/style/tokens.css) — `--ant-*` / `--ant-table-*` fallback + data-grid 异构变量。
+- [`src/table/useTableThemeVars.ts`](../../../src/table/useTableThemeVars.ts) — `aliasTokenVars`（基础 alias token）/ `tableTokenVars`（Table component token）派生与合并，集中 antd token 桥接逻辑（`theme.useToken()` + `tokenBridge`），输出 `wrapperStyle`（含 `stylesResolved.root` 合并）。
 - [`src/table/tokenBridge.ts`](../../../src/table/tokenBridge.ts) — `transformToken` + `useToken` realToken + 本地复制的 antd Table `prepareComponentToken` 纯 token 派生逻辑，产出 alias var 与 Table component var 字符串。
 - [`src/table/Table.tsx`](../../../src/table/Table.tsx) — 调用 `useTableThemeVars`，把 `wrapperStyle` 挂到 `.dg-wrapper` inline style。
 
@@ -102,8 +94,8 @@ data-grid 侧：`.dg-wrapper.dg-style-class-root`（root class 注入到根容�
 
 `transformToken(realToken, cssVar.key, { prefix, unitless, ignore, preserve })` —— 同 `useCacheToken` 内部调用（不含 hashCls/scope → cssVarsStr selector 为 `.${key}`）。产出 `--ant-color-primary:#1677ff;--ant-border-radius:6px;...` 全套 alias。
 
-- `realToken`（`useToken` 元组 index 1）= 未 var 化原值（公开 `theme.useToken().token` 已被 var 化为 `'var(--ant-x)'`，不能直接喂 transformToken——会产出 `--ant-x:var(--ant-y)` 自引用空循环）。
-- `cssVar`（index 4）= `{ prefix:'ant', key:'css-var-root' }`（默认；ConfigProvider cssVar 可覆盖 prefix/key）。
+- `realToken` 来自公开 `theme.useToken().token`，随 ConfigProvider algorithm / token / components.Table 覆盖更新。
+- `cssVar` 使用 data-grid 当前支持的默认配置 `{ prefix:'ant', key:'css-var-root' }`。
 - unitless / ignore / preserve 集合直接 import 自 antd 源文件（`antd/es/theme/useToken`），不自己枚举（防猜测铁律）。preserve 集合（screenXS..screenXXXL 各 min/max）复制稳定值（antd useToken.ts 内部 const 未 export）。
 
 ### Table component var（Table 组件 token → `--ant-table-*`）
@@ -123,7 +115,7 @@ data-grid 侧：`.dg-wrapper.dg-style-class-root`（root class 注入到根容�
 
 ### 单位
 
-antd transformToken number→`${v}px`（unitless 白名单除外）。data-grid tokens.css fallback 已对齐带 px 格式（如 `--ant-cell-padding-block: 16px`），table.css 消费者直接 `var(--ant-*)`（不再 `calc(var * 1px)`，避免 `calc(16px*1px)` 无效）。
+antd transformToken number→`${v}px`（unitless 白名单除外）。data-grid tokens.css fallback 已对齐带 px 格式（如 `--ant-table-cell-padding-block: 16px`），table.css 消费者直接 `var(--ant-*)`（不再 `calc(var * 1px)`，避免 `calc(16px*1px)` 无效）。
 
 ### 跳过内部字段
 

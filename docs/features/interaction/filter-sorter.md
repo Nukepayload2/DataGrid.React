@@ -21,11 +21,11 @@ data-grid 的排序图标（caret-up/caret-down）改用 antd `@ant-design/icons
 
 | 用途 | data-grid 消费 | antd 源 | 默认值 |
 |---|---|---|---|
-| caret 默认（未激活） | `--dg-header-icon-color` | headerIconColor（= colorIcon*opacityLoading） | rgba(0,0,0,0.294) |
-| caret 激活 | `--dg-primary-color` | colorPrimary | #1677ff |
-| 可排序表头 hover bg | `--dg-header-sort-hover-bg` | tableHeaderSortHoverBg |  |
-| 当前排序表头 bg | `--dg-header-sort-active-bg` | tableHeaderSortBg |  |
-| 当前排序表体 bg | `--dg-body-sort-bg` | tableBodySortBg |  |
+| caret 默认（未激活） | `--ant-table-header-icon-color` | headerIconColor（= colorIcon*opacityLoading） | rgba(0,0,0,0.294) |
+| caret 激活 | `--ant-color-primary` | colorPrimary | #1677ff |
+| 可排序表头 hover bg | `--ant-table-header-sort-hover-bg` | tableHeaderSortHoverBg |  |
+| 当前排序表头 bg | `--ant-table-header-sort-active-bg` | tableHeaderSortBg |  |
+| 当前排序表体 bg | `--ant-table-body-sort-bg` | tableBodySortBg |  |
 
 ### active caret 上提
 
@@ -33,7 +33,7 @@ data-grid 的排序图标（caret-up/caret-down）改用 antd `@ant-design/icons
 
 ### 排序列 hover 表体维持 sort 底色
 
-`.dg-cell-body.dg-column-sort.dg-row-hover { background: var(--dg-body-sort-bg) }`——CSS 顺序在 dg-row-hover 之后（单类同优先级，后者覆盖），让排序列在 hover 时维持 sort 底色更视觉一致。
+`.dg-cell-body.dg-column-sort.dg-row-hover { background: var(--ant-table-body-sort-bg) }`——CSS 顺序在 dg-row-hover 之后（单类同优先级，后者覆盖），让排序列在 hover 时维持 sort 底色更视觉一致。
 
 ## 多列排序优先级徽标（data-grid 增强）
 
@@ -53,10 +53,10 @@ data-grid 的排序图标（caret-up/caret-down）改用 antd `@ant-design/icons
 
 | 属性 | antd 源 | data-grid 消费 | 默认值 |
 |---|---|---|---|
-| 默认 color | headerIconColor | `--dg-header-icon-color` | rgba(0,0,0,0.45) |
+| 默认 color | headerIconColor | `--ant-table-header-icon-color` | rgba(0,0,0,0.45) |
 | font-size | fontSizeSM | `--ant-font-size-sm` | 14（非 12） |
 | marginBlock | `-paddingXXS` | `calc(var(--ant-padding-xxs) * -1)` | -4px |
-| marginInline | `paddingXXS + (-tablePaddingHorizontal/2)` | `padding-xxs + calc(--dg-cell-padding-inline / 2 * -1)` | 4px + -8px |
+| marginInline | `paddingXXS + (-tablePaddingHorizontal/2)` | `padding-xxs + calc(--ant-table-cell-padding-inline / 2 * -1)` | 4px + -8px |
 | padding | `0 paddingXXS` | `0 padding-xxs` | 0 4px |
 | borderRadius | 基础 borderRadius（非 tableRadius） | `--ant-border-radius` | 6 |
 | min-height | used height（实测 30） | `min-height: 30px` | 30 |
@@ -74,7 +74,7 @@ data-grid 的排序图标（caret-up/caret-down）改用 antd `@ant-design/icons
 
 ### active 态（有筛选值）
 
-`.dg-filter-trigger.dg-filter-trigger-active { color: var(--dg-primary-color) }`（对齐 antd `&.active { color: colorPrimary }`）。
+`.dg-filter-trigger.dg-filter-trigger-active { color: var(--ant-color-primary) }`（对齐 antd `&.active { color: colorPrimary }`）。
 
 active + hover 组合：antd filter.ts 仅两条规则——`:hover` 与 `.active`（无 background、无单独 active:hover 规则）。同特异性 (0,2,0) → CSS 源顺序决胜（active 在后）→ active:hover 实际值：color = colorPrimary（active 覆盖 hover 的 colorIcon），background = tableHeaderFilterActiveBg（active 未声明 background，不覆盖 hover 的 bg）。data-grid 显式声明 `.dg-filter-trigger-active:hover` 复刻该最终计算值。
 
@@ -88,7 +88,7 @@ antd `sorter.ts:17-23` 的 `thead th.column-has-sorters:hover { background: tabl
 - 圆角 `--ant-border-radius`。
 - antd Dropdown 默认会包一层 popup 容器（带阴影/边框）；data-grid 只管面板内部布局。
 
-内部：`.dg-filter-dropdown-menu`（项列表，padding 8、max-height 264、overflow-y auto）、`.dg-filter-dropdown-search`（搜索框区，padding 8 8 0）、`.dg-filter-menu-list`（flex column gap 4）、`.dg-filter-menu-item`（min-height 28）、`.dg-filter-checkbox-group`/`.dg-filter-radio-group`（强制 column 布局）、`.dg-filter-dropdown-btns`（底部按钮区，border-top 1px `--dg-border-color`）。
+内部：`.dg-filter-dropdown-menu`（项列表，padding 8、max-height 264、overflow-y auto）、`.dg-filter-dropdown-search`（搜索框区，padding 8 8 0）、`.dg-filter-menu-list`（flex column gap 4）、`.dg-filter-menu-item`（min-height 28）、`.dg-filter-checkbox-group`/`.dg-filter-radio-group`（强制 column 布局）、`.dg-filter-dropdown-btns`（底部按钮区，border-top 1px `--ant-table-border-color`）。
 
 ## 特殊情况
 
@@ -111,7 +111,7 @@ antd 的 `renderEmpty(componentName)` 用 componentName 区分两种 empty：`'T
 | caret 图标 | antd `CaretUpOutlined/CaretDownOutlined`（非核心用 antd） | 同款 SVG icon |
 | 多列优先级徽标 | data-grid 增强（SortIndicator 自带） | 无 |
 | Dropdown 弹出层 | antd `<Dropdown>`（非核心用 antd） | antd 原生 |
-| 表头 padding 间距 token | `--dg-cell-padding-inline`（= cellPaddingInline） | tablePaddingHorizontal |
+| 表头 padding 间距 token | `--ant-table-cell-padding-inline`（= cellPaddingInline） | tablePaddingHorizontal |
 
 ## 引擎状态机（自研核心）
 

@@ -150,12 +150,18 @@ function prepareTableComponentToken(
 
 export { antdTokenIgnore, antdTokenUnitless }
 
+export function deriveTableComponentTokenDefaults(
+  token: Record<string, unknown>,
+): Record<string, unknown> {
+  return prepareTableComponentToken(token)
+}
+
 /**
  * 主题注入辅助：parse antd transformToken 产出的 cssVarsStr 为 `--k:v` 字典。
  *
  * 直接调用 antd 真实工具（transformToken + useToken realToken），让 `.dg-wrapper` 拿到与
  * antd `.ant-table-wrapper` **同名同值的全套 `--ant-*`**（alias + Table component token）。
- * 详见 `docs/design-notes/theme-tokens.md` 的「注入路径」节。
+ * 详见 `docs/features/styling/theme-tokens.md` 的「注入路径」节。
  *
  * 注入路径（与 antd 同款，零猜测）：
  * 1. alias var：`transformToken(realToken, cssVar.key, { prefix, unitless, ignore, preserve })`
@@ -235,7 +241,7 @@ export function tablePrefixToken(key: string): string {
 /**
  * 把 Table 组件 token 通过 antd 同款流程转为 `--ant-table-*`（+ 写回 alias 同名 var） CSS vars。
  * 完全复刻 antd `genCSSVarRegister('Table', ...)` 的 fn 回调
- * （cssinjs-utils/es/util/genStyleUtils.js）。详见 `docs/design-notes/theme-tokens.md`。
+ * （cssinjs-utils/es/util/genStyleUtils.js）。详见 `docs/features/styling/theme-tokens.md`。
  *
  * 1. defaultToken = prepareComponentToken(merge(realToken, realToken.Table))
  *    （= antd `getDefaultComponentToken`：从 alias 派生 Table 组件 token 默认值 headerBg/rowHoverBg/

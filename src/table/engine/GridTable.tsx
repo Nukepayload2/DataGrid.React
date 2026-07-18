@@ -397,8 +397,7 @@ function GridTableInner<RecordType = any>(
     containerRef: virtualScrollRef,
     enabled: virtualEnabled,
     contentOffset: headerHeightNum,
-    // .dg-grid 默认 row-gap:0（CSS 未声明），故传 0；将来若 CSS 引入 row-gap，
-    // 此处读 CSS 变量 --dg-row-gap（默认 0）传入。data-grid 表格通常无行间距。
+    // .dg-grid 默认 row-gap:0（CSS 未声明）。data-grid 表格通常无行间距。
     gap: 0,
   })
 

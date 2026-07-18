@@ -6,8 +6,8 @@
  * `stylesResolved` 即可拿到合并后的根容器 inline style。
  *
  * 注入路径（与 antd 同款，零猜测；纯字节级搬运，逻辑未变）：
- * 1. `useAntdInternalToken()` 拿 6 元组 → 取 `realToken`（index 1，未 var 化原值）+
- *    `cssVar`（index 4，`{ prefix:'ant', key:'css-var-root' }`）。
+ * 1. `theme.useToken()` 拿当前 ConfigProvider 派生后的 token，并使用
+ *    `{ prefix:'ant', key:'css-var-root' }` 作为默认 cssVar 配置。
  * 2. `aliasTokenVars = tokenToCssVars(realToken, cssVar, { unitless, ignore, preserve })`
  *    —— alias 全套 `--ant-color-*` / `--ant-border-radius` / ...（与 antd useCacheToken 同款）。
  * 3. `tableTokenVars = tableTokenToCssVars(realToken, cssVar)`
@@ -50,7 +50,7 @@ export function useTableThemeVars(
 } {
   // 主题注入：用 antd 公开 `theme.useToken()` 拿 realToken
   //   （未 var 化的原值，与 antd transformToken 输入一致），喂 antd 真实 `transformToken`
-  //   产出与 .ant-table-wrapper 同名同值的全套 `--ant-*`。详见 `docs/design-notes/theme-tokens.md`。
+  //   产出与 .ant-table-wrapper 同名同值的全套 `--ant-*`。详见 `docs/features/styling/theme-tokens.md`。
   //
   // 公开 `theme.useToken()` 返回对象的 `token` 可直接喂 transformToken。
   // cssVar 默认沿用 `{ prefix:'ant', key:'css-var-root' }`。

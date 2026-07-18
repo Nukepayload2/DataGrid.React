@@ -6,10 +6,10 @@ data-grid 的表头格（含多级表头分组格、叶子表头格、表头分�
 
 `.dg-cell-header`（表头格基类）：
 
-- 底色 `--dg-header-bg`（= `--ant-table-header-bg`，默认 #fafafa）。
-- 文字色 `--dg-header-color`（= `--ant-table-header-color` = colorTextHeading）。
+- 底色 `--ant-table-header-bg`（= `--ant-table-header-bg`，默认 #fafafa）。
+- 文字色 `--ant-table-header-color`（= `--ant-table-header-color` = colorTextHeading）。
 - `font-weight: 600`（antd 表头加粗）。
-- `border-bottom: var(--dg-border)`（表头底部 1px 分割线）。
+- `border-bottom: var(--ant-line-width) var(--ant-line-type) var(--ant-table-border-color)`（表头底部 1px 分割线）。
 - `transition: background-color 0.2s ease`（hover/sort 背景过渡）。
 
 ## 多级表头分组格
@@ -23,7 +23,7 @@ data-grid 的表头格（含多级表头分组格、叶子表头格、表头分�
 
 ## 表头分割竖线（仅叶子表头格）
 
-对齐 antd `index.ts:322` 的 `::before` 实现：在叶子表头格右侧画 1px 竖线（`inset-inline-end: 0; width: 1px; height: 1.6em`，颜色 `--dg-header-split-color` = `--ant-table-header-split-color`）。
+对齐 antd `index.ts:322` 的 `::before` 实现：在叶子表头格右侧画 1px 竖线（`inset-inline-end: 0; width: 1px; height: 1.6em`，颜色 `--ant-table-header-split-color` = `--ant-table-header-split-color`）。
 
 ### antd 规则
 

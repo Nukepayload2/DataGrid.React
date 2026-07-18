@@ -166,10 +166,10 @@ export default function DynamicSettingsDemo() {
               <strong>scroll.y 取值差异</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：data-grid 用 <code>scroll:&#123;y:true&#125;</code>
-                  （CSS 自适应高度，父容器 240px）；antd 用 <code>scroll:&#123;y:240&#125;</code>（数字）。</li>
+                  （表格占满父容器可用空间，不向 Table 传计算高度）；antd 用 <code>scroll:&#123;y:240&#125;</code>（数字）。</li>
                 <li><strong>触发条件</strong>：Fixed Header 开关 ON。</li>
-                <li><strong>差异原因</strong>：data-grid 的 <code>y:true</code> 走数据区域模式
-                  （高度由父容器决定），antd 仅接受数字。</li>
+                <li><strong>差异原因</strong>：data-grid 的 <code>y:true</code> 只开启数据区域模式，
+                  高度由自适应布局提供；antd 仅接受数字。</li>
               </ul>
             </li>
             <li>
@@ -182,4 +182,3 @@ export default function DynamicSettingsDemo() {
     </div>
   )
 }
-
