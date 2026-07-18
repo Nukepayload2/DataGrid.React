@@ -34,7 +34,7 @@ export interface ColumnType<RecordType = any> {
   /**
    * data-grid 列级专属选项命名空间。
    *
-   * **与 antd 不兼容**：antd `ColumnType` 没有 dragColumnLock 等概念，
+   * **与 antd 不兼容**：antd `ColumnType` 没有 dragColumnLock / recycling cell 渲染 hook 等概念，
    * 故 dg 列级专属字段一律归入此命名空间（顶层 `ColumnType` 只保留与 antd 同名同义字段）。
    *
    *   - `dragColumnLock`：列拖拽锁定模式（列拖拽排序）。

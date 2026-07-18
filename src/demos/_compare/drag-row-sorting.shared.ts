@@ -7,8 +7,8 @@
  *
  * === 两侧各自的拖拽实现（不强求共享状态，各自排序便于对照）===
  *
- *  - **左 data-grid**：方案 B 自研 pointer（`useRowDragSort` + 事件委托 + 蓝色指示线 + arrayMove）。
- *    不依赖 @dnd-kit（理由：grid 渲染无"行 DOM"，行容器 div 会破坏 CSS Grid 布局）。
+ *  - **左 data-grid**：通过公开 `gridOptions.rowDragSort` 启用；内部采用自研 pointer
+ *    事件委托 + 蓝色指示线 + arrayMove，不依赖 @dnd-kit（理由：grid 渲染无"行 DOM"）。
  *  - **右 antd**：忠实复刻官方 `drag-sorting.tsx`（`@dnd-kit/*` DndContext + PointerSensor +
  *    restrictToVerticalAxis + SortableContext + `components.body.row = Row` useSortable +
  *    transform 跟随指针 + arrayMove）。

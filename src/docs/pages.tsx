@@ -72,8 +72,7 @@ interface ApiOptionRow {
 }
 
 const QUICK_START_INSTALL = `import { Table } from '@nukepayload2/data-grid'
-import type { ColumnType } from '@nukepayload2/data-grid'
-import '@nukepayload2/data-grid/style.css'`
+import type { ColumnType } from '@nukepayload2/data-grid'`
 
 const MIGRATION_IMPORTS = `// before
 import { Table } from 'antd'
@@ -81,10 +80,7 @@ import type { TableProps, ColumnsType } from 'antd'
 
 // after
 import { Table } from '@nukepayload2/data-grid'
-import type { TableProps, ColumnsType } from '@nukepayload2/data-grid'
-
-// 应用入口导入一次样式
-import '@nukepayload2/data-grid/style.css'`
+import type { TableProps, ColumnsType } from '@nukepayload2/data-grid'`
 
 const MIGRATION_SCROLL = `// before
 <Table columns={columns} dataSource={rows} scroll={{ y: 400, x: 1200 }} />
@@ -130,6 +126,7 @@ const VIRTUAL_SCROLLING_CODE = `<section className="table-pane">
 </section>`
 
 const THEMING_CODE = `import { ConfigProvider } from 'antd'
+import { Table } from '@nukepayload2/data-grid'
 
 export default function App() {
   return (
@@ -153,10 +150,9 @@ const GRID_OPTIONS_CODE = `<Table
   rowKey="id"
   gridOptions={{
     rowHeight: 48,
-    virtualizationMode: 'standard',
-    columnReorder: true,
-    autoScrollOnDrag: true,
-    multiRowReorder: true,
+    headerHeight: 44,
+    resizable: true,
+    columnResizeMode: 'ResizeLeft',
   }}
 />`
 
@@ -173,14 +169,6 @@ const RECYCLING_CODE = `<Table
 />`
 
 const GRID_COLUMN_OPTIONS_CODE = `const columns: ColumnType<Row>[] = [
-  {
-    title: 'Name',
-    dataIndex: 'name',
-    key: 'name',
-    gridColumnOptions: {
-      dragColumnLock: 'lockDrag',
-    },
-  },
   {
     title: 'Status',
     dataIndex: 'status',
@@ -253,10 +241,10 @@ const tablePropRows: PropRow[] = [
   { key: 'rowSelection', field: 'rowSelection', purpose: 'antd 风格行选择。', note: '保持使用者熟悉的 API 形状。' },
   { key: 'expandable', field: 'expandable', purpose: '展开行和树表。', note: '支持树形层级和展开交互。' },
   { key: 'pagination', field: 'pagination', purpose: '分页配置。', note: '未传时默认启用，传 `false` 关闭。' },
-  { key: 'components', field: 'components', purpose: '自定义单元格、行或表头。', note: 'data-grid 的 DOM 形态和原生 table 不完全相同。' },
+  { key: 'components', field: 'components', purpose: '自定义表体单元格或行。', note: '当前消费 body.cell / body.row；不支持 header.cell 替换。' },
   { key: 'classNames', field: 'classNames / styles', purpose: '语义化样式槽位。', note: '局部覆盖 root、header、body、cell 等部位。' },
   { key: 'sticky', field: 'sticky', purpose: '页面级 sticky 表头。', note: '适合和外层滚动容器组合使用。' },
-  { key: 'gridOptions', field: 'gridOptions', purpose: 'data-grid 专属表级能力。', note: '例如行高、列宽拖拽、原生选择和拖拽增强。' },
+  { key: 'gridOptions', field: 'gridOptions', purpose: 'data-grid 专属表级能力。', note: '例如行高、列宽拖拽、原生选择和拖拽排序。' },
 ]
 
 const publicApiRows: ApiExportRow[] = [
@@ -281,6 +269,8 @@ const gridOptionRows: ApiOptionRow[] = [
   { key: 'resizableMaxWidth', field: 'resizableMaxWidth', type: 'number | (key) => number', defaultValue: 'Infinity', stability: 'stable', description: '列宽拖拽最大宽度。' },
   { key: 'scrollBarFoldMode', field: 'scrollBarFoldMode', type: 'ScrollBarFoldMode', defaultValue: '常驻细条', stability: 'stable', description: '悬浮滚动条显示和折叠策略。' },
   { key: 'selection', field: 'selection', type: 'GridSelectionOptions', defaultValue: 'undefined', stability: 'stable', description: 'data-grid 原生选择配置，优先级高于 rowSelection。' },
+  { key: 'rowDragSort', field: 'rowDragSort', type: '{ onSort, handleSelector?, enabled?, autoScroll? }', defaultValue: 'undefined', stability: 'stable', description: '行拖拽排序入口；onSort 中提交新的 dataSource。' },
+  { key: 'columnDragSort', field: 'columnDragSort', type: '{ onSort, enabled?, autoScroll? }', defaultValue: 'undefined', stability: 'stable', description: '列拖拽排序入口；onSort 中提交新的 columns。' },
   { key: 'autoScrollOnDrag', field: 'autoScrollOnDrag', type: 'boolean', defaultValue: 'true', stability: 'stable', description: '行/列拖到滚动容器边缘时自动滚动。' },
   { key: 'columnReorder', field: 'columnReorder', type: 'boolean', defaultValue: 'true', stability: 'stable', description: '列拖拽重排总开关。' },
   { key: 'multiRowReorder', field: 'multiRowReorder', type: 'boolean', defaultValue: 'true', stability: 'stable', description: '多选行拖拽时按选中块整体移动。' },
@@ -301,7 +291,7 @@ const scrollBarFoldRows: ApiOptionRow[] = [
 ]
 
 const gridColumnOptionRows: ApiOptionRow[] = [
-  { key: 'dragColumnLock', field: 'dragColumnLock', type: "'lockDrag' | 'lockPosition'", defaultValue: 'undefined', stability: 'stable', description: '列拖拽锁定；lockPosition 还保持最终 index 不变。' },
+  { key: 'dragColumnLock', field: 'dragColumnLock', type: "'lockDrag' | 'lockPosition'", defaultValue: 'undefined', stability: 'stable', description: '列拖拽锁定；lockPosition 保持最终 index 不变。' },
   { key: 'renderCellElement', field: 'renderCellElement', type: '(params, oldElement) => HTMLElement', defaultValue: 'undefined', stability: 'advanced', description: 'recycling cell 的低层 HTMLElement 渲染 hook。' },
   { key: 'renderCellReact', field: 'renderCellReact', type: '(params, slot) => ReactElement | null', defaultValue: 'undefined', stability: 'advanced', description: 'recycling cell 的 React slot 渲染 hook，返回元素必须使用 slot.key。' },
   { key: 'disposeCellElement', field: 'disposeCellElement', type: '(element, reason, params) => void', defaultValue: 'undefined', stability: 'advanced', description: '清理 renderCellElement 创建的 HTMLElement 副作用。' },
@@ -314,7 +304,7 @@ const columnPropRows: PropRow[] = [
   { key: 'cell', field: 'onCell / onHeaderCell', purpose: '注入单元格或表头属性。', note: '也可用于 colSpan / rowSpan。' },
   { key: 'sort', field: 'sorter / filters', purpose: '排序和筛选。', note: '保留 antd 风格交互。' },
   { key: 'display', field: 'ellipsis / hidden / responsive', purpose: '展示控制。', note: '适合窄宽度和响应式场景。' },
-  { key: 'gridColumnOptions', field: 'gridColumnOptions', purpose: 'data-grid 专属列级能力。', note: '例如列拖拽锁定。' },
+  { key: 'gridColumnOptions', field: 'gridColumnOptions', purpose: 'data-grid 专属列级能力。', note: '用于列拖拽锁定和 recycling cell 低层渲染 hook。' },
 ]
 
 const compatRows: CompatRow[] = [
@@ -322,7 +312,7 @@ const compatRows: CompatRow[] = [
   { key: 'selection', api: 'rowSelection', status: '部分兼容', detail: '常用选择、受控键、自定义选择项和 renderCell 已覆盖，DOM 形态存在适配差异。' },
   { key: 'expandable', api: 'expandable', status: '部分兼容', detail: '展开行、默认展开和 expandRowByClick 已覆盖，columnTitle/fixed 仍是 backlog。' },
   { key: 'scroll', api: 'scroll', status: '部分兼容', detail: 'x 支持常用形态；y 明确为 true，不接受 number/string max-height 语义。' },
-  { key: 'components', api: 'components', status: '部分兼容', detail: '支持 header.cell、body.cell、body.row；wrapper/table 级替换不是原生 table 等价语义。' },
+  { key: 'components', api: 'components', status: '部分兼容', detail: '支持 body.cell、body.row；header.cell、wrapper/table 级替换不是当前公开能力。' },
   { key: 'locale', api: 'locale', status: '部分兼容', detail: '表体空态、筛选下拉、选择菜单、排序和展开文案已接入 antd locale 链路。' },
 ]
 
@@ -335,18 +325,17 @@ const limitationRows: GapRow[] = [
 const semanticSlotRows: SemanticSlotRow[] = [
   { key: 'root', slot: 'root', antd: '.ant-table-wrapper', dataGrid: '.dg-wrapper', note: '根元素，承载表格容器和主题变量。' },
   { key: 'title', slot: 'title', antd: '.ant-table-title', dataGrid: '.dg-title', note: '标题元素，两侧均直接落点。' },
-  { key: 'table', slot: 'content', antd: '.ant-table', dataGrid: '.dg-grid', note: 'data-grid 的表格主体是 CSS Grid。' },
-  { key: 'content', slot: 'section', antd: '.ant-table-content', dataGrid: '.dg-scroll', note: '滚动内容容器，两侧均是内容滚动落点。' },
-  { key: 'header-wrapper', slot: 'header.wrapper', antd: '.ant-table-thead', dataGrid: '无独立 thead 容器', note: 'data-grid 保留 API 形状，但不伪造不存在的 thead 层级。' },
+  { key: 'content', slot: 'content', antd: '.ant-table-content', dataGrid: '.dg-grid', note: 'data-grid 的表格主体是 CSS Grid。' },
+  { key: 'section', slot: 'section', antd: '.ant-table-container', dataGrid: '.dg-scroll-wrap', note: '滚动包装容器；sticky 模式使用 sticky viewport。' },
+  { key: 'header-wrapper', slot: 'header.wrapper', antd: '.ant-table-thead', dataGrid: '未消费', note: 'data-grid 无独立 thead 容器，当前不为该槽位伪造 DOM 落点。' },
   { key: 'header-row', slot: 'header.row', antd: 'thead > tr', dataGrid: '表头行内所有 header cell', note: 'data-grid 无 tr，行级样式透传到同一逻辑行的所有表头单元格。' },
   { key: 'header-cell', slot: 'header.cell', antd: 'th.ant-table-cell', dataGrid: '.dg-cell-header', note: '表头单元格直接落点，包含排序状态。' },
-  { key: 'section', slot: 'section', antd: '.ant-table-container', dataGrid: '.dg-scroll-wrap', note: '包装滚动和内容区域。' },
-  { key: 'body-wrapper', slot: 'body.wrapper', antd: '.ant-table-tbody', dataGrid: '无独立 tbody 容器', note: 'data-grid 表体由 grid cell 直接组成。' },
+  { key: 'body-wrapper', slot: 'body.wrapper', antd: '.ant-table-tbody', dataGrid: '未消费', note: 'data-grid 无独立 tbody 容器，当前不为该槽位伪造 DOM 落点。' },
   { key: 'body-row', slot: 'body.row', antd: 'tbody > tr', dataGrid: '表体行内所有 body cell', note: 'data-grid 无 tr，行级样式透传到同一逻辑行的所有数据单元格。' },
   { key: 'body-cell', slot: 'body.cell', antd: 'td.ant-table-cell', dataGrid: '.dg-cell-body', note: '主体单元格直接落点。' },
   { key: 'footer', slot: 'footer', antd: '.ant-table-footer', dataGrid: '.dg-footer', note: '底部元素，两侧均直接落点。' },
   { key: 'pagination-root', slot: 'pagination.root', antd: '.ant-pagination', dataGrid: '.dg-pagination', note: '分页根元素。' },
-  { key: 'pagination-item', slot: 'pagination.item', antd: '.ant-pagination-item / prev / next', dataGrid: 'antd Pagination item', note: 'data-grid 内部复用 antd Pagination，item 样式透传到分页项。' },
+  { key: 'pagination-item', slot: 'pagination.item', antd: '.ant-pagination-item / prev / next', dataGrid: 'antd Pagination 根节点', note: '当前合并到内部 antd Pagination 组件 className/style，不逐项透传。' },
 ]
 
 const semanticA11yRows: A11yRow[] = [
@@ -414,8 +403,8 @@ export function renderIntro({ onOpen }: DocsPageContext) {
 export function renderQuickStart({ onOpen }: DocsPageContext) {
   return (
     <>
-      <DocSection id="install" eyebrow="安装" title="导入组件和样式">
-        <DocsCode code={QUICK_START_INSTALL} height={120} ariaLabel="安装和导入代码" />
+      <DocSection id="install" eyebrow="安装" title="导入组件">
+        <DocsCode code={QUICK_START_INSTALL} height={100} ariaLabel="安装和导入代码" />
       </DocSection>
 
       <DocSection
@@ -457,7 +446,7 @@ export function renderMigration({ onOpen }: DocsPageContext) {
         id="step-1"
         eyebrow="步骤 1"
         title="先接入 data-grid"
-        description="把 antd Table 的 import 和类型 import 切到 data-grid；ColumnsType、Table.Column 和 Table.ColumnGroup 写法不需要改。静态样式只在应用入口导入一次。"
+        description="把 antd Table 的 import 和类型 import 切到 data-grid；多数 ColumnsType、Table.Column 和 Table.ColumnGroup 写法可直接保留，列对齐值按 data-grid 类型调整。"
       >
         <DocsCode code={MIGRATION_IMPORTS} height={240} ariaLabel="迁移 import 代码" />
       </DocSection>
@@ -684,8 +673,8 @@ export function renderSemanticDom({ onOpen }: DocsPageContext) {
       <DocSection
         id="slots"
         eyebrow="classNames / styles"
-        title="13 槽位落点矩阵"
-        description="data-grid 对齐 antd Table 的 Semantic DOM 槽位命名，但 CSS Grid 渲染路径不会伪造 thead、tbody、tr 这类不存在的 DOM 层级。"
+        title="Semantic DOM 槽位矩阵"
+        description="data-grid 对齐 antd Table 的 Semantic DOM 槽位命名；CSS Grid 渲染路径不会伪造 thead、tbody、tr 这类不存在的 DOM 层级，未消费槽位会明确标出。"
       >
         <DocsDataGrid<SemanticSlotRow>
           columns={[
@@ -813,9 +802,10 @@ export function renderPublicApi() {
 
       <DocSection id="internal" eyebrow="边界" title="拖拽 hooks 不作为公开 API">
         <DocsNote title="使用方式">
-          拖拽能力由 data-grid 内部实现，用户只配置 <Text code>gridOptions.columnReorder</Text>、
-          <Text code>gridOptions.autoScrollOnDrag</Text>、<Text code>gridOptions.multiRowReorder</Text>
-          和 <Text code>gridColumnOptions.dragColumnLock</Text>。不要依赖内部 hook 路径。
+          拖拽排序通过 <Text code>gridOptions.rowDragSort</Text> 和
+          <Text code>gridOptions.columnDragSort</Text> 启用；列锁定写在
+          <Text code>column.gridColumnOptions.dragColumnLock</Text>。内部 hook 不从包主入口导出，
+          demo 站点也不得直接导入内部 hook。
         </DocsNote>
       </DocSection>
     </>

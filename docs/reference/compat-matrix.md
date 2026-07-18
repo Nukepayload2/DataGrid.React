@@ -182,7 +182,7 @@
 - `scroll.scrollToFirstRowOnChange` 已实现，默认开启，可设 `false` 关闭。
 - `render` 返回 `RenderedCell{ children, props }` 对象形态已实现，含 `props.colSpan/rowSpan` 合并映射。
 - `rowSelection.onSelect/onSelectMultiple/onSelectAll/onSelectInvert/onSelectNone/columnTitle/onCell/getTitleCheckboxProps` 已实现。
-- `gridOptions.autoScrollOnDrag`、`gridOptions.columnReorder`、`gridColumnOptions.dragColumnLock`、`gridOptions.multiRowReorder` 已作为 data-grid 原生能力采用。
+- 拖拽排序已通过 `gridOptions.rowDragSort` / `gridOptions.columnDragSort` 作为公开 API 采用；内部 hook 不从主入口导出，demo 也不直接导入内部 hook。
 
 ---
 
@@ -199,8 +199,8 @@
 | `gridOptions.resizable` / `columnResizeMode` / `resizableMinWidth` / `resizableMaxWidth` | 表级 | 列宽拖拽调整（antd v6 核查无 resizable）。 | 无 |
 | `gridOptions.scrollBarFoldMode` | 表级 | data-grid 悬浮滚动条显示/折叠策略。 | 无 |
 | `gridOptions.selection` | 表级 | data-grid 原生选择行为：`selectionMode/showSelectionColumn/selectedValues/getSelectionValue` 等；优先级高于 antd 兼容层 `rowSelection`，但不污染兼容 API。 | 无 |
-| `gridOptions.columnReorder` | 表级 | 列重排总开关。 | 无 |
-| `gridOptions.autoScrollOnDrag` / `multiRowReorder` | 表级 | 当前采用命名的拖拽增强项。 | 无 |
+| `gridOptions.rowDragSort` / `columnDragSort` | 表级 | data-grid 行/列拖拽排序公开入口，通过回调提交新顺序。 | 无 |
+| `gridOptions.autoScrollOnDrag` / `columnReorder` / `multiRowReorder` | 表级 | data-grid 拖拽排序增强项：边缘自动滚动、列重排总闸、多选行成块重排。 | 无 |
 | `gridColumnOptions.dragColumnLock` | 列级 | 列级拖拽锁定选项。 | 无 |
 | `gridColumnOptions.renderCellElement` / `renderCellReact` / `disposeCellElement` | 列级 | recycling 虚拟化的低层 cell 渲染/清理 hook。普通业务优先使用 `render`、`onCell` 和 `components.body.cell`。 | 无 |
 

@@ -2,6 +2,8 @@
 
 data-grid 用 CSS Grid 渲染，"行"/"列"不是 DOM 元素——单元格直接是 grid item（`grid-column`/`grid-row` 显式定位），故 drag 排序无法套用 `@dnd-kit` 的"DOM 元素 transform"模型（会破坏 Grid 布局）。本文说明自研 pointer 拖拽机制：行拖（含手柄 / 多行成块）、列拖（含锁定列）、离散让位、auto-scroll 边缘滚动，以及与 antd dnd-kit 的差异。
 
+用户侧不要导入内部拖拽 hook。行拖拽通过 `gridOptions.rowDragSort` 启用，列拖拽通过 `gridOptions.columnDragSort` 启用；拖拽结束后在 `onSort` 回调里提交新的 `dataSource` 或 `columns`。
+
 ## 为什么不用 dnd-kit（grid 渲染不兼容）
 
 data-grid 的"行"/"列"不是单一 DOM 元素：
@@ -13,7 +15,7 @@ data-grid 的"行"/"列"不是单一 DOM 元素：
 
 ## 事件委托（命中判定）
 
-调用方在外层容器挂 `containerProps.onPointerDown`，hook 内部用 `target.closest(selector)` 命中引擎给单元格打的 data 属性：
+`Table` 内部在根容器挂 pointer 事件委托，并用 `target.closest(selector)` 命中引擎给单元格打的 data 属性：
 
 - **行拖**：命中 `[data-row-index]` body 单元格（`useRowDragSort`）。引擎给每个 body 单元格打 `data-row-index="<行号>"`。
 - **列拖**：命中 `[data-leaf-index]` 叶子表头格（`useColumnDragSort`）。引擎给每个叶子表头格打 `data-leaf-index="<叶子列号>"`；分组表头格 `data-leaf='0'` 无 `data-leaf-index`，故天然不触发列拖（多级表头下仅叶子列可拖，正确）。
@@ -41,7 +43,7 @@ data-grid 的"行"/"列"不是单一 DOM 元素：
 
 ## 指示线（独立浮层）
 
-返回 `indicator` 样式，调用方在**外层相对定位容器**内渲染一条绝对定位线（行拖为横线、列拖为竖线），指示"松手后该行/列会插入的位置"。
+`Table` 内部渲染一条绝对定位指示线（行拖为横线、列拖为竖线），指示"松手后该行/列会插入的位置"。
 
 指示线是外层容器的子元素，**不是 grid item**，不参与 `grid-template-rows/columns` 计算（零回归，不影响布局）。
 
@@ -99,11 +101,11 @@ dnd-kit 的 autoscroll 与其 DndContext/useDraggable 强耦合——data-grid �
 
 `scrollContainer.scrollBy` 会触发原生 scroll 事件 → useVirtualList 重算可视区 + 新行进入 DOM + FloatingScrollBar 同步悬浮条 thumb。**但 hit-test 不会随 scroll 自动重跑**——指针停在容器边缘不动时没有 pointermove 事件，被拖行/让位行的 over/yield 会冻结在旧值。
 
-故调用方（`useRowDragSort` / `useColumnDragSort`）需在拖拽期间自行监听 scroll：`scroll` 事件 → `requestAnimationFrame`（延迟一帧确保虚拟引擎已 flush 新 DOM）→ 用最后已知指针坐标重跑 `recomputeFromPointer`（hit-test → over 换算 → setDragState → setIndicator → applyYieldTransforms）。RAF 去重（scroll 一帧可能触发多次，dragRef.scrollRafId !== null 时跳过）保证每帧只重算一次。
+故内部拖拽实现需在拖拽期间自行监听 scroll：`scroll` 事件 → `requestAnimationFrame`（延迟一帧确保虚拟引擎已 flush 新 DOM）→ 用最后已知指针坐标重跑 `recomputeFromPointer`（hit-test → over 换算 → setDragState → setIndicator → applyYieldTransforms）。RAF 去重（scroll 一帧可能触发多次，dragRef.scrollRafId !== null 时跳过）保证每帧只重算一次。
 
 ## 行拖：手柄列限定（drag-sorting-handler）
 
-`useRowDragSort` 的 `handleSelector` option 限定仅手柄列触发拖拽（区别任意 body 单元格触发）：
+`gridOptions.rowDragSort.handleSelector` 限定仅手柄列触发拖拽（区别任意 body 单元格触发）：
 
 - 传入 `handleSelector`（如 `.dg-drag-handle`）→ pointerdown 仅当 `target.closest(handleSelector)` 命中手柄元素（且仍在某行 `[data-row-index]` body 单元格内）才启动拖拽；点 Name/Age/Address 等非手柄列不启动。
 - 不传 → 任意 body 单元格触发（整行均可拖）。
@@ -112,7 +114,7 @@ dnd-kit 的 autoscroll 与其 DndContext/useDraggable 强耦合——data-grid �
 
 ## 行拖：多行成块重排（multi-row block move）
 
-`useRowDragSort` 的 `multiRowReorder` option（默认 true）：当被拖行属于多选 selection（`selectedRowKeys` 含 ≥2 个且包含被拖行）时，把所有选中行作为**一块**移到目标位置（保持选中行间相对顺序），而非只移被拖行。
+`gridOptions.multiRowReorder` 或 `gridOptions.rowDragSort.multiRowReorder`（默认 true）：当被拖行属于多选 selection（`selectedRowKeys` 含 ≥2 个且包含被拖行）时，把所有选中行作为**一块**移到目标位置（保持选中行间相对顺序），而非只移被拖行。
 
 - 边界：被拖行未选中 → 只移它；selection 含被拖行+其它 → 成块移；目标落在选中块内部 → no-op；单选 / 无 selection → 退化为单行重排（零回归）。
 - 成块移动用 `arrayMoveBlock`：先把 block 行按原顺序抽出（剩余行自动收拢），再把整块插到目标位置（位置以"剔除 block 后的剩余数组"坐标修正：to 减去其左侧已被抽走的 block 行数）。
@@ -126,7 +128,7 @@ dnd-kit 的 autoscroll 与其 DndContext/useDraggable 强耦合——data-grid �
 - `'lockDrag'`：不可发起拖拽；其它列拖拽时该列仍可被动让位 / 换位。
 - `'lockPosition'`：不可发起拖拽，且最终 columns index 恒定。
 
-`useColumnDragSort` 的 `arrayMoveColumnsRespectLocks` 算法让 `dragColumnLock:'lockPosition'` 列保持原 index 不动——只在非锁定列子序列上做 arrayMove，再把结果按原位填回：
+内部 `arrayMoveColumnsRespectLocks` 算法让 `dragColumnLock:'lockPosition'` 列保持原 index 不动——只在非锁定列子序列上做 arrayMove，再把结果按原位填回：
 
 1. 把原 columns 分成两组索引：`movableIdxs`（非锁定列的原 index 列表，按原顺序）+ `lockedIdxs`（锁定列的原 index 集合）。
 2. 在 movableIdxs 上找到 from 对应的可动列序号（`fromMovable`）+ to 对应的可动列序号（`toMovable`）。toIndex 落在锁定列上时，根据拖拽方向取锁定列另一侧最近的可动列序号。

@@ -6,8 +6,8 @@
  *
  * === 两侧各自的拖拽实现（不强求共享状态，各自列重排便于对照）===
  *
- *  - **左 data-grid**：方案 B 自研 pointer（`useColumnDragSort` 列方向，命中叶子表头格
- *    `data-leaf-index` + 垂直指示线 + arrayMoveColumns 重排 columns）。
+ *  - **左 data-grid**：通过公开 `gridOptions.columnDragSort` 启用；内部命中叶子表头格
+ *    `data-leaf-index`，用垂直指示线 + arrayMoveColumns 重排 columns。
  *  - **右 antd**：忠实复刻官方 `drag-column-sorting.tsx`（`@dnd-kit/*` + restrictToHorizontalAxis +
  *    SortableContext horizontalListSortingStrategy + `components.header.cell = TableHeaderCell` +
  *    `components.body.cell = TableBodyCell` + DragIndexContext borderInline 虚线指示 +

@@ -80,8 +80,11 @@ import { useColumnTreeBuilder } from './useColumnTreeBuilder'
 import { usePaginationAdapter } from './usePaginationAdapter'
 import { useSelectionAdapter } from './useSelectionAdapter'
 import { useExpandRowBinding } from './useExpandRowBinding'
-import './style/tokens.css'
-import './style/table.css'
+import { useRowDragSort } from './engine/useRowDragSort'
+import { useColumnDragSort } from './engine/useColumnDragSort'
+import { ensureDataGridStyles } from './style/registerStyles'
+
+ensureDataGridStyles()
 
 const { ConfigContext } = ConfigProvider
 const defaultTableLocaleWithoutEmptyText: TableLocale = {
@@ -300,6 +303,36 @@ function TableInner<RecordType = any>(
   //   - needResponsive=true：按 screens 过滤；哨兵（EXPAND_COLUMN / SELECTION_COLUMN）不带 responsive，
   //     跳过判定并始终保留。
   const visibleColumns = useResponsiveColumns<RecordType>(columns)
+  const rowDragSortConfig = gridOptions?.rowDragSort
+  const columnDragSortConfig = gridOptions?.columnDragSort
+  const rowDragSortEnabled =
+    rowDragSortConfig !== undefined && rowDragSortConfig.enabled !== false
+  const columnDragSortEnabled =
+    columnDragSortConfig !== undefined &&
+    columnDragSortConfig.enabled !== false &&
+    gridOptions?.columnReorder !== false
+
+  const visibleColumnsForRender = useMemo<Array<ColumnOrSentinel<RecordType>>>(() => {
+    if (!columnDragSortEnabled) return visibleColumns
+    return visibleColumns.map((item) => {
+      if (item === SELECTION_COLUMN || item === EXPAND_COLUMN) return item
+      const columnItem = item as ColumnType<RecordType>
+      const draggable = columnItem.gridColumnOptions?.dragColumnLock === undefined
+      return {
+        ...columnItem,
+        onHeaderCell: (col, index) => {
+          const base = columnItem.onHeaderCell?.(col, index) ?? {}
+          return {
+            ...base,
+            style: {
+              ...base.style,
+              cursor: draggable ? 'move' : base.style?.cursor,
+            },
+          }
+        },
+      }
+    })
+  }, [columnDragSortEnabled, visibleColumns])
 
   // === 单列 + 多列排序（须在选择 / 展开之前派生 sortedDataSource，供下游 hooks 消费）===
   // useSorter 从原始 antd columns 派生排序状态（受控/非受控、sortDirections 循环、defaultSortOrder、
@@ -339,12 +372,12 @@ function TableInner<RecordType = any>(
       //   对齐 antd（antd InternalTable 用 flattenColumns 扁平化后给 useSorter/useFilter）。
       //   顶层叶子 demo（head 等）扁平化后仍是自身，零回归。
       flattenLeafColumns(
-        (visibleColumns as Array<ColumnOrSentinel<RecordType>>).filter(
+        (visibleColumnsForRender as Array<ColumnOrSentinel<RecordType>>).filter(
           (c): c is ColumnType<RecordType> =>
             c !== SELECTION_COLUMN && c !== EXPAND_COLUMN,
         ),
       ),
-    [visibleColumns],
+    [visibleColumnsForRender],
   )
   const { sortOrderMap, sortPriorityMap, sortedDataSource, onSorterClick, currentSorterResult } = useSorter<RecordType>({
     columns: sortableColumns,
@@ -481,7 +514,7 @@ function TableInner<RecordType = any>(
       : null
 
   const { columnTreeWithSortAndFilter } = useColumnTreeBuilder<RecordType>({
-    visibleColumns,
+    visibleColumns: visibleColumnsForRender,
     selectionNode,
     expandNode,
     showSorterTooltip,
@@ -538,6 +571,8 @@ function TableInner<RecordType = any>(
     scrollBarShowOnTableHover ? 'dg-scrollbar-table-hover' : '',
     scrollBarExpandOnHover ? '' : 'dg-scrollbar-no-expand',
     scrollBarTouchedActive ? 'dg-scrollbar-touched' : '',
+    rowDragSortEnabled || columnDragSortEnabled ? 'dg-drag-sort-enabled' : '',
+    columnDragSortEnabled ? 'dg-column-drag-sort-enabled' : '',
     className ?? '',
     // 语义化 root 部位 className（合并到根容器）。
     classNamesResolved?.root ?? '',
@@ -695,6 +730,35 @@ function TableInner<RecordType = any>(
     rowCount: renderedDataSource.length,
     locale: mergedLocale,
   })
+
+  const rowDragSort = useRowDragSort<RecordType>({
+    enabled: rowDragSortEnabled,
+    dataSource: renderedDataSource,
+    rowKey: rowKeyResolved,
+    onSort: rowDragSortConfig?.onSort ?? (() => {}),
+    containerRef: rootRef as React.RefObject<HTMLElement | null>,
+    handleSelector: rowDragSortConfig?.handleSelector,
+    autoScroll: rowDragSortConfig?.autoScroll ?? gridOptions?.autoScrollOnDrag,
+    multiRowReorder: rowDragSortConfig?.multiRowReorder ?? gridOptions?.multiRowReorder,
+    selectedRowKeys: rowDragSortConfig?.selectedRowKeys ?? effectiveSelectedKeys,
+  })
+
+  const columnDragSort = useColumnDragSort<ColumnOrSentinel<RecordType>>({
+    enabled: columnDragSortEnabled,
+    columns: visibleColumns,
+    onSort: columnDragSortConfig?.onSort ?? (() => {}),
+    containerRef: rootRef as React.RefObject<HTMLElement | null>,
+    autoScroll: columnDragSortConfig?.autoScroll ?? gridOptions?.autoScrollOnDrag,
+    reorder: gridOptions?.columnReorder,
+  })
+
+  const onDragPointerDown = useCallback(
+    (e: React.PointerEvent) => {
+      rowDragSort.containerProps.onPointerDown(e)
+      columnDragSort.containerProps.onPointerDown(e)
+    },
+    [rowDragSort.containerProps, columnDragSort.containerProps],
+  )
 
   // ★ 内容区滚动模式（pagination/footer 滚动条出框修复）。
   //
@@ -863,8 +927,31 @@ function TableInner<RecordType = any>(
       style={wrapperStyle}
       ref={rootRef}
       onPointerDownCapture={scrollBarShowOnTableHover ? activateScrollBarByTouch : undefined}
+      onPointerDown={onDragPointerDown}
     >
       <TableLoadingContainer loading={loading}>{tableContent}</TableLoadingContainer>
+      {rowDragSort.indicator.visible ? (
+        <div
+          aria-hidden="true"
+          className="dg-drag-row-indicator"
+          style={{
+            top: rowDragSort.indicator.top,
+            left: rowDragSort.indicator.left,
+            right: rowDragSort.indicator.right,
+          }}
+        />
+      ) : null}
+      {columnDragSort.indicator.visible ? (
+        <div
+          aria-hidden="true"
+          className="dg-drag-column-indicator"
+          style={{
+            left: columnDragSort.indicator.left,
+            top: columnDragSort.indicator.top,
+            height: columnDragSort.indicator.height,
+          }}
+        />
+      ) : null}
     </div>
   )
 }

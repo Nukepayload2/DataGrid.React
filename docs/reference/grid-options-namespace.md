@@ -31,6 +31,8 @@ data-grid 把“与 antd Table 不同语义或完全不存在”的表格能力�
 | `resizableMaxWidth` | `TableProps.resizableMaxWidth`（顶层） | `gridOptions.resizableMaxWidth` | 无 | dg 顶层 `types.ts:1414` |
 | `scrollBarFoldMode` | 无 | `gridOptions.scrollBarFoldMode` | 无 | data-grid 悬浮滚动条显示/折叠策略 |
 | `selection` | 无 | `gridOptions.selection` | 无 | antd 只有 `rowSelection` 兼容层；`gridOptions.selection` 承载 data-grid 原生 `selectionMode/showSelectionColumn/selectedValues` |
+| `rowDragSort` | 无 | `gridOptions.rowDragSort` | 无 | data-grid 行拖拽排序公开入口，回调提交新数据顺序 |
+| `columnDragSort` | 无 | `gridOptions.columnDragSort` | 无 | data-grid 列拖拽排序公开入口，回调提交新列顺序 |
 | `autoScrollOnDrag` | 无 | `gridOptions.autoScrollOnDrag` | 无 | data-grid 拖拽增强：行/列拖到滚动容器边缘时自动滚动 |
 | `columnReorder` | 无 | `gridOptions.columnReorder` | 无 | data-grid 列拖拽重排总开关 |
 | `multiRowReorder` | 无 | `gridOptions.multiRowReorder` | 无 | data-grid 行拖拽增强：选中多行成块重排 |
@@ -67,7 +69,7 @@ interface GridColumnOptions<RecordType> {
 }
 ```
 
-> 命名约束：`gridColumnOptions` 内字段名沿用「中性动词短语」风格（见 [ag-grid-drag-candidates.md](ag-grid-drag-candidates.md)），**不照抄 ag-grid**。列拖拽锁定统一收敛为 `dragColumnLock` 三态字段，不保留旧布尔拆分字段。
+> 命名约束：`gridColumnOptions` 内字段名沿用「中性动词短语」风格，**不照抄 ag-grid**。列拖拽锁定统一收敛为 `dragColumnLock` 三态字段，不保留旧布尔拆分字段。
 
 ---
 
@@ -75,7 +77,7 @@ interface GridColumnOptions<RecordType> {
 
 1. **同名同义留在顶层**：字段名、语义、取值范围与 antd v6 一致的，留 `TableProps`/`ColumnType`（如 `dataSource/columns/rowKey/bordered/size/loading/title/footer/onRow/scroll/pagination/rowSelection/expandable/components/sticky/...`）。
 2. **名兼义异的留在顶层但文档标注**：如 `components.body.cell`（dg 替换内容 vs antd 替换整个 td）、`column.className`（合并到 dg-cell div vs td/th）。留顶层是因为**字段名相同、迁移时无需改名**，差异在文档/类型注释里说明。详见 [compat-matrix.md](compat-matrix.md) 的「名兼义异」分组。
-3. **antd 没有的进命名空间**：凡 antd v6 + rc-table 都没有的字段（CSS Grid 引入的行高/表头高/列宽拖拽/拖拽增强/虚拟化细调等），一律 `gridOptions`/`gridColumnOptions`。
+3. **antd 没有且 Table 实际消费的进命名空间**：凡 antd v6 + rc-table 都没有、且 data-grid Table 当前真实消费的字段（CSS Grid 引入的行高/表头高/列宽拖拽/拖拽排序/虚拟化细调等），一律 `gridOptions`/`gridColumnOptions`。
 4. **借鉴第三方（ag-grid 等）的命名一律进命名空间**：绝不放顶层（避免被误认为 antd 兼容字段），且命名中性化。
 
 ---

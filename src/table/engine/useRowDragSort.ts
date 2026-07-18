@@ -44,6 +44,8 @@ export interface DragIndicatorStyle {
 
 /** useRowDragSort 配置。 */
 export interface UseRowDragSortOptions<RecordType> {
+  /** 是否启用拖拽。false 时 hook 仍可挂载但不会响应 pointerdown。 */
+  enabled?: boolean
   /** 数据源（用于 arrayMove 重排 + 行数判定）。 */
   dataSource: Array<RecordType>
   /** rowKey 取值器（字符串属性名或函数）。保留接口位（当前实现仅按 row-index 算，未直接消费）。 */
@@ -139,6 +141,7 @@ export function useRowDragSort<RecordType>(
   options: UseRowDragSortOptions<RecordType>,
 ): UseRowDragSortResult {
   const { dataSource, onSort, containerRef, handleSelector, rowKey } = options
+  const enabled = options.enabled ?? true
   // autoScrollOnDrag 默认 true（对齐 gridOptions.autoScrollOnDrag 默认 + ag-grid 默认行为）。
   const autoScrollEnabled = options.autoScroll ?? true
   // multiRowReorder 默认 true（对齐 gridOptions.multiRowReorder 默认）。
@@ -436,6 +439,7 @@ export function useRowDragSort<RecordType>(
   /** 外层容器 pointerdown（事件委托）：命中 body 单元格则启动拖拽。 */
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
+      if (!enabled) return
       // 仅主键（左键）启动拖拽。
       if (e.button !== 0) return
       const target = e.target as HTMLElement | null
@@ -663,6 +667,7 @@ export function useRowDragSort<RecordType>(
     },
     [
       hitTest,
+      enabled,
       dataSource,
       onSort,
       handleSelector,

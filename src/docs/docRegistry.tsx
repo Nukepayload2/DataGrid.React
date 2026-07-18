@@ -34,9 +34,9 @@ export const docs: DocEntry[] = [
     slug: 'quick-start',
     group: '开始',
     title: '快速开始',
-    description: '安装、样式导入、最小表格和 JSX 列声明。',
+    description: '安装、组件导入、最小表格和 JSX 列声明。',
     sections: [
-      { id: 'install', title: '导入组件和样式' },
+      { id: 'install', title: '导入组件' },
       { id: 'minimal', title: '最小表格' },
       { id: 'jsx', title: 'JSX 列声明' },
       { id: 'next', title: '下一步' },
@@ -162,7 +162,7 @@ export const docs: DocEntry[] = [
     title: 'Semantic DOM',
     description: 'classNames / styles 的 13 个语义槽位、data-grid DOM 落点和 a11y 边界。',
     sections: [
-      { id: 'slots', title: '13 槽位落点矩阵' },
+      { id: 'slots', title: 'Semantic DOM 槽位矩阵' },
       { id: 'a11y', title: 'a11y 属性兼容矩阵' },
       { id: 'demo', title: '交互验证' },
     ],

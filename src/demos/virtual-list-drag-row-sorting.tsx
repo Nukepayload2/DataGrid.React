@@ -3,7 +3,6 @@ import { Button, Space, Switch, theme } from 'antd'
 import type { CSSProperties, ReactNode } from 'react'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
-import { useRowDragSort } from '../table/engine/useRowDragSort'
 import { DemoToolbar } from './_compare/DemoToolbar'
 
 interface VRow {
@@ -65,14 +64,6 @@ export default function DragVirtualListDemo() {
 
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const { dragState, indicator, containerProps } = useRowDragSort<VRow>({
-    dataSource,
-    rowKey: 'key',
-    onSort: setDataSource,
-    containerRef,
-    handleSelector: '.dg-drag-handle',
-    autoScroll,
-  })
   const [scrollTop, setScrollTop] = useState(0)
   useEffect(() => {
     const node = containerRef.current
@@ -126,8 +117,7 @@ export default function DragVirtualListDemo() {
       <div
         key={resetTick}
         ref={containerRef}
-        style={{ position: 'relative', height: 440 }}
-        {...containerProps}
+        style={{ height: 440 }}
       >
         <Table<VRow>
           rowKey="key"
@@ -136,30 +126,18 @@ export default function DragVirtualListDemo() {
           virtual
           scroll={{ y: true }}
           pagination={false}
-          gridOptions={{ rowHeight: 40, headerHeight: 40, autoScrollOnDrag: autoScroll }}
+          gridOptions={{
+            rowHeight: 40,
+            headerHeight: 40,
+            rowDragSort: {
+              onSort: setDataSource,
+              handleSelector: '.dg-drag-handle',
+            },
+            autoScrollOnDrag: autoScroll,
+          }}
         />
-        
-        {indicator.visible ? (
-          <div
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              top: indicator.top,
-              left: indicator.left,
-              right: indicator.right,
-              height: 2,
-              background: token.colorPrimary,
-              zIndex: 9999,
-              pointerEvents: 'none',
-              borderRadius: 1,
-            }}
-          />
-        ) : null}
         <div style={{ marginTop: 8, fontSize: 12, color: token.colorTextTertiary }}>
-          当前拖拽：
-          {dragState
-            ? `from #${dragState.fromIndex} (key=${dataSource[dragState.fromIndex]?.key}) → 目标 #${dragState.overIndex} (key=${dataSource[dragState.overIndex]?.key})`
-            : '无'}
+          当前首行：{dataSource[0]?.name ?? '无'}
         </div>
       </div>
     </div>

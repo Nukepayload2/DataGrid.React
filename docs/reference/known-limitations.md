@@ -41,7 +41,7 @@
 - `rowSelection.onSelect`、`onSelectMultiple`、`onSelectAll`、`onSelectInvert`、`onSelectNone` 已实现。
 - `rowSelection.columnTitle`、`rowSelection.onCell`、`rowSelection.getTitleCheckboxProps` 已实现。
 - 稳定节点的一对一 `.ant-table-*` class alias 已实现：wrapper、table/container/content、title/footer、cell、fixed cell、排序节点和筛选触发器。
-- 拖拽相关的 `gridOptions.autoScrollOnDrag`、`gridOptions.columnReorder`、`gridColumnOptions.dragColumnLock`、`gridOptions.multiRowReorder` 已作为当前采用的 data-grid 原生能力记录。
+- 拖拽排序已作为公开 API 接入：行拖用 `gridOptions.rowDragSort`，列拖用 `gridOptions.columnDragSort`，列锁定用 `gridColumnOptions.dragColumnLock`。内部 hook 仍不从主入口导出。
 
 ## 行为和布局限制
 

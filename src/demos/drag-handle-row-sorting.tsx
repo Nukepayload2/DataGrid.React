@@ -55,8 +55,8 @@ export default function DragSortingHandlerDemo() {
             <li>
               <strong>手柄触发机制</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 通过外层容器事件委托 +
-                  <code>handleSelector: '.dg-drag-handle'</code> 命中（手柄加 class 作命中标识）；
+                <li><strong>差异行为</strong>：data-grid 通过
+                  <code>gridOptions.rowDragSort.handleSelector</code> 命中手柄（手柄加 class 作命中标识）；
                   antd 用 <code>RowContext.Provider</code> 把 <code>setActivatorNodeRef</code>/
                   <code>listeners</code> 透传到 DragHandle。</li>
                 <li><strong>触发条件</strong>：仅手柄列触发，点 Name/Age/Address 不触发。</li>
@@ -71,4 +71,3 @@ export default function DragSortingHandlerDemo() {
     </div>
   )
 }
-

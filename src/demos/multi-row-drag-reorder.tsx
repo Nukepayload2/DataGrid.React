@@ -1,8 +1,7 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { Button, Space, Switch, theme } from 'antd'
 import type { FC } from 'react'
 import { Table } from '../table'
-import { useRowDragSort } from '../table/engine/useRowDragSort'
 import type { ColumnType, TableRowSelection } from '../table'
 import { useVirtualization } from './VirtualizationContext'
 import { DemoToolbar } from './_compare/DemoToolbar'
@@ -55,24 +54,11 @@ export default function DragMultiRowReorderDemo() {
   const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([])
   const [multiRowReorder, setMultiRowReorder] = useState(true)
   const { virtual } = useVirtualization()
-
-  const containerRef = useRef<HTMLDivElement>(null)
-
   const rowSelection: TableRowSelection<RecordType> = {
     type: 'checkbox',
     selectedRowKeys,
     onChange: (keys) => setSelectedRowKeys(keys),
   }
-
-  const { dragState, indicator, containerProps } = useRowDragSort<RecordType>({
-    dataSource,
-    rowKey: 'key',
-    onSort: setDataSource,
-    containerRef,
-    handleSelector: '.dg-drag-handle',
-    multiRowReorder,
-    selectedRowKeys,
-  })
 
   return (
     <div style={{ padding: 24 }}>
@@ -98,7 +84,7 @@ export default function DragMultiRowReorderDemo() {
         </div>
       </DemoToolbar>
 
-      <div ref={containerRef} style={{ position: 'relative' }} {...containerProps}>
+      <div>
         
         <div style={virtual ? { height: 400 } : undefined}>
           <Table<RecordType>
@@ -109,31 +95,19 @@ export default function DragMultiRowReorderDemo() {
             pagination={{}}
             virtual={virtual}
             scroll={virtual ? { y: true } : undefined}
-          />
-        </div>
-        {indicator.visible ? (
-          <div
-            aria-hidden="true"
-            style={{
-              position: 'absolute',
-              top: indicator.top,
-              left: indicator.left,
-              right: indicator.right,
-              height: 2,
-              background: token.colorPrimary,
-              zIndex: 9999,
-              pointerEvents: 'none',
-              borderRadius: 1,
+            gridOptions={{
+              rowDragSort: {
+                onSort: setDataSource,
+                handleSelector: '.dg-drag-handle',
+              },
+              multiRowReorder,
             }}
           />
-        ) : null}
+        </div>
         <div style={{ marginTop: 8, fontSize: 12, color: token.colorTextTertiary }}>
-          当前拖拽：
-          {dragState ? `from #${dragState.fromIndex + 1} → 目标 #${dragState.overIndex + 1}` : '无'}
-          ；当前行顺序：{dataSource.map((r) => r.name).join(' / ')}
+          当前行顺序：{dataSource.map((r) => r.name).join(' / ')}
         </div>
       </div>
     </div>
   )
 }
-

@@ -35,7 +35,6 @@ export function arrayMoveColumns<T>(arr: Array<T>, from: number, to: number): Ar
  * 上做 arrayMove，再把结果按原位填回（锁定列保持原 index 不动）。
  */
 export function isColumnLocked<ColumnType>(col: ColumnType): boolean {
-  // 兼容：列定义上 gridColumnOptions 可能不存在（与 antd 顶层 ColumnType 同名字段保留兼容）。
   const opts = (col as { gridColumnOptions?: { dragColumnLock?: string } }).gridColumnOptions
   return opts?.dragColumnLock === 'lockPosition'
 }

@@ -120,7 +120,7 @@ export interface TableProps<RecordType = any> {
   /** 预留：透传到底层布局，本引擎仅接收不强制。 */
   tableLayout?: 'auto' | 'fixed'
   /**
-   * data-grid 专属 grid 布局选项（有界行高模型 + 列宽拖拽 + 表头行高 + 列/行拖拽配置）。
+   * data-grid 专属 grid 布局选项（有界行高模型 + 列宽拖拽 + 表头行高 + 行/列拖拽排序）。
    *
    * **与 antd 不兼容**：antd `Table` 没有 `rowHeight` / `minRowHeight` / `maxRowHeight` /
    * `headerHeight` / `resizable` 等概念（antd 行高随内容、无原生列宽拖拽），此命名空间仅
@@ -143,6 +143,8 @@ export interface TableProps<RecordType = any> {
    *   详见 `docs/design-notes/column-width.md`。
    * - `resizableMinWidth` / `resizableMaxWidth`：列宽拖拽 min/max 约束（px）。number → 统一；
    *   函数 → 按列 key 逐列定制。默认 min 30 / max Infinity。
+   * - `rowDragSort` / `columnDragSort`：公开拖拽排序入口。业务方通过回调提交新的 dataSource / columns；
+   *   demo 站点不使用内部 hook。
    */
   gridOptions?: {
     /** 行高约定。虚拟模式下未测量行以该值作为兜底；非虚拟固定行高场景用于 grid track。 */
@@ -191,60 +193,47 @@ export interface TableProps<RecordType = any> {
      */
     selection?: GridSelectionOptions<RecordType>
     /**
-     * 拖拽行/列到容器边缘时自动滚动容器（虚拟列表下尤其关键）。
+     * 行拖拽排序。
      *
-     * **语义**：拖拽中（行拖 / 列拖）指针接近**滚动容器**（`.dg-scroll`）的边缘时，按距边缘
-     * 距离**渐进加速**滚动容器——让用户能持续把行/列拖出可视区到达远处位置（虚拟行拖尤其关键：
-     * 现有 hit-test 仅遍历已渲染 cell，拖出可视区不滚动会"卡住"，无法 drop 到远处行）。
+     * 传入对象并提供 `onSort` 后启用。拖拽结束时回调当前渲染数据的新顺序，调用方通常在回调内
+     * `setDataSource(next)`。`handleSelector` 可把拖拽限定到手柄元素；不传则整行可拖。
+     */
+    rowDragSort?: {
+      enabled?: boolean
+      handleSelector?: string
+      selectedRowKeys?: Array<import('react').Key>
+      multiRowReorder?: boolean
+      autoScroll?: boolean
+      onSort: (nextDataSource: Array<RecordType>) => void
+    }
+    /**
+     * 列拖拽排序。
      *
-     * - `true`（默认，对齐 ag-grid community 默认行为）：拖拽近边缘触发自动滚动。
-     * - `false`：禁用，拖拽出可视区不滚动。
+     * 传入对象并提供 `onSort` 后启用。拖拽结束时回调当前列数组的新顺序，调用方通常在回调内
+     * `setColumns(next)`。全局开关可用 `columnReorder=false`，单列锁定用
+     * `column.gridColumnOptions.dragColumnLock`。
+     */
+    columnDragSort?: {
+      enabled?: boolean
+      autoScroll?: boolean
+      onSort: (nextColumns: Array<ColumnOrSentinel<RecordType>>) => void
+    }
+    /**
+     * 拖拽行/列到容器边缘时自动滚动容器。
      *
-     * **实现**（见 `useAutoScrollOnDrag` hook）：
-     *   - 边缘阈值 ~100px（参考 ag-grid `SCROLL_MOVE_WIDTH=100`）；阈值内按
-     *     `(1 - dist/threshold) * maxSpeed` 渐进加速（`maxSpeed ≈ 15 px/帧`，对齐 ag-grid
-     *     `SCROLL_ACCELERATION_RATE=5` × interval 的量级）。
-     *   - 行拖 → 纵向滚动；列拖 → 横向滚动（同向滚动，与拖拽方向一致）。
-     *   - 用 `requestAnimationFrame` 循环驱动 `scrollContainer.scrollBy(dx, dy)`：
-     *     `scroll` 事件会被虚拟引擎（useVirtualList）+ FloatingScrollBar 监听 → 自动重算
-     *     已渲染行 + drop 目标 / 指示线位置（拖拽 hook 的 hit-test 每帧重新读 DOM 边界，
-     *     滚动后行/列 DOM 位置变化 → hit-test 自动跟随）。
-     *
-     * **滚动容器定位**：拖拽 hook 的 `containerRef`（外层相对定位 div）不是真正的滚动容器，
-     *   实际滚动容器是它内部的 `.dg-scroll`（GridTable 在 scroll.x / scroll.y / virtual / hasFixed
-     *   时自包一层）。auto-scroll hook 运行时用 `containerRef.current.querySelector('.dg-scroll')`
-     *   定位；找不到（无 scroll 配置的纯表格）则回退到最近的可滚动祖先（offsetParent 链找 overflow:auto/scroll）。
-     *
-     * **零回归**：仅近边缘（阈值内）触发，中间拖拽不受影响；`false` 完全关闭；默认 true 不破坏
-     *   现有拖拽 demo 的常规重排（demo 用例均在可视区内重排，不触及边缘 → 不触发滚动）。
+     * `rowDragSort.autoScroll` / `columnDragSort.autoScroll` 未设置时使用本表级默认值。
      */
     autoScrollOnDrag?: boolean
     /**
      * 列拖拽换位（列重排）全局开关。
      *
-     * **语义（对齐 ag-grid `suppressMovableColumns`，取反；默认 true）**：
-     *   - `true` / undefined：允许列拖拽换位（默认行为——所有列头可拖）。
-     *   - `false`：**全局禁用列拖拽**（任何列头 pointerdown 都不启动拖；与
-     *     `gridColumnOptions.dragColumnLock` 无关——全局关等于总闸）。
-     *
-     * 单列粒度由 `gridColumnOptions.dragColumnLock` 控制：
-     * 某列可发起拖 ⟺ `columnReorder !== false && dragColumnLock === undefined`。
-     *
-     * 默认 true 保证非列拖场景零回归。拖拽实现属于 data-grid 内部能力，用户侧只配置开关。
+     * `false` 时禁用列拖拽；默认允许。仅在 `columnDragSort` 启用时有意义。
      */
     columnReorder?: boolean
     /**
-     * 多行成块重排（multi-row reorder）开关。
+     * 多行成块重排开关。
      *
-     * **语义（对齐 ag-grid `rowDragMultiRow`；默认 true）**：
-     *   - `true` / undefined：当被拖行属于多选 selection（selection 含 ≥2 行且包含被拖行）时，
-     *     把所有选中行作为**一块**移到目标位置（保持选中行之间的相对顺序），而非只移被拖行。
-     *   - `false`：始终只移被拖行（即使 selection 含多行，行为与单行重排一致）。
-     *
-     * **边界**：被拖行未选中 → 只移它（现状）；selection 含被拖行+其它 → 成块移；
-     * 目标落在选中块内部 → no-op。单选 / 无 selection 时**零回归**（selection 数 ≤1 时退化为单行重排）。
-     *
-     * 拖拽实现属于 data-grid 内部能力，用户侧只配置开关。
+     * `rowDragSort.multiRowReorder` 未设置时使用本表级默认值。默认开启。
      */
     multiRowReorder?: boolean
   }

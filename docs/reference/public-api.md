@@ -14,7 +14,7 @@
 | `TableProps` / `ColumnType` / `TableColumnType` / `TableRef` | stable | 公开类型入口。 |
 | `GridSelectionOptions` / `GridColumnOptions` / `VirtualizationMode` | stable | data-grid 专属命名空间类型。 |
 
-拖拽 hooks（例如内部的 `useRowDragSort` / `useColumnDragSort`）不从主入口导出。拖拽能力面向用户时只通过 `gridOptions` / `gridColumnOptions` 开关表达，避免要求业务方自己组装拖拽引擎。
+拖拽 hooks（例如内部的 `useRowDragSort` / `useColumnDragSort`）不从主入口导出。拖拽排序面向用户时通过 `gridOptions.rowDragSort` / `gridOptions.columnDragSort` 启用，demo 站点也只使用这些公开配置。
 
 ## gridOptions
 
@@ -33,9 +33,11 @@
 | `resizableMaxWidth` | `number \| (key) => number` | `Infinity` | stable | 列宽拖拽最大宽度。 |
 | `scrollBarFoldMode` | `ScrollBarFoldMode` | 常驻细滚动条，hover 展开 | stable | 悬浮滚动条显示/折叠策略。 |
 | `selection` | `GridSelectionOptions` | undefined | stable | data-grid 原生选择配置，优先级高于 antd 兼容层 `rowSelection`。 |
-| `autoScrollOnDrag` | `boolean` | `true` | stable | 行/列拖拽到滚动容器边缘时自动滚动。 |
+| `rowDragSort` | `{ onSort, handleSelector?, enabled?, autoScroll?, multiRowReorder?, selectedRowKeys? }` | undefined | stable | 行拖拽排序入口；`onSort(nextDataSource)` 中提交新的数据顺序。 |
+| `columnDragSort` | `{ onSort, enabled?, autoScroll? }` | undefined | stable | 列拖拽排序入口；`onSort(nextColumns)` 中提交新的列顺序。 |
+| `autoScrollOnDrag` | `boolean` | `true` | stable | 行/列拖拽到滚动容器边缘时自动滚动；可被对应拖拽配置里的 `autoScroll` 覆盖。 |
 | `columnReorder` | `boolean` | `true` | stable | 列拖拽重排总开关。 |
-| `multiRowReorder` | `boolean` | `true` | stable | 多选行拖拽时按选中块整体移动。 |
+| `multiRowReorder` | `boolean` | `true` | stable | 多选行拖拽时按选中块整体移动；可被 `rowDragSort.multiRowReorder` 覆盖。 |
 
 ## gridOptions.selection
 

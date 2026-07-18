@@ -6,8 +6,8 @@
  *
  * === 两侧各自的拖拽实现（不强求共享状态，各自排序便于对照）===
  *
- *  - **左 data-grid**：方案 B 自研 pointer（复用 `useRowDragSort` + `handleSelector: '.dg-drag-handle'`
- *    限定手柄列触发）。DragHandle 用 antd `<Button>` + 自绘 HolderOutlined SVG（不 import
+ *  - **左 data-grid**：通过公开 `gridOptions.rowDragSort` 启用，并用 `handleSelector: '.dg-drag-handle'`
+ *    限定手柄列触发。DragHandle 用 antd `<Button>` + 自绘 HolderOutlined SVG（不 import
  *    @ant-design/icons，与 custom-filter-panel/nested-table 约定一致）。
  *  - **右 antd**：忠实复刻官方 `drag-sorting-handler.tsx`（`@dnd-kit/*` + RowContext.Provider 透传
  *    setActivatorNodeRef/listeners 到 DragHandle，仅手柄触发）。图标同样用内联 HolderOutlined SVG

@@ -1,8 +1,7 @@
-import { useMemo, useRef, useState } from 'react'
+import { useState } from 'react'
 import { theme } from 'antd'
 import { Table } from '../table'
-import type { ColumnType } from '../table'
-import { useColumnDragSort } from '../table/engine/useColumnDragSort'
+import type { ColumnOrSentinel, ColumnType } from '../table'
 import { data, type RecordType } from './_compare/drag-column-sorting.shared'
 
 const dgBaseColumns: ColumnType<RecordType>[] = [
@@ -38,71 +37,28 @@ export default function DragColumnSortingDg({
     dgBaseColumns.map((column, i) => ({ ...column, key: `${i}` })),
   )
 
-  const containerRef = useRef<HTMLDivElement>(null)
   const { token } = theme.useToken()
-  const tableColumns = useMemo(
-    () =>
-      columns.map((column) => {
-        const draggable =
-          columnReorder &&
-          column.gridColumnOptions?.dragColumnLock === undefined
-        return {
-          ...column,
-          onHeaderCell: (col, index) => {
-            const base = column.onHeaderCell?.(col, index) ?? {}
-            return {
-              ...base,
-              style: {
-                ...base.style,
-                cursor: draggable ? 'move' : undefined,
-              },
-            }
-          },
-        } satisfies ColumnType<RecordType>
-      }),
-    [columnReorder, columns],
-  )
-
-  const { dragState, indicator, containerProps } = useColumnDragSort<ColumnType<RecordType>>({
-    columns,
-    onSort: setColumns,
-    containerRef,
-    autoScroll,
-    reorder: columnReorder,
-  })
+  const onColumnSort = (next: Array<ColumnOrSentinel<RecordType>>) => {
+    setColumns(next as Array<ColumnType<RecordType>>)
+  }
 
   return (
-    <div ref={containerRef} style={{ position: 'relative' }} {...containerProps}>
+    <div>
       <Table<RecordType>
         rowKey="key"
-        columns={tableColumns}
+        columns={columns}
         dataSource={data}
         bordered={bordered}
         pagination={{}}
         virtual={virtual}
         scroll={virtual ? { y: true } : undefined}
+        gridOptions={{
+          columnDragSort: { onSort: onColumnSort, autoScroll },
+          columnReorder,
+        }}
       />
-      
-      {indicator.visible ? (
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            left: indicator.left,
-            top: indicator.top,
-            height: indicator.height,
-            width: 2,
-            background: token.colorPrimary,
-            zIndex: 9999,
-            pointerEvents: 'none',
-            borderRadius: 1,
-          }}
-        />
-      ) : null}
       <div style={{ marginTop: 8, fontSize: 12, color: token.colorTextTertiary }}>
-        当前拖拽：
-        {dragState ? `from #${dragState.fromIndex + 1} → 目标 #${dragState.overIndex + 1}` : '无'}
-        ；当前列顺序：{columns.map((c) => c.title).join(' / ')}
+        当前列顺序：{columns.map((c) => c.title).join(' / ')}
         <br />
         
         <span style={{ color: token.colorPrimary }}>

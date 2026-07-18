@@ -42,6 +42,8 @@ export interface ColumnDragIndicatorStyle {
 
 /** useColumnDragSort 配置。 */
 export interface UseColumnDragSortOptions<ColumnType> {
+  /** 是否启用拖拽。false 时 hook 仍可挂载但不会响应 pointerdown。 */
+  enabled?: boolean
   /** 列数组（用于 arrayMove 重排 + 列数判定）。 */
   columns: Array<ColumnType>
   /**
@@ -112,6 +114,7 @@ export function useColumnDragSort<ColumnType>(
   options: UseColumnDragSortOptions<ColumnType>,
 ): UseColumnDragSortResult {
   const { columns, onSort, containerRef } = options
+  const enabled = options.enabled ?? true
   // autoScrollOnDrag 默认 true（对齐 gridOptions.autoScrollOnDrag 默认 + ag-grid 默认行为）。
   const autoScrollEnabled = options.autoScroll ?? true
   // columnReorder 默认 true（对齐 gridOptions.columnReorder 默认）。
@@ -328,6 +331,7 @@ export function useColumnDragSort<ColumnType>(
   /** 外层容器 pointerdown（事件委托）：命中叶子表头格则启动列拖拽。 */
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
+      if (!enabled) return
       // 仅主键（左键）启动拖拽。
       if (e.button !== 0) return
       // 全局总闸——columnReorder=false 时所有列头不可拖（对齐 ag-grid suppressMovableColumns）。
@@ -458,6 +462,7 @@ export function useColumnDragSort<ColumnType>(
     },
     [
       hitTest,
+      enabled,
       columns,
       onSort,
       reorderEnabled,

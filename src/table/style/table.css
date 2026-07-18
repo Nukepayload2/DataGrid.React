@@ -89,6 +89,27 @@ body.dg-scrollbar-pointer-capturing * {
   overflow-x: hidden;
 }
 
+.dg-wrapper.dg-drag-sort-enabled {
+  position: relative;
+}
+
+.dg-drag-row-indicator,
+.dg-drag-column-indicator {
+  position: absolute;
+  z-index: 9999;
+  pointer-events: none;
+  border-radius: 1px;
+  background: var(--ant-color-primary, #1677ff);
+}
+
+.dg-drag-row-indicator {
+  height: 2px;
+}
+
+.dg-drag-column-indicator {
+  width: 2px;
+}
+
 .dg-title,
 .dg-footer {
   padding: var(--ant-table-cell-padding-block) var(--ant-table-cell-padding-inline);

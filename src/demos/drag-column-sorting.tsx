@@ -73,8 +73,8 @@ export default function DragColumnSortingDemo() {
             <li>
               <strong>列标志（仅 data-grid）</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 的 Gender 列 <code>dragColumnLock:'lockDrag'</code>
-                  （不可发起拖但被动让位）、Email 列 <code>dragColumnLock:'lockPosition'</code>
+                <li><strong>差异行为</strong>：data-grid 的 Gender 列 <code>gridColumnOptions.dragColumnLock:'lockDrag'</code>
+                  （不可发起拖但被动让位）、Email 列 <code>gridColumnOptions.dragColumnLock:'lockPosition'</code>
                   （不可发起拖且 index 固定）；antd
                   忠实复刻官方，无此单列约束。</li>
                 <li><strong>触发条件</strong>：尝试拖动 Gender/Email 列，或拖动其它列让其让位。</li>

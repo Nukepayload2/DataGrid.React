@@ -1,7 +1,6 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
-import { useRowDragSort } from '../table/engine/useRowDragSort'
 import { theme } from 'antd'
 import { initialData, type RecordType } from './_compare/drag-row-sorting.shared'
 const dgColumns: ColumnType<RecordType>[] = [
@@ -21,18 +20,9 @@ export default function DragSortingDg({
 }) {
   const { token } = theme.useToken()
   const [dataSource, setDataSource] = useState<RecordType[]>(initialData)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  const { dragState, indicator, containerProps } = useRowDragSort<RecordType>({
-    dataSource,
-    rowKey: 'key',
-    onSort: setDataSource,
-    containerRef,
-    autoScroll,
-  })
 
   return (
-    <div ref={containerRef} style={{ position: 'relative' }} {...containerProps}>
+    <div>
       <Table<RecordType>
         rowKey="key"
         columns={dgColumns}
@@ -43,27 +33,12 @@ export default function DragSortingDg({
         styles={{ body: { cell: { cursor: 'move' } } }}
         virtual={virtual}
         scroll={virtual ? { y: true } : undefined}
+        gridOptions={{
+          rowDragSort: { onSort: setDataSource, autoScroll },
+        }}
       />
-      
-      {indicator.visible ? (
-        <div
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            top: indicator.top,
-            left: indicator.left,
-            right: indicator.right,
-            height: 2,
-            background: token.colorPrimary,
-            zIndex: 9999,
-            pointerEvents: 'none',
-            borderRadius: 1,
-          }}
-        />
-      ) : null}
       <div style={{ marginTop: 8, fontSize: 12, color: token.colorTextTertiary }}>
-        当前拖拽：
-        {dragState ? `from #${dragState.fromIndex + 1} → 目标 #${dragState.overIndex + 1}` : '无'}
+        当前行顺序：{dataSource.map((r) => r.name).join(' / ')}
       </div>
     </div>
   )
