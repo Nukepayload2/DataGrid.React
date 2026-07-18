@@ -33,7 +33,7 @@ describe('gridTemplateColumnsUtils', () => {
     )
   })
 
-  it('lets non-fixed absolute width columns fill remaining space in fixed layout', () => {
+  it('keeps explicit widths fixed and lets unspecified columns fill remaining space in fixed layout', () => {
     expect(
       computeGridTemplateColumns({
         leafColumns: [
@@ -44,7 +44,7 @@ describe('gridTemplateColumnsUtils', () => {
         resizedWidths: new Map(),
         tableLayout: 'fixed',
       }),
-    ).toBe('minmax(120px, 1fr) 80px minmax(0, 1fr)')
+    ).toBe('120px 80px minmax(0, 1fr)')
   })
 
   it('returns none when there are no leaf columns', () => {
@@ -82,7 +82,7 @@ describe('gridTemplateColumnsUtils', () => {
     ).toBe('minmax(0, 72fr) minmax(0, 112fr) minmax(0, 96fr) minmax(0, 80fr)')
   })
 
-  it('keeps the existing fixed-layout tracks when any visible column lacks a numeric width', () => {
+  it('uses antd-like remaining-width fill when any visible column lacks a width', () => {
     expect(
       computeGridTemplateColumns({
         leafColumns: [
@@ -92,7 +92,7 @@ describe('gridTemplateColumnsUtils', () => {
         resizedWidths: new Map(),
         tableLayout: 'fixed',
       }),
-    ).toBe('minmax(72px, 1fr) minmax(0, 1fr)')
+    ).toBe('72px minmax(0, 1fr)')
   })
 
   it('keeps resized widths as px instead of proportional fr weights', () => {

@@ -49,7 +49,7 @@ function DgDragHandle() {
 }
 
 const columns: ColumnType<VRow>[] = [
-  { key: 'sort', align: 'center', width: 60, render: () => <DgDragHandle /> },
+  { key: 'sort', align: 'center', width: 80, render: () => <DgDragHandle /> },
   { title: 'Key', dataIndex: 'key', key: 'key', width: 80 },
   { title: 'Name', dataIndex: 'name', key: 'name', width: 160 },
   { title: 'Age', dataIndex: 'age', key: 'age', width: 80 },
@@ -70,8 +70,16 @@ export default function DragVirtualListDemo() {
     if (!node) return
     let cleaned = false
     let target: HTMLElement | null = null
+    let scrollRafId: number | null = null
+    let latestScrollTop = 0
     const onScrollSync = () => {
-      if (target) setScrollTop(target.scrollTop)
+      if (!target) return
+      latestScrollTop = target.scrollTop
+      if (scrollRafId !== null) return
+      scrollRafId = requestAnimationFrame(() => {
+        scrollRafId = null
+        setScrollTop(latestScrollTop)
+      })
     }
     const tryAttach = () => {
       if (cleaned) return
@@ -87,6 +95,7 @@ export default function DragVirtualListDemo() {
     tryAttach()
     return () => {
       cleaned = true
+      if (scrollRafId !== null) cancelAnimationFrame(scrollRafId)
       if (target) target.removeEventListener('scroll', onScrollSync)
     }
   }, [resetTick])

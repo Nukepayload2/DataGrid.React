@@ -39,11 +39,24 @@ function shouldUseWidthWeightedTracks(
   return visibleColumns.every((column) => widthFrWeight(column, resizedWidths) !== undefined)
 }
 
+function shouldUseFixedWidthFillTracks(
+  leafColumns: ReadonlyArray<GridTemplateColumnLeaf>,
+  resizedWidths: ReadonlyMap<string, number>,
+  tableLayout: 'auto' | 'fixed',
+): boolean {
+  if (tableLayout !== 'fixed') return false
+  if (resizedWidths.size > 0) return false
+  const visibleColumns = leafColumns.filter((column) => !column.hidden)
+  if (visibleColumns.length === 0) return false
+  return visibleColumns.some((column) => toTrack(column.width) === undefined)
+}
+
 export function computeColumnTrack(
   column: GridTemplateColumnLeaf,
   resizedWidths: ReadonlyMap<string, number>,
   tableLayout: 'auto' | 'fixed',
   widthWeightedTrack = false,
+  fixedWidthFillTrack = false,
 ): string {
   if (column.hidden) return '0fr'
 
@@ -58,6 +71,7 @@ export function computeColumnTrack(
   if (widthTrack !== undefined) {
     if (typeof column.width === 'string' && column.width.includes('%')) return widthTrack
     if (column.fixed) return `${widthTrack}`
+    if (fixedWidthFillTrack && tableLayout === 'fixed') return `${widthTrack}`
     return tableLayout === 'fixed' ? `minmax(${widthTrack}, 1fr)` : `minmax(${widthTrack}, max-content)`
   }
 
@@ -74,8 +88,13 @@ export function computeGridTemplateColumns({
     resizedWidths,
     tableLayout,
   )
+  const fixedWidthFillTrack = shouldUseFixedWidthFillTracks(
+    leafColumns,
+    resizedWidths,
+    tableLayout,
+  )
   const columnTracks = leafColumns.map((column) =>
-    computeColumnTrack(column, resizedWidths, tableLayout, widthWeightedTrack),
+    computeColumnTrack(column, resizedWidths, tableLayout, widthWeightedTrack, fixedWidthFillTrack),
   )
 
   return columnTracks.join(' ') || 'none'

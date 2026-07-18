@@ -234,6 +234,31 @@ describe('columnDragSortUtils / overlay DOM (P1, jsdom)', () => {
     expect(createColumnDragOverlay(container, 5, null)).toBeNull()
   })
 
+  it('appends column overlay to the container when it is the dg wrapper', () => {
+    const container = document.createElement('div')
+    container.className = 'dg-wrapper'
+    const cell = document.createElement('div')
+    cell.className = 'dg-cell'
+    cell.setAttribute('data-leaf-index', '0')
+    vi.spyOn(cell, 'getBoundingClientRect').mockReturnValue({
+      left: 10,
+      right: 110,
+      top: 20,
+      bottom: 80,
+      width: 100,
+      height: 60,
+      x: 10,
+      y: 20,
+      toJSON: () => ({}),
+    } as DOMRect)
+    container.append(cell)
+
+    const overlay = createColumnDragOverlay(container, 0, null)
+
+    expect(overlay?.parentElement).toBe(container)
+    removeColumnDragOverlay(overlay)
+  })
+
   it('updateColumnDragOverlay sets transform; removeColumnDragOverlay removes', () => {
     const overlay = document.createElement('div')
     updateColumnDragOverlay(overlay, 42)

@@ -106,6 +106,11 @@ export interface UseAutoScrollOnDragOptions {
   autoScroll: boolean
 }
 
+interface AutoScrollSession {
+  container: HTMLElement
+  rect: DOMRect
+}
+
 /**
  * 拖拽中自动滚动容器 hook。
  *
@@ -141,14 +146,17 @@ export function useAutoScrollOnDrag(options: UseAutoScrollOnDragOptions): {
   // 当前是否在 RAF 循环中（避免重复 start）。
   const runningRef = useRef(false)
 
+  // 拖拽会话内滚动容器与边界缓存；start 时读取，stop 时清理。
+  const sessionRef = useRef<AutoScrollSession | null>(null)
+
   const tick = useCallback(() => {
     if (!runningRef.current) {
       rafRef.current = null
       return
     }
-    const container = findScrollContainer(containerRef.current)
-    if (container) {
-      const rect = container.getBoundingClientRect()
+    const session = sessionRef.current
+    if (session) {
+      const { container, rect } = session
       if (vertical) {
         // 行拖：纵向滚动。按指针 clientY 与容器 top/bottom 算 delta。
         const canScrollY = container.scrollHeight > container.clientHeight + 1
@@ -167,17 +175,22 @@ export function useAutoScrollOnDrag(options: UseAutoScrollOnDragOptions): {
       }
     }
     rafRef.current = requestAnimationFrame(tick)
-  }, [containerRef, vertical])
+  }, [vertical])
 
   const start = useCallback(() => {
     if (!autoScroll) return
     if (runningRef.current) return
+    const container = findScrollContainer(containerRef.current)
+    sessionRef.current = container
+      ? { container, rect: container.getBoundingClientRect() }
+      : null
     runningRef.current = true
     rafRef.current = requestAnimationFrame(tick)
-  }, [autoScroll, tick])
+  }, [autoScroll, containerRef, tick])
 
   const stop = useCallback(() => {
     runningRef.current = false
+    sessionRef.current = null
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current)
       rafRef.current = null
@@ -190,6 +203,7 @@ export function useAutoScrollOnDrag(options: UseAutoScrollOnDragOptions): {
   useEffect(() => {
     return () => {
       runningRef.current = false
+      sessionRef.current = null
       if (rafRef.current !== null) {
         cancelAnimationFrame(rafRef.current)
         rafRef.current = null

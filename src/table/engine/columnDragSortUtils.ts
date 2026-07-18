@@ -122,7 +122,9 @@ export function createColumnDragOverlay(
     overlay.appendChild(clone)
   })
 
-  const host = container.querySelector<HTMLElement>('.dg-wrapper') ?? document.body
+  const host = container.matches('.dg-wrapper')
+    ? container
+    : (container.querySelector<HTMLElement>('.dg-wrapper') ?? document.body)
   host.appendChild(overlay)
   return overlay
 }

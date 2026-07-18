@@ -25,6 +25,7 @@ import {
   resolveRowKey,
   sameRowKey,
   updateRowDragOverlay,
+  type DragAxisBound,
 } from './dragSortUtils'
 
 // 内部 demo/引擎工具导出：包主入口不导出拖拽 hooks，用户通过 gridOptions/gridColumnOptions 开关使用拖拽能力。
@@ -122,6 +123,37 @@ export interface UseRowDragSortResult {
   }
 }
 
+interface RowDragDomCache {
+  containerTop: number
+  cells: Array<{ cell: HTMLElement; index: number }>
+  bounds: DragAxisBound[]
+}
+
+function getTranslateYFromComputedTransform(el: HTMLElement): number {
+  const transform = getComputedStyle(el).transform
+  if (!transform || transform === 'none') return 0
+  const matrix3d = transform.match(/^matrix3d\((.+)\)$/)
+  if (matrix3d) {
+    const values = matrix3d[1].split(',').map((v) => Number.parseFloat(v.trim()))
+    return Number.isFinite(values[13]) ? values[13] : 0
+  }
+  const matrix = transform.match(/^matrix\((.+)\)$/)
+  if (matrix) {
+    const values = matrix[1].split(',').map((v) => Number.parseFloat(v.trim()))
+    return Number.isFinite(values[5]) ? values[5] : 0
+  }
+  return 0
+}
+
+function getUntransformedVerticalRect(el: HTMLElement): { top: number; bottom: number } {
+  const rect = el.getBoundingClientRect()
+  const translateY = getTranslateYFromComputedTransform(el)
+  return {
+    top: rect.top - translateY,
+    bottom: rect.bottom - translateY,
+  }
+}
+
 /**
  * 行拖拽排序 hook（方案 B 自研 pointer，事件委托）。
  *
@@ -209,6 +241,18 @@ export function useRowDragSort<RecordType>(
      */
     scrollRafId: number | null
     /**
+     * 拖拽期间可见行 DOM 与未 transform 前的行边界缓存。
+     *
+     * pointermove 高频路径复用缓存，避免每帧 querySelectorAll + getBoundingClientRect。
+     * scroll/虚拟窗口刷新后失效并重建。
+     */
+    domCache: RowDragDomCache | null
+    /**
+     * 最近一次已施加让位 transform 的 overIndex。
+     * overIndex 未变化且 overlay 存在时，只需移动 overlay/indicator，无需重复写所有 cell。
+     */
+    lastAppliedOverIndex: number | null
+    /**
      * 拖拽期间 nativeMove/nativeUp 所在 window 监听的 AbortController。
      * 详见 docs/design-notes/drag-sort.md（「虚拟模式健壮性」节）。
      *
@@ -227,6 +271,49 @@ export function useRowDragSort<RecordType>(
    * 取的 handler 是同一个引用。
    */
   const scrollHandlerRef = useRef<(() => void) | null>(null)
+
+  const invalidateDragDomCache = useCallback(() => {
+    const drag = dragRef.current
+    if (!drag) return
+    drag.domCache = null
+    drag.lastAppliedOverIndex = null
+  }, [])
+
+  const getDragDomCache = useCallback((): RowDragDomCache | null => {
+    const drag = dragRef.current
+    if (!drag) return null
+    if (drag.domCache) return drag.domCache
+    const container = containerRef.current
+    if (!container) return null
+
+    const containerRect = container.getBoundingClientRect()
+    const cells = container.querySelectorAll<HTMLElement>('[data-row-index]')
+    if (cells.length === 0) return null
+
+    const rowBounds = new Map<number, { top: number; bottom: number }>()
+    const cachedCells: RowDragDomCache['cells'] = []
+    cells.forEach((cell) => {
+      const idxAttr = cell.getAttribute('data-row-index')
+      if (idxAttr === null) return
+      const idx = Number.parseInt(idxAttr, 10)
+      if (!Number.isFinite(idx)) return
+      cachedCells.push({ cell, index: idx })
+      if (idx === drag.fromIndex || rowBounds.has(idx)) return
+      rowBounds.set(idx, getUntransformedVerticalRect(cell))
+    })
+
+    const domCache: RowDragDomCache = {
+      containerTop: containerRect.top,
+      cells: cachedCells,
+      bounds: Array.from(rowBounds.entries()).map(([index, bound]) => ({
+        index,
+        start: bound.top,
+        end: bound.bottom,
+      })),
+    }
+    drag.domCache = domCache
+    return domCache
+  }, [containerRef])
 
   /**
    * 离散让位辅助：对容器内所有 `[data-row-index]` body 单元格命令式施加 transform + 类。
@@ -256,12 +343,9 @@ export function useRowDragSort<RecordType>(
       if (!container) return
       const { lo: yieldLo, hi: yieldHi, sign: yieldSign } =
         computeRowYieldRange(fromIndex, overIndex)
-      const cells = container.querySelectorAll<HTMLElement>('[data-row-index]')
-      cells.forEach((cell) => {
-        const idxAttr = cell.getAttribute('data-row-index')
-        if (idxAttr === null) return
-        const idx = Number.parseInt(idxAttr, 10)
-        if (!Number.isFinite(idx)) return
+      const cache = getDragDomCache()
+      if (!cache) return
+      cache.cells.forEach(({ cell, index: idx }) => {
         // 清类 + 清 transform 作为基线（下方按分类重新施加）。
         cell.classList.remove('dg-drag-row-active', 'dg-drag-row-yield', 'dg-drag-row-source')
         if (idx === fromIndex) {
@@ -283,7 +367,7 @@ export function useRowDragSort<RecordType>(
         }
       })
     },
-    [containerRef],
+    [containerRef, getDragDomCache],
   )
 
   /**
@@ -293,12 +377,13 @@ export function useRowDragSort<RecordType>(
   const clearYieldTransforms = useCallback(() => {
     const container = containerRef.current
     if (!container) return
+    invalidateDragDomCache()
     const cells = container.querySelectorAll<HTMLElement>('[data-row-index]')
     cells.forEach((cell) => {
       cell.classList.remove('dg-drag-row-active', 'dg-drag-row-yield', 'dg-drag-row-source')
       cell.style.transform = ''
     })
-  }, [containerRef])
+  }, [containerRef, invalidateDragDomCache])
 
   /**
    * 拖拽会话收尾辅助（三处复用：nativeUp / 卸载 cleanup / onPointerDown 重入守卫）。
@@ -355,31 +440,12 @@ export function useRowDragSort<RecordType>(
     } | null => {
       const container = containerRef.current
       if (!container) return null
-      const containerRect = container.getBoundingClientRect()
-      // 收集所有 body 单元格，按 row-index 分组（同一行的多个单元格共享一个 row-index）。
-      const cells = container.querySelectorAll<HTMLElement>('[data-row-index]')
-      if (cells.length === 0) return null
-      // row-index → 该行任意一个单元格的 top/bottom（取首个遇到的即可，同行单元格 top 一致）。
-      const rowBounds = new Map<number, { top: number; bottom: number }>()
-      cells.forEach((cell) => {
-        const idxAttr = cell.getAttribute('data-row-index')
-        if (idxAttr === null) return
-        const idx = Number.parseInt(idxAttr, 10)
-        if (!Number.isFinite(idx)) return
-        if (idx === dragRef.current?.fromIndex) return
-        if (rowBounds.has(idx)) return
-        const r = cell.getBoundingClientRect()
-        rowBounds.set(idx, { top: r.top, bottom: r.bottom })
-      })
-      if (rowBounds.size === 0) return null
+      const cache = getDragDomCache()
+      if (!cache || cache.bounds.length === 0) return null
       const target = computeDragInsertionTarget(
         clientY,
-        Array.from(rowBounds.entries()).map(([index, bound]) => ({
-          index,
-          start: bound.top,
-          end: bound.bottom,
-        })),
-        containerRect.top,
+        cache.bounds,
+        cache.containerTop,
       )
       if (!target) return null
       return {
@@ -387,7 +453,7 @@ export function useRowDragSort<RecordType>(
         indicatorTop: target.indicatorOffset,
       }
     },
-    [containerRef],
+    [containerRef, getDragDomCache],
   )
 
   /**
@@ -418,19 +484,30 @@ export function useRowDragSort<RecordType>(
       //   - 插入位置 > from：over = 插入位置 - 1（因为 arrayMove 先删 from 再插，实际目标行 index = 插入位置 - 1）。
       const overIndex = insertionIndexToMoveIndex(result.overIndex, drag.fromIndex)
       drag.overIndex = overIndex
-      setDragState({ fromIndex: drag.fromIndex, overIndex })
-      setIndicator({
-        visible: true,
-        top: result.indicatorTop,
-        left: 0,
-        right: 0,
-      })
+      setDragState((prev) =>
+        prev?.fromIndex === drag.fromIndex && prev.overIndex === overIndex
+          ? prev
+          : { fromIndex: drag.fromIndex, overIndex },
+      )
+      setIndicator((prev) =>
+        prev.visible && prev.top === result.indicatorTop && prev.left === 0 && prev.right === 0
+          ? prev
+          : {
+              visible: true,
+              top: result.indicatorTop,
+              left: 0,
+              right: 0,
+            },
+      )
       // 离散让位：命令式对所有可见 body cell 施加 transform + 类（被拖行跟手抬起、中间行让位）。
       //   delta = pointer 位移 + 滚动位移；draggedHeight 是 pointerdown 快照。
       //   滚动位移用于虚拟/auto-scroll：指针静止但滚动容器滚动时，被拖行仍保持跟手。
       const currentScrollTop = drag.scrollEl?.scrollTop ?? drag.startScrollTop
       const delta = clientY - drag.startClientY + (currentScrollTop - drag.startScrollTop)
-      applyYieldTransforms(drag.fromIndex, overIndex, delta, drag.draggedHeight)
+      if (!drag.overlayEl || drag.lastAppliedOverIndex !== overIndex) {
+        applyYieldTransforms(drag.fromIndex, overIndex, delta, drag.draggedHeight)
+        drag.lastAppliedOverIndex = overIndex
+      }
       updateRowDragOverlay(drag.overlayEl, clientY - drag.startClientY)
     },
     [hitTest, applyYieldTransforms],
@@ -497,6 +574,8 @@ export function useRowDragSort<RecordType>(
         lastClientY: e.clientY,
         scrollEl: null,
         scrollRafId: null,
+        domCache: null,
+        lastAppliedOverIndex: null,
         ac,
       }
       // 初始 overIndex = fromIndex（未移动时松手不重排）。
@@ -550,6 +629,7 @@ export function useRowDragSort<RecordType>(
             const d = dragRef.current
             if (!d) return
             // 用最后已知 clientY 重跑 hit-test + 让位 transform + 状态更新。
+            invalidateDragDomCache()
             recomputeFromPointer(d.lastClientY)
           })
         }

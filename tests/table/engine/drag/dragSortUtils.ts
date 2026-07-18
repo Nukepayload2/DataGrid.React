@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   arrayMove,
   arrayMoveBlock,
@@ -216,6 +216,31 @@ describe('dragSortUtils / overlay DOM (P1, jsdom)', () => {
   it('createRowDragOverlay returns null when no matching rows', () => {
     const container = document.createElement('div')
     expect(createRowDragOverlay(container, 5)).toBeNull()
+  })
+
+  it('appends row overlay to the container when it is the dg wrapper', () => {
+    const container = document.createElement('div')
+    container.className = 'dg-wrapper'
+    const cell = document.createElement('div')
+    cell.className = 'dg-cell'
+    cell.setAttribute('data-row-index', '0')
+    vi.spyOn(cell, 'getBoundingClientRect').mockReturnValue({
+      left: 10,
+      right: 110,
+      top: 20,
+      bottom: 50,
+      width: 100,
+      height: 30,
+      x: 10,
+      y: 20,
+      toJSON: () => ({}),
+    } as DOMRect)
+    container.append(cell)
+
+    const overlay = createRowDragOverlay(container, 0)
+
+    expect(overlay?.parentElement).toBe(container)
+    removeRowDragOverlay(overlay)
   })
 
   it('updateRowDragOverlay sets transform; removeRowDragOverlay removes', () => {
