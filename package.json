@@ -1,7 +1,7 @@
 {
   "name": "@nukepayload2/data-grid",
   "private": false,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "description": "A React data grid Table component with Ant Design compatible APIs.",
   "main": "./dist/index.cjs",

@@ -9,7 +9,7 @@
 
 ## 迁移前检查
 
-迁移 antd Table 到 data-grid 前，先确认业务代码没有依赖 antd/rc-table 已标记过时的 API。data-grid 的兼容目标是 antd v6 的当前公共 API 和常用迁移路径，不承诺复刻已被 antd 标为 deprecated 且有性能风险的历史写法。
+迁移 antd Table 到 data-grid 前，先确认业务代码没有依赖 antd/rc-table 已标记过时的 API。data-grid 的兼容目标是 antd v6 的当前公共 API 和常用迁移路径，不承诺复刻已被 antd 标为 deprecated 且有性能风险的历史写法。过时成员的当前支持、限制和迁移建议见 [deprecated-antd-table-members.md](deprecated-antd-table-members.md)。
 
 重点检查：
 
@@ -49,6 +49,8 @@
 | `column.filtered`（受控筛选态） | ColumnType | 未实现 | 列级受控筛选指示。dg 用 `filteredValue` 控制态，未单独暴露 `filtered`。 | antd `interface.ts:163`；dg `types.ts:373-548`（无 `filtered`）|
 | `column.sortIcon` | ColumnType | 未实现 | 自定义排序图标。 dg 未实现。 | antd `interface.ts:159`；dg `types.ts`（无 `sortIcon`）|
 | `column.filterResetToDefaultFilteredValue` | ColumnType | 未实现 | 重置时回到默认筛选。dg 未实现。 | antd `interface.ts:179`；dg `types.ts`（无此字段）|
+| `column.filterDropdownOpen`（deprecated） | ColumnType | 未实现 | 旧的筛选下拉受控打开字段。dg 未暴露该字段；使用 `filterDropdownProps.open`。 | antd `interface.ts` deprecated 字段；dg `compat\column.ts` / `compat\filter.ts` 无此字段 |
+| `column.onFilterDropdownOpenChange`（deprecated） | ColumnType | 未实现 | 旧的筛选下拉打开变化回调。dg 未暴露该字段；使用 `filterDropdownProps.onOpenChange`。 | antd `interface.ts` deprecated 字段；dg `compat\column.ts` / `compat\filter.ts` 无此字段 |
 | `dataIndex = DeepNamePath`（深层路径类型） | ColumnType | 未实现 | antd `dataIndex` 支持 `DeepNamePath`（嵌套路径强类型）。dg 仅 `string \| number \| Array<string\|number>`（运行时已支持路径数组，但类型不深）。 | antd rc-table `DataIndex`/`DeepNamePath`；dg `types.ts:376` |
 | `sticky.offsetSummary` | TableProps.sticky | 未实现 | summary 跟随 sticky 表头时的偏移。dg 的 `sticky` 仅 `offsetHeader`/`offsetScroll`/`getContainer`，缺 `offsetSummary`。 | antd rc-table `interface.d.ts:199`（`offsetSummary`）；dg `types.ts:1658`（`sticky?: boolean \| StickyConfig`，StickyConfig 无 offsetSummary）|
 | `transformCellText` | ColumnType | 未实现（无回归） | antd 6 已删除此字段，dg 也无。**无兼容负担**。 | antd v6 `interface.ts` 已无；dg 无 |
@@ -121,7 +123,7 @@
 | `key/title/width/align/fixed/className/style/onHeaderCell/ellipsis(含 showTitle)/hidden/render/children` | ColumnType | dg `types.ts:373-476` |
 | `render` 返回 `RenderedCell{ children, props }` 对象形态 | ColumnType.render | dg 仅兼容 `children` 内容；`props` 废弃并忽略，合并请用 `onCell`，其它内置格样式/事件请用 column/onRow 或自定义 body.cell |
 | `sorter`（bool/CompareFn/ColumnSorter）/ `sortOrder` / `defaultSortOrder` / `sortDirections` | ColumnType | dg `types.ts:339-353, 522+` |
-| `filters` / `filterDropdown` / `filterMultiple` / `filteredValue` / `defaultFilteredValue` / `filterIcon` / `filterMode` / `filterSearch` / `onFilter` / `filterOnClose` / `filterDropdownOpen`(deprecated) / `onFilterDropdownOpenChange`(deprecated) | ColumnType | antd `interface.ts:162-194`；dg `types.ts` + `engine\FilterDropdown.tsx` |
+| `filters` / `filterDropdown` / `filterMultiple` / `filteredValue` / `defaultFilteredValue` / `filterIcon` / `filterMode` / `filterSearch` / `onFilter` / `filterOnClose` | ColumnType | antd `interface.ts:162-194`；dg `types.ts` + `engine\FilterDropdown.tsx` |
 | `responsive`（Breakpoint[]） | ColumnType | dg `types.ts:16-18`（导入 antd Breakpoint）+ ColumnType |
 
 ### 行选择（已覆盖部分）
@@ -169,7 +171,7 @@
 
 7. **`sticky.offsetSummary` 缺**；**`dataIndex` 不支持 `DeepNamePath`**（运行时支持路径数组，类型不深）。证据：antd rc-table `interface.d.ts:199`；dg `types.ts:1658, 376`。
 
-8. **`ColumnType` 缺 `rowSpan`(独立字段,仅 onCell props)/`filtered`/`sortIcon`/`filterResetToDefaultFilteredValue`**；**`filterDropdownProps` 仅透传子集**。证据：antd `interface.ts:159, 163, 178, 179`；dg `types.ts:373-548`。
+8. **`ColumnType` 缺 `rowSpan`(独立字段,仅 onCell props)/`filtered`/`sortIcon`/`filterResetToDefaultFilteredValue`/`filterDropdownOpen`/`onFilterDropdownOpenChange`**；**`filterDropdownProps` 仅透传子集**。证据：antd `interface.ts:159, 163, 178, 179`；dg `types.ts:373-548`。
 
 ---
 

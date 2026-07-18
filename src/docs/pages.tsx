@@ -31,6 +31,14 @@ interface CompatRow {
   detail: string
 }
 
+interface DeprecatedRow {
+  key: string
+  member: string
+  support: string
+  behavior: string
+  migration: string
+}
+
 interface GapRow {
   key: string
   topic: string
@@ -207,6 +215,12 @@ const overviewRows: OverviewRow[] = [
     entry: '兼容状态',
   },
   {
+    key: 'deprecated-members',
+    area: '过时成员',
+    purpose: '单独核对 deprecated antd Table 成员、旧写法和 data-grid 的降级行为。',
+    entry: '过时成员',
+  },
+  {
     key: 'architecture',
     area: '架构',
     purpose: '用 CSS Grid 重做 antd Table，同时保持熟悉的 React API。',
@@ -316,6 +330,65 @@ const compatRows: CompatRow[] = [
   { key: 'locale', api: 'locale', status: '部分兼容', detail: '表体空态、筛选下拉、选择菜单、排序和展开文案已接入 antd locale 链路。' },
 ]
 
+const deprecatedRows: DeprecatedRow[] = [
+  {
+    key: 'rendered-cell',
+    member: 'column.render 返回 { children, props }',
+    support: '部分兼容',
+    behavior: '识别 legacy RenderedCell 对象，但只消费 children；props 不会合并到单元格。',
+    migration: '返回普通 ReactNode；合并格和单元格 props 改用 column.onCell。',
+  },
+  {
+    key: 'rendered-cell-props',
+    member: 'RenderedCell.props',
+    support: '保留类型但忽略',
+    behavior: 'props 字段仍在类型里，但运行时 normalizeRenderedCell 会丢弃它。',
+    migration: '不要在 render 返回对象中放 colSpan、rowSpan、className、style 或事件。',
+  },
+  {
+    key: 'on-select-multiple',
+    member: 'rowSelection.onSelectMultiple',
+    support: '兼容触发',
+    behavior: 'antd v6 已标记 deprecated；shift range 多选时仍按 (selected, selectedRows, changeRows) 调用。',
+    migration: '新逻辑优先用 rowSelection.onChange，并读取 info.type === "multiple"。',
+  },
+  {
+    key: 'expanded-row-offset',
+    member: 'expandable.expandedRowOffset',
+    support: '兼容支持',
+    behavior: '转换为展开内容起始 grid column；非法值、负数和越界值会 clamp。',
+    migration: '用 Table.EXPAND_COLUMN 在 columns 中控制展开列位置。',
+  },
+  {
+    key: 'filter-checkall',
+    member: 'locale.filterCheckall',
+    support: '兼容别名',
+    behavior: '读取顺序为 filterCheckall ?? filterCheckAll ?? 默认文案。',
+    migration: '改用 locale.filterCheckAll。',
+  },
+  {
+    key: 'fixed-true',
+    member: 'column.fixed: true',
+    support: '旧写法兼容',
+    behavior: '归一化为左固定，即内部 start。',
+    migration: '明确写 fixed: "left" / "start" 或 fixed: "right" / "end"。',
+  },
+  {
+    key: 'filter-dropdown-open',
+    member: 'column.filterDropdownOpen',
+    support: '未暴露',
+    behavior: '当前 ColumnType 没有这个 deprecated 字段。',
+    migration: '使用 column.filterDropdownProps.open。',
+  },
+  {
+    key: 'filter-dropdown-open-change',
+    member: 'column.onFilterDropdownOpenChange',
+    support: '未暴露',
+    behavior: '当前 ColumnType 没有这个 deprecated 回调字段。',
+    migration: '使用 column.filterDropdownProps.onOpenChange。',
+  },
+]
+
 const limitationRows: GapRow[] = [
   { key: 'semantic-dom', topic: 'semantic DOM', boundary: '不能完整复刻 thead / tbody / tr 层级。', action: '用 data-grid 语义槽位做适配。' },
   { key: 'scroll-y', topic: 'scroll.y', boundary: '不支持 antd number/string max-height 语义。', action: '改成 `scroll={{ y: true }}`，表格占满父容器可用空间。' },
@@ -379,6 +452,7 @@ export function renderIntro({ onOpen }: DocsPageContext) {
                       migration: 'migrate-from-antd',
                       'table-api': 'table-api',
                       'compat-matrix': 'compat-matrix',
+                      'deprecated-members': 'deprecated-antd-members',
                       architecture: 'architecture-overview',
                       compat: 'compat-matrix',
                       scroll: 'scroll-y',
@@ -461,33 +535,20 @@ export function renderMigration({ onOpen }: DocsPageContext) {
       </DocSection>
 
       <DocSection
-        id="step-3"
-        eyebrow="步骤 3"
-        title="迁移 DOM 定制"
-        description="只迁移依赖原生 table DOM 层级的逻辑；能一对一映射的 antd class 和 render 返回 children/props 的单元格写法已兼容。"
+        id="deprecated-members"
+        eyebrow="迁移前检查"
+        title="核对过时 antd Table 成员"
+        description="迁移前先检查业务代码是否依赖 antd/rc-table 已标记过时的成员。data-grid 对这类入口只保留迁移兼容，不作为新代码推荐写法。"
       >
-        <ul className="docs-bullet-list">
-          <li><Text code>render</Text> 返回 <Text code>{'{ children, props }'}</Text> 时，<Text code>props.colSpan</Text> / <Text code>props.rowSpan</Text>、<Text code>className</Text>、<Text code>style</Text> 和事件 props 会做兼容映射。</li>
-          <li>行或单元格逻辑如果依赖 <Text code>tr</Text> / <Text code>td</Text> 选择器，改到 <Text code>onRow</Text>、<Text code>onCell</Text> 或 <Text code>components</Text>。</li>
-          <li><Text code>.ant-table-wrapper</Text>、<Text code>.ant-table-cell</Text>、<Text code>.ant-table-title</Text>、<Text code>.ant-table-footer</Text>、排序和筛选触发器等稳定节点可继续命中。</li>
-          <li>样式覆盖只迁移依赖 <Text code>.ant-table-thead</Text> / <Text code>.ant-table-tbody</Text> / <Text code>.ant-table-row</Text> / 原生 <Text code>table &gt; tr &gt; td</Text> 层级的选择器。</li>
-        </ul>
-      </DocSection>
-
-      <DocSection
-        id="step-4"
-        eyebrow="步骤 4"
-        title="按 demo 验收"
-        description="迁移完成后直接对照常见表格场景检查结果。"
-      >
+        <DocsNote title="重点">
+          <Text code>render</Text> 返回 <Text code>{'{ children, props }'}</Text> 时，data-grid 只消费
+          <Text code>children</Text>；<Text code>props</Text> 不会合并到单元格。合并格和 cell props
+          改用 <Text code>column.onCell</Text>。
+        </DocsNote>
         <DocsActionList
           actions={[
-            { label: '基础表格', kind: 'path', value: '/demos/basic-table' },
-            { label: '固定列', kind: 'path', value: '/demos/fixed-columns' },
-            { label: '固定列和表头', kind: 'path', value: '/demos/fixed-columns-and-header' },
-            { label: '排序和筛选', kind: 'path', value: '/demos/sorting-and-filtering' },
-            { label: '分页', kind: 'path', value: '/demos/pagination' },
-            { label: '单元格编辑', kind: 'path', value: '/demos/cell-editing' },
+            { label: '查看过时成员说明', kind: 'doc', value: 'deprecated-antd-members' },
+            { label: '查看兼容矩阵', kind: 'doc', value: 'compat-matrix' },
           ]}
           onOpen={onOpen}
         />
@@ -832,7 +893,7 @@ export function renderCompatMatrix() {
   return (
     <DocSection id="matrix" eyebrow="参考" title="兼容状态摘要">
       <DocsDataGrid<CompatRow>
-        description="完整证据继续保留在 docs/reference/compat-matrix.md。"
+        description="完整证据继续保留在 docs/reference/compat-matrix.md；过时成员另见“过时成员”。"
         columns={[
           { title: 'API', dataIndex: 'api', key: 'api', width: '26%' },
           { title: '支持度', dataIndex: 'status', key: 'status', width: '18%' },
@@ -842,6 +903,83 @@ export function renderCompatMatrix() {
         rowKey="key"
       />
     </DocSection>
+  )
+}
+
+export function renderDeprecatedAntdMembers({ onOpen }: DocsPageContext) {
+  return (
+    <>
+      <DocSection
+        id="policy"
+        eyebrow="迁移策略"
+        title="只为迁移保留，不作为新代码入口"
+        description="data-grid 优先兼容 antd v6 当前公共 API。已被 antd/rc-table 标记为 deprecated 的成员会按迁移价值选择保留、降级或不暴露。"
+      >
+        <DocsNote title="判定方式">
+          旧成员如果依赖原生 <Text code>table/tr/td</Text> DOM，data-grid 只保留可表达的语义；
+          不能保留的 DOM 细节会明确忽略或引导到当前 API。
+        </DocsNote>
+      </DocSection>
+
+      <DocSection
+        id="members"
+        eyebrow="成员"
+        title="过时成员支持状态"
+        description="这里列的是源码当前实际暴露或消费的旧入口。未暴露项不会被业务代码当作 data-grid API 使用。"
+      >
+        <DocsDataGrid<DeprecatedRow>
+          columns={[
+            { title: '成员', dataIndex: 'member', key: 'member', width: 280, render: (value) => <Text code>{value}</Text> },
+            { title: '支持', dataIndex: 'support', key: 'support', width: 140 },
+            { title: 'data-grid 行为', dataIndex: 'behavior', key: 'behavior', width: 440 },
+            { title: '迁移建议', dataIndex: 'migration', key: 'migration', width: 420 },
+          ]}
+          dataSource={deprecatedRows}
+          rowKey="key"
+          scrollX={1280}
+        />
+      </DocSection>
+
+      <DocSection
+        id="dom"
+        eyebrow="DOM 差异"
+        title="旧写法常和原生表格 DOM 绑定"
+        description="data-grid 的主体是 CSS Grid div 结构，不存在完整 table/tr/td 层级。"
+      >
+        <ul className="docs-bullet-list">
+          <li><Text code>components.body.cell</Text> 替换单元格内容层，不替换整个 <Text code>td</Text>。</li>
+          <li><Text code>onRow</Text> / <Text code>onHeaderRow</Text> 表达行级 props 意图，实际会分发到同一逻辑行的 cells 或行包装层。</li>
+          <li><Text code>column.className</Text> / <Text code>column.style</Text> 合并到 data-grid cell div，不是原生 <Text code>td</Text> / <Text code>th</Text>。</li>
+          <li>依赖 <Text code>tbody &gt; tr &gt; td</Text> 的选择器需要迁移到 <Text code>.dg-*</Text> 或已输出的 <Text code>.ant-table-*</Text> alias。</li>
+        </ul>
+      </DocSection>
+
+      <DocSection
+        id="not-deprecated"
+        eyebrow="容易混淆"
+        title="非 antd deprecated 的旧写法"
+      >
+        <DocsNote title="scroll.y">
+          <Text code>{'scroll={{ y: number }}'}</Text> 是 antd/rc-table 的 max-height 语义；
+          data-grid 不支持，必须改为 <Text code>{'scroll={{ y: true }}'}</Text> 并由父容器提供高度。
+        </DocsNote>
+        <DocsNote title="size compact">
+          antd Table 本身没有 <Text code>compact</Text> size。data-grid 保留它用于全局 size 兜底，并映射为
+          {' '}<Text code>small</Text> 视觉。
+        </DocsNote>
+      </DocSection>
+
+      <DocSection id="related" eyebrow="关联" title="继续核对">
+        <DocsActionList
+          actions={[
+            { label: '兼容矩阵', kind: 'doc', value: 'compat-matrix' },
+            { label: 'Table API', kind: 'doc', value: 'table-api' },
+            { label: 'Column API', kind: 'doc', value: 'column-api' },
+          ]}
+          onOpen={onOpen}
+        />
+      </DocSection>
+    </>
   )
 }
 
