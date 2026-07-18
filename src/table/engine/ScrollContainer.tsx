@@ -228,6 +228,7 @@ export function ScrollContainer(props: ScrollContainerProps): ReactNode {
   }
   const containerClasses = [
     'dg-scroll',
+    'ant-table-content',
     virtualEnabled ? 'dg-virtual-scroll' : null,
     scrollYNonVirtual ? 'dg-fixed-header-scroll' : null,
     scrollXEnabled && !scrollYEnabled ? 'dg-x-scroll' : null,
@@ -236,7 +237,7 @@ export function ScrollContainer(props: ScrollContainerProps): ReactNode {
     .join(' ')
   return (
     <FloatingScrollBar
-      wrapClassName={mergeSectionClass(['dg-scroll-wrap'], sectionClassName)}
+      wrapClassName={mergeSectionClass(['dg-scroll-wrap', 'ant-table-container'], sectionClassName)}
       wrapStyle={mergeSectionStyle(wrapBaseStyle, sectionStyle)}
       scrollContainerClassName={containerClasses}
       scrollContainerStyle={containerStyle}

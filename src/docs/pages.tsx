@@ -75,6 +75,24 @@ const QUICK_START_INSTALL = `import { Table } from '@nukepayload2/data-grid'
 import type { ColumnType } from '@nukepayload2/data-grid'
 import '@nukepayload2/data-grid/style.css'`
 
+const MIGRATION_IMPORTS = `// before
+import { Table } from 'antd'
+import type { TableProps, ColumnsType } from 'antd'
+
+// after
+import { Table } from '@nukepayload2/data-grid'
+import type { TableProps, ColumnsType } from '@nukepayload2/data-grid'
+
+// 应用入口导入一次样式
+import '@nukepayload2/data-grid/style.css'`
+
+const MIGRATION_SCROLL = `// before
+<Table columns={columns} dataSource={rows} scroll={{ y: 400, x: 1200 }} />
+
+// after
+{/* 表格会占满父容器提供的可用空间；scroll.y 只负责打开纵向滚动模式。 */}
+<Table columns={columns} dataSource={rows} scroll={{ y: true, x: 1200 }} />`
+
 const QUICK_START_MINIMAL = `interface Record {
   key: string
   name: string
@@ -100,7 +118,8 @@ const JSX_COLUMNS = `<Table dataSource={data}>
   <Table.Column title="Age" dataIndex="age" key="age" />
 </Table>`
 
-const VIRTUAL_SCROLLING_CODE = `<div style={{ height: 520 }}>
+const VIRTUAL_SCROLLING_CODE = `<section className="table-pane">
+  {/* .table-pane 由页面布局分配剩余空间，例如 flex: 1; min-height: 0。 */}
   <Table
     columns={columns}
     dataSource={data}
@@ -108,7 +127,7 @@ const VIRTUAL_SCROLLING_CODE = `<div style={{ height: 520 }}>
     scroll={{ x: 1200, y: true }}
     virtual
   />
-</div>`
+</section>`
 
 const THEMING_CODE = `import { ConfigProvider } from 'antd'
 
@@ -291,7 +310,7 @@ const gridColumnOptionRows: ApiOptionRow[] = [
 const columnPropRows: PropRow[] = [
   { key: 'basic', field: 'title / dataIndex / key', purpose: '列标题、字段路径和稳定 key。', note: 'JSX 声明和 columns 数组都可用。' },
   { key: 'layout', field: 'width / fixed / align', purpose: '宽度、固定列和对齐方式。', note: '与滚动和 sticky 组合使用。' },
-  { key: 'render', field: 'render', purpose: '自定义单元格内容。', note: '合并单元格优先走 onCell。' },
+  { key: 'render', field: 'render', purpose: '自定义单元格内容。', note: '兼容返回 ReactNode 或 `{ children, props }`。' },
   { key: 'cell', field: 'onCell / onHeaderCell', purpose: '注入单元格或表头属性。', note: '也可用于 colSpan / rowSpan。' },
   { key: 'sort', field: 'sorter / filters', purpose: '排序和筛选。', note: '保留 antd 风格交互。' },
   { key: 'display', field: 'ellipsis / hidden / responsive', purpose: '展示控制。', note: '适合窄宽度和响应式场景。' },
@@ -309,15 +328,15 @@ const compatRows: CompatRow[] = [
 
 const limitationRows: GapRow[] = [
   { key: 'semantic-dom', topic: 'semantic DOM', boundary: '不能完整复刻 thead / tbody / tr 层级。', action: '用 data-grid 语义槽位做适配。' },
-  { key: 'scroll-y', topic: 'scroll.y', boundary: '不支持 antd number/string max-height 语义。', action: '使用 `scroll={{ y: true }}` 并给父容器高度。' },
-  { key: 'rendered-cell', topic: 'RenderedCell', boundary: '`render` 返回 props 的 antd 形态未对齐。', action: '合并单元格统一走 `onCell`。' },
+  { key: 'scroll-y', topic: 'scroll.y', boundary: '不支持 antd number/string max-height 语义。', action: '改成 `scroll={{ y: true }}`，表格占满父容器可用空间。' },
   { key: 'rtl', topic: 'RTL', boundary: '尚未系统处理方向、fixed、sticky 和拖拽方向。', action: '需要独立设计和回归范围。' },
 ]
 
 const semanticSlotRows: SemanticSlotRow[] = [
   { key: 'root', slot: 'root', antd: '.ant-table-wrapper', dataGrid: '.dg-wrapper', note: '根元素，承载表格容器和主题变量。' },
   { key: 'title', slot: 'title', antd: '.ant-table-title', dataGrid: '.dg-title', note: '标题元素，两侧均直接落点。' },
-  { key: 'content', slot: 'content', antd: '.ant-table-content', dataGrid: '.dg-grid', note: 'data-grid 内容区是 CSS Grid 主体。' },
+  { key: 'table', slot: 'content', antd: '.ant-table', dataGrid: '.dg-grid', note: 'data-grid 的表格主体是 CSS Grid。' },
+  { key: 'content', slot: 'section', antd: '.ant-table-content', dataGrid: '.dg-scroll', note: '滚动内容容器，两侧均是内容滚动落点。' },
   { key: 'header-wrapper', slot: 'header.wrapper', antd: '.ant-table-thead', dataGrid: '无独立 thead 容器', note: 'data-grid 保留 API 形状，但不伪造不存在的 thead 层级。' },
   { key: 'header-row', slot: 'header.row', antd: 'thead > tr', dataGrid: '表头行内所有 header cell', note: 'data-grid 无 tr，行级样式透传到同一逻辑行的所有表头单元格。' },
   { key: 'header-cell', slot: 'header.cell', antd: 'th.ant-table-cell', dataGrid: '.dg-cell-header', note: '表头单元格直接落点，包含排序状态。' },
@@ -435,32 +454,43 @@ export function renderMigration({ onOpen }: DocsPageContext) {
   return (
     <>
       <DocSection
-        id="reuse"
-        eyebrow="迁移"
-        title="先复用熟悉的写法"
-        description="第一步保持 columns、rowSelection、expandable、pagination 这些入口不变。"
+        id="step-1"
+        eyebrow="步骤 1"
+        title="先接入 data-grid"
+        description="把 antd Table 的 import 和类型 import 切到 data-grid；ColumnsType、Table.Column 和 Table.ColumnGroup 写法不需要改。静态样式只在应用入口导入一次。"
+      >
+        <DocsCode code={MIGRATION_IMPORTS} height={240} ariaLabel="迁移 import 代码" />
+      </DocSection>
+
+      <DocSection
+        id="step-2"
+        eyebrow="步骤 2"
+        title="改滚动高度"
+        description="把 antd 的 scroll.y 数字或字符串改成 data-grid 的 y:true；表格会占满父容器提供的可用空间，不再传高度值。"
+      >
+        <DocsCode code={MIGRATION_SCROLL} height={220} ariaLabel="迁移 scroll.y 代码" />
+      </DocSection>
+
+      <DocSection
+        id="step-3"
+        eyebrow="步骤 3"
+        title="迁移 DOM 定制"
+        description="只迁移依赖原生 table DOM 层级的逻辑；能一对一映射的 antd class 和 render 返回 children/props 的单元格写法已兼容。"
       >
         <ul className="docs-bullet-list">
-          <li><Text code>columns</Text>、<Text code>dataSource</Text>、<Text code>rowKey</Text></li>
-          <li><Text code>rowSelection</Text>、<Text code>expandable</Text>、<Text code>pagination</Text></li>
-          <li><Text code>sorter</Text> / <Text code>filters</Text></li>
-          <li><Text code>Table.Column</Text> / <Text code>Table.ColumnGroup</Text></li>
+          <li><Text code>render</Text> 返回 <Text code>{'{ children, props }'}</Text> 时，<Text code>props.colSpan</Text> / <Text code>props.rowSpan</Text>、<Text code>className</Text>、<Text code>style</Text> 和事件 props 会做兼容映射。</li>
+          <li>行或单元格逻辑如果依赖 <Text code>tr</Text> / <Text code>td</Text> 选择器，改到 <Text code>onRow</Text>、<Text code>onCell</Text> 或 <Text code>components</Text>。</li>
+          <li><Text code>.ant-table-wrapper</Text>、<Text code>.ant-table-cell</Text>、<Text code>.ant-table-title</Text>、<Text code>.ant-table-footer</Text>、排序和筛选触发器等稳定节点可继续命中。</li>
+          <li>样式覆盖只迁移依赖 <Text code>.ant-table-thead</Text> / <Text code>.ant-table-tbody</Text> / <Text code>.ant-table-row</Text> / 原生 <Text code>table &gt; tr &gt; td</Text> 层级的选择器。</li>
         </ul>
       </DocSection>
 
-      <DocSection id="differences" eyebrow="差异" title="最需要注意的地方">
-        <DocsDataGrid<CompatRow>
-          columns={[
-            { title: 'API', dataIndex: 'api', key: 'api', width: '24%' },
-            { title: '状态', dataIndex: 'status', key: 'status', width: '20%' },
-            { title: '说明', dataIndex: 'detail', key: 'detail', width: '56%' },
-          ]}
-          dataSource={compatRows.slice(1, 5)}
-          rowKey="key"
-        />
-      </DocSection>
-
-      <DocSection id="demos" eyebrow="推荐" title="先看的 demo">
+      <DocSection
+        id="step-4"
+        eyebrow="步骤 4"
+        title="按 demo 验收"
+        description="迁移完成后直接对照常见表格场景检查结果。"
+      >
         <DocsActionList
           actions={[
             { label: '基础表格', kind: 'path', value: '/demos/basic-table' },
@@ -541,7 +571,7 @@ export function renderScrollY() {
       </DocSection>
       <DocSection id="layout" eyebrow="布局" title="高度由父容器提供">
         <DocsNote title="实践规则">
-          给表格外层容器明确高度，再传 <Text code>{'scroll={{ y: true }}'}</Text>。这样固定表头、虚拟滚动和底部滚动条使用同一套高度链。
+          表格会占满父容器分配给它的可用空间；把父级做成自适应剩余空间的布局，再传 <Text code>{'scroll={{ y: true }}'}</Text>。
         </DocsNote>
       </DocSection>
     </>

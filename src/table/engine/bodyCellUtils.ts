@@ -31,6 +31,19 @@ export function extractRestElementProps(
   return rest
 }
 
+function extractRestCellProps(
+  props: Record<string, any> | undefined,
+): Record<string, unknown> {
+  if (!props) return {}
+
+  const rest: Record<string, unknown> = {}
+  for (const key of Object.keys(props)) {
+    if (key === 'className' || key === 'style' || key === 'colSpan' || key === 'rowSpan') continue
+    rest[key] = props[key]
+  }
+  return rest
+}
+
 export function splitElementProps(props: ElementProps): {
   className: string | undefined
   style: CSSProperties | undefined
@@ -48,6 +61,7 @@ export function resolveBodyCellInjectedProps<RecordType>({
   record,
   index,
   components,
+  renderedCellProps,
   onRow,
   rowClassName,
   isRowSelected,
@@ -56,6 +70,7 @@ export function resolveBodyCellInjectedProps<RecordType>({
   record: RecordType
   index: number
   components: EngineTableProps<RecordType>['components']
+  renderedCellProps?: Record<string, any>
   onRow?: (record: RecordType, index: number) => ElementProps
   rowClassName?: EngineTableProps<RecordType>['rowClassName']
   isRowSelected?: (record: RecordType) => boolean
@@ -76,6 +91,12 @@ export function resolveBodyCellInjectedProps<RecordType>({
       onCellProps = undefined
     }
   }
+  const mergedOnCellProps = renderedCellProps || onCellProps
+    ? {
+        ...(renderedCellProps ?? null),
+        ...(onCellProps ?? null),
+      }
+    : undefined
 
   let onRowProps: ElementProps
   if (onRow) {
@@ -88,27 +109,38 @@ export function resolveBodyCellInjectedProps<RecordType>({
 
   const resolvedRowClassName = resolveRowClassName(rowClassName, record, index)
   const rowProps = splitElementProps(onRowProps)
+  const renderedCellClassName = typeof renderedCellProps?.className === 'string'
+    ? renderedCellProps.className
+    : undefined
+  const renderedCellStyle = renderedCellProps?.style && typeof renderedCellProps.style === 'object'
+    ? renderedCellProps.style as CSSProperties
+    : undefined
   const selectedClass =
     isRowSelected && isRowSelected(record) ? 'dg-row-selected' : undefined
   const mergedClassName = [
     column.className,
     resolvedRowClassName,
     rowProps.className,
+    renderedCellClassName,
   ]
     .filter(Boolean)
     .join(' ') || undefined
   const mergedStyle: CSSProperties = {
     ...(column.style ?? null),
     ...(rowProps.style ?? null),
+    ...(renderedCellStyle ?? null),
   }
 
   return {
-    onCellProps,
+    onCellProps: mergedOnCellProps,
     onRowProps,
     rowClassName: resolvedRowClassName,
     selectedClass,
     mergedClassName,
     mergedStyle,
-    restRowProps: rowProps.restProps,
+    restRowProps: {
+      ...extractRestCellProps(renderedCellProps),
+      ...rowProps.restProps,
+    },
   }
 }

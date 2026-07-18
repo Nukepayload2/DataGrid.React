@@ -5,9 +5,8 @@
 
 ## 架构边界
 
-- semantic DOM 不能完整复刻原生 `thead` / `tbody` / `tr` 层级；`header.wrapper`、`body.wrapper` 和完整 row role 结构没有对应 DOM。
+- semantic DOM 不能完整复刻原生 `thead` / `tbody` / `tr` 层级；`header.wrapper`、`body.wrapper` 和完整 row role 结构没有对应 DOM。能映射到稳定节点的 `.ant-table-*` class alias 已兼容，不属于架构限制。
 - `scroll.y` 只支持 data-grid 的“数据区模式”语义，不支持 antd 的 `number|string` `max-height` 语义。
-- `render` 返回 `RenderedCell` 对象并在其中携带 `rowSpan` / `colSpan` 的 antd 形态未对齐，合并统一走 `onCell`。
 
 ## 兼容缺口
 
@@ -38,8 +37,10 @@
 - `locale` 已接入 antd `useLocale('Table')`：`TableProps.locale` 覆盖 ConfigProvider locale，ConfigProvider locale 覆盖默认英文；FilterDropdown、selection 内置项、排序/展开文案已纳入当前兼容面。
 - `pagination` 默认开启已对齐 antd：未传等价 `{}`，默认 10/页；`pagination={false}` 才关闭。
 - `scroll.scrollToFirstRowOnChange` 已实现：分页、排序、筛选变化默认滚回首行，可设 `false` 关闭。
+- `render` 返回 `RenderedCell` 对象形态已兼容：`children` 作为内容，`props.colSpan` / `props.rowSpan` 进入合并计算，`className` / `style` / 事件 props 映射到 data-grid cell。
 - `rowSelection.onSelect`、`onSelectMultiple`、`onSelectAll`、`onSelectInvert`、`onSelectNone` 已实现。
 - `rowSelection.columnTitle`、`rowSelection.onCell`、`rowSelection.getTitleCheckboxProps` 已实现。
+- 稳定节点的一对一 `.ant-table-*` class alias 已实现：wrapper、table/container/content、title/footer、cell、fixed cell、排序节点和筛选触发器。
 - 拖拽相关的 `gridOptions.autoScrollOnDrag`、`gridOptions.columnReorder`、`gridColumnOptions.dragColumnLock`、`gridOptions.multiRowReorder` 已作为当前采用的 data-grid 原生能力记录。
 
 ## 行为和布局限制

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   clampSize,
   fixedClass,
+  normalizeRenderedCell,
   omitKey,
   renderCellContent,
   resolveBodyCellEllipsisTitle,
@@ -80,6 +81,17 @@ describe('cellRenderUtils', () => {
       rendered: 'Ada',
       onCellProps: undefined,
     })).toBe('Ada')
+  })
+
+  it('normalizes antd RenderedCell-like objects', () => {
+    const normalized = normalizeRenderedCell({
+      children: <span>Ada</span>,
+      props: { colSpan: 2, className: 'merged' },
+    })
+
+    expect(normalized.children).toEqual(<span>Ada</span>)
+    expect(normalized.props).toEqual({ colSpan: 2, className: 'merged' })
+    expect(normalizeRenderedCell(<strong>Ada</strong>).children).toEqual(<strong>Ada</strong>)
   })
 
   it('passes cell props to a custom cell component', () => {

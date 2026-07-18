@@ -51,6 +51,8 @@ export type {
   StickyConfig,
   ScrollBarFoldMode,
   TableLocale,
+  ColumnsType,
+  RenderedCell,
   DisposeCellElementReason,
   GridCellElementRenderParams,
   GridCellReactSlotProps,
@@ -61,3 +63,5 @@ export type {
 
 /** `ColumnType` 的 antd 风格别名。 */
 export type { ColumnType as TableColumnType } from './types'
+/** `ColumnsType` 的 antd 风格别名。 */
+export type { ColumnsType as TableColumnsType } from './types'

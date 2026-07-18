@@ -1,5 +1,31 @@
-import type { ReactNode } from 'react'
+import { isValidElement, type ReactNode } from 'react'
 import type { EngineLeafColumn, EngineTableProps, FixedSide } from './types'
+
+export interface RenderedCellLike {
+  children?: ReactNode
+  props?: Record<string, any>
+}
+
+export interface NormalizedRenderedCell {
+  children: ReactNode
+  props: Record<string, any> | undefined
+}
+
+export function isRenderedCellLike(value: unknown): value is RenderedCellLike {
+  if (!value || typeof value !== 'object') return false
+  if (isValidElement(value)) return false
+  return 'children' in value || 'props' in value
+}
+
+export function normalizeRenderedCell(rendered: unknown): NormalizedRenderedCell {
+  if (!isRenderedCellLike(rendered)) {
+    return { children: rendered as ReactNode, props: undefined }
+  }
+  return {
+    children: rendered.children,
+    props: rendered.props && typeof rendered.props === 'object' ? rendered.props : undefined,
+  }
+}
 
 /**
  * 单元格内容渲染（应用 components.body.cell）。详见 GridTable 文件头 components 机制说明。
@@ -141,8 +167,8 @@ export function clampSize(size: number, min?: number, max?: number): number {
 }
 
 export function fixedClass(fixed: FixedSide | undefined): string | undefined {
-  if (fixed === 'start') return 'dg-cell-fixed-start'
-  if (fixed === 'end') return 'dg-cell-fixed-end'
+  if (fixed === 'start') return 'dg-cell-fixed-start ant-table-cell-fix-left'
+  if (fixed === 'end') return 'dg-cell-fixed-end ant-table-cell-fix-right'
   return undefined
 }
 

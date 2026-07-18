@@ -80,6 +80,34 @@ describe('bodyCellUtils', () => {
     expect(result.restRowProps).toEqual({ onMouseEnter })
   })
 
+  it('merges RenderedCell props into default cell props without leaking span attrs', () => {
+    const onClick = vi.fn()
+    const result = resolveBodyCellInjectedProps({
+      column: { key: 'name', className: 'col', style: { color: 'blue' } },
+      record: { id: 1 },
+      index: 0,
+      components: undefined,
+      renderedCellProps: {
+        className: 'rendered',
+        style: { backgroundColor: 'yellow' },
+        onClick,
+        colSpan: 2,
+        rowSpan: 3,
+      },
+    })
+
+    expect(result.onCellProps).toEqual({
+      className: 'rendered',
+      style: { backgroundColor: 'yellow' },
+      onClick,
+      colSpan: 2,
+      rowSpan: 3,
+    })
+    expect(result.mergedClassName).toBe('col rendered')
+    expect(result.mergedStyle).toEqual({ color: 'blue', backgroundColor: 'yellow' })
+    expect(result.restRowProps).toEqual({ onClick })
+  })
+
   it('skips onCell when no custom body cell exists and swallows user callback errors', () => {
     const onCell = vi.fn(() => ({ editable: true }))
     const column: EngineLeafColumn<{ id: number }> = { key: 'name', onCell }

@@ -436,4 +436,44 @@ describe('Table public API behavior', () => {
     expect(document.querySelector('.dg-wrapper')).toHaveClass('dg-sticky')
     expect(document.querySelector('.dg-wrapper')).toHaveClass('dg-data-area')
   })
+
+  it('emits antd table class aliases for stable data-grid nodes', () => {
+    const columns: Array<ColumnType<Person>> = [
+      {
+        title: 'Name',
+        dataIndex: 'name',
+        key: 'name',
+        fixed: 'left',
+        sorter: (a, b) => a.name.localeCompare(b.name),
+        filters: [{ text: 'Bob', value: 'Bob' }],
+        onFilter: (value, record) => record.name === value,
+      },
+      baseColumns[1]!,
+    ]
+
+    render(
+      <Table<Person>
+        columns={columns}
+        dataSource={data}
+        pagination={false}
+        scroll={{ x: 640 }}
+        title={() => 'People'}
+        footer={() => 'End'}
+      />,
+    )
+
+    expect(document.querySelector('.dg-wrapper')).toHaveClass('ant-table-wrapper')
+    expect(document.querySelector('.dg-title')).toHaveClass('ant-table-title')
+    expect(document.querySelector('.dg-footer')).toHaveClass('ant-table-footer')
+    expect(document.querySelector('.dg-grid')).toHaveClass('ant-table')
+    expect(document.querySelector('.dg-scroll-wrap')).toHaveClass('ant-table-container')
+    expect(document.querySelector('.dg-scroll')).toHaveClass('ant-table-content')
+    expect(document.querySelector('.dg-cell-header')).toHaveClass('ant-table-cell')
+    expect(document.querySelector('.dg-cell-body')).toHaveClass('ant-table-cell')
+    expect(document.querySelector('[data-column-key="name"]')).toHaveClass('ant-table-cell-fix-left')
+    expect(document.querySelector('.dg-column-has-sorters')).toHaveClass('ant-table-column-has-sorters')
+    expect(document.querySelector('.dg-column-sorters')).toHaveClass('ant-table-column-sorters')
+    expect(document.querySelector('.dg-column-title')).toHaveClass('ant-table-column-title')
+    expect(document.querySelector('.dg-filter-trigger')).toHaveClass('ant-table-filter-trigger')
+  })
 })

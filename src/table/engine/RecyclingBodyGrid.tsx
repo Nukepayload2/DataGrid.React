@@ -427,13 +427,14 @@ function patchOuter<RecordType>({
   const hoverClass = resolveHoverClass(rowHoverable, isHovered)
   cell.outer.className = [
     'dg-cell',
+    'ant-table-cell',
     'dg-cell-body',
     column.rowScope === 'row' ? 'dg-cell-rowscope' : undefined,
     fixedClass(column.fixed),
     shadowClass(sticky),
     column.hidden ? 'dg-cell-hidden' : undefined,
     column.ellipsis === true ? 'dg-cell-ellipsis' : undefined,
-    isSortedColumn ? 'dg-column-sort' : undefined,
+    isSortedColumn ? 'dg-column-sort ant-table-column-sort' : undefined,
     hoverClass,
     bodyCellInjectedProps.selectedClass,
     semanticBody?.className?.row,

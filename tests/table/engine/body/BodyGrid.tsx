@@ -1030,7 +1030,11 @@ describe('renderBodyCells - sorted / sticky / hidden / align / rowScope markers 
     render(<div>{out}</div>)
     const nameCells = Array.from(document.querySelectorAll('[data-column-key="name"]')) as HTMLElement[]
     const ageCells = Array.from(document.querySelectorAll('[data-column-key="age"]')) as HTMLElement[]
-    for (const c of nameCells) expect(c.className).toContain('dg-column-sort')
+    for (const c of nameCells) {
+      expect(c.className).toContain('dg-column-sort')
+      expect(c.className).toContain('ant-table-column-sort')
+      expect(c.className).toContain('ant-table-cell')
+    }
     for (const c of ageCells) expect(c.className).not.toContain('dg-column-sort')
   })
 
@@ -1067,6 +1071,7 @@ describe('renderBodyCells - sorted / sticky / hidden / align / rowScope markers 
     render(<div>{out}</div>)
     const nameCell = document.querySelector('[data-column-key="name"]')! as HTMLElement
     expect(nameCell.className).toContain('dg-cell-fixed-start')
+    expect(nameCell.className).toContain('ant-table-cell-fix-left')
     expect(nameCell.className).toContain('dg-sticky-shadow-start')
     expect(nameCell.style.position).toBe('sticky')
     expect(nameCell.style.left).toBe('0px')

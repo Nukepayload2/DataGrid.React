@@ -47,6 +47,7 @@ import {
 } from './columnTree'
 import {
   computeCellMergePlan,
+  hasCellMergeDeclaration,
   type CellMergePlan,
 } from './cellMerge'
 import {
@@ -259,11 +260,11 @@ function GridTableInner<RecordType = any>(
     if (columnTree && columnTree.length > 0) {
       const r = resolveColumnTree(columnTree)
       // 检测单元格合并（onCell）或表头合并（colSpan≠1 或存在 covered 表头格）。
-      const hasOnCell = r.leafColumns.some((c) => typeof c.onCell === 'function')
+      const hasCellMerge = hasCellMergeDeclaration(r.leafColumns, dataSource)
       const hasHeaderMerge = r.headerCells.some(
         (h) => (h.headerColSpan ?? 1) !== 1 || h.covered === true,
       )
-      const forceMulti = hasOnCell || hasHeaderMerge
+      const forceMulti = hasCellMerge || hasHeaderMerge
       const multi = r.maxDepth > 1 || forceMulti
       return {
         mode: (multi || virtualEnabled || expandEnabled || treeEnabled || summaryEnabled || emptyEnabled || !!components?.body?.row ? ('multi' as const) : ('flat' as const)),
@@ -277,11 +278,11 @@ function GridTableInner<RecordType = any>(
     // 走 resolveColumnTree（得到 headerCells 供 covered 处理），再强制 multi。
     // 虚拟 / 展开 / 树形 / summary / empty / components.body.row 提供时也包装成 multi（理由同 columnTree 分支）。
     const flatLeavesRaw: Array<EngineLeafColumn<RecordType>> = columns ?? []
-    const hasOnCellFlat = flatLeavesRaw.some((c) => typeof c.onCell === 'function')
+    const hasCellMergeFlat = hasCellMergeDeclaration(flatLeavesRaw, dataSource)
     const hasHeaderColSpanFlat = flatLeavesRaw.some(
       (c) => c.colSpan !== undefined && c.colSpan !== 1,
     )
-    if (hasOnCellFlat || hasHeaderColSpanFlat || virtualEnabled || expandEnabled || treeEnabled || summaryEnabled || emptyEnabled || !!components?.body?.row) {
+    if (hasCellMergeFlat || hasHeaderColSpanFlat || virtualEnabled || expandEnabled || treeEnabled || summaryEnabled || emptyEnabled || !!components?.body?.row) {
       // 包装成单层 columnTree（每个叶子列作为根节点）。
       const pseudoTree = flatLeavesRaw.map((c) => ({ ...c, children: undefined }))
       const r = resolveColumnTree(pseudoTree)
@@ -420,7 +421,7 @@ function GridTableInner<RecordType = any>(
     !expandEnabled &&
     !components?.body?.row &&
     !components?.body?.cell &&
-    !leafColumns.some((column) => typeof column.onCell === 'function')
+    !hasCellMergeDeclaration(leafColumns, dataSource)
   const recyclingDegradedToStandard = recyclingRequested && !recyclingBodyEnabled
 
   // 暴露 scrollTo（仅在虚拟模式下有效；非虚拟调用为 no-op）。
@@ -529,6 +530,7 @@ function GridTableInner<RecordType = any>(
 
   const gridClassName = [
     'dg-grid',
+    'ant-table',
     // 语义化 content 部位 class（合并到 grid 根容器）。
     semantic?.content?.className,
     // 拖拽进行中加 dg-grid-resizing 类，禁用 grid-template-columns 过渡

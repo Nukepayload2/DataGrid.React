@@ -1,7 +1,4 @@
 import {
-  type ReactNode,
-} from 'react'
-import {
   stickyCellStyle,
   type LeafStickyInfo,
 } from './useStickyColumns'
@@ -15,6 +12,7 @@ import type { ColumnType, FilterValue } from '../types'
 import { getRowKey, getValueByDataIndex } from './recordAccess'
 import {
   fixedClass,
+  normalizeRenderedCell,
   omitKey,
   renderCellContent,
   resolveBodyCellEllipsisTitle,
@@ -250,6 +248,7 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
         <div
           className={[
             'dg-cell',
+            'ant-table-cell',
             'dg-cell-header',
             fixedClass(column.fixed),
             shadowClass(sticky),
@@ -257,9 +256,9 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
             // 表头纵向 sticky（容器内 top:0）或页面级 sticky（top:offsetHeader）：
             //   均需不透明背景（防止表体透过）+ 配合 inline position/top/zIndex。
             (headerStickyTop || stickyHeaderOffset !== undefined) ? 'dg-cell-header-vsticky' : undefined,
-            sortable ? 'dg-column-has-sorters' : undefined,
+            sortable ? 'dg-column-has-sorters ant-table-column-has-sorters' : undefined,
             filterable ? 'dg-column-has-filter' : undefined,
-            isSorted ? 'dg-column-sort' : undefined,
+            isSorted ? 'dg-column-sort ant-table-column-sort' : undefined,
             // 叶子表头格 ellipsis 加 dg-cell-ellipsis（作用于 .dg-cell-inner / .dg-column-title）。
             headerEllipsis ? 'dg-cell-ellipsis' : undefined,
             // 语义化 header.cell 部位 className（合并）。
@@ -331,9 +330,9 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
           {...omitKey(headerEventPropsFlat, 'onClick')}
         >
           {hasActions ? (
-            <div className="dg-column-sorters">
+            <div className="dg-column-sorters ant-table-column-sorters">
               <div
-                className="dg-column-title"
+                className="dg-column-title ant-table-column-title"
                 // ellipsis 列 hover 表头文字提示完整标题（非 ellipsis 列无 title）。
                 title={headerTitle}
               >
@@ -385,9 +384,10 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
 
       {bodyRows.map(({ record, index }) => {
         const text = getValueByDataIndex(record, column.dataIndex)
-        const rendered: ReactNode = column.render
+        const rawRendered: unknown = column.render
           ? column.render(text, record, index)
           : text
+        const { children: rendered, props: renderedCellProps } = normalizeRenderedCell(rawRendered)
         // ellipsis 列默认 title 提示（详见 BodyCell 同款注释 + docs/design-notes/ellipsis.md）。取原始 dataIndex 值文本化。
         //   showTitle:false 时不加 native title（详见 BodyCell 同款注释）。
         const ellipsisTitle = resolveBodyCellEllipsisTitle(column.ellipsis, column.showTitle, text)
@@ -398,6 +398,7 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
           record,
           index,
           components,
+          renderedCellProps,
           onRow,
           rowClassName,
           isRowSelected,
@@ -410,6 +411,7 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
             key={getRowKey(record, rowKey) ?? index}
             className={[
               'dg-cell',
+              'ant-table-cell',
               'dg-cell-body',
               fixedClass(column.fixed),
               shadowClass(sticky),
@@ -418,7 +420,7 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
               //   showTitle:false 仍加类（CSS 省略号照常），只是不加 native title。
               column.ellipsis === true ? 'dg-cell-ellipsis' : undefined,
               // 当前排序列的表体格加 dg-column-sort（淡灰底，对齐 antd tableBodySortBg）。
-              isSorted ? 'dg-column-sort' : undefined,
+              isSorted ? 'dg-column-sort ant-table-column-sort' : undefined,
               // rowHoverable=false 时关闭内置 hover 视觉。
               hoverClass,
               // 行选中态 → dg-row-selected 类。

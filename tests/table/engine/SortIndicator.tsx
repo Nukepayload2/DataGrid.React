@@ -9,10 +9,15 @@ describe('SortIndicator', () => {
     const sorter = container.querySelector('.dg-column-sorter') as HTMLElement
     expect(sorter).not.toBeNull()
     expect(sorter).toHaveClass('dg-column-sorter')
+    expect(sorter).toHaveClass('ant-table-column-sorter')
     expect(sorter).toHaveAttribute('aria-hidden', 'true')
     expect(sorter.querySelector('.dg-column-sorter-up')).toHaveClass(
       'dg-column-sorter-active',
     )
+    expect(sorter.querySelector('.dg-column-sorter-up')).toHaveClass(
+      'ant-table-column-sorter-up',
+    )
+    expect(sorter.querySelector('.dg-column-sorter-up')).toHaveClass('active')
     expect(sorter.querySelector('.dg-column-sorter-down')).not.toHaveClass(
       'dg-column-sorter-active',
     )

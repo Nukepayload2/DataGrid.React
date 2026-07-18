@@ -45,20 +45,20 @@ export function SortIndicator({ sortOrder, priority }: SortIndicatorProps) {
     sortOrder !== null && typeof priority === 'number' && priority > 0
   return (
     <span
-      className="dg-column-sorter"
+      className="dg-column-sorter ant-table-column-sorter"
       // 阻止点击冒泡到表头格本身（避免与 header click 双触发）—— 实际引擎把点击绑在表头格，
       // 这里 sort indicator 不再独立绑 click（点击图标 = 点击表头格），无需 stopPropagation。
       // 但仍阻止 mousedown 选中文字（保持点击体验干净）。
       onMouseDown={(e) => e.preventDefault()}
       aria-hidden="true"
     >
-      <span className="dg-column-sorter-inner">
+      <span className="dg-column-sorter-inner ant-table-column-sorter-inner">
         <CaretUpOutlined
-          className={`dg-column-sorter-up${ascendActive ? ' dg-column-sorter-active' : ''}`}
+          className={`dg-column-sorter-up ant-table-column-sorter-up${ascendActive ? ' dg-column-sorter-active active' : ''}`}
           // active caret 通过 CSS color 控制（对齐 antd `.active { color: colorPrimary }`）。
         />
         <CaretDownOutlined
-          className={`dg-column-sorter-down${descendActive ? ' dg-column-sorter-active' : ''}`}
+          className={`dg-column-sorter-down ant-table-column-sorter-down${descendActive ? ' dg-column-sorter-active active' : ''}`}
         />
       </span>
       {showPriority ? (

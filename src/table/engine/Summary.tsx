@@ -212,7 +212,7 @@ export function SummaryCell(props: SummaryCellProps): ReactNode {
   }
   return (
     <div
-      className={['dg-cell', 'dg-cell-summary', align ? `dg-cell-summary-${align}` : undefined]
+      className={['dg-cell', 'ant-table-cell', 'dg-cell-summary', align ? `dg-cell-summary-${align}` : undefined]
         .filter(Boolean)
         .join(' ')}
       data-align={align ?? undefined}

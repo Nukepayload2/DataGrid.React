@@ -225,6 +225,7 @@ function HeaderCell<RecordType>({
     <div
       className={[
         'dg-cell',
+        'ant-table-cell',
         'dg-cell-header',
         cell.isLeaf ? undefined : 'dg-cell-header-group',
         fixedClass(cell.fixed),
@@ -237,11 +238,11 @@ function HeaderCell<RecordType>({
         // stickyHeaderOffset（页面级）同样需要不透明背景（grid 不包容器，表头悬浮于表体之上）。
         (headerStickyTop || stickyHeaderOffset !== undefined) ? 'dg-cell-header-vsticky' : undefined,
         // 可排序列表头格加 dg-column-has-sorters（cursor:pointer + hover 背景）。
-        sortable ? 'dg-column-has-sorters' : undefined,
+        sortable ? 'dg-column-has-sorters ant-table-column-has-sorters' : undefined,
         // 可筛选列表头格加 dg-column-has-filter（hover 背景 + 漏斗区域视觉提示）。
         filterable ? 'dg-column-has-filter' : undefined,
         // 当前排序列表头格加 dg-column-sort（淡灰背景，对齐 antd tableHeaderSortBg）。
-        isSorted ? 'dg-column-sort' : undefined,
+        isSorted ? 'dg-column-sort ant-table-column-sort' : undefined,
         // 语义化 header.cell 部位 className（合并）。
         semanticHeader?.className?.cell,
         // 语义化 header.row 部位 className（行级 class 透传到该行所有表头格，
@@ -348,9 +349,9 @@ function HeaderCell<RecordType>({
         // 可排序或可筛选列用 dg-column-sorters 容器（flex space-between：title + 右侧操作区）。
         // 右侧操作区含 sorter caret + filter 漏斗，对齐 antd 同时有 sorter+filter 的列表头布局。
         // ellipsis 作用于 .dg-column-title（CSS `.dg-cell.dg-cell-ellipsis .dg-column-title`）。
-        <div className="dg-column-sorters">
+        <div className="dg-column-sorters ant-table-column-sorters">
           <div
-            className="dg-column-title"
+            className="dg-column-title ant-table-column-title"
             // ellipsis 列 hover 表头文字提示完整标题（非 ellipsis 列无 title）。
             title={headerTitle}
           >

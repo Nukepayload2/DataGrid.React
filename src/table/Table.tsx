@@ -530,6 +530,7 @@ function TableInner<RecordType = any>(
   const dataAreaClassEnabled = scroll?.y === true
   const wrapperClass = [
     'dg-wrapper',
+    'ant-table-wrapper',
     sizeToClass(size),
     bordered ? 'dg-bordered' : '',
     stickyClassEnabled ? 'dg-sticky' : '',
@@ -746,7 +747,7 @@ function TableInner<RecordType = any>(
       {topPaginationNode}
       {title ? (
         <div
-          className={['dg-title', titleClassName].filter(Boolean).join(' ')}
+          className={['dg-title', 'ant-table-title', titleClassName].filter(Boolean).join(' ')}
           style={titleStyle}
         >
           {title(flattenedDataSource)}
@@ -765,7 +766,7 @@ function TableInner<RecordType = any>(
         详见 `docs/design-notes/scrollbar.md`。
       */}
       {contentScrolledEnabled ? (
-        <div className="dg-scroll" style={{ overflowX: 'hidden' }}>
+        <div className="dg-scroll ant-table-content" style={{ overflowX: 'hidden' }}>
           <GridTable<RecordType>
             ref={engineRef as unknown as React.Ref<TableEngineHandle>}
             columnTree={columnTreeWithSortAndFilter}
@@ -846,7 +847,7 @@ function TableInner<RecordType = any>(
       )}
       {footer ? (
         <div
-          className={['dg-footer', footerClassName].filter(Boolean).join(' ')}
+          className={['dg-footer', 'ant-table-footer', footerClassName].filter(Boolean).join(' ')}
           style={footerStyle}
         >
           {footer(flattenedDataSource)}

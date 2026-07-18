@@ -46,6 +46,8 @@
  */
 
 import type { EngineLeafColumn } from './types'
+import { normalizeRenderedCell } from './cellRenderUtils'
+import { getValueByDataIndex } from './recordAccess'
 
 export interface CellMergeInfo {
   /** 该格是否被覆盖（true → 不渲染 DOM）。 */
@@ -72,12 +74,45 @@ function normalizeSpan(v: number | undefined): number {
   return n
 }
 
+function resolveRenderedCellProps<RecordType>(
+  column: EngineLeafColumn<RecordType>,
+  record: RecordType,
+  index: number,
+): Record<string, any> | undefined {
+  if (!column.render) return undefined
+  try {
+    const text = getValueByDataIndex(record, column.dataIndex)
+    return normalizeRenderedCell(column.render(text, record, index)).props
+  } catch {
+    return undefined
+  }
+}
+
+function hasSpanProps(props: Record<string, any> | undefined): boolean {
+  return props?.colSpan !== undefined || props?.rowSpan !== undefined
+}
+
+export function hasCellMergeDeclaration<RecordType>(
+  leafColumns: Array<EngineLeafColumn<RecordType>>,
+  dataSource: Array<RecordType>,
+): boolean {
+  if (leafColumns.some((c) => typeof c.onCell === 'function')) return true
+  for (const column of leafColumns) {
+    if (!column.render) continue
+    for (let index = 0; index < dataSource.length; index += 1) {
+      const record = dataSource[index]
+      if (hasSpanProps(resolveRenderedCellProps(column, record, index))) return true
+    }
+  }
+  return false
+}
+
 /**
  * 计算单元格合并计划。
  *
- * @param leafColumns 叶子列（按列顺序）；每列的 `onCell` 用于取合并信息。
+ * @param leafColumns 叶子列（按列顺序）；`onCell` 或 `render` 返回的 props 用于取合并信息。
  * @param dataSource 数据源（按行顺序）。
- * @returns CellMergePlan；若无任何列声明 onCell，返回 null（调用方可走快速路径，无合并）。
+ * @returns CellMergePlan；若无任何合并声明，返回 null（调用方可走快速路径，无合并）。
  */
 export function computeCellMergePlan<RecordType>(
   leafColumns: Array<EngineLeafColumn<RecordType>>,
@@ -87,9 +122,8 @@ export function computeCellMergePlan<RecordType>(
   const rowCount = dataSource.length
   if (colCount === 0 || rowCount === 0) return null
 
-  // 是否存在任何 onCell（决定是否需要走合并路径）。
-  const hasOnCell = leafColumns.some((c) => typeof c.onCell === 'function')
-  if (!hasOnCell) return null
+  // 是否存在任何合并声明（决定是否需要走合并路径）。
+  if (!hasCellMergeDeclaration(leafColumns, dataSource)) return null
 
   // 初始化：每格默认 colSpan=1 / rowSpan=1 / hidden=false。
   const plan: CellMergePlan = []
@@ -101,18 +135,18 @@ export function computeCellMergePlan<RecordType>(
     plan.push(col)
   }
 
-  // 阶段 1：声明。对每格调 onCell 取 colSpan/rowSpan；0 → 标 hidden 并把 span 当 1（不扩展）。
+  // 阶段 1：声明。对每格读取 onCell / render props 的 colSpan/rowSpan；0 → 标 hidden 并把 span 当 1（不扩展）。
   for (let c = 0; c < colCount; c++) {
     const colDef = leafColumns[c]
     const onCell = colDef.onCell
-    if (!onCell) continue
     for (let r = 0; r < rowCount; r++) {
       const record = dataSource[r]
       let result: { colSpan?: number; rowSpan?: number } | undefined
+      const renderProps = resolveRenderedCellProps(colDef, record, r)
       try {
-        result = onCell(record, r)
+        result = onCell ? { ...(renderProps ?? null), ...onCell(record, r) } : renderProps
       } catch {
-        result = undefined
+        result = renderProps
       }
       const cs = normalizeSpan(result?.colSpan)
       const rs = normalizeSpan(result?.rowSpan)

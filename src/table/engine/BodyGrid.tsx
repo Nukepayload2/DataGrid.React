@@ -21,6 +21,7 @@ import {
 } from './useStickyColumns'
 import {
   fixedClass,
+  normalizeRenderedCell,
   omitKey,
   renderCellContent,
   resolveBodyCellEllipsisTitle,
@@ -117,7 +118,7 @@ function BodyCell<RecordType>({
   const reactRenderer = renderRecyclingReactCells
     ? column.gridColumnOptions?.renderCellReact
     : undefined
-  const rendered: ReactNode = reactRenderer
+  const rawRendered: unknown = reactRenderer
     ? reactRenderer(
         {
           value: text,
@@ -135,6 +136,7 @@ function BodyCell<RecordType>({
     : column.render
       ? column.render(text, record, index)
       : text
+  const { children: rendered, props: renderedCellProps } = normalizeRenderedCell(rawRendered)
   // ellipsis 列默认 title 悬浮提示（对齐 antd 默认行为）。详见 docs/design-notes/ellipsis.md。
   //   - 仅 ellipsis 列加 title（非 ellipsis 列不加，避免多余 tooltip）。
   //   - 取原始 dataIndex 值文本化（string/number）——对齐 antd 默认 title 来源（cellValue 文本化）。
@@ -151,6 +153,7 @@ function BodyCell<RecordType>({
     record,
     index,
     components,
+    renderedCellProps,
     onRow,
     rowClassName,
     isRowSelected,
@@ -163,6 +166,7 @@ function BodyCell<RecordType>({
       key={standardCellKey}
       className={[
         'dg-cell',
+        'ant-table-cell',
         'dg-cell-body',
         column.rowScope === 'row' ? 'dg-cell-rowscope' : undefined,
         // rowSpan>1 的合并格标记，CSS 据此在有界行高模型下排除 min/max-height
@@ -174,7 +178,7 @@ function BodyCell<RecordType>({
         // ellipsis 列加 dg-cell-ellipsis 类（.dg-cell-inner 应用 ellipsis CSS）。
         //   showTitle:false 仍加类（CSS 省略号照常），只是不加 native title。
         column.ellipsis === true ? 'dg-cell-ellipsis' : undefined,
-        isSortedColumn ? 'dg-column-sort' : undefined,
+        isSortedColumn ? 'dg-column-sort ant-table-column-sort' : undefined,
         // rowHoverable=false 时关闭内置 hover 视觉。
         hoverClass,
         // 行选中态 → dg-row-selected 类。

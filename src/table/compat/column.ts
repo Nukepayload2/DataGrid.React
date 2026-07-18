@@ -18,6 +18,11 @@ import type {
 import type { ColumnSorter, SortDirections, SortOrder } from './sort'
 import type { GridColumnOptions } from '../engine/recyclingCellTypes'
 
+export interface RenderedCell {
+  props?: Record<string, any>
+  children?: ReactNode
+}
+
 /**
  * antd column 子集（demo 用到的）。
  * `dataIndex` 支持字符串/数字/路径数组（与 antd 一致）。
@@ -120,8 +125,8 @@ export interface ColumnType<RecordType = any> {
    * 详见 `docs/design-notes/hidden-column.md`。
    */
   hidden?: boolean
-  /** antd render 子集：(text, record, index) => ReactNode。 */
-  render?: (text: any, record: RecordType, index: number) => ReactNode
+  /** antd render：(text, record, index) => ReactNode | RenderedCell。 */
+  render?: (text: any, record: RecordType, index: number) => ReactNode | RenderedCell
   /**
    * 子列（多级表头，任意深度）。
    * 有 children 时该列视为分组列（仅取 key/title/align/fixed）；
@@ -398,3 +403,11 @@ export interface ColumnType<RecordType = any> {
    */
   responsive?: Array<Breakpoint>
 }
+
+/**
+ * antd 风格列数组别名。
+ *
+ * data-grid 的分组列通过 `ColumnType.children` 表达，因此这里直接对齐
+ * antd `ColumnsType<T>` 的数组入口形状。
+ */
+export type ColumnsType<RecordType = any> = Array<ColumnType<RecordType>>

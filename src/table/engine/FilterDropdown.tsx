@@ -471,6 +471,7 @@ export function FilterDropdown({
     <span
       className={[
         'dg-filter-trigger',
+        'ant-table-filter-trigger',
         activated ? 'dg-filter-trigger-active' : undefined,
         dropdownProps?.triggerClassName,
       ]

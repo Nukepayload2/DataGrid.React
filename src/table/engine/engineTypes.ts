@@ -109,9 +109,9 @@ export interface EngineLeafColumn<RecordType = any> {
   /**
    * 自定义单元格渲染。
    * 签名对齐 antd column.render 的常用子集：
-   *   (text, record, index) => ReactNode
+   *   (text, record, index) => ReactNode | EngineRenderedCell
    */
-  render?: (text: any, record: RecordType, index: number) => ReactNode
+  render?: (text: any, record: RecordType, index: number) => ReactNode | EngineRenderedCell
   /**
    * 单元格事件 + 合并入口。
    * 返回 { colSpan?, rowSpan?, ...任意字段 }；含 colSpan/rowSpan=0 表示该格被覆盖（不渲染）。
@@ -283,7 +283,7 @@ export interface EngineColumnNode<RecordType = any> {
   /** 叶子列属性（dataIndex/width/render；仅当本节点为叶子时使用）。 */
   dataIndex?: string | number | Array<string | number>
   width?: number | string
-  render?: (text: any, record: RecordType, index: number) => ReactNode
+  render?: (text: any, record: RecordType, index: number) => ReactNode | EngineRenderedCell
   /**
    * 单元格事件 + 合并入口（仅叶子节点消费）。详见 EngineLeafColumn.onCell。
    */
@@ -897,4 +897,8 @@ export interface EngineTableProps<RecordType = any> {
    * 未提供（undefined）时不加 dg-row-selected 类（无 rowSelection 的 demo 零回归）。
    */
   isRowSelected?: (record: RecordType) => boolean
+}
+export interface EngineRenderedCell {
+  props?: Record<string, any>
+  children?: ReactNode
 }

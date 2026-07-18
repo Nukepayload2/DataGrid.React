@@ -54,7 +54,6 @@
 | `components.body.row` | components | 名兼义异 | antd 替换 `<tr>`；dg 因 grid 布局无单一 `<tr>`，实现为**包裹层组件**（每行一个 wrapper，内部仍按 grid 定位渲染单元格）。提供时启用包裹层，未提供时维持现有布局（cell 直接 grid item）。 | dg `types.ts:753-757` |
 | `column.className` / `column.style` | ColumnType | 名兼义异 | antd 作用于 `<td>`/`<th>`；dg 直接合并到 dg-cell div 的 `className`/`style`（grid item）。视觉等价，DOM 形态不同。 | dg `types.ts:381-400` |
 | `column.colSpan`（表头） | ColumnType（子结构） | 名兼义异 | 在 dg 中**仅用于表头格**横向跨列（叶子列表头合并），数据单元格合并走 `onCell` 返回 `colSpan`。antd 的 column-level colSpan 语义在 dg 拆成了两套路径。 | dg `types.ts:481-490`（表头 colSpan）+ `504-507`（onCell 数据格 colSpan）|
-| `render` 返回 `{ props: { colSpan, rowSpan } }` 对象形态 | ColumnType.render | 名兼义异 | antd `render` 可返回 `RenderedCell{ props:{colSpan,rowSpan,…}, children }` 对象形态（整个 td props）。dg 的 `render` 返回值仅消费 `children`/ReactNode；合并语义必须通过 `onCell` 返回 `{ colSpan, rowSpan }`（决策：合并统一走 onCell）。 | antd rc-table `RenderedCell`；dg `types.ts:470`（render 签名仅 ReactNode）+ `501-514`（onCell 承载合并）|
 
 ---
 
@@ -102,12 +101,14 @@
 | `classNames`（TableSemanticType：header/body/cell/row/wrapper） | styles | dg `types.ts:908-917, 933+` |
 | `styles`（同上语义槽） | styles | dg `types.ts:913-917` |
 | `showSorterTooltip`（含 SorterTooltipProps.target） | TableProps | antd `interface.ts:67-71, 160`；dg types.ts |
+| 一对一 `.ant-table-*` 类名 | styles | 已输出稳定节点 alias：`ant-table-wrapper`、`ant-table`、`ant-table-container`、`ant-table-content`、`ant-table-title`、`ant-table-footer`、`ant-table-cell`、`ant-table-cell-fix-left/right`、排序类、`ant-table-filter-trigger`。依赖 `thead/tbody/tr/td` 层级的选择器不在此兼容面。 |
 
 ### 列（ColumnType 大部分）
 
 | API | 归类 | 证据 |
 |-----|------|------|
 | `key/title/width/align/fixed/className/style/onHeaderCell/ellipsis(含 showTitle)/hidden/render/children` | ColumnType | dg `types.ts:373-476` |
+| `render` 返回 `RenderedCell{ children, props }` 对象形态 | ColumnType.render | dg 兼容 `children` 内容、`props.colSpan/rowSpan` 合并、`className/style/事件 props` 映射到 data-grid cell |
 | `sorter`（bool/CompareFn/ColumnSorter）/ `sortOrder` / `defaultSortOrder` / `sortDirections` | ColumnType | dg `types.ts:339-353, 522+` |
 | `filters` / `filterDropdown` / `filterMultiple` / `filteredValue` / `defaultFilteredValue` / `filterIcon` / `filterMode` / `filterSearch` / `onFilter` / `filterOnClose` / `filterDropdownOpen`(deprecated) / `onFilterDropdownOpenChange`(deprecated) | ColumnType | antd `interface.ts:162-194`；dg `types.ts` + `engine\FilterDropdown.tsx` |
 | `responsive`（Breakpoint[]） | ColumnType | dg `types.ts:16-18`（导入 antd Breakpoint）+ ColumnType |
@@ -145,19 +146,19 @@
 
 2. **`locale` 为部分兼容**（antd 18 字段）。已接入：`emptyText`、FilterDropdown 的 `filterConfirm/filterReset/filterEmptyText/filterSearchPlaceholder/filterCheckAll`、selection 内置菜单 `selectionAll/selectInvert/selectNone`、排序 hover title `triggerDesc/triggerAsc/cancelSort`、展开按钮 aria `expand/collapse`。未消费字段仍有 `filterTitle/selectAll/sortTitle` 等。证据：dg `Table.tsx`、`engine\FilterDropdown.tsx`、`engine\GridTable.tsx`、`types.ts:1027-1058`；antd `interface.ts:41-63`。
 
-3. **`rowSelection` 仍为部分兼容**。常用字段已覆盖，包括 `columnTitle/onCell/getTitleCheckboxProps/onSelectMultiple`；剩余风险主要来自 data-grid 无原生 `<td>/<th>` DOM，选择列 cell/header props 的实际挂载点与 antd 有 div-grid 适配差异。
+3. **`rowSelection` 仍为部分兼容**。常用字段已覆盖，包括 `columnTitle/onCell/getTitleCheckboxProps/onSelectMultiple`；剩余风险主要来自 data-grid 无原生 `<tr>` 行层级，选择列 cell/header props 的实际挂载点与 antd 有 div-grid 适配差异。
 
 4. **`expandable` 缺 `columnTitle/fixed`**。证据：antd `ExpandableConfig`；dg `types.ts:1084-1085, 1107-1158`。
 
 5. **`components` 缺 `table/header.table/header.wrapper/header.row/body(wrapper)/body 函数形态`**。`body.cell`/`body.row` 已通，但语义有适配（见「名兼义异」）。证据：dg `types.ts:742-769`。
 
+   `.ant-table-*` 类名不是整体缺口：能映射到稳定节点的 alias 已输出；只有依赖原生 table 结构的选择器需要迁移。
+
 6. **RTL（`direction`）未支持**。通过 ConfigProvider 注入，dg 未消费。证据：dg types.ts 全仓无 `direction`/`RTL`。
 
-7. **`render` 返回 `RenderedCell{ props:{colSpan,rowSpan} }` 对象形态未支持**。合并语义在 dg 统一走 `onCell` 返回 `{ colSpan, rowSpan }`（决策：合并路径单一化）。证据：antd rc-table `RenderedCell`；dg `types.ts:470`（render 仅 ReactNode）+ `501-514`（onCell 承载合并）。
+7. **`sticky.offsetSummary` 缺**；**`dataIndex` 不支持 `DeepNamePath`**（运行时支持路径数组，类型不深）。证据：antd rc-table `interface.d.ts:199`；dg `types.ts:1658, 376`。
 
-8. **`sticky.offsetSummary` 缺**；**`dataIndex` 不支持 `DeepNamePath`**（运行时支持路径数组，类型不深）。证据：antd rc-table `interface.d.ts:199`；dg `types.ts:1658, 376`。
-
-9. **`ColumnType` 缺 `rowSpan`(独立字段,仅 onCell)/`filtered`/`sortIcon`/`filterResetToDefaultFilteredValue`**；**`filterDropdownProps` 仅透传子集**。证据：antd `interface.ts:159, 163, 178, 179`；dg `types.ts:373-548`。
+8. **`ColumnType` 缺 `rowSpan`(独立字段,仅 onCell/render props)/`filtered`/`sortIcon`/`filterResetToDefaultFilteredValue`**；**`filterDropdownProps` 仅透传子集**。证据：antd `interface.ts:159, 163, 178, 179`；dg `types.ts:373-548`。
 
 ---
 
@@ -167,8 +168,8 @@
 
 1. **P1：`expandable.columnTitle/fixed`**（TOP #4）—— API 适配面清楚，和现有展开列构造逻辑直接相关。
 2. **P1：`components` 缺槽位补齐**（TOP #5）—— 至少 `header.row`/`body.wrapper` 可以提供 data-grid 语义下的适配；完整 table DOM 替换仍受架构限制。
-3. **P2：`column.sortIcon/filtered/filterResetToDefaultFilteredValue` 与 `filterDropdownProps` 全透传**（TOP #9）。
-4. **P2：`sticky.offsetSummary`、`dataIndex` 深类型、RTL**（TOP #6/#8）—— 长尾，按需。
+3. **P2：`column.sortIcon/filtered/filterResetToDefaultFilteredValue` 与 `filterDropdownProps` 全透传**（TOP #8）。
+4. **P2：`sticky.offsetSummary`、`dataIndex` 深类型、RTL**（TOP #6/#7）—— 长尾，按需。
 
 明确不作为迁移优先项：
 
@@ -179,6 +180,7 @@
 - FilterDropdown i18n 已接入 `locale.filterConfirm/filterReset/filterEmptyText/filterSearchPlaceholder/filterCheckAll`。
 - `pagination` 默认开启已对齐 antd，`pagination={false}` 才关闭。
 - `scroll.scrollToFirstRowOnChange` 已实现，默认开启，可设 `false` 关闭。
+- `render` 返回 `RenderedCell{ children, props }` 对象形态已实现，含 `props.colSpan/rowSpan` 合并映射。
 - `rowSelection.onSelect/onSelectMultiple/onSelectAll/onSelectInvert/onSelectNone/columnTitle/onCell/getTitleCheckboxProps` 已实现。
 - `gridOptions.autoScrollOnDrag`、`gridOptions.columnReorder`、`gridColumnOptions.dragColumnLock`、`gridOptions.multiRowReorder` 已作为 data-grid 原生能力采用。
 

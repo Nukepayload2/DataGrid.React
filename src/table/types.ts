@@ -40,6 +40,8 @@ export type {
   SortDirections,
   SorterResult,
   ColumnType,
+  ColumnsType,
+  RenderedCell,
   TablePaginationPlacement,
   TablePaginationConfig,
   TablePaginationState,
