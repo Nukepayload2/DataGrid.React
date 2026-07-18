@@ -44,10 +44,10 @@
   "dependencies": {
     "@ant-design/cssinjs": "2.1.2",
     "@ant-design/fast-color": "3.0.1",
-    "@ant-design/icons": "^6.2.5"
+    "@ant-design/icons": "^6.1.0"
   },
   "peerDependencies": {
-    "antd": "^6.4.4",
+    "antd": "^6.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
@@ -69,7 +69,7 @@
     "@types/react-highlight-words": "^0.20.1",
     "@vitejs/plugin-react": "^6.0.3",
     "@vitest/coverage-v8": "^4.1.9",
-    "antd": "^6.4.4",
+    "antd": "^6.1.0",
     "codemirror": "^6.0.2",
     "doiuse": "^6.0.6",
     "jsdom": "^29.1.1",

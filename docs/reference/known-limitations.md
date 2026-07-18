@@ -37,7 +37,7 @@
 - `locale` 已接入 antd `useLocale('Table')`：`TableProps.locale` 覆盖 ConfigProvider locale，ConfigProvider locale 覆盖默认英文；FilterDropdown、selection 内置项、排序/展开文案已纳入当前兼容面。
 - `pagination` 默认开启已对齐 antd：未传等价 `{}`，默认 10/页；`pagination={false}` 才关闭。
 - `scroll.scrollToFirstRowOnChange` 已实现：分页、排序、筛选变化默认滚回首行，可设 `false` 关闭。
-- `render` 返回 `RenderedCell` 对象形态已兼容：`children` 作为内容，`props.colSpan` / `props.rowSpan` 进入合并计算，`className` / `style` / 事件 props 映射到 data-grid cell。
+- `render` 返回 `RenderedCell` 对象形态仅兼容 `children` 内容；`props` 已废弃并被 data-grid 忽略。单元格合并请使用 `onCell`，其它内置格样式/事件请使用 column/onRow 或自定义 body.cell。
 - `rowSelection.onSelect`、`onSelectMultiple`、`onSelectAll`、`onSelectInvert`、`onSelectNone` 已实现。
 - `rowSelection.columnTitle`、`rowSelection.onCell`、`rowSelection.getTitleCheckboxProps` 已实现。
 - 稳定节点的一对一 `.ant-table-*` class alias 已实现：wrapper、table/container/content、title/footer、cell、fixed cell、排序节点和筛选触发器。

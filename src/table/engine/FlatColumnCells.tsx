@@ -387,7 +387,7 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
         const rawRendered: unknown = column.render
           ? column.render(text, record, index)
           : text
-        const { children: rendered, props: renderedCellProps } = normalizeRenderedCell(rawRendered)
+        const { children: rendered } = normalizeRenderedCell(rawRendered)
         // ellipsis 列默认 title 提示（详见 BodyCell 同款注释 + docs/design-notes/ellipsis.md）。取原始 dataIndex 值文本化。
         //   showTitle:false 时不加 native title（详见 BodyCell 同款注释）。
         const ellipsisTitle = resolveBodyCellEllipsisTitle(column.ellipsis, column.showTitle, text)
@@ -398,7 +398,6 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
           record,
           index,
           components,
-          renderedCellProps,
           onRow,
           rowClassName,
           isRowSelected,

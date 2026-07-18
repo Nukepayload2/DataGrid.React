@@ -136,7 +136,7 @@ function BodyCell<RecordType>({
     : column.render
       ? column.render(text, record, index)
       : text
-  const { children: rendered, props: renderedCellProps } = normalizeRenderedCell(rawRendered)
+  const { children: rendered } = normalizeRenderedCell(rawRendered)
   // ellipsis 列默认 title 悬浮提示（对齐 antd 默认行为）。详见 docs/design-notes/ellipsis.md。
   //   - 仅 ellipsis 列加 title（非 ellipsis 列不加，避免多余 tooltip）。
   //   - 取原始 dataIndex 值文本化（string/number）——对齐 antd 默认 title 来源（cellValue 文本化）。
@@ -153,7 +153,6 @@ function BodyCell<RecordType>({
     record,
     index,
     components,
-    renderedCellProps,
     onRow,
     rowClassName,
     isRowSelected,

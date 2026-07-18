@@ -15,7 +15,7 @@ importers:
         specifier: 3.0.1
         version: 3.0.1
       '@ant-design/icons':
-        specifier: ^6.2.5
+        specifier: ^6.1.0
         version: 6.2.5(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
     devDependencies:
       '@codemirror/lang-javascript':
@@ -70,7 +70,7 @@ importers:
         specifier: ^4.1.9
         version: 4.1.9(vitest@4.1.9)
       antd:
-        specifier: ^6.4.4
+        specifier: ^6.1.0
         version: 6.4.4(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       codemirror:
         specifier: ^6.0.2

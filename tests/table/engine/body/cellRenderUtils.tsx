@@ -54,8 +54,8 @@ describe('cellRenderUtils', () => {
   })
 
   it('resolves fixed and shadow classes', () => {
-    expect(fixedClass('start')).toBe('dg-cell-fixed-start')
-    expect(fixedClass('end')).toBe('dg-cell-fixed-end')
+    expect(fixedClass('start')).toBe('dg-cell-fixed-start ant-table-cell-fix-left')
+    expect(fixedClass('end')).toBe('dg-cell-fixed-end ant-table-cell-fix-right')
     expect(fixedClass(undefined)).toBeUndefined()
 
     expect(shadowClass({ side: 'start', isEdge: true })).toBe('dg-sticky-shadow-start')
@@ -83,14 +83,14 @@ describe('cellRenderUtils', () => {
     })).toBe('Ada')
   })
 
-  it('normalizes antd RenderedCell-like objects', () => {
+  it('normalizes antd RenderedCell-like objects but ignores legacy props', () => {
     const normalized = normalizeRenderedCell({
       children: <span>Ada</span>,
       props: { colSpan: 2, className: 'merged' },
     })
 
     expect(normalized.children).toEqual(<span>Ada</span>)
-    expect(normalized.props).toEqual({ colSpan: 2, className: 'merged' })
+    expect('props' in normalized).toBe(false)
     expect(normalizeRenderedCell(<strong>Ada</strong>).children).toEqual(<strong>Ada</strong>)
   })
 

@@ -18,7 +18,12 @@ import type {
 import type { ColumnSorter, SortDirections, SortOrder } from './sort'
 import type { GridColumnOptions } from '../engine/recyclingCellTypes'
 
+/**
+ * @deprecated data-grid only consumes `children` from this legacy object form.
+ * Use `onCell` for colSpan/rowSpan and custom body-cell props.
+ */
 export interface RenderedCell {
+  /** @deprecated data-grid only consumes `children`; use `onCell` for colSpan/rowSpan and custom body-cell props. */
   props?: Record<string, any>
   children?: ReactNode
 }
@@ -125,7 +130,13 @@ export interface ColumnType<RecordType = any> {
    * 详见 `docs/design-notes/hidden-column.md`。
    */
   hidden?: boolean
-  /** antd render：(text, record, index) => ReactNode | RenderedCell。 */
+  /**
+   * antd render：(text, record, index) => ReactNode | RenderedCell。
+   *
+   * data-grid only consumes `children` from the legacy RenderedCell object form.
+   * `props` is obsolete because antd/rc-table also warns this shape has perf issues.
+   * Use `onCell` for colSpan/rowSpan and custom body-cell props.
+   */
   render?: (text: any, record: RecordType, index: number) => ReactNode | RenderedCell
   /**
    * 子列（多级表头，任意深度）。

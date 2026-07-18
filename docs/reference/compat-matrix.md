@@ -7,6 +7,17 @@
 > - antd：`G:\Projects\ant-design\components\table\interface.ts`（API 真相）、`InternalTable.tsx`、`node_modules\@rc-component\table\lib\*.d.ts`（rc-table 底层类型）。
 > - data-grid：`G:\Projects\trash-antd-table\data-grid\src\table\types.ts`、`engine\*.tsx`、`Table.tsx`。
 
+## 迁移前检查
+
+迁移 antd Table 到 data-grid 前，先确认业务代码没有依赖 antd/rc-table 已标记过时的 API。data-grid 的兼容目标是 antd v6 的当前公共 API 和常用迁移路径，不承诺复刻已被 antd 标为 deprecated 且有性能风险的历史写法。
+
+重点检查：
+
+- `columns.render` 返回 `{ children, props }` 的对象形态中，`props` 已在 rc-table 中提示有性能问题并建议改用 `onCell`。data-grid 只消费 `children`；`props.colSpan` / `props.rowSpan` / `className` / `style` / 事件等不会生效。
+- 需要数据格合并时，改为 `column.onCell(record, index)` 返回 `{ colSpan, rowSpan }`。
+- 需要单元格样式、事件或自定义 cell 组件参数时，优先使用 `column.className` / `column.style` / `onRow` / `components.body.cell`，并按 data-grid 的 div-grid 挂载点重新确认选择器和事件目标。
+- antd 自身已废弃的 Table 字段，例如 `expandable.expandedRowOffset`，迁移前应尽量改成当前推荐写法；兼容矩阵中单独标注的历史字段不应作为新代码依赖。
+
 ## 判定档位
 
 | 档位 | 含义 |
@@ -34,7 +45,7 @@
 | `components.header.row` | components | 未实现 | 表头 `<tr>` 替换。 | dg `types.ts:747-749`（仅 `cell`）|
 | `components.body.wrapper` | components | 未实现 | 表体 `<tbody>` 替换。 | dg `types.ts:769`（body 仅 `row`/`cell`，无 wrapper）|
 | `components.body`（函数形态） | components | 未实现 | antd 的 `components.body` 支持 `(node, ...) => ReactNode` 函数形态（custom-render-body demo）。dg 仅支持对象 `{ cell?, row? }`。 | antd rc-table `body?: CustomizeScrollBody \| {…}`（`interface.d.ts:130`）；dg `types.ts:769`（仅对象）|
-| `column.rowSpan`（独立字段） | ColumnType | 未实现 | antd column 上的 `rowSpan` 独立字段（非 onCell 返回）。dg 仅支持 `onCell` 返回 `{ rowSpan }` 或 `render` 返回 `{ props: { rowSpan } }`。 | antd `interface.ts` ColumnType（继承 rc-table `ColumnSharedType.rowSpan`）；dg `types.ts:373-476`（无独立 `rowSpan`，仅 onCell/render 路径）|
+| `column.rowSpan`（独立字段） | ColumnType | 未实现 | antd column 上的 `rowSpan` 独立字段（非 onCell 返回）。dg 仅支持 `onCell` 返回 `{ rowSpan }`；`render` 返回对象形态的 `props` 已废弃并忽略。 | antd `interface.ts` ColumnType（继承 rc-table `ColumnSharedType.rowSpan`）；dg `types.ts:373-476`（无独立 `rowSpan`，仅 onCell 路径）|
 | `column.filtered`（受控筛选态） | ColumnType | 未实现 | 列级受控筛选指示。dg 用 `filteredValue` 控制态，未单独暴露 `filtered`。 | antd `interface.ts:163`；dg `types.ts:373-548`（无 `filtered`）|
 | `column.sortIcon` | ColumnType | 未实现 | 自定义排序图标。 dg 未实现。 | antd `interface.ts:159`；dg `types.ts`（无 `sortIcon`）|
 | `column.filterResetToDefaultFilteredValue` | ColumnType | 未实现 | 重置时回到默认筛选。dg 未实现。 | antd `interface.ts:179`；dg `types.ts`（无此字段）|
@@ -108,7 +119,7 @@
 | API | 归类 | 证据 |
 |-----|------|------|
 | `key/title/width/align/fixed/className/style/onHeaderCell/ellipsis(含 showTitle)/hidden/render/children` | ColumnType | dg `types.ts:373-476` |
-| `render` 返回 `RenderedCell{ children, props }` 对象形态 | ColumnType.render | dg 兼容 `children` 内容、`props.colSpan/rowSpan` 合并、`className/style/事件 props` 映射到 data-grid cell |
+| `render` 返回 `RenderedCell{ children, props }` 对象形态 | ColumnType.render | dg 仅兼容 `children` 内容；`props` 废弃并忽略，合并请用 `onCell`，其它内置格样式/事件请用 column/onRow 或自定义 body.cell |
 | `sorter`（bool/CompareFn/ColumnSorter）/ `sortOrder` / `defaultSortOrder` / `sortDirections` | ColumnType | dg `types.ts:339-353, 522+` |
 | `filters` / `filterDropdown` / `filterMultiple` / `filteredValue` / `defaultFilteredValue` / `filterIcon` / `filterMode` / `filterSearch` / `onFilter` / `filterOnClose` / `filterDropdownOpen`(deprecated) / `onFilterDropdownOpenChange`(deprecated) | ColumnType | antd `interface.ts:162-194`；dg `types.ts` + `engine\FilterDropdown.tsx` |
 | `responsive`（Breakpoint[]） | ColumnType | dg `types.ts:16-18`（导入 antd Breakpoint）+ ColumnType |
@@ -158,7 +169,7 @@
 
 7. **`sticky.offsetSummary` 缺**；**`dataIndex` 不支持 `DeepNamePath`**（运行时支持路径数组，类型不深）。证据：antd rc-table `interface.d.ts:199`；dg `types.ts:1658, 376`。
 
-8. **`ColumnType` 缺 `rowSpan`(独立字段,仅 onCell/render props)/`filtered`/`sortIcon`/`filterResetToDefaultFilteredValue`**；**`filterDropdownProps` 仅透传子集**。证据：antd `interface.ts:159, 163, 178, 179`；dg `types.ts:373-548`。
+8. **`ColumnType` 缺 `rowSpan`(独立字段,仅 onCell props)/`filtered`/`sortIcon`/`filterResetToDefaultFilteredValue`**；**`filterDropdownProps` 仅透传子集**。证据：antd `interface.ts:159, 163, 178, 179`；dg `types.ts:373-548`。
 
 ---
 
@@ -180,7 +191,7 @@
 - FilterDropdown i18n 已接入 `locale.filterConfirm/filterReset/filterEmptyText/filterSearchPlaceholder/filterCheckAll`。
 - `pagination` 默认开启已对齐 antd，`pagination={false}` 才关闭。
 - `scroll.scrollToFirstRowOnChange` 已实现，默认开启，可设 `false` 关闭。
-- `render` 返回 `RenderedCell{ children, props }` 对象形态已实现，含 `props.colSpan/rowSpan` 合并映射。
+- `render` 返回 `RenderedCell{ children, props }` 对象形态仅保留 `children` 内容兼容；`props` 废弃并忽略。
 - `rowSelection.onSelect/onSelectMultiple/onSelectAll/onSelectInvert/onSelectNone/columnTitle/onCell/getTitleCheckboxProps` 已实现。
 - 拖拽排序已通过 `gridOptions.rowDragSort` / `gridOptions.columnDragSort` 作为公开 API 采用；内部 hook 不从主入口导出，demo 也不直接导入内部 hook。
 

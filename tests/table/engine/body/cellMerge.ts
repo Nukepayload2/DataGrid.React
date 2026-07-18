@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { computeCellMergePlan, hasCellMergeDeclaration } from '../../../../src/table/engine/cellMerge'
 import type { EngineLeafColumn } from '../../../../src/table/engine/types'
 
@@ -81,28 +81,25 @@ describe('computeCellMergePlan', () => {
     expect(plan[2][0].hidden).toBe(false)
   })
 
-  it('reads colSpan and rowSpan from antd RenderedCell-like render results', () => {
+  it('ignores obsolete span props returned from render results', () => {
+    const render = vi.fn((value, _record, index) => index === 0
+      ? { children: value, props: { colSpan: 2, rowSpan: 2 } }
+      : value)
     const renderColumns: Array<EngineLeafColumn<{ id: number }>> = [
       {
         key: 'name',
         dataIndex: 'id',
-        render: (value, _record, index) => index === 0
-          ? { children: value, props: { colSpan: 2, rowSpan: 2 } }
-          : value,
+        render,
       },
       { key: 'age', dataIndex: 'id' },
     ]
 
-    expect(hasCellMergeDeclaration(renderColumns, rows)).toBe(true)
-    const plan = computeCellMergePlan(renderColumns, rows)!
-
-    expect(plan[0][0]).toEqual({ hidden: false, colSpan: 2, rowSpan: 2 })
-    expect(plan[1][0].hidden).toBe(true)
-    expect(plan[0][1].hidden).toBe(true)
-    expect(plan[1][1].hidden).toBe(true)
+    expect(hasCellMergeDeclaration(renderColumns, rows)).toBe(false)
+    expect(computeCellMergePlan(renderColumns, rows)).toBeNull()
+    expect(render).not.toHaveBeenCalled()
   })
 
-  it('lets onCell override span props returned from render', () => {
+  it('uses onCell instead of span props returned from render', () => {
     const renderColumns: Array<EngineLeafColumn<{ id: number }>> = [
       {
         key: 'name',

@@ -110,6 +110,9 @@ export interface EngineLeafColumn<RecordType = any> {
    * 自定义单元格渲染。
    * 签名对齐 antd column.render 的常用子集：
    *   (text, record, index) => ReactNode | EngineRenderedCell
+   *
+   * EngineRenderedCell 的 `props` 对象形态已废弃；引擎只消费 `children`。
+   * colSpan/rowSpan 和自定义 body.cell props 请使用 `onCell`。
    */
   render?: (text: any, record: RecordType, index: number) => ReactNode | EngineRenderedCell
   /**
@@ -898,7 +901,12 @@ export interface EngineTableProps<RecordType = any> {
    */
   isRowSelected?: (record: RecordType) => boolean
 }
+/**
+ * @deprecated data-grid only consumes `children` from this legacy object form.
+ * Use `onCell` for colSpan/rowSpan and custom body-cell props.
+ */
 export interface EngineRenderedCell {
+  /** @deprecated data-grid only consumes `children`; use `onCell` for colSpan/rowSpan and custom body-cell props. */
   props?: Record<string, any>
   children?: ReactNode
 }

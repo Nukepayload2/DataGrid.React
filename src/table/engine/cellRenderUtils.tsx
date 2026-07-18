@@ -8,7 +8,6 @@ export interface RenderedCellLike {
 
 export interface NormalizedRenderedCell {
   children: ReactNode
-  props: Record<string, any> | undefined
 }
 
 export function isRenderedCellLike(value: unknown): value is RenderedCellLike {
@@ -19,11 +18,10 @@ export function isRenderedCellLike(value: unknown): value is RenderedCellLike {
 
 export function normalizeRenderedCell(rendered: unknown): NormalizedRenderedCell {
   if (!isRenderedCellLike(rendered)) {
-    return { children: rendered as ReactNode, props: undefined }
+    return { children: rendered as ReactNode }
   }
   return {
     children: rendered.children,
-    props: rendered.props && typeof rendered.props === 'object' ? rendered.props : undefined,
   }
 }
 
