@@ -79,25 +79,29 @@ const statuses: Row['status'][] = ['Open', 'Review', 'Closed']
 const priorities: Row['priority'][] = ['P0', 'P1', 'P2']
 
 function makeRows(count: number): Row[] {
-  return Array.from({ length: count }, (_, index) => ({
-    id: index + 1,
-    account: `AC-${String(index + 1).padStart(5, '0')}`,
-    status: statuses[index % statuses.length],
-    region: regions[index % regions.length],
-    owner: owners[index % owners.length],
-    priority: priorities[index % priorities.length],
-    amount: 5000 + (index * 137) % 90000,
-    score: 40 + (index * 7) % 60,
-    updated: `2026-07-${String((index % 28) + 1).padStart(2, '0')}`,
-    city: cities[index % cities.length],
-    channel: channels[index % channels.length],
-    product: products[index % products.length],
-    segment: segments[index % segments.length],
-    risk: index % 9 === 0 ? 'High' : index % 5 === 0 ? 'Medium' : 'Low',
-    sla: `${4 + (index % 6)}h`,
-    notes: `Batch ${Math.floor(index / 50)} item ${index % 50}`,
-    flag: index % 11 === 0 ? 'Watch' : 'Normal',
-  }))
+  const rows: Row[] = new Array<Row>(count)
+  for (let index = 0; index < count; index += 1) {
+    rows[index] = {
+      id: index + 1,
+      account: `AC-${String(index + 1).padStart(5, '0')}`,
+      status: statuses[index % statuses.length],
+      region: regions[index % regions.length],
+      owner: owners[index % owners.length],
+      priority: priorities[index % priorities.length],
+      amount: 5000 + (index * 137) % 90000,
+      score: 40 + (index * 7) % 60,
+      updated: `2026-07-${String((index % 28) + 1).padStart(2, '0')}`,
+      city: cities[index % cities.length],
+      channel: channels[index % channels.length],
+      product: products[index % products.length],
+      segment: segments[index % segments.length],
+      risk: index % 9 === 0 ? 'High' : index % 5 === 0 ? 'Medium' : 'Low',
+      sla: `${4 + (index % 6)}h`,
+      notes: `Batch ${Math.floor(index / 50)} item ${index % 50}`,
+      flag: index % 11 === 0 ? 'Watch' : 'Normal',
+    }
+  }
+  return rows
 }
 
 function createTextRenderer<RecordType>(
@@ -418,17 +422,27 @@ export default function VirtualListRecyclingDg() {
           },
         })
       }
-      return baseColumns.map((column) => ({
-        ...column,
-        render: column.render ?? renderStandardText,
-        gridColumnOptions: {
+      return baseColumns.map((column) => {
+        const gridColumnOptions = {
           renderCellElement: renderText,
           disposeCellElement: dispose,
           ...column.gridColumnOptions,
-        },
-      }))
+        }
+        if (mode === 'recycling') {
+          return {
+            ...column,
+            render: undefined,
+            gridColumnOptions,
+          }
+        }
+        return {
+          ...column,
+          render: column.render ?? renderStandardText,
+          gridColumnOptions,
+        }
+      })
     },
-    [dispose, openActionModal, renderPriority, renderStatus, renderText, showActionColumn],
+    [dispose, mode, openActionModal, renderPriority, renderStatus, renderText, showActionColumn],
   )
 
   const resetStats = () => {
