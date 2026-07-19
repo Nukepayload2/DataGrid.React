@@ -26,10 +26,12 @@
   },
   "scripts": {
     "dev": "vite",
+    "restore": "pnpm i",
     "build": "pnpm run build:lib",
     "build:lib": "vite build --config vite.lib.config.ts && pnpm run build:types",
     "build:types": "tsc -p tsconfig.lib.json",
-    "build:docs": "vite build --outDir dist-docs",
+    "docs:api": "node scripts/extract-api.mjs",
+    "build:docs": "pnpm docs:api && vite build --outDir dist-docs",
     "prepublishOnly": "pnpm run build:lib",
     "tsc": "tsc -b",
     "test": "vitest run && pnpm run test:css-compat",

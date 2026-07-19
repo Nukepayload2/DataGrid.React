@@ -10,8 +10,9 @@ import * as dndModifiers from '@dnd-kit/modifiers'
 import * as dndUtilities from '@dnd-kit/utilities'
 import * as dataGrid from '../table'
 
-/** 所有 demo 共享的基础依赖（key 字面对齐子文件 import specifier）。 */
-const baseScope: Record<string, unknown> = {
+/** 所有 demo 共享的基础依赖（key 字面对齐子文件 import specifier）。
+ *  导出供 docs 区 liveScope 复用（#20：docs 区代码可编辑）。 */
+export const baseScope: Record<string, unknown> = {
   react: React,
   'react-dom': ReactDOM,
   antd,

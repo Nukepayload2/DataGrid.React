@@ -26,6 +26,7 @@ import {
 } from '@ant-design/icons'
 import { demos } from './demos'
 import { groupByCategory, navigate, replaceHash, useHashRoute, useHashSearchParams } from './demos/registry'
+import { docs } from './docs/docRegistry'
 import HomePage from './HomePage'
 import DemoHomePage from './DemoHomePage'
 import DocsPage from './DocsPage'
@@ -40,6 +41,8 @@ import { SplitDemoPreview } from './demos/_compare/SplitDemoPreview'
 import LiveEditor from './live/LiveEditor'
 import { scopeForDemo } from './live/scope'
 import { stripComments } from './live/stripComments'
+// 版本号单一真理源：package.json#version（顶栏读取）。
+import pkg from '../package.json'
 
 const { Header, Sider, Content } = Layout
 const { Title, Link } = Typography
@@ -167,6 +170,9 @@ function App() {
   // 顶栏全局 demo 搜索输入。URL q 参数用于跳转后高亮，输入框跟随它同步。
   const [globalSearch, setGlobalSearch] = useState('')
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false)
+  // 顶栏 docs 区搜索输入（仅 docs 视图下显示）。
+  const [docsSearch, setDocsSearch] = useState('')
+  const [docsSearchOpen, setDocsSearchOpen] = useState(false)
   // split demo 编辑产物。null = 未编辑/重置（默认模式渲染真实 DemoComp）。
   // view 变化（切 demo）时 useEffect 重置为 null。
   const [editedDg, setEditedDg] = useState<ComponentType<Record<string, unknown>> | null>(null)
@@ -315,6 +321,44 @@ function App() {
     navigate(`/demos/${name}${suffix}`)
   }
 
+  // docs 区搜索：按标题 / 描述 / 分组过滤文档条目。
+  const docsSearchQuery = docsSearch.trim()
+  const docsSearchLower = docsSearchQuery.toLowerCase()
+  const docsSearchResults = useMemo(() => {
+    if (!docsSearchLower) return []
+    return docs
+      .filter((d) =>
+        [d.title, d.description, d.group, d.slug].some((s) =>
+          s.toLowerCase().includes(docsSearchLower),
+        ),
+      )
+      .slice(0, 10)
+  }, [docsSearchLower])
+  const docsSearchOptions = useMemo(
+    () =>
+      docsSearchResults.map((d) => ({
+        value: d.slug,
+        label: (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span>
+              <HighlightText text={d.title} query={docsSearchQuery} />
+            </span>
+            <span style={{ color: token.colorTextSecondary, fontSize: 12 }}>
+              <HighlightText text={d.group} query={docsSearchQuery} />
+              {' · '}
+              <HighlightText text={d.description} query={docsSearchQuery} />
+            </span>
+          </div>
+        ),
+      })),
+    [docsSearchQuery, docsSearchResults, token.colorTextSecondary],
+  )
+
+  const goDocsSearchResult = (slug: string) => {
+    setDocsSearchOpen(false)
+    navigate(`/docs/${slug}`)
+  }
+
   return (
     <Layout className="app-shell" style={{ height: '100vh', overflow: 'hidden' }}>
       <Header
@@ -353,10 +397,22 @@ function App() {
             fontWeight: 600,
             whiteSpace: 'nowrap',
             cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'baseline',
+            gap: 8,
           }}
           onClick={() => navigate('/')}
         >
-          data-grid
+          <span>data-grid</span>
+          <span
+            style={{
+              fontSize: 12,
+              fontWeight: 400,
+              color: isDark ? 'rgba(255,255,255,0.55)' : token.colorTextSecondary,
+            }}
+          >
+            v{pkg.version}
+          </span>
         </div>
 
         {isDemoArea ? (
@@ -375,6 +431,24 @@ function App() {
             placeholder="搜索示例..."
             allowClear
             notFoundContent={globalSearchQuery ? '没有匹配的示例' : null}
+            filterOption={false}
+          />
+        ) : view.kind === 'docs' ? (
+          <AutoComplete
+            className="app-docs-search"
+            value={docsSearch}
+            options={docsSearchOptions}
+            open={docsSearchOpen && docsSearchQuery.length > 0}
+            onChange={(value) => {
+              setDocsSearch(value)
+              setDocsSearchOpen(value.trim().length > 0)
+            }}
+            onFocus={() => setDocsSearchOpen(docsSearchQuery.length > 0)}
+            onBlur={() => setDocsSearchOpen(false)}
+            onSelect={(value) => goDocsSearchResult(value)}
+            placeholder="搜索文档..."
+            allowClear
+            notFoundContent={docsSearchQuery ? '没有匹配的文档' : null}
             filterOption={false}
           />
         ) : null}

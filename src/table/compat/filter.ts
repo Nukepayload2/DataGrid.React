@@ -32,7 +32,9 @@ export interface FilterResetProps {
 
 /** `filterDropdown` 渲染回调收到的 props。 */
 export interface FilterDropdownProps {
-  /** 样式前缀（兼容字段；恒定 `'dg-filter'`）。 */
+  /** 样式前缀（兼容字段；使用 data-grid 内部固定前缀）。
+ *
+ *  @internal 内部恒定为 `'dg-filter'`。 */
   prefixCls: string
   /** 当前选中 key 数组（草稿；调用方通过 setSelectedKeys 更新）。 */
   selectedKeys: Array<React.Key>
@@ -57,7 +59,7 @@ export interface FilterDropdownProps {
 export interface ColumnFilterDropdownProps {
   /** 受控打开状态（与 antd `Dropdown.open` 一致）。 */
   open?: boolean
-  /** 打开/关闭回调。引擎在 filterOnClose=true 时据此应用草稿。 */
+  /** 打开/关闭回调。filterOnClose=true 时据此应用草稿。 */
   onOpenChange?: (open: boolean) => void
   /** 触发器额外 className（作用于漏斗 trigger span）。 */
   triggerClassName?: string

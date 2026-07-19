@@ -1,0 +1,1587 @@
+{
+  "table": [
+    {
+      "name": "column",
+      "kind": "prop",
+      "signature": "column?: Partial<ColumnType<RecordType>>",
+      "type": "Partial<ColumnType<RecordType>>",
+      "required": false,
+      "advanced": false,
+      "summary": "列默认值（对齐 antd v6 `TableProps.column`）。\n\n**语义**：Table 级列默认属性，作为**所有列**（含 `columns` 与 JSX children 声明的列）\n的公共默认值。单列可通过自身同名字段覆盖。\n\n**合并方向（列自身优先）**：对每列做浅合并——`column` prop 提供默认值，列自身同名字段覆盖之；\n列自身未设置（`undefined`）的字段回退到 `column` 默认。合并语义与 antd 一致。\n\n**递归**：多级表头（`column.children`）的每个层级都应用 `column` 默认；`column` 自身的\n`children` 字段不参与合并（与 antd 一致，避免错误注入分组结构）。\n\n**哨兵豁免**：`Table.EXPAND_COLUMN` / `Table.SELECTION_COLUMN` 哨兵对象不参与合并。\n\n**典型用例**（antd `column-defaults` demo）：`column={{ align: 'center', ellipsis: true }}`\n让所有列默认居中 + 省略；单列 `align: 'left'` 覆盖为左对齐。\n\n未提供（undefined）时不做任何合并，所有列保持原样（零回归）。"
+    },
+    {
+      "name": "columns",
+      "kind": "prop",
+      "signature": "columns?: Array<ColumnOrSentinel<RecordType>>",
+      "type": "Array<ColumnOrSentinel<RecordType>>",
+      "required": false,
+      "advanced": false,
+      "summary": "列定义数组。可混入 `Table.EXPAND_COLUMN` / `Table.SELECTION_COLUMN` 哨兵\n（对齐 antd）——哨兵位置即展开列 / 选择列的渲染位置。\n不含哨兵时，`rowSelection` 选择列默认插最前，`expandable` 展开列默认插最前（在选择列之后）。\n\n**JSX 风格 API 关系**：`columns` 与 JSX children（`<Table.Column>` / `<Table.ColumnGroup>`）\n二选一——传 `columns` 走 columns 路径，传 JSX children 走解析路径；两者都传时 `columns` 优先\n（与 antd 一致）。详见 `ColumnProps`/`ColumnGroupProps`。\n\n**列默认值关系**：`column` prop（Table 级默认）会浅合并到本数组的每个列（含哨兵豁免、\n多级表头递归合并）；详见 `TableProps.column`。"
+    },
+    {
+      "name": "dataSource",
+      "kind": "prop",
+      "signature": "dataSource?: Array<RecordType>",
+      "type": "Array<RecordType>",
+      "required": false,
+      "advanced": false,
+      "summary": ""
+    },
+    {
+      "name": "rowKey",
+      "kind": "prop",
+      "signature": "rowKey?: RowKeyType",
+      "type": "RowKeyType",
+      "required": false,
+      "advanced": false,
+      "summary": ""
+    },
+    {
+      "name": "bordered",
+      "kind": "prop",
+      "signature": "bordered?: boolean",
+      "type": "boolean",
+      "required": false,
+      "advanced": false,
+      "summary": ""
+    },
+    {
+      "name": "size",
+      "kind": "prop",
+      "signature": "size?: SizeType",
+      "type": "SizeType",
+      "required": false,
+      "advanced": false,
+      "summary": ""
+    },
+    {
+      "name": "showHeader",
+      "kind": "prop",
+      "signature": "showHeader?: boolean",
+      "type": "boolean",
+      "required": false,
+      "advanced": false,
+      "summary": ""
+    },
+    {
+      "name": "title",
+      "kind": "method",
+      "signature": "title?: (currentPageData: Array<RecordType>) => ReactNode",
+      "type": "(currentPageData: Array<RecordType>) => ReactNode",
+      "required": false,
+      "advanced": false,
+      "summary": ""
+    },
+    {
+      "name": "footer",
+      "kind": "method",
+      "signature": "footer?: (currentPageData: Array<RecordType>) => ReactNode",
+      "type": "(currentPageData: Array<RecordType>) => ReactNode",
+      "required": false,
+      "advanced": false,
+      "summary": ""
+    },
+    {
+      "name": "scroll",
+      "kind": "prop",
+      "signature": "scroll?: { x?: true | number | string; y?: true; scrollToFirstRowOnChange?: boolean }",
+      "type": "{ x?: true | number | string; y?: true; scrollToFirstRowOnChange?: boolean }",
+      "required": false,
+      "advanced": false,
+      "summary": "滚动配置。\n\n- `x`：横向滚动配置。`true` 仅开启横向滚动；number→px、string→原样作 min-width。\n  启用横向滚动时额外渲染**横向悬浮滚动条**，定位在数据区域底部（summary 上方），\n  替换原生横向滚动条。\n  详见 `docs/features/scrolling/scrollbar.md`。\n- `y`：纵向滚动语义（**仅 `true | undefined`，不支持数字**）。\n    - `true`：**数据区域模式**——表头固定 + 表体滚动 + 纵向悬浮滚动条；\n      表体高度 CSS 自动适应，填满表格可用高度。\n        * 调用方需确保 Table 父容器有明确高度（固定 height / flex / 100vh 等），\n          否则表体高度退化为内容自然高（视觉等价 undefined，但表头仍按 sticky 定位）。\n    - `undefined`（缺省）：表格整体（无固定表头，内容全展开，无表体滚动区，零回归）。\n    - **不支持数字**：旧 demo 用 `scroll={{ y: <number> }}` 的语义（max-height=number）已废弃，\n      迁移到 `true`（CSS 自动适应高度）。\n- `scrollToFirstRowOnChange`：分页、排序、筛选变化后是否滚回首行。默认 `true`（对齐 antd），\n  可设 `false` 保持当前滚动位置。\n\n详见 `docs/features/layout/layout.md`（数据区域模式节）。"
+    },
+    {
+      "name": "virtual",
+      "kind": "prop",
+      "signature": "virtual?: boolean",
+      "type": "boolean",
+      "required": false,
+      "advanced": false,
+      "summary": "虚拟滚动开关。\n与 `scroll={{ y: true }}` 组合启用纵向虚拟滚动：只渲染可视区 + overscan 的行，\n其余用占位撑总高（保证滚动条正确）。横向滚动（scroll.x）仍走横向 scroll 容器，\n与纵向虚拟正交。\n\n行高两条路径：**非虚拟**走约定 `rowHeight`，不测量（缺省 `'auto'`）；\n**虚拟**采用动态行高测量，未测量行以约定 `rowHeight` 兜底（`gridOptions.rowHeight` 默认 56）。\ndata-grid **不实现 antd `measureRowRender` 兼容 API**（隐藏测量行重渲染）。\n\n详见 `docs/features/scrolling/virtualization.md`。"
+    },
+    {
+      "name": "tableLayout",
+      "kind": "prop",
+      "signature": "tableLayout?: 'auto' | 'fixed'",
+      "type": "'auto' | 'fixed'",
+      "required": false,
+      "advanced": false,
+      "summary": "预留：透传到底层布局，data-grid 仅接收不强制。"
+    },
+    {
+      "name": "gridOptions",
+      "kind": "prop",
+      "signature": "gridOptions?: {\n    /** 行高约定。虚拟模式下未测量行以该值作为兜底；非虚拟固定行高场景用作行高的取值。 */\n    rowHeight?: number | ((record: RecordType, index: number) => number)\n    /**\n     * 虚拟渲染模式。\n     *\n     * - `standard`（默认）：普通虚拟滚动，React 正常渲染当前窗口。\n     * - `recycling`：启用 DOM/slot 复用路径，适合超大数据量和高频滚动。\n     *\n     * 仅在 `virtual` 且 `scroll={{ y: true }}` 时生效。启用 recycling 后，自定义 cell 的逃逸舱（escape-hatch）渲染\n     * 应通过 `column.gridColumnOptions.renderCellElement/renderCellReact/disposeCellElement` 配置。\n     */\n    virtualizationMode?: VirtualizationMode\n    /** 有界行高下限；需与 `maxRowHeight` 同时设置才启用有界模型。 */\n    minRowHeight?: number\n    /** 有界行高上限；需与 `minRowHeight` 同时设置才启用有界模型。 */\n    maxRowHeight?: number\n    /** 表头行高约定。多级表头下每一层表头使用同一高度。 */\n    headerHeight?: number | string\n    /** 是否启用列宽拖拽。`true` 且未设置 `columnResizeMode` 时等同 `ResizeLeft`。 */\n    resizable?: boolean\n    /** 列宽拖拽模式：禁用、只改左侧列、或左右兄弟列联动。 */\n    columnResizeMode?: 'Disabled' | 'ResizeLeft' | 'ResizeSibling'\n    /** 列宽拖拽最小宽度。函数形态按列 key 返回约束。 */\n    resizableMinWidth?: number | ((key: string) => number)\n    /** 列宽拖拽最大宽度。函数形态按列 key 返回约束。 */\n    resizableMaxWidth?: number | ((key: string) => number)\n    /**\n     * 悬浮滚动条折叠/显示策略。\n     *\n     * 默认保持滚动条指示器可见，并在 hover hit 区时展开；打开 `showOnTableHover` 后，\n     * 仅 hover 表格、hover 滚动条 hit 区或触摸表格后显示滚动条/指示器。\n     */\n    scrollBarFoldMode?: ScrollBarFoldMode\n    /**\n     * data-grid 原生行选择配置。\n     *\n     * 与 antd `rowSelection` 的关系：\n     * - `gridOptions.selection` 是 data-grid 原生能力命名空间，优先级高于兼容 API。\n     * - `rowSelection` 仍保留 antd 兼容 API（renderCell/getCheckboxProps/selections/onChange...）。\n     * - 选中真理源优先级：`selectedValues` > `defaultSelectedValues` >\n     *   `rowSelection.selectedRowKeys` > `rowSelection.defaultSelectedRowKeys`。\n     * - 同时传 `selectedValues` 与 `selectedRowKeys`：UI 以 `selectedValues` 为准；触发时仍尽量同时\n     *   调 `onSelectedValuesChange` 与 `rowSelection.onChange`。\n     */\n    selection?: GridSelectionOptions<RecordType>\n    /**\n     * 行拖拽排序。\n     *\n     * 传入对象并提供 `onSort` 后启用。拖拽结束时回调当前渲染数据的新顺序，调用方通常在回调内\n     * `setDataSource(next)`。`handleSelector` 可把拖拽限定到手柄元素；不传则整行可拖。\n     */\n    rowDragSort?: {\n      enabled?: boolean\n      handleSelector?: string\n      selectedRowKeys?: Array<import('react').Key>\n      multiRowReorder?: boolean\n      autoScroll?: boolean\n      onSort: (nextDataSource: Array<RecordType>) => void\n    }\n    /**\n     * 列拖拽排序。\n     *\n     * 传入对象并提供 `onSort` 后启用。拖拽结束时回调当前列数组的新顺序，调用方通常在回调内\n     * `setColumns(next)`。全局开关可用 `columnReorder=false`，单列锁定用\n     * `column.gridColumnOptions.dragColumnLock`。\n     */\n    columnDragSort?: {\n      enabled?: boolean\n      autoScroll?: boolean\n      onSort: (nextColumns: Array<ColumnOrSentinel<RecordType>>) => void\n    }\n    /**\n     * 拖拽行/列到容器边缘时自动滚动容器。\n     *\n     * `rowDragSort.autoScroll` / `columnDragSort.autoScroll` 未设置时使用本表级默认值。\n     */\n    autoScrollOnDrag?: boolean\n    /**\n     * 列拖拽换位（列重排）全局开关。\n     *\n     * `false` 时禁用列拖拽；默认允许。仅在 `columnDragSort` 启用时有意义。\n     */\n    columnReorder?: boolean\n    /**\n     * 多行成块重排开关。\n     *\n     * `rowDragSort.multiRowReorder` 未设置时使用本表级默认值。默认开启。\n     */\n    multiRowReorder?: boolean\n  }",
+      "type": "{\n    /** 行高约定。虚拟模式下未测量行以该值作为兜底；非虚拟固定行高场景用作行高的取值。 */\n    rowHeight?: number | ((record: RecordType, index: number) => number)\n    /**\n     * 虚拟渲染模式。\n     *\n     * - `standard`（默认）：普通虚拟滚动，React 正常渲染当前窗口。\n     * - `recycling`：启用 DOM/slot 复用路径，适合超大数据量和高频滚动。\n     *\n     * 仅在 `virtual` 且 `scroll={{ y: true }}` 时生效。启用 recycling 后，自定义 cell 的逃逸舱（escape-hatch）渲染\n     * 应通过 `column.gridColumnOptions.renderCellElement/renderCellReact/disposeCellElement` 配置。\n     */\n    virtualizationMode?: VirtualizationMode\n    /** 有界行高下限；需与 `maxRowHeight` 同时设置才启用有界模型。 */\n    minRowHeight?: number\n    /** 有界行高上限；需与 `minRowHeight` 同时设置才启用有界模型。 */\n    maxRowHeight?: number\n    /** 表头行高约定。多级表头下每一层表头使用同一高度。 */\n    headerHeight?: number | string\n    /** 是否启用列宽拖拽。`true` 且未设置 `columnResizeMode` 时等同 `ResizeLeft`。 */\n    resizable?: boolean\n    /** 列宽拖拽模式：禁用、只改左侧列、或左右兄弟列联动。 */\n    columnResizeMode?: 'Disabled' | 'ResizeLeft' | 'ResizeSibling'\n    /** 列宽拖拽最小宽度。函数形态按列 key 返回约束。 */\n    resizableMinWidth?: number | ((key: string) => number)\n    /** 列宽拖拽最大宽度。函数形态按列 key 返回约束。 */\n    resizableMaxWidth?: number | ((key: string) => number)\n    /**\n     * 悬浮滚动条折叠/显示策略。\n     *\n     * 默认保持滚动条指示器可见，并在 hover hit 区时展开；打开 `showOnTableHover` 后，\n     * 仅 hover 表格、hover 滚动条 hit 区或触摸表格后显示滚动条/指示器。\n     */\n    scrollBarFoldMode?: ScrollBarFoldMode\n    /**\n     * data-grid 原生行选择配置。\n     *\n     * 与 antd `rowSelection` 的关系：\n     * - `gridOptions.selection` 是 data-grid 原生能力命名空间，优先级高于兼容 API。\n     * - `rowSelection` 仍保留 antd 兼容 API（renderCell/getCheckboxProps/selections/onChange...）。\n     * - 选中真理源优先级：`selectedValues` > `defaultSelectedValues` >\n     *   `rowSelection.selectedRowKeys` > `rowSelection.defaultSelectedRowKeys`。\n     * - 同时传 `selectedValues` 与 `selectedRowKeys`：UI 以 `selectedValues` 为准；触发时仍尽量同时\n     *   调 `onSelectedValuesChange` 与 `rowSelection.onChange`。\n     */\n    selection?: GridSelectionOptions<RecordType>\n    /**\n     * 行拖拽排序。\n     *\n     * 传入对象并提供 `onSort` 后启用。拖拽结束时回调当前渲染数据的新顺序，调用方通常在回调内\n     * `setDataSource(next)`。`handleSelector` 可把拖拽限定到手柄元素；不传则整行可拖。\n     */\n    rowDragSort?: {\n      enabled?: boolean\n      handleSelector?: string\n      selectedRowKeys?: Array<Key>\n      multiRowReorder?: boolean\n      autoScroll?: boolean\n      onSort: (nextDataSource: Array<RecordType>) => void\n    }\n    /**\n     * 列拖拽排序。\n     *\n     * 传入对象并提供 `onSort` 后启用。拖拽结束时回调当前列数组的新顺序，调用方通常在回调内\n     * `setColumns(next)`。全局开关可用 `columnReorder=false`，单列锁定用\n     * `column.gridColumnOptions.dragColumnLock`。\n     */\n    columnDragSort?: {\n      enabled?: boolean\n      autoScroll?: boolean\n      onSort: (nextColumns: Array<ColumnOrSentinel<RecordType>>) => void\n    }\n    /**\n     * 拖拽行/列到容器边缘时自动滚动容器。\n     *\n     * `rowDragSort.autoScroll` / `columnDragSort.autoScroll` 未设置时使用本表级默认值。\n     */\n    autoScrollOnDrag?: boolean\n    /**\n     * 列拖拽换位（列重排）全局开关。\n     *\n     * `false` 时禁用列拖拽；默认允许。仅在 `columnDragSort` 启用时有意义。\n     */\n    columnReorder?: boolean\n    /**\n     * 多行成块重排开关。\n     *\n     * `rowDragSort.multiRowReorder` 未设置时使用本表级默认值。默认开启。\n     */\n    multiRowReorder?: boolean\n  }",
+      "required": false,
+      "advanced": false,
+      "summary": "data-grid 专属 grid 布局选项（有界行高模型 + 列宽拖拽 + 表头行高 + 行/列拖拽排序）。\n\n**与 antd 不兼容**：antd `Table` 没有 `rowHeight` / `minRowHeight` / `maxRowHeight` /\n`headerHeight` / `resizable` 等概念（antd 行高随内容、无原生列宽拖拽），此命名空间仅\ndata-grid 消费。原顶层 `rowHeight`/`headerHeight`/`resizable`/`resizableMinWidth`/\n`resizableMaxWidth` 全部迁入 `gridOptions`（删顶层、无 alias、无向后兼容）。\n\n- `rowHeight`：行高约定（数字 → 固定 px；函数 → 按行返回 px）。默认 56（虚拟）。\n- `minRowHeight` / `maxRowHeight`：**同时设置**时启用「有界行高模型」——行高随内容\n  在 [min, max] 区间自适应，固定列/合并单元格/多级表头仍跨可变高行保持对齐。\n  仅设其一（缺 min 或 max）→ 退化为固定行高（等同不设）。\n  详见 `docs/features/layout/row-height.md`。\n- `headerHeight`：表头行高约定（数字 px 或字符串 CSS 长度）。多级表头下所有表头行统一高度。\n- `resizable`：列宽拖拽调整兼容开关。`true` 且未配置 `columnResizeMode` 时等同\n  `columnResizeMode: 'ResizeLeft'`。默认 `false`（零回归）。\n- `columnResizeMode`：列宽拖拽模式。`Disabled` 禁用；`ResizeLeft` 只改变分隔线左侧列宽，\n  表格宽度总和随之变化；`ResizeSibling` 同时改变左右相邻列宽，保持总宽不变。\n  最后一个可见叶子列右侧不渲染 resizer。\n  详见 `docs/features/columns/column-width.md`。\n- `resizableMinWidth` / `resizableMaxWidth`：列宽拖拽 min/max 约束（px）。number → 统一；\n  函数 → 按列 key 逐列定制。默认 min 30 / max Infinity。\n- `rowDragSort` / `columnDragSort`：公开拖拽排序入口。业务方通过回调提交新的 dataSource / columns。"
+    },
+    {
+      "name": "rowSelection",
+      "kind": "prop",
+      "signature": "rowSelection?: import('./compatTypes').TableRowSelection",
+      "type": "TableRowSelection",
+      "required": false,
+      "advanced": false,
+      "summary": "行选择配置。\n\n传入即自动在叶子列最前插入一个选择列（checkbox 或 radio），参与布局。\n- 与多级表头 / 固定列 / 虚拟滚动组合：选择列作为首列叶子节点，由 data-grid 统一处理（无需调用方感知）。\n- `selectedRowKeys` 受控；勾选/全选/单选触发 `onChange(keys, rows, info)`。\n- 支持选择列表头与选择列注入：`columnTitle`、`getTitleCheckboxProps`、`onCell`。\n- 支持 antd 兼容回调：`onSelect`、`onSelectMultiple`、`onSelectAll`、`onSelectInvert`、\n  `onSelectNone`。\n- `getCheckboxProps(record)` 返回 `{ disabled: true }` 的行不可勾选、不参与全选/半选。\n- 若 `columns` 中含 `Table.SELECTION_COLUMN` 哨兵，选择列插在该哨兵位置而非默认最前\n  （对齐 antd order-column demo）。\n\n不传则不渲染选择列（零回归：basic/grouping/fixed/colspan/virtual 行为不变）。\n\n详见 `docs/features/interaction/selection.md`。"
+    },
+    {
+      "name": "expandable",
+      "kind": "prop",
+      "signature": "expandable?: Expandable<RecordType>",
+      "type": "Expandable<RecordType>",
+      "required": false,
+      "advanced": false,
+      "summary": "行展开配置。\n\n传入即自动插入一个展开图标列（默认最前；若 `columns` 含 `Table.EXPAND_COLUMN`\n哨兵则插在该位置），并在可展开数据行下方插入展开内容区（详见 Expandable 注释）。\n\n- `expandedRowRender(record, index, indent, expanded)`：展开内容；返回 null/undefined 的行\n  视为不可展开（不渲染展开图标）。\n- `rowExpandable(record)` 返回 false 的行图标禁用、不展开。\n- `expandedRowKeys` 受控 / `defaultExpandedRowKeys` 非受控。\n- `onExpand` / `onExpandedRowsChange` 回调。\n\n与固定列 / 选择列 / 虚拟滚动组合：展开列作为普通叶子列参与布局，\n展开内容区不影响虚拟窗口。\n\n不传则不渲染展开列、不插入展开内容区（零回归）。\n\n详见 `docs/features/interaction/expand.md`。"
+    },
+    {
+      "name": "pagination",
+      "kind": "prop",
+      "signature": "pagination?: false | TablePaginationConfig",
+      "type": "false | TablePaginationConfig",
+      "required": false,
+      "advanced": false,
+      "summary": "分页配置。\n\n**默认分页对齐 antd**：\n  - `undefined`：等价 `{}`，默认 `defaultCurrent=1`、`defaultPageSize=10`、\n    `placement=['bottomEnd']`。\n  - `false`：关闭分页器，数据全显。\n  - `TablePaginationConfig` 对象：启用分页（受控/非受控 current/pageSize，total 派生）。\n\n启用后：\n  - 排序+筛选后的数据源按 `current`/`pageSize` 切片后渲染（`slice((current-1)*pageSize, current*pageSize)`）。\n  - 按 `placement`（v6 数组，默认 `['bottomEnd']`）在表格上下渲染 antd `<Pagination>`。\n  - 翻页/改 pageSize 触发 `onChange(pagination, filters, sorter, { action: 'paginate', currentDataSource })`。\n\n分页器用 antd `<Pagination>`。\n\n详见 `docs/features/interaction/pagination-and-data.md`。"
+    },
+    {
+      "name": "loading",
+      "kind": "prop",
+      "signature": "loading?: boolean | SpinProps",
+      "type": "boolean | SpinProps",
+      "required": false,
+      "advanced": false,
+      "summary": "加载态（对齐 antd `TableProps.loading`）。\n\n**语义**：传入即用 antd `<Spin>` 包裹整个表格内容（含 topPagination / title / 表体 / footer /\nbottomPagination），显示加载转圈遮罩。典型用于 ajax 远程数据请求中。\n  - `boolean`：`true` 转圈、`false`（默认）不转。等价 `SpinProps={{ spinning: <bool> }}`。\n  - `SpinProps` 对象：透传给 antd `<Spin>`（如 `{ spinning: true, delay: 200, tip: 'Loading...' }`）。\n    此时 `spinning` 字段优先（与 antd 一致：`<Spin spinning={false} {...spinProps}>`）。\n\nSpin 用 antd（loading/spin 非表格核心，用 antd）。\n\n不传（默认）→ 不包 Spin，保持现有 demo 行为不变（零回归）。\n\n详见 `docs/features/layout/layout.md`。"
+    },
+    {
+      "name": "className",
+      "kind": "prop",
+      "signature": "className?: string",
+      "type": "string",
+      "required": false,
+      "advanced": false,
+      "summary": "自定义根 className。"
+    },
+    {
+      "name": "style",
+      "kind": "prop",
+      "signature": "style?: import('react').CSSProperties",
+      "type": "CSSProperties",
+      "required": false,
+      "advanced": false,
+      "summary": "自定义根 style。"
+    },
+    {
+      "name": "classNames",
+      "kind": "prop",
+      "signature": "classNames?: TableClassNames<RecordType>",
+      "type": "TableClassNames<RecordType>",
+      "required": false,
+      "advanced": false,
+      "summary": "语义化 classNames（对齐 antd v6 `TableProps.classNames`）。\n\n**支持对象（静态）与函数 `(info) => 对象`（动态）两种**：\n  - 对象：直接作为各部位 className 注入。\n  - 函数：按 `info.props`（含 size/bordered/virtual/scroll/pagination）求值返回对象，\n    便于按当前 props 子集动态返回不同样式（如 size='medium' 时返回特定 root/title/header.cell）。\n\n嵌套部位（对齐 antd v6 `_semantic`）：`root` / `section` / `content` / `title` / `footer` /\n`header.{wrapper,row,cell}` / `body.{wrapper,row,cell}` / `pagination.{root,item}`。\n\n注入点（按部位）：`root`（与 `className` 合并）/ `title` / `footer` /\n`section`（content 外的包装容器）/ `content`（标题与脚注之间的表格内容区）/\n`header.{wrapper,row,cell}` / `body.{wrapper,row,cell}` /\n`pagination.{root,item}`（item 透传到 antd Pagination）。\n\n未提供（undefined）时所有部位走默认 className，零回归。"
+    },
+    {
+      "name": "styles",
+      "kind": "prop",
+      "signature": "styles?: TableStyles<RecordType>",
+      "type": "TableStyles<RecordType>",
+      "required": false,
+      "advanced": false,
+      "summary": "语义化 styles（对齐 antd v6 `TableProps.styles`）。结构与 `classNames` 同构，\n值为 `CSSProperties`；同样支持对象（静态）与函数 `(info) => 对象`（动态）。\n\n注入点同 `classNames`（合并到对应部位的 inline style）。\n\n未提供（undefined）时所有部位走默认 style，零回归。"
+    },
+    {
+      "name": "onChange",
+      "kind": "method",
+      "signature": "onChange?: (\n    pagination: TablePaginationState,\n    filters: Record<string, Array<FilterValue> | null>,\n    sorter: SorterResult<RecordType> | Array<SorterResult<RecordType>>,\n    extra: TableCurrentDataSource<RecordType>,\n  ) => void",
+      "type": "(\n    pagination: TablePaginationState,\n    filters: Record<string, Array<FilterValue> | null>,\n    sorter: SorterResult<RecordType> | Array<SorterResult<RecordType>>,\n    extra: TableCurrentDataSource<RecordType>,\n  ) => void",
+      "required": false,
+      "advanced": false,
+      "summary": "排序/筛选/分页变化的统一回调。\n\n对齐 antd `TableProps.onChange(pagination, filters, sorter, extra)`：\n  - `pagination`：当前实际分页状态 `{ current, pageSize, total }`（注入实际值；\n    对齐 antd：onChange 的 pagination 始终反映当前分页，无论触发源是 sort/filter/paginate）。\n    未启用分页（`pagination={false}`）时传 `{ current: 1, pageSize: <全量>, total: <长度> }`。\n  - `filters`：筛选状态。形态 `{ [columnKey/dataIndex]: filteredValue[] | null }`：\n    * **可筛选列**（有 `filters` + `onFilter`）出现为 key；值为当前激活的筛选值数组（命中任一保留）。\n    * 无激活筛选的列值为 `null`（对齐 antd：未筛选列在 filters 对象里值为 null）。\n    * 不可筛选列不出现为 key。\n  - `sorter`：排序结果。对齐 antd 的\"对象/数组\"二分语义：\n    - **0 个激活排序列**：单个对象 `{ column, order: null, field, columnKey }`\n      （调用方可判 `order == null` 视为\"无排序\"）。\n    - **1 个激活排序列**：单个 `SorterResult` 对象 `{ column, order, field, columnKey }`。\n    - **>=2 个激活排序列（多列排序）**：`SorterResult[]` 数组，按 `sorter.multiple` 升序\n      （multiple 最小 = 最高优先级在前）。仅含 `order != null` 的列。\n  - `extra`：`{ currentDataSource, action }`。`action` 取值 `'sort'`（排序）/`'filter'`/\n    `'paginate'`。`currentDataSource`：\n    * sort：排序后（受控为传入）数据源。\n    * filter：**排序+筛选后**数据源（raw → sort → filter；受控为传入）。\n    * paginate：分页**前**的当前页数据源（即排序+筛选后的全量，不含分页切片——与 antd 一致：\n      antd onChange 的 currentDataSource 是分页前的全量渲染数据）。\n\n点击排序列表头 / 应用筛选 / 翻页/改 pageSize 时触发。"
+    },
+    {
+      "name": "showSorterTooltip",
+      "kind": "prop",
+      "signature": "showSorterTooltip?: boolean | { target?: 'full-header' | 'sorter-icon' }",
+      "type": "boolean | { target?: 'full-header' | 'sorter-icon' }",
+      "required": false,
+      "advanced": false,
+      "summary": "是否全局显示排序提示 tooltip（对齐 antd `TableProps.showSorterTooltip`）。\n单列可由 `column.showSorterTooltip` 覆盖。默认 `true`。"
+    },
+    {
+      "name": "childrenColumnName",
+      "kind": "prop",
+      "signature": "childrenColumnName?: string",
+      "type": "string",
+      "required": false,
+      "advanced": false,
+      "summary": "树形数据子字段名（对齐 antd `TableProps.childrenColumnName`，默认 `'children'`）。\n\n**语义**：dataSource 中每个 record 的 `record[childrenColumnName]` 若为非空数组，\n视为该 record 的子行（递归支持任意深度）。\n  - 检测到任一 record 含此字段（且 `expandable.expandedRowRender` 未提供——树形与展开渲染\n    自定义内容互斥，antd 中树形优先）→ 进入**树形模式**：\n      * 数据源被**扁平化**（DFS 遍历 children，按展开状态过滤未展开父行的子孙行）。\n      * 第一列数据单元格内按 `level × indentSize` 左缩进 + `hasChildren` 行渲染展开/收起图标。\n      * `rowSelection.checkStrictly=false` 时父子勾选联动。\n  - 无任何 record 含此字段 → 退化为普通扁平表格（零回归）。\n\n与 `expandable.childrenColumnName` / `expandable.indentSize` 同名字段优先级：\n`expandable.*` 字段优先（与 antd `getExpandableProps` 一致）；未设时用 Table 级本字段。\n\n默认 `'children'`。"
+    },
+    {
+      "name": "components",
+      "kind": "prop",
+      "signature": "components?: TableComponents",
+      "type": "TableComponents",
+      "required": false,
+      "advanced": false,
+      "summary": "自定义组件（对齐 antd `TableProps.components`，v6 `TableComponents` 子集）。\n\n替换表格内部默认渲染的元素。详见 `TableComponents` 类型注释。\n\n**data-grid div 渲染适配**（与 antd `<table>` 实现不同）：\n  - `body.cell`：替换单元格**内部内容**（非整个 td）；返回 ReactNode。\n  - `body.row`：每行渲染一个包裹层组件（用于 Form/Context 等）；未提供时维持现有布局。\n  - `header.cell`：表头格（列拖拽会用；当前占位）。\n\n典型用例：单元格编辑（edit-cell）——传入 `{ body: { row: EditableRow, cell: EditableCell } }，\n配合 column.onCell 返回编辑 props（record/editable/dataIndex/handleSave）。\n\n未提供（undefined）时所有渲染走默认路径，保证现有 demo 零回归。"
+    },
+    {
+      "name": "locale",
+      "kind": "prop",
+      "signature": "locale?: TableLocale",
+      "type": "TableLocale",
+      "required": false,
+      "advanced": false,
+      "summary": "本地化文案（对齐 antd `TableProps.locale` 子集）。\n\ndata-grid 自研文案统一接入 antd `useLocale('Table')`：\n- `TableProps.locale` 覆盖 `ConfigProvider locale`。\n- `ConfigProvider locale` 覆盖默认英文。\n- 已消费：表体 empty、FilterDropdown、自研选择菜单、自研排序 hover title、自研展开按钮 aria。\n\n=== emptyText 语义（data-grid 当前兼容语义）===\n\n- 当 `pagedDataSource` 为空（dataSource 空 或 筛选/分页后无数据）时，表格在表体区域\n  渲染一个跨整行的 empty 占位区，内容取 `emptyText`。\n- `emptyText` 优先级：\n    1. `TableProps.locale.emptyText`（Table 级，最高优先级）。\n    2. `ConfigProvider locale.Table.emptyText`（全局 Table locale，由 merged Table locale 提供）。\n    3. `ConfigProvider.renderEmpty('Table')`（全局表体空状态）。\n    4. 默认 antd `<Empty>`（无描述）。\n- **表体 empty 不区分\"空数据 vs 筛选无结果\"**：data-grid 当前兼容语义下，两种场景\n  共用同一表体 emptyText，并按上述优先级解析。\n\n  ★ `'Table.filter'` 是**另一个**独立语义（对齐 antd FilterDropdown 的 renderEmpty 语义）：仅用于\n  **filter 下拉面板内部**当 `column.filters` 为空数组时的占位（默认 Empty SIMPLE +\n  locale.filterEmptyText），**不是**表体筛选无结果。data-grid 由 FilterDropdown 消费此语义。\n\n=== antd custom-empty demo 要素 ===\n\n- `locale={{ emptyText: <Empty description=\"No Data\">{toggleButton}</Empty> }}`：Table 级\n  空状态文案（含 toggle 按钮子节点；空数据与筛选无结果共用）。\n- `<ConfigProvider renderEmpty={renderEmpty}>`：renderEmpty 仅处理 'Table.filter' →\n  `<Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description=\"No Filter(Custom)\" />`\n  （filter 下拉内 filters 空时占位）。\n\n不传（默认）→ 用 `ConfigProvider locale.Table.emptyText`、ConfigProvider.renderEmpty 或默认 antd Empty\n（零回归：现有 demo 无 locale）。"
+    },
+    {
+      "name": "summary",
+      "kind": "prop",
+      "signature": "summary?: ((currentPageData: Array<RecordType>) => ReactNode) | ReactNode",
+      "type": "((currentPageData: Array<RecordType>) => ReactNode) | ReactNode",
+      "required": false,
+      "advanced": false,
+      "summary": "汇总栏 summary（对齐 antd `TableProps.summary`）。\n\n**语义**：渲染在表体底部的总结栏（一行或多行）。典型用法：计算列总计、显示汇总信息。\n\n取值：\n  - **函数** `(currentPageData) => ReactNode`：接收当前页数据（pagedDataSource——排序+筛选+\n    分页切片后的数据），返回 summary 内容（通常用 `Table.Summary` / `Table.Summary.Row` /\n    `Table.Summary.Cell` 组合声明）。\n  - **ReactNode**：直接作为 summary 内容（不依赖 pageData 计算）。\n\n=== `Table.Summary` 组件族（对齐 antd v6）===\n\n- `Table.Summary`（容器）：`fixed?: boolean`。`fixed: true` 时 summary 区 sticky bottom\n  （配合 `scroll.y`，表体滚动时 summary 固定在底部）。\n- `Table.Summary.Row`（行）：分组语法糖，可含多个 Cell。\n- `Table.Summary.Cell`（单元格）：\n    * `index?: number`：列索引（0-based，对应叶子列序号）。决定该 cell 在 grid 中的横向位置。\n    * `colSpan?: number`：跨列数（默认 1）。\n    * `align?: 'start' | 'center' | 'end'`：对齐方式。\n    * `children`：单元格内容（任意 ReactNode，如 `<Text type=\"danger\">{total}</Text>`）。\n\n=== data-grid 实现（与 antd 差异）===\n\n- data-grid 用 div + CSS Grid 渲染（无 `<tfoot>`），summary Cell 按 `index` + `colSpan` 定位。\n- `fixed` sticky bottom：summary 区固定在表体底部，与表体共享滚动容器。\n- 功能等价：summary 在表体底部，Cell 按 index+colSpan 定位，fixed sticky bottom。\n\n**pageData 入参差异**（与 antd）：\n  - data-grid：函数收到 **pagedDataSource**（当前页数据——排序+筛选+分页切片后），\n    与 title/footer 收到 filteredDataSource（全量）不同。对齐 antd `summary` 实际行为\n    （antd summary 的 pageData 也是当前页数据）。\n  - 若未启用分页，pagedDataSource = filteredDataSource（全量），与 antd 不分页时一致。\n\n未提供（undefined）时不渲染 summary 区（零回归：现有 demo 无 summary 行）。"
+    },
+    {
+      "name": "children",
+      "kind": "prop",
+      "signature": "children?: ReactNode",
+      "type": "ReactNode",
+      "required": false,
+      "advanced": false,
+      "summary": "JSX 风格 API：`<Table>` 的 JSX 子元素声明列（对齐 antd `<Table><Column/></Table>`）。\n\n**语义**：当**未传 `columns` prop** 时，Table 内部用 React.Children 遍历 JSX 子元素，\n识别 `<Table.Column>`（→ ColumnType）与 `<Table.ColumnGroup>`（→ `{ title, children: [...] }`\n嵌套，复用多级表头），生成 columns 数组（等价于传 `columns` prop）。\n\n**columns 或 children 二选一**（与 antd 一致）：\n  - 传 `columns` prop：走 columns 路径（所有现有 demo，零回归），JSX children 被忽略。\n  - 不传 `columns` prop 但传 JSX children：走解析路径。\n  - 两者都未传：空表（无列）。\n\n详见 `ColumnProps` / `ColumnGroupProps`。"
+    },
+    {
+      "name": "sticky",
+      "kind": "prop",
+      "signature": "sticky?: boolean | StickyConfig",
+      "type": "boolean | StickyConfig",
+      "required": false,
+      "advanced": false,
+      "summary": "粘性表头 + 页面级滚动条（对齐 antd v6 `TableProps.sticky`）。\n\n**语义（区别容器内固定）**：表头跟随**页面**滚动固定（sticky 钉在 `offsetHeader` 处，\n相对 `getContainer` 默认 `window`），而非容器内固定（`scroll.y` 表体限高滚动）。\n详见 `StickyConfig` 注释。\n\n**取值**：\n  - `undefined` / `false`：不启用（所有现有 demo 行为不变，零回归）。\n  - `true`：启用（默认偏移 0）。\n  - 对象 `{ offsetHeader?, offsetScroll?, getContainer? }`：自定义。\n\n**与容器内固定互斥语义**：同时传 `sticky` 与 `scroll.y` 时，`sticky` 优先（页面级固定），\n`scroll.y` 的容器内固定表头不生效（data-grid 简化：不为同表同时支持两种固定模式）。\n\n未提供（undefined）时不启用，零回归。\n\n详见 `docs/features/layout/sticky.md`。"
+    },
+    {
+      "name": "onHeaderRow",
+      "kind": "method",
+      "signature": "onHeaderRow?: (\n    columns: Array<ColumnType<RecordType>>,\n    index: number,\n  ) => import('react').HTMLAttributes<HTMLElement> | undefined",
+      "type": "(\n    columns: Array<ColumnType<RecordType>>,\n    index: number,\n  ) => HTMLAttributes<HTMLElement> | undefined",
+      "required": false,
+      "advanced": false,
+      "summary": "表头**行** props 注入（对齐 antd v6 `TableProps.onHeaderRow`）。\n\n表头**行** props 注入。签名 `(columns, index) => React.HTMLAttributes`：\n  - `columns`：该表头行涉及的列（单层表头 = 全部 columns；多级表头 = 该层的分组列集合）。\n  - `index`：表头行号（单层表头恒 0；多级表头 0=顶层分组, maxDepth-1=叶子层）。\n  - 返回值整体作为该表头**行**的 HTML 属性（onClick/onDoubleClick/.../className/style）。\n\n**data-grid 行为**：onHeaderRow 返回值应用到该表头行的所有表头格：\n  - 事件类（onClick/onMouseEnter/...）：点击该表头行任一表头格即触发（行为等价\"点击表头行\"）。\n  - className / style：合并到该表头行每个表头格。\n\n典型用法（对齐 antd 文档 onRow 用法）：\n```tsx\n<Table onHeaderRow={(columns, index) => ({ onClick: () => {...} })} />\n```\n\n未提供（undefined）时不注入（零回归）。"
+    },
+    {
+      "name": "onRow",
+      "kind": "method",
+      "signature": "onRow?: (\n    record: RecordType,\n    index: number,\n  ) => import('react').HTMLAttributes<HTMLElement> | undefined",
+      "type": "(\n    record: RecordType,\n    index: number,\n  ) => HTMLAttributes<HTMLElement> | undefined",
+      "required": false,
+      "advanced": false,
+      "summary": "表体**行** props 注入（对齐 antd v6 `TableProps.onRow`）。\n\n表体**行** props 注入。签名 `(record, index) => React.HTMLAttributes`：\n  - `record`：该行数据。\n  - `index`：该行在 dataSource 中的索引。\n  - 返回值整体作为该表体**行**的 HTML 属性（onClick/onDoubleClick/onContextMenu/onMouseEnter/onMouseLeave/...）。\n\n**data-grid 行为**：onRow 返回值应用到该行的所有数据单元格：\n  - 事件类（onClick/onMouseEnter/...）：点击该行任一单元格即触发（行为等价\"点击该行\"）。\n    * ★ 与内置 hover 区分：onRow.onMouseEnter/onMouseLeave 会**覆盖**内置 hover 高亮；\n      若需同时保留 hover，请在自定义 handler 内自行处理视觉，或用 `rowHoverable=false`\n      关闭内置 hover 避免冲突。\n  - className / style：合并到该行每个单元格。\n\n典型用法（对齐 antd 文档 onRow 用法）：\n```tsx\n<Table onRow={(record, rowIndex) => ({\n  onClick: (event) => {},\n  onDoubleClick: (event) => {},\n  onContextMenu: (event) => {},\n  onMouseEnter: (event) => {},\n  onMouseLeave: (event) => {},\n})} />\n```\n\n**与 components.body.row 关系**：两者正交——components.body.row 提供包裹层组件\n（Form/Context），onRow 提供事件 props。可同时使用：onRow props 在无 body.row 时透传到单元格；\n有 body.row 时 onRow 不自动透传到 body.row 组件（body.row 是用户自定义组件，应由用户自行\n处理事件）。\n\n未提供（undefined）时不注入（零回归）。"
+    },
+    {
+      "name": "rowClassName",
+      "kind": "prop",
+      "signature": "rowClassName?: string | ((record: RecordType, index: number) => string)",
+      "type": "string | ((record: RecordType, index: number) => string)",
+      "required": false,
+      "advanced": false,
+      "summary": "表体行的 className（对齐 antd v6 `TableProps.rowClassName`）。\n\n表体行的 className。取值：\n  - 字符串：所有行加该 class（统一行样式）。\n  - 函数 `(record, index) => string`：按行返回 class（典型用法：编辑态行 `editable-row`、\n    奇偶行条纹、特殊行高亮等）。\n\n**data-grid 行为**：rowClassName 应用到该行的所有数据单元格（同一行的每个单元格都带这个 class）。\n\n**典型用法**（antd edit-cell demo）：`rowClassName={() => 'editable-row'}`——编辑态行视觉。\n\n**与内置选中态视觉关系**：内置选中态视觉在命中 `selectedRowKeys` 的行自动注入\n  （详见 `docs/features/interaction/selection.md`），rowClassName 是用户自定义层，与之正交。\n\n未提供（undefined）时不注入（零回归）。"
+    },
+    {
+      "name": "getPopupContainer",
+      "kind": "method",
+      "signature": "getPopupContainer?: (triggerNode: HTMLElement) => HTMLElement",
+      "type": "(triggerNode: HTMLElement) => HTMLElement",
+      "required": false,
+      "advanced": false,
+      "summary": "dropdown 挂载容器（对齐 antd v6 `TableProps.getPopupContainer`）。\n\n表格内 dropdown（筛选下拉等）的挂载容器。签名 `(triggerNode) => HTMLElement`：\n  - `triggerNode`：触发 dropdown 的 DOM 节点（如筛选漏斗 trigger span）。\n  - 返回值：dropdown 弹出层的挂载父节点（默认 antd Dropdown 默认行为 = document.body）。\n\n**生效范围**：本字段作为**筛选下拉**（FilterDropdown 内 antd Dropdown）的默认 getPopupContainer。\n  - 列级 `column.filterDropdownProps.getPopupContainer` 优先（覆盖 Table 级）。\n  - Table 级 `getPopupContainer` 作为列级未指定时的默认值。\n\n典型用法：在滚动容器 / modal / drawer 内嵌入表格时，让 dropdown 跟随滚动而非固定到 body：\n```tsx\n<Table getPopupContainer={(trigger) => trigger.parentElement as HTMLElement} />\n```\n\n未提供（undefined）时 antd Dropdown 走默认（document.body 挂载），与现有 demo 一致（零回归）。"
+    },
+    {
+      "name": "rowHoverable",
+      "kind": "prop",
+      "signature": "rowHoverable?: boolean",
+      "type": "boolean",
+      "required": false,
+      "advanced": false,
+      "summary": "行是否可 hover 高亮（对齐 antd v6 `TableProps.rowHoverable`，since 5.16.0）。\n\n行是否可 hover 高亮。默认 `true`。\n  - `true`（默认）：鼠标 hover 某行时该行单元格显示行高亮视觉。\n  - `false`：关闭 hover 高亮（hover 视觉消失）。\n\n**与 onRow.onMouseEnter/Leave 关系**：rowHoverable=false 仅关闭内置 hover 视觉；\n  若 onRow 返回了 onMouseEnter/Leave，用户自定义 handler 仍生效（事件本身不因 rowHoverable 关闭）。\n\n未提供（undefined）时默认 true（保持现有所有 demo 的 hover 行为不变，零回归）。"
+    },
+    {
+      "name": "ref",
+      "kind": "prop",
+      "signature": "ref?: React.Ref<TableRef>",
+      "type": "React.Ref<TableRef>",
+      "required": false,
+      "advanced": false,
+      "summary": "ref 句柄（scrollTo API）。与 antd `Table ref.scrollTo` 接口对齐：\n  - `scrollTo({ index })`：滚到第 index 行顶部对齐。\n  - `scrollTo({ key })`：滚到 rowKey === key 的行（调用方传 React.Key）。\n  - `scrollTo({ scrollTop })`：直接滚到指定 scrollTop（与 antd `top` 等价的扩展别名）。\n  - `scrollTo({ offset, align })`：在目标行顶部对齐后额外偏移；align 控制对齐方式。\n\n仅在 `virtual` 模式下生效；非虚拟模式调用为 no-op（不影响普通表格）。"
+    }
+  ],
+  "tableRef": [
+    {
+      "name": "scrollTo",
+      "kind": "method",
+      "signature": "scrollTo: (config: {\n    index?: number\n    key?: import('react').Key\n    scrollTop?: number\n    /** antd 同名字段（与 `scrollTop` 等价别名）。 */\n    top?: number\n    offset?: number\n    align?: 'start' | 'center' | 'end' | 'nearest'\n    /** data-grid 专属：平滑滚动行为。 */\n    behavior?: 'auto' | 'smooth'\n  }) => void",
+      "type": "(config: {\n    index?: number\n    key?: Key\n    scrollTop?: number\n    /** antd 同名字段（与 `scrollTop` 等价别名）。 */\n    top?: number\n    offset?: number\n    align?: 'start' | 'center' | 'end' | 'nearest'\n    /** data-grid 专属：平滑滚动行为。 */\n    behavior?: 'auto' | 'smooth'\n  }) => void",
+      "required": true,
+      "advanced": false,
+      "summary": "滚动到目标位置。与 antd `Table ref.scrollTo` 兼容，额外支持 `scrollTop` 别名。\n\n- `index` / `key` / `scrollTop`（或 antd 同名 `top`）三选一：\n    - `index: number`：滚到第 index 行。\n    - `key: React.Key`：滚到 rowKey === key 的行（自动解析为 index）。\n    - `scrollTop: number` / `top: number`：直接滚到指定 scrollTop。\n- `offset`：目标行顶部对齐后再额外偏移（向下为正）。\n- `align`：'start'（默认）| 'center' | 'end' | 'nearest'。虚拟模式下不支持 'center' 时\n  退化为 'start'（与 antd 行为一致）。'nearest'：目标行已完全在可视区时**不滚动**（不跳），\n  仅当上方不可见→按 start、下方不可见→按 end。\n- `behavior`：'auto'（默认，瞬时）| 'smooth'（平滑动画到位）。**data-grid 专属**\n  （antd 无此字段）。\n\n详见 `docs/features/scrolling/virtualization.md`。"
+    },
+    {
+      "name": "nativeElement",
+      "kind": "prop",
+      "signature": "nativeElement?: HTMLDivElement | null",
+      "type": "HTMLDivElement | null",
+      "required": false,
+      "advanced": false,
+      "summary": "最外层根 DOM 节点。"
+    }
+  ],
+  "gridOptions": [
+    {
+      "name": "rowHeight",
+      "kind": "prop",
+      "signature": "rowHeight?: number | ((record: RecordType, index: number) => number)",
+      "type": "number | ((record: RecordType, index: number) => number)",
+      "required": false,
+      "advanced": false,
+      "summary": "行高约定。虚拟模式下未测量行以该值作为兜底；非虚拟固定行高场景用作行高的取值。"
+    },
+    {
+      "name": "virtualizationMode",
+      "kind": "prop",
+      "signature": "virtualizationMode?: VirtualizationMode",
+      "type": "VirtualizationMode",
+      "required": false,
+      "advanced": false,
+      "summary": "虚拟渲染模式。\n\n- `standard`（默认）：普通虚拟滚动，React 正常渲染当前窗口。\n- `recycling`：启用 DOM/slot 复用路径，适合超大数据量和高频滚动。\n\n仅在 `virtual` 且 `scroll={{ y: true }}` 时生效。启用 recycling 后，自定义 cell 的逃逸舱（escape-hatch）渲染\n应通过 `column.gridColumnOptions.renderCellElement/renderCellReact/disposeCellElement` 配置。"
+    },
+    {
+      "name": "minRowHeight",
+      "kind": "prop",
+      "signature": "minRowHeight?: number",
+      "type": "number",
+      "required": false,
+      "advanced": false,
+      "summary": "有界行高下限；需与 `maxRowHeight` 同时设置才启用有界模型。"
+    },
+    {
+      "name": "maxRowHeight",
+      "kind": "prop",
+      "signature": "maxRowHeight?: number",
+      "type": "number",
+      "required": false,
+      "advanced": false,
+      "summary": "有界行高上限；需与 `minRowHeight` 同时设置才启用有界模型。"
+    },
+    {
+      "name": "headerHeight",
+      "kind": "prop",
+      "signature": "headerHeight?: number | string",
+      "type": "number | string",
+      "required": false,
+      "advanced": false,
+      "summary": "表头行高约定。多级表头下每一层表头使用同一高度。"
+    },
+    {
+      "name": "resizable",
+      "kind": "prop",
+      "signature": "resizable?: boolean",
+      "type": "boolean",
+      "required": false,
+      "advanced": false,
+      "summary": "是否启用列宽拖拽。`true` 且未设置 `columnResizeMode` 时等同 `ResizeLeft`。"
+    },
+    {
+      "name": "columnResizeMode",
+      "kind": "prop",
+      "signature": "columnResizeMode?: 'Disabled' | 'ResizeLeft' | 'ResizeSibling'",
+      "type": "'Disabled' | 'ResizeLeft' | 'ResizeSibling'",
+      "required": false,
+      "advanced": false,
+      "summary": "列宽拖拽模式：禁用、只改左侧列、或左右兄弟列联动。"
+    },
+    {
+      "name": "resizableMinWidth",
+      "kind": "prop",
+      "signature": "resizableMinWidth?: number | ((key: string) => number)",
+      "type": "number | ((key: string) => number)",
+      "required": false,
+      "advanced": false,
+      "summary": "列宽拖拽最小宽度。函数形态按列 key 返回约束。"
+    },
+    {
+      "name": "resizableMaxWidth",
+      "kind": "prop",
+      "signature": "resizableMaxWidth?: number | ((key: string) => number)",
+      "type": "number | ((key: string) => number)",
+      "required": false,
+      "advanced": false,
+      "summary": "列宽拖拽最大宽度。函数形态按列 key 返回约束。"
+    },
+    {
+      "name": "scrollBarFoldMode",
+      "kind": "prop",
+      "signature": "scrollBarFoldMode?: ScrollBarFoldMode",
+      "type": "ScrollBarFoldMode",
+      "required": false,
+      "advanced": false,
+      "summary": "悬浮滚动条折叠/显示策略。\n\n默认保持滚动条指示器可见，并在 hover hit 区时展开；打开 `showOnTableHover` 后，\n仅 hover 表格、hover 滚动条 hit 区或触摸表格后显示滚动条/指示器。"
+    },
+    {
+      "name": "selection",
+      "kind": "prop",
+      "signature": "selection?: GridSelectionOptions<RecordType>",
+      "type": "GridSelectionOptions<RecordType>",
+      "required": false,
+      "advanced": false,
+      "summary": "data-grid 原生行选择配置。\n\n与 antd `rowSelection` 的关系：\n- `gridOptions.selection` 是 data-grid 原生能力命名空间，优先级高于兼容 API。\n- `rowSelection` 仍保留 antd 兼容 API（renderCell/getCheckboxProps/selections/onChange...）。\n- 选中真理源优先级：`selectedValues` > `defaultSelectedValues` >\n  `rowSelection.selectedRowKeys` > `rowSelection.defaultSelectedRowKeys`。\n- 同时传 `selectedValues` 与 `selectedRowKeys`：UI 以 `selectedValues` 为准；触发时仍尽量同时\n  调 `onSelectedValuesChange` 与 `rowSelection.onChange`。"
+    },
+    {
+      "name": "rowDragSort",
+      "kind": "prop",
+      "signature": "rowDragSort?: {\n      enabled?: boolean\n      handleSelector?: string\n      selectedRowKeys?: Array<import('react').Key>\n      multiRowReorder?: boolean\n      autoScroll?: boolean\n      onSort: (nextDataSource: Array<RecordType>) => void\n    }",
+      "type": "{\n      enabled?: boolean\n      handleSelector?: string\n      selectedRowKeys?: Array<Key>\n      multiRowReorder?: boolean\n      autoScroll?: boolean\n      onSort: (nextDataSource: Array<RecordType>) => void\n    }",
+      "required": false,
+      "advanced": false,
+      "summary": "行拖拽排序。\n\n传入对象并提供 `onSort` 后启用。拖拽结束时回调当前渲染数据的新顺序，调用方通常在回调内\n`setDataSource(next)`。`handleSelector` 可把拖拽限定到手柄元素；不传则整行可拖。"
+    },
+    {
+      "name": "columnDragSort",
+      "kind": "prop",
+      "signature": "columnDragSort?: {\n      enabled?: boolean\n      autoScroll?: boolean\n      onSort: (nextColumns: Array<ColumnOrSentinel<RecordType>>) => void\n    }",
+      "type": "{\n      enabled?: boolean\n      autoScroll?: boolean\n      onSort: (nextColumns: Array<ColumnOrSentinel<RecordType>>) => void\n    }",
+      "required": false,
+      "advanced": false,
+      "summary": "列拖拽排序。\n\n传入对象并提供 `onSort` 后启用。拖拽结束时回调当前列数组的新顺序，调用方通常在回调内\n`setColumns(next)`。全局开关可用 `columnReorder=false`，单列锁定用\n`column.gridColumnOptions.dragColumnLock`。"
+    },
+    {
+      "name": "autoScrollOnDrag",
+      "kind": "prop",
+      "signature": "autoScrollOnDrag?: boolean",
+      "type": "boolean",
+      "required": false,
+      "advanced": false,
+      "summary": "拖拽行/列到容器边缘时自动滚动容器。\n\n`rowDragSort.autoScroll` / `columnDragSort.autoScroll` 未设置时使用本表级默认值。"
+    },
+    {
+      "name": "columnReorder",
+      "kind": "prop",
+      "signature": "columnReorder?: boolean",
+      "type": "boolean",
+      "required": false,
+      "advanced": false,
+      "summary": "列拖拽换位（列重排）全局开关。\n\n`false` 时禁用列拖拽；默认允许。仅在 `columnDragSort` 启用时有意义。"
+    },
+    {
+      "name": "multiRowReorder",
+      "kind": "prop",
+      "signature": "multiRowReorder?: boolean",
+      "type": "boolean",
+      "required": false,
+      "advanced": false,
+      "summary": "多行成块重排开关。\n\n`rowDragSort.multiRowReorder` 未设置时使用本表级默认值。默认开启。"
+    }
+  ],
+  "column": [
+    {
+      "name": "key",
+      "kind": "prop",
+      "signature": "key?: React.Key",
+      "type": "React.Key",
+      "required": false,
+      "advanced": false,
+      "summary": ""
+    },
+    {
+      "name": "title",
+      "kind": "prop",
+      "signature": "title?: ReactNode",
+      "type": "ReactNode",
+      "required": false,
+      "advanced": false,
+      "summary": ""
+    },
+    {
+      "name": "dataIndex",
+      "kind": "prop",
+      "signature": "dataIndex?: string | number | Array<string | number>",
+      "type": "string | number | Array<string | number>",
+      "required": false,
+      "advanced": false,
+      "summary": ""
+    },
+    {
+      "name": "gridColumnOptions",
+      "kind": "prop",
+      "signature": "gridColumnOptions?: GridColumnOptions<RecordType>",
+      "type": "GridColumnOptions<RecordType>",
+      "required": false,
+      "advanced": false,
+      "summary": "data-grid 列级专属选项命名空间。\n\n**与 antd 不兼容**：antd `ColumnType` 没有 dragColumnLock / cell 渲染钩子 等概念，\n故 dg 列级专属字段一律归入此命名空间（顶层 `ColumnType` 只保留与 antd 同名同义字段）。\n\n  - `dragColumnLock`：列拖拽锁定模式（列拖拽排序）。"
+    },
+    {
+      "name": "width",
+      "kind": "prop",
+      "signature": "width?: number | string",
+      "type": "number | string",
+      "required": false,
+      "advanced": false,
+      "summary": ""
+    },
+    {
+      "name": "align",
+      "kind": "prop",
+      "signature": "align?: Align",
+      "type": "Align",
+      "required": false,
+      "advanced": false,
+      "summary": ""
+    },
+    {
+      "name": "fixed",
+      "kind": "prop",
+      "signature": "fixed?: FixedInput",
+      "type": "FixedInput",
+      "required": false,
+      "advanced": false,
+      "summary": ""
+    },
+    {
+      "name": "className",
+      "kind": "prop",
+      "signature": "className?: string",
+      "type": "string",
+      "required": false,
+      "advanced": false,
+      "summary": "该列单元格的额外 className（对齐 antd v6 `column.className`）。\n\n注入到本列所有数据单元格 + 表头格。\n\n★ 与 antd 差异：antd 把 className 作用于 `<td>`/`<th>`；data-grid 用 div 渲染，\n  className 合并到单元格 div（与语义化 `body.cell`/`header.cell` 同款注入路径）。\n\n未提供（undefined）时不注入（零回归）。"
+    },
+    {
+      "name": "style",
+      "kind": "prop",
+      "signature": "style?: import('react').CSSProperties",
+      "type": "CSSProperties",
+      "required": false,
+      "advanced": false,
+      "summary": "该列单元格的额外 inline style（对齐 antd v6 `column.style`，对齐 antd 列类型）。\n\n注入到本列所有数据单元格 + 表头格，与 `className` 同款注入（合并到单元格 style，覆盖同名字段）。\n\n未提供（undefined）时不注入（零回归）。"
+    },
+    {
+      "name": "onHeaderCell",
+      "kind": "method",
+      "signature": "onHeaderCell?: (\n    column: ColumnType<RecordType>,\n    index: number,\n  ) => import('react').HTMLAttributes<HTMLElement> | undefined",
+      "type": "(\n    column: ColumnType<RecordType>,\n    index: number,\n  ) => HTMLAttributes<HTMLElement> | undefined",
+      "required": false,
+      "advanced": false,
+      "summary": "表头格 props 注入（对齐 antd v6 `column.onHeaderCell`）。\n\n签名 `(column, index) => React.HTMLAttributes`：\n  - `column`：该列表头格对应的原始 antd 列定义（调用方一般不读，直接返回固定 props）。\n  - `index`：表头行号（单层表头恒 0；多级表头按行号）。\n  - 返回值整体合并到表头格 div 的 props（className/style/onClick/... 与 onCell 同款透传）。\n\n**与 antd 一致**：返回值合并到 `<th>`（data-grid 是表头格 div）；典型用法为列拖拽（drag-column-sorting demo\n  `onHeaderCell: () => ({ id: ... })` 注入 dnd 标识）、表头点击交互等。\n\n**与 onCell 对称**：onCell 注入数据格，onHeaderCell 注入表头格。\n\n未提供（undefined）时不注入（零回归）。"
+    },
+    {
+      "name": "ellipsis",
+      "kind": "prop",
+      "signature": "ellipsis?: boolean | { showTitle?: boolean }",
+      "type": "boolean | { showTitle?: boolean }",
+      "required": false,
+      "advanced": false,
+      "summary": "省略号（对齐 antd v6 `column.ellipsis`）。\n\n取值：\n  - `true`：单元格/表头加 ellipsis CSS 类（`text-overflow:ellipsis` +\n    `white-space:nowrap` + `overflow:hidden`）+ **默认 native `title`** 悬浮提示\n    （hover 显示完整文本；对齐 antd 默认 `showTitle: true`）。\n  - `false` / undefined：不省略、无 title（零回归）。\n  - 对象 `{ showTitle?: boolean }`（对齐 antd v6）：\n      * `showTitle: false` → 加 ellipsis CSS 类（仍省略），但**关闭默认 native title**，\n        让用户在 `render` 内自行包 antd `<Tooltip>` 接管 hover 提示\n        （antd ellipsis-custom-tooltip demo 用法）。\n      * `showTitle: true` / 缺省 → 等价 `ellipsis: true`（加类 + 加默认 title）。\n\n详见 `docs/features/display/ellipsis.md`；列宽与省略号视觉的关系见\n`docs/features/columns/column-width.md`。"
+    },
+    {
+      "name": "hidden",
+      "kind": "prop",
+      "signature": "hidden?: boolean",
+      "type": "boolean",
+      "required": false,
+      "advanced": false,
+      "summary": "隐藏该列（对齐 antd `column.hidden`）。\n\n  - `true`：该叶子列的可视内容不渲染（表头格 + 数据单元格均隐藏）。\n  - `false` / undefined：正常渲染。\n\n**多级表头**：分组列（有 `children`）的 `hidden` 字段**无效**——只有叶子列的 `hidden` 生效\n  （与 antd 一致：隐藏分组列请隐藏其全部子叶子；父分组格随子叶子收缩自动横向收起）。\n\n**与各能力组合**：隐藏列宽度计为 0，固定列 sticky 偏移按可见叶子列累加；合并单元格仍跨原叶子区间；\n多级表头父分组格随子叶子收缩；选择列作为普通叶子列参与，同样可被 hidden。\n\n详见 `docs/features/columns/hidden-column.md`。"
+    },
+    {
+      "name": "render",
+      "kind": "method",
+      "signature": "render?: (text: any, record: RecordType, index: number) => ReactNode | RenderedCell",
+      "type": "(text: any, record: RecordType, index: number) => ReactNode | RenderedCell",
+      "required": false,
+      "advanced": false,
+      "summary": "antd render：(text, record, index) => ReactNode | RenderedCell。\n\ndata-grid only consumes `children` from the legacy RenderedCell object form.\n`props` is obsolete because antd also warns this shape has perf issues.\nUse `onCell` for colSpan/rowSpan and custom body-cell props."
+    },
+    {
+      "name": "children",
+      "kind": "prop",
+      "signature": "children?: Array<ColumnType<RecordType>>",
+      "type": "Array<ColumnType<RecordType>>",
+      "required": false,
+      "advanced": false,
+      "summary": "子列（多级表头，任意深度）。\n有 children 时该列视为分组列（仅取 key/title/align/fixed）；\n叶子列属性（dataIndex/width/render）仅取自无 children 的节点。\n\n详见 `docs/features/layout/header-and-span.md`。"
+    },
+    {
+      "name": "colSpan",
+      "kind": "prop",
+      "signature": "colSpan?: number",
+      "type": "number",
+      "required": false,
+      "advanced": false,
+      "summary": "表头格横向跨列数。\n\n**语义（与 antd 一致，与 children 多级表头是不同机制）**：\n  - `colSpan: N`（N>=2）：该表头格横向跨 N 个叶子列。\n    后续 `N-1` 个**叶子列**的表头格必须显式声明 `colSpan: 0`（被覆盖，不渲染表头）。\n    这是**单层表头里某列横向跨多列**，与 `children` 多级表头（多层结构）互斥/不同。\n  - `colSpan: 0`：该表头格被前面的 colSpan>1 表头覆盖，**不渲染表头格**（叶子列的数据单元格正常渲染）。\n  - 不设/`colSpan: 1`：普通单列表头格。\n\n注意：data-grid 内部仅支持 `colSpan`（表头跨列）；多级表头请用 `children`。\n两者**不要在同一列上混用**（与 antd 行为一致）。\n\n详见 `docs/features/layout/header-and-span.md`。"
+    },
+    {
+      "name": "rowScope",
+      "kind": "prop",
+      "signature": "rowScope?: 'row'",
+      "type": "'row'",
+      "required": false,
+      "advanced": false,
+      "summary": "行语义（仅影响 a11y/视觉占位，不影响布局）。\nantd `rowScope: 'row'` 表示该列是\"行标题列\"（first column 常用，视觉上加粗）。\ndata-grid 将其渲染为 `<th scope=\"row\">` 语义；非 rowScope 列保持普通单元格。\n本字段不影响合并算法。"
+    },
+    {
+      "name": "onCell",
+      "kind": "method",
+      "signature": "onCell?: (record: RecordType, index: number) => Record<string, any> | undefined",
+      "type": "(record: RecordType, index: number) => Record<string, any> | undefined",
+      "required": false,
+      "advanced": false,
+      "summary": "单元格事件 + 合并入口。\n\nantd column.onCell 签名：`(record, index) => { colSpan?, rowSpan?, className?, onClick?, ... }`。\n返回值**整体**透传给 `components.body.cell` 作为 props（与 antd v6 一致：返回值合并到\ntd/cell 组件的 props）。data-grid 消费其中的 `colSpan` / `rowSpan`：\n  - `colSpan: N`（N>=2）：当前数据行该格向右合并 N 个叶子列（含自身）。\n    紧随其后的 `N-1` 个叶子列在该行的单元格必须由它们各自的 onCell 返回 `colSpan: 0`（被覆盖，不渲染）。\n  - `rowSpan: N`（N>=2）：当前格向下合并 N 行（含自身）。被覆盖行的同列格由其 onCell 返回 `rowSpan: 0`。\n  - `colSpan: 0` 或 `rowSpan: 0`：该格被覆盖，**不渲染**（避免占位错乱）。\n  - 不设/1：普通单格。\n\n单元格编辑 edit-cell：onCell 返回值的**其余字段**（除 colSpan/rowSpan）会透传给\n`components.body.cell` 组件作为 props（典型用法：返回 `{ record, editable, dataIndex,\ntitle, handleSave }` 给自定义 EditableCell）。与 antd demo edit-cell 的 onCell 写法一致。\n\ncolSpan/rowSpan 与其余字段正交——合并格仍可携带编辑 props，编辑 props 不影响合并。"
+    },
+    {
+      "name": "sorter",
+      "kind": "prop",
+      "signature": "sorter?: ColumnSorter<RecordType>",
+      "type": "ColumnSorter<RecordType>",
+      "required": false,
+      "advanced": false,
+      "summary": "排序器。\n\n**语义（对齐 antd `column.sorter`）**：\n  - `true`：该列可排序，用默认比较（按 `dataIndex` 字段值升序，数值/字符串通用）。\n  - 函数 `(a, b, sortOrder?) => number`：自定义比较；返回值同 `Array.prototype.sort`。\n  - `false` / undefined：该列不可排序（表头无排序图标、不响应排序点击）。\n  - 对象 `{ compare, multiple }`：多列排序（multiple 为优先级数字）。\n\n**前端排序**（非受控）：data-grid 按当前 `sortOrder` + `sorter` 对 dataSource 排序后渲染；\n**受控排序**（外部传 `sortOrder`）：data-grid 不主动排序，调用方在 onChange 后自行更新 dataSource；\n  data-grid 仍按 `sortOrder` 显示排序图标、触发 onChange。\n\n与各能力组合：排序只改变数据行顺序，不改变列结构（多级表头/固定列/合并/虚拟/选择/展开均不受影响）。\n\n详见 `docs/features/interaction/filter-sorter.md`。"
+    },
+    {
+      "name": "sortOrder",
+      "kind": "prop",
+      "signature": "sortOrder?: SortOrder",
+      "type": "SortOrder",
+      "required": false,
+      "advanced": false,
+      "summary": "受控排序方向。传入即受控（data-grid 不主动排序，调用方负责 dataSource）。\n与 `defaultSortOrder` 互斥：`sortOrder` 优先。"
+    },
+    {
+      "name": "defaultSortOrder",
+      "kind": "prop",
+      "signature": "defaultSortOrder?: SortOrder",
+      "type": "SortOrder",
+      "required": false,
+      "advanced": false,
+      "summary": "非受控初始排序方向。仅当 `sortOrder` 未传时生效（初始态）。"
+    },
+    {
+      "name": "sortDirections",
+      "kind": "prop",
+      "signature": "sortDirections?: SortDirections",
+      "type": "SortDirections",
+      "required": false,
+      "advanced": false,
+      "summary": "点击表头切换排序的循环顺序。\n默认 `['ascend', 'descend']`；循环到末尾后隐式回退到 `null`（取消排序）。\n对齐 antd：值数组不含 `null`，`null` 是循环到末尾的隐式回退。\n例：`['descend']` → 初次点击 descend → 再点 null（取消）。"
+    },
+    {
+      "name": "showSorterTooltip",
+      "kind": "prop",
+      "signature": "showSorterTooltip?: boolean | { target?: 'full-header' | 'sorter-icon' }",
+      "type": "boolean | { target?: 'full-header' | 'sorter-icon' }",
+      "required": false,
+      "advanced": false,
+      "summary": "是否显示排序提示 tooltip（非阻塞）。\nhover 排序列表头时显示\"点击排序\"提示。\n- `true`（默认）：显示。\n- `false`：不显示。\n- 对象 `{ target: 'full-header' | 'sorter-icon' }`：控制 tooltip 绑定目标\n  （`full-header` 整表头格，`sorter-icon` 仅图标）。简化为始终绑定到图标区域。"
+    },
+    {
+      "name": "filters",
+      "kind": "prop",
+      "signature": "filters?: Array<ColumnFilterItem>",
+      "type": "Array<ColumnFilterItem>",
+      "required": false,
+      "advanced": false,
+      "summary": "筛选项列表（对齐 antd `column.filters`）。\n\n**语义**：数组非空 + 配 `onFilter` 时该列表头渲染筛选漏斗图标，点击弹出筛选下拉。\n  - 顶层项作为勾选项参与筛选（`text` 显示，`value` 作为 onFilter 第一参 + onChange filters 数组元素）。\n  - `children`（树形筛选）保留字段但**不做二级菜单 UI**——出现时内部扁平化为顶层项参与勾选\n    （行为与 antd 默认 menu 模式下的扁平化相近，但不渲染二级菜单 UI；属 tree 模式消费）。\n\n与 `onFilter` 配合：onFilter(value, record) 决定该 value 是否\"命中\" record；\n多选时命中任一即保留该 record（OR 语义）；单选时只保留命中该 value 的 record。\n\n详见 `docs/features/interaction/filter-sorter.md`。"
+    },
+    {
+      "name": "onFilter",
+      "kind": "method",
+      "signature": "onFilter?: (value: FilterValue, record: RecordType) => boolean",
+      "type": "(value: FilterValue, record: RecordType) => boolean",
+      "required": false,
+      "advanced": false,
+      "summary": "筛选判定函数（对齐 antd `column.onFilter`）。\n\n签名 `(value, record) => boolean`：返回 true 表示该 value 命中该 record。\n与 `filters` 配合：当前选中值集合中**任一**命中即保留该 record（OR 语义，对齐 antd）。\n\n**前端筛选**（非受控）：data-grid 按 `filters` + `onFilter` 对 dataSource 过滤后渲染\n（与排序叠加：antd 顺序 raw → sort → filter，即先排序后过滤）。\n**受控筛选**（外部传 `filteredValue`）：data-grid 不主动过滤，调用方在 onChange 后自行更新 dataSource；\n  data-grid 仍按 `filteredValue` 显示漏斗激活态、触发 onChange。\n\n详见 `docs/features/interaction/filter-sorter.md`。"
+    },
+    {
+      "name": "filterMultiple",
+      "kind": "prop",
+      "signature": "filterMultiple?: boolean",
+      "type": "boolean",
+      "required": false,
+      "advanced": false,
+      "summary": "是否多选（对齐 antd `column.filterMultiple`，默认 true）。\n- `true`（默认）：Checkbox.Group 多选，命中任一保留（OR）。\n- `false`：Radio 单选，仅保留命中该 value 的 record。"
+    },
+    {
+      "name": "defaultFilteredValue",
+      "kind": "prop",
+      "signature": "defaultFilteredValue?: Array<FilterValue>",
+      "type": "Array<FilterValue>",
+      "required": false,
+      "advanced": false,
+      "summary": "非受控初始筛选值。仅当 `filteredValue` 未传时生效（初始态）。"
+    },
+    {
+      "name": "filteredValue",
+      "kind": "prop",
+      "signature": "filteredValue?: Array<FilterValue> | null",
+      "type": "Array<FilterValue> | null",
+      "required": false,
+      "advanced": false,
+      "summary": "受控筛选值。传入即受控（data-grid 不主动过滤，调用方负责 dataSource）。\n与 `defaultFilteredValue` 互斥：`filteredValue` 优先。\n\n传 `[]`（空数组）表示\"无激活筛选\"（受控显式空）；传非空数组表示激活筛选。\n（注意与 undefined 区分：undefined 表示该列非受控，由内部 state / defaultFilteredValue 驱动。）"
+    },
+    {
+      "name": "filterOnClose",
+      "kind": "prop",
+      "signature": "filterOnClose?: boolean",
+      "type": "boolean",
+      "required": false,
+      "advanced": false,
+      "summary": "关闭下拉即应用筛选（对齐 antd `column.filterOnClose`，默认 true）。\n\n- `true`（默认）：用户关闭下拉（点击外部/ESC/确定按钮）即把当前勾选应用为 filteredValue。\n- `false`：必须点\"确定\"按钮才应用；关闭下拉（点外部/ESC）丢弃未确认的勾选（恢复到上次应用值）。\n\n对齐 antd v6 默认行为（filterOnClose=true）。"
+    },
+    {
+      "name": "filterDropdown",
+      "kind": "prop",
+      "signature": "filterDropdown?:\n    | React.ReactNode\n    | ((props: FilterDropdownProps) => React.ReactNode)",
+      "type": "| React.ReactNode\n    | ((props: FilterDropdownProps) => React.ReactNode)",
+      "required": false,
+      "advanced": false,
+      "summary": "自定义筛选下拉面板（对齐 antd `column.filterDropdown`）。\n\n**语义**：传入即**取代**内置 Checkbox/Radio 下拉。data-grid 把它渲染进 antd Dropdown 的\npopupRender，并按 antd 兼容签名注入 props（`selectedKeys`/`setSelectedKeys`/`confirm`/\n`clearFilters`/`visible`/`close`/`prefixCls`/`filters`）。调用方在面板内自绘搜索框、\n自定义勾选 UI 等，通过 `confirm`/`clearFilters` 与 data-grid 交互（onFilter 仍按选中 keys 过滤）。\n\n也可传 ReactNode（非函数）——此时直接渲染为下拉内容，无法获得 confirm 等 props（与 antd 一致）。\n一般用法是函数。\n\n与 `onFilter` 关系：自定义面板只是替换**下拉 UI**；实际过滤仍由 `onFilter` 完成\n（filterDropdown 的 selectedKeys 经 confirm 应用为 filteredValue）。\n故即使使用 filterDropdown，仍须提供 `onFilter`。\n\n与内置 `filters` 关系：filterDropdown 存在时不渲染内置 Checkbox/Radio（即使同时配置了\n`filters` 也忽略其 UI——但 filters 仍可用于 onChange 的 filters 形态来源等）。\n\n详见 `docs/features/interaction/filter-sorter.md`。"
+    },
+    {
+      "name": "filterIcon",
+      "kind": "prop",
+      "signature": "filterIcon?: React.ReactNode | ((filtered: boolean) => React.ReactNode)",
+      "type": "React.ReactNode | ((filtered: boolean) => React.ReactNode)",
+      "required": false,
+      "advanced": false,
+      "summary": "自定义漏斗图标（对齐 antd `column.filterIcon`）。\n\n函数签名 `(filtered: boolean) => ReactNode`：filtered=true 表示该列有激活筛选（图标激活态）。\n也可直接传 ReactNode（恒定图标，不随激活态变化）。\n\n缺省：未提供时由 data-grid 默认渲染漏斗图标（未激活态/激活态）。"
+    },
+    {
+      "name": "filterDropdownProps",
+      "kind": "prop",
+      "signature": "filterDropdownProps?: ColumnFilterDropdownProps",
+      "type": "ColumnFilterDropdownProps",
+      "required": false,
+      "advanced": false,
+      "summary": "透传给筛选下拉 antd Dropdown 的 props（对齐 antd `column.filterDropdownProps`，since 5.22）。\n\n用于受控打开（`open`）、`onOpenChange` 订阅、`triggerClassName`/`overlayClassName` 等。\n与内置 Dropdown 集成：data-grid 把这些 props 合并到 antd Dropdown（open 受控优先于内部 state）。"
+    },
+    {
+      "name": "filterMode",
+      "kind": "prop",
+      "signature": "filterMode?: 'menu' | 'tree'",
+      "type": "'menu' | 'tree'",
+      "required": false,
+      "advanced": false,
+      "summary": "筛选下拉展示模式（对齐 antd `column.filterMode`，默认 `'menu'`）。\n\n取值：\n  - `'menu'`（默认）：内置扁平下拉（Checkbox.Group 多选 / Radio.Group 单选）。\n    顶层 `filters` 项作为勾选项参与筛选；`children` 扁平化展示（不渲染二级菜单 UI）。\n  - `'tree'`：内置**树形**下拉（antd `<Tree checkable>`）。`filters` 含 `children` 时渲染为树形结构\n    （父子缩进 + 展开图标），勾选父子联动（`checkStrictly=false`，即勾父自动勾全部子、勾全部子自动勾父）。\n    选中值（含各级 value，含半选父级若用户主动勾选）作为 filteredValue，`onFilter` 对每个勾选 value\n    逐一判定（OR 语义，与 menu 一致）。\n\n与 `filterSearch` 组合：tree 模式下 filterSearch 过滤**树节点**（命中节点 + 保留祖先链维持结构，\n对齐 antd `Tree.filterTreeNode`）；输入为空显全树。\n\n与 `filterDropdown`（自定义面板）关系：filterDropdown 存在时**取代**内置下拉（含 tree）——\nfilterMode 仅对内置 Checkbox/Radio vs Tree 切换生效。\n\n默认 `'menu'`：现有 head/filter-search/custom-filter-panel 等不设 filterMode 的列仍走 menu 分支（零回归）。\n\n详见 `docs/features/interaction/filter-sorter.md`。"
+    },
+    {
+      "name": "filterSearch",
+      "kind": "prop",
+      "signature": "filterSearch?:\n    | true\n    | ((input: string, record: ColumnFilterItem) => boolean)",
+      "type": "| true\n    | ((input: string, record: ColumnFilterItem) => boolean)",
+      "required": false,
+      "advanced": false,
+      "summary": "筛选项搜索（对齐 antd `column.filterSearch`）。\n\n对**内置下拉面板**生效（menu 模式：Checkbox.Group/Radio.Group 顶部渲染搜索框过滤扁平项；\ntree 模式：antd `<Tree filterTreeNode>` 过滤树节点）；自定义面板（`filterDropdown`）不消费此字段。\n\n取值：\n  - `true`：默认匹配。item.text 转字符串后 **trim + toLowerCase**，**包含**输入（trim+toLowerCase）即命中\n    （对齐 antd FilterSearch 默认 `searchValueMatched`）。\n  - `(input, record) => boolean`：自定义匹配。`input` 为已 normalize 的输入（trim+toLowerCase，\n    与 antd 一致——antd 在 menu 模式传 `normalizedSearchValue`），`record` 为筛选项\n    `{ text, value, children? }`（与 `ColumnFilterItem` 同构）。返回 true 表示该项保留显示。\n  - `false` / undefined：不渲染搜索框（默认）。\n\n输入为空时显示全部筛选项（不过滤）。\n关闭下拉时清空搜索值（对齐 antd `useEffect[visible]` 清空；下次打开为空）。\n\nmenu 模式（默认）与 tree 模式（`filterMode='tree'`）均消费 filterSearch：\n  - menu：过滤扁平筛选项列表（命中保留）。\n  - tree：过滤树节点（命中保留 + 保留祖先链维持结构，对齐 antd `Tree.filterTreeNode`）。\n\n详见 `docs/features/interaction/filter-sorter.md`。"
+    },
+    {
+      "name": "shouldCellUpdate",
+      "kind": "method",
+      "signature": "shouldCellUpdate?: (prevRecord: RecordType, nextRecord: RecordType) => boolean",
+      "type": "(prevRecord: RecordType, nextRecord: RecordType) => boolean",
+      "required": false,
+      "advanced": false,
+      "summary": "单元格重渲染优化（对齐 antd `column.shouldCellUpdate`）。\n\n签名 `(prevRecord, nextRecord) => boolean`：返回 `false` 时该单元格在 record 变化时**不重渲染**\n（沿用上一次渲染结果）；返回 `true` 或不提供时正常重渲染。用于编辑/复杂单元格场景的性能优化\n（避免无关 record 字段变化触发昂贵重渲染）。\n\n注意：仅当 `components.body.cell` 提供时本字段才被消费（默认渲染路径不消费，零回归）。"
+    },
+    {
+      "name": "responsive",
+      "kind": "prop",
+      "signature": "responsive?: Array<Breakpoint>",
+      "type": "Array<Breakpoint>",
+      "required": false,
+      "advanced": false,
+      "summary": "响应式列显隐（对齐 antd `column.responsive`，since 4.x）。\n\n**语义**：\n  - `undefined` / 空数组：该列**始终显示**（所有现有 demo 的默认行为，零回归）。\n  - 非空 `Breakpoint[]`：仅当**任一**列出的断点在当前视口下激活时，该列才显示；否则该列\n    从渲染中**整体移除**（表头格 + 表体单元格均不渲染，列号不占位）。\n\n断点激活判定对齐 antd `Grid.useBreakpoint`——返回\n`{ xs, sm, md, lg, xl, xxl, xxxl }` 各断点布尔。`screens[bp] === true` 表示\n当前视口 **>= bp**（即该断点及其以上都激活）。故 `responsive: ['md']` 实际语义是\n**md 及以上视口显示**（与 antd responsive demo 注释 \"medium screen or bigger\" 一致）。\n\n取值（antd `Breakpoint`，7 个）：`'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl' | 'xxxl'`\n（来自 antd responsiveArray）。\n\n与各能力组合：被移除的列不参与排序/筛选/选择/固定/合并/虚拟——所有现有机制透明（列号自然收缩）。\n树形/编辑等以列位置为基础的机制也正确（过滤发生在列结构构建前）。\n\n详见 `docs/features/columns/responsive-columns.md`。"
+    }
+  ],
+  "gridColumnOptions": [
+    {
+      "name": "dragColumnLock",
+      "kind": "prop",
+      "signature": "dragColumnLock?: 'lockDrag' | 'lockPosition'",
+      "type": "'lockDrag' | 'lockPosition'",
+      "required": false,
+      "advanced": false,
+      "summary": "列拖拽锁定。\n\n- `undefined`：该列可发起拖拽，也可被其它列重排影响。\n- `lockDrag`：该列不可作为拖拽起点，但可被其它列重排影响。\n- `lockPosition`：该列不可作为拖拽起点，且最终列 index 保持不变。"
+    },
+    {
+      "name": "renderCellElement",
+      "kind": "method",
+      "signature": "renderCellElement?: (\n    params: GridCellElementRenderParams<RecordType>,\n    oldElement: HTMLElement | undefined,\n  ) => HTMLElement",
+      "type": "(\n    params: GridCellElementRenderParams<RecordType>,\n    oldElement: HTMLElement | undefined,\n  ) => HTMLElement",
+      "required": false,
+      "advanced": true,
+      "summary": "逃逸舱（escape-hatch）HTMLElement 渲染 hook，仅在 recycling cell 路径下使用。\n\n`oldElement` 是上一轮可复用的元素；可返回它并自行更新 DOM，也可返回新元素。返回的元素由\ndata-grid 接管定位和生命周期。不要在这里读取 React state 闭包后长期缓存，滚动复用会让同一\nelement 对应不同 record。"
+    },
+    {
+      "name": "renderCellReact",
+      "kind": "method",
+      "signature": "renderCellReact?: (\n    params: GridCellRenderParams<RecordType>,\n    slot: GridCellReactSlotProps,\n  ) => ReactElement | null",
+      "type": "(\n    params: GridCellRenderParams<RecordType>,\n    slot: GridCellReactSlotProps,\n  ) => ReactElement | null",
+      "required": false,
+      "advanced": true,
+      "summary": "recycling cell 的 React slot 渲染 hook。\n\n返回的 ReactElement 必须使用 `slot.key` 作为 key；返回 null 表示该格无 React 内容。\n适合仍想写 React 内容、但希望由 recycling 路径控制外层 cell 复用的场景。"
+    },
+    {
+      "name": "disposeCellElement",
+      "kind": "method",
+      "signature": "disposeCellElement?: (\n    element: HTMLElement,\n    reason: DisposeCellElementReason,\n    params: GridCellElementRenderParams<RecordType> | undefined,\n  ) => void",
+      "type": "(\n    element: HTMLElement,\n    reason: DisposeCellElementReason,\n    params: GridCellElementRenderParams<RecordType> | undefined,\n  ) => void",
+      "required": false,
+      "advanced": true,
+      "summary": "`renderCellElement` 创建的 HTMLElement 被释放时调用。\n\n用于清理事件监听、第三方 widget 或外部资源。只清理自己创建的副作用，不要修改表格其它 DOM。"
+    }
+  ],
+  "selection": [
+    {
+      "name": "selectionMode",
+      "kind": "prop",
+      "signature": "selectionMode?: GridSelectionMode",
+      "type": "GridSelectionMode",
+      "required": false,
+      "advanced": false,
+      "summary": "data-grid 原生行选择模式。\n\n- `disabled`：禁用选择。\n- `single`：点击替换单选。\n- `multiple`：点击 toggle 多选。\n- `extended`：普通点击单选，Ctrl/Meta toggle，Shift 从上一次行点击锚点到当前行连续选择，\n  Ctrl+Shift 把范围并入现有集合。\n\n未传时：若声明了 `gridOptions.selection`，默认按 `rowSelection.type` 推导（radio→single，\n其余→multiple）；未声明 `gridOptions.selection` 时保持现有 antd 兼容 API 行为。"
+    },
+    {
+      "name": "showSelectionColumn",
+      "kind": "prop",
+      "signature": "showSelectionColumn?: boolean",
+      "type": "boolean",
+      "required": false,
+      "advanced": false,
+      "summary": "是否显示选择列 UI。\n\n`false` 时不插入选择列，但仍保留行点击选中、受控值驱动和选中视觉。"
+    },
+    {
+      "name": "getSelectionValue",
+      "kind": "method",
+      "signature": "getSelectionValue?: (record: RecordType, index: number) => GridSelectionValue",
+      "type": "(record: RecordType, index: number) => GridSelectionValue",
+      "required": false,
+      "advanced": false,
+      "summary": "业务选中值提取器。\n\n未传时回退到 `rowKey`（推荐仍传稳定业务值，避免依赖可变 index）。"
+    },
+    {
+      "name": "selectedValues",
+      "kind": "prop",
+      "signature": "selectedValues?: ReadonlyArray<GridSelectionValue>",
+      "type": "ReadonlyArray<GridSelectionValue>",
+      "required": false,
+      "advanced": false,
+      "summary": "受控业务选中值数组（优先级高于 rowSelection.selectedRowKeys）。"
+    },
+    {
+      "name": "defaultSelectedValues",
+      "kind": "prop",
+      "signature": "defaultSelectedValues?: ReadonlyArray<GridSelectionValue>",
+      "type": "ReadonlyArray<GridSelectionValue>",
+      "required": false,
+      "advanced": false,
+      "summary": "非受控初始业务选中值数组（优先级高于 rowSelection.defaultSelectedRowKeys）。"
+    },
+    {
+      "name": "onSelectedValuesChange",
+      "kind": "method",
+      "signature": "onSelectedValuesChange?: (\n    selectedValues: Array<GridSelectionValue>,\n    selectedRows: Array<RecordType>,\n    info: { type: RowSelectMethod },\n  ) => void",
+      "type": "(\n    selectedValues: Array<GridSelectionValue>,\n    selectedRows: Array<RecordType>,\n    info: { type: RowSelectMethod },\n  ) => void",
+      "required": false,
+      "advanced": false,
+      "summary": "业务选中值变化回调。\n@param selectedValues 新的业务选中值数组。\n@param selectedRows 新的选中 record 数组（按当前渲染顺序）。\n@param info 操作类型（'all'/'none'/'invert'/'single'/'multiple'）。"
+    }
+  ],
+  "virtualizationMode": [
+    {
+      "name": "VirtualizationMode",
+      "kind": "type",
+      "signature": "type VirtualizationMode = 'standard' | 'recycling'",
+      "type": "'standard' | 'recycling'",
+      "required": true,
+      "advanced": false,
+      "summary": "虚拟渲染模式。\n\n- `standard`：默认虚拟滚动路径，React 正常 mount/unmount 当前窗口内的行和单元格。\n- `recycling`：DOM 复用路径，滚动时尽量复用已有 cell 容器，减少超大表格滚动中的 DOM 创建。\n\n该类型是公开 API，可通过 `gridOptions.virtualizationMode` 配置。只有在 `virtual` 与\n`scroll={{ y: true }}` 同时启用时才有意义；非虚拟表格会忽略该选项。"
+    },
+    {
+      "name": "standard",
+      "kind": "enumValue",
+      "signature": "'standard'",
+      "type": "'standard'",
+      "required": true,
+      "advanced": false,
+      "summary": "默认虚拟滚动路径，React 正常 mount/unmount 当前窗口内的行和单元格。"
+    },
+    {
+      "name": "recycling",
+      "kind": "enumValue",
+      "signature": "'recycling'",
+      "type": "'recycling'",
+      "required": true,
+      "advanced": false,
+      "summary": "DOM 复用路径，滚动时尽量复用已有 cell 容器，减少超大表格滚动中的 DOM 创建。"
+    }
+  ],
+  "exports": [
+    {
+      "name": "Table",
+      "kind": "export",
+      "signature": "Table",
+      "type": "Table",
+      "required": true,
+      "advanced": false,
+      "from": "./Table",
+      "isTypeOnly": false,
+      "summary": ""
+    },
+    {
+      "name": "getRowKey",
+      "kind": "export",
+      "signature": "getRowKey",
+      "type": "getRowKey",
+      "required": true,
+      "advanced": false,
+      "from": "./Table",
+      "isTypeOnly": false,
+      "summary": ""
+    },
+    {
+      "name": "EXPAND_COLUMN",
+      "kind": "export",
+      "signature": "EXPAND_COLUMN",
+      "type": "EXPAND_COLUMN",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": false,
+      "summary": ""
+    },
+    {
+      "name": "SELECTION_COLUMN",
+      "kind": "export",
+      "signature": "SELECTION_COLUMN",
+      "type": "SELECTION_COLUMN",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": false,
+      "summary": ""
+    },
+    {
+      "name": "SELECTION_ALL",
+      "kind": "export",
+      "signature": "SELECTION_ALL",
+      "type": "SELECTION_ALL",
+      "required": true,
+      "advanced": false,
+      "from": "./engine/useRowSelection",
+      "isTypeOnly": false,
+      "summary": ""
+    },
+    {
+      "name": "SELECTION_NONE",
+      "kind": "export",
+      "signature": "SELECTION_NONE",
+      "type": "SELECTION_NONE",
+      "required": true,
+      "advanced": false,
+      "from": "./engine/useRowSelection",
+      "isTypeOnly": false,
+      "summary": ""
+    },
+    {
+      "name": "SELECTION_INVERT",
+      "kind": "export",
+      "signature": "SELECTION_INVERT",
+      "type": "SELECTION_INVERT",
+      "required": true,
+      "advanced": false,
+      "from": "./engine/useRowSelection",
+      "isTypeOnly": false,
+      "summary": ""
+    },
+    {
+      "name": "SelectionItem",
+      "kind": "type",
+      "signature": "type SelectionItem",
+      "type": "SelectionItem",
+      "required": true,
+      "advanced": false,
+      "from": "./engine/useRowSelection",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "Summary",
+      "kind": "export",
+      "signature": "Summary",
+      "type": "Summary",
+      "required": true,
+      "advanced": false,
+      "from": "./engine/Summary",
+      "isTypeOnly": false,
+      "summary": ""
+    },
+    {
+      "name": "SummaryProps",
+      "kind": "type",
+      "signature": "type SummaryProps",
+      "type": "SummaryProps",
+      "required": true,
+      "advanced": false,
+      "from": "./engine/Summary",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "SummaryRowProps",
+      "kind": "type",
+      "signature": "type SummaryRowProps",
+      "type": "SummaryRowProps",
+      "required": true,
+      "advanced": false,
+      "from": "./engine/Summary",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "SummaryCellProps",
+      "kind": "type",
+      "signature": "type SummaryCellProps",
+      "type": "SummaryCellProps",
+      "required": true,
+      "advanced": false,
+      "from": "./engine/Summary",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "TableProps",
+      "kind": "type",
+      "signature": "type TableProps",
+      "type": "TableProps",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "ColumnType",
+      "kind": "type",
+      "signature": "type ColumnType",
+      "type": "ColumnType",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "SizeType",
+      "kind": "type",
+      "signature": "type SizeType",
+      "type": "SizeType",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "RowKeyType",
+      "kind": "type",
+      "signature": "type RowKeyType",
+      "type": "RowKeyType",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "Align",
+      "kind": "type",
+      "signature": "type Align",
+      "type": "Align",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "FixedInput",
+      "kind": "type",
+      "signature": "type FixedInput",
+      "type": "FixedInput",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "TableRef",
+      "kind": "type",
+      "signature": "type TableRef",
+      "type": "TableRef",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "TableRowSelection",
+      "kind": "type",
+      "signature": "type TableRowSelection",
+      "type": "TableRowSelection",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "GridSelectionOptions",
+      "kind": "type",
+      "signature": "type GridSelectionOptions",
+      "type": "GridSelectionOptions",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "GridSelectionMode",
+      "kind": "type",
+      "signature": "type GridSelectionMode",
+      "type": "GridSelectionMode",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "GridSelectionValue",
+      "kind": "type",
+      "signature": "type GridSelectionValue",
+      "type": "GridSelectionValue",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "RowSelectionType",
+      "kind": "type",
+      "signature": "type RowSelectionType",
+      "type": "RowSelectionType",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "RowSelectMethod",
+      "kind": "type",
+      "signature": "type RowSelectMethod",
+      "type": "RowSelectMethod",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "RowCheckboxProps",
+      "kind": "type",
+      "signature": "type RowCheckboxProps",
+      "type": "RowCheckboxProps",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "Expandable",
+      "kind": "type",
+      "signature": "type Expandable",
+      "type": "Expandable",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "ColumnOrSentinel",
+      "kind": "type",
+      "signature": "type ColumnOrSentinel",
+      "type": "ColumnOrSentinel",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "SortOrder",
+      "kind": "type",
+      "signature": "type SortOrder",
+      "type": "SortOrder",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "SortDirections",
+      "kind": "type",
+      "signature": "type SortDirections",
+      "type": "SortDirections",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "CompareFn",
+      "kind": "type",
+      "signature": "type CompareFn",
+      "type": "CompareFn",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "ColumnSorter",
+      "kind": "type",
+      "signature": "type ColumnSorter",
+      "type": "ColumnSorter",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "SorterResult",
+      "kind": "type",
+      "signature": "type SorterResult",
+      "type": "SorterResult",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "TableCurrentDataSource",
+      "kind": "type",
+      "signature": "type TableCurrentDataSource",
+      "type": "TableCurrentDataSource",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "ColumnFilterItem",
+      "kind": "type",
+      "signature": "type ColumnFilterItem",
+      "type": "ColumnFilterItem",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "FilterConfirmProps",
+      "kind": "type",
+      "signature": "type FilterConfirmProps",
+      "type": "FilterConfirmProps",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "FilterResetProps",
+      "kind": "type",
+      "signature": "type FilterResetProps",
+      "type": "FilterResetProps",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "FilterDropdownProps",
+      "kind": "type",
+      "signature": "type FilterDropdownProps",
+      "type": "FilterDropdownProps",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "ColumnFilterDropdownProps",
+      "kind": "type",
+      "signature": "type ColumnFilterDropdownProps",
+      "type": "ColumnFilterDropdownProps",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "TablePaginationConfig",
+      "kind": "type",
+      "signature": "type TablePaginationConfig",
+      "type": "TablePaginationConfig",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "TablePaginationPlacement",
+      "kind": "type",
+      "signature": "type TablePaginationPlacement",
+      "type": "TablePaginationPlacement",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "TablePaginationState",
+      "kind": "type",
+      "signature": "type TablePaginationState",
+      "type": "TablePaginationState",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "TableSemanticClassNames",
+      "kind": "type",
+      "signature": "type TableSemanticClassNames",
+      "type": "TableSemanticClassNames",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "TableSemanticStyles",
+      "kind": "type",
+      "signature": "type TableSemanticStyles",
+      "type": "TableSemanticStyles",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "TableSemanticInfo",
+      "kind": "type",
+      "signature": "type TableSemanticInfo",
+      "type": "TableSemanticInfo",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "TableClassNames",
+      "kind": "type",
+      "signature": "type TableClassNames",
+      "type": "TableClassNames",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "TableStyles",
+      "kind": "type",
+      "signature": "type TableStyles",
+      "type": "TableStyles",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "StickyConfig",
+      "kind": "type",
+      "signature": "type StickyConfig",
+      "type": "StickyConfig",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "ScrollBarFoldMode",
+      "kind": "type",
+      "signature": "type ScrollBarFoldMode",
+      "type": "ScrollBarFoldMode",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "TableLocale",
+      "kind": "type",
+      "signature": "type TableLocale",
+      "type": "TableLocale",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "ColumnsType",
+      "kind": "type",
+      "signature": "type ColumnsType",
+      "type": "ColumnsType",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "RenderedCell",
+      "kind": "type",
+      "signature": "type RenderedCell",
+      "type": "RenderedCell",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "DisposeCellElementReason",
+      "kind": "type",
+      "signature": "type DisposeCellElementReason",
+      "type": "DisposeCellElementReason",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "GridCellElementRenderParams",
+      "kind": "type",
+      "signature": "type GridCellElementRenderParams",
+      "type": "GridCellElementRenderParams",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "GridCellReactSlotProps",
+      "kind": "type",
+      "signature": "type GridCellReactSlotProps",
+      "type": "GridCellReactSlotProps",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "GridCellRenderParams",
+      "kind": "type",
+      "signature": "type GridCellRenderParams",
+      "type": "GridCellRenderParams",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "GridColumnOptions",
+      "kind": "type",
+      "signature": "type GridColumnOptions",
+      "type": "GridColumnOptions",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "VirtualizationMode",
+      "kind": "type",
+      "signature": "type VirtualizationMode",
+      "type": "VirtualizationMode",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "TableColumnType",
+      "kind": "type",
+      "signature": "type TableColumnType",
+      "type": "ColumnType as TableColumnType",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "TableColumnsType",
+      "kind": "type",
+      "signature": "type TableColumnsType",
+      "type": "ColumnsType as TableColumnsType",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    }
+  ]
+}

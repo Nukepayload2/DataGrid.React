@@ -1,27 +1,15 @@
 /**
- * data-grid antd 兼容类型层 + 公开枚举常量（barrel）。
+ * data-grid antd 兼容类型层 + 公开枚举常量。
  *
- * 类型按业务域拆到 `./compat/` 子目录；本文件作为 barrel 透明 re-export，
- * 让所有 `from './compatTypes'` / `from '../compatTypes'` 的 import 路径完全不变。
+ * 暴露与 antd Table 对齐的兼容类型（`ColumnType` / `TableRowSelection` / `SorterResult` /
+ * `FilterValue` / `TablePaginationConfig` / `TableLocale` / `Expandable` / `StickyConfig` 等）
+ * 以及 `EXPAND_COLUMN` / `SELECTION_COLUMN` 哨兵常量。
  *
- * 拆分粒度（各文件 80–150 行、内聚）：
- *   - filter.ts：FilterValue / FilterConfirmProps / FilterResetProps / FilterDropdownProps /
- *     ColumnFilterDropdownProps / ColumnFilterItem。
- *   - selection.ts：SelectionRenderCellResult / TableRowSelection。
- *   - sort.ts：SortOrder / CompareFn / ColumnSorter / SortDirections / SorterResult。
- *   - column.ts：ColumnType（巨型 antd column 子集）。
- *   - pagination.ts：TablePaginationPlacement / TablePaginationConfig / TablePaginationState。
- *   - size.ts：SizeType。
- *   - semantic.ts：ComponentsSemanticClassNames/Styles、Pagination/Table Semantic*、
- *     TableClassNames/Styles、TableSemanticInfo。
- *   - sticky.ts：StickyConfig。
- *   - locale.ts：TableLocale + TABLE_LOCALE_DEFAULT const。
- *   - expand.ts：Expandable + EXPAND_COLUMN const + SELECTION_COLUMN const + ColumnOrSentinel。
- *   - jsx.ts：ColumnProps / ColumnGroupProps。
- *   - onChange.ts：TableCurrentDataSource。
- *
- * 3 个 `as const` 哨兵常量（TABLE_LOCALE_DEFAULT / EXPAND_COLUMN / SELECTION_COLUMN）
- * 随所属域就近定义；本 barrel 用 `export *` 透传——**引用相等不破坏**（barrel 只转发不重建）。
+ * @internal 类型按业务域拆到 `./compat/` 子目录（filter/selection/sort/column/pagination/
+ *   size/semantic/sticky/locale/expand/jsx/onChange）；本文件作为 barrel 透明 re-export，
+ *   让所有 `from './compatTypes'` 的 import 路径不变。3 个 `as const` 哨兵常量
+ *   （`TABLE_LOCALE_DEFAULT` / `EXPAND_COLUMN` / `SELECTION_COLUMN`）随所属域就近定义；
+ *   barrel 用 `export *` 透传，引用相等不破坏（只转发不重建）。
  */
 
 export * from './compat/filter'

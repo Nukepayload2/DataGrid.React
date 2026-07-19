@@ -69,7 +69,7 @@ export interface TableRowSelection<RecordType = any> {
    * `disabled: true` 的行不可勾选、不参与全选/半选。
    */
   getCheckboxProps?: (record: RecordType) => RowCheckboxProps | undefined
-  /** 选择列宽度（number→px，string→原样）。缺省走 token `--ant-table-selection-column-width`。 */
+  /** 选择列宽度（number→px，string→原样）。缺省走 antd 选择列宽度 token。 */
   columnWidth?: number | string
   /** 自定义选择列表头内容（ReactNode 或 `(checkboxNode) => ReactNode`）。 */
   columnTitle?: ReactNode | ((checkboxNode: ReactNode) => ReactNode)

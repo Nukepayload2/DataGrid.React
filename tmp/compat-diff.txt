@@ -1,0 +1,768 @@
+warning: in the working copy of 'src/table/compat/column.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/table/compat/expand.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/table/compat/filter.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/table/compat/jsx.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/table/compat/locale.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/table/compat/semantic.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/table/compat/size.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'src/table/compat/sticky.ts', LF will be replaced by CRLF the next time Git touches it
+diff --git a/src/table/compat/column.ts b/src/table/compat/column.ts
+index 2e503f4..4e4bcc5 100644
+--- a/src/table/compat/column.ts
++++ b/src/table/compat/column.ts
+@@ -1,10 +1,9 @@
+ /**
+- * antd column 兼容类型（按业务域从 compatTypes.ts 拆出）。
++ * antd column 兼容类型。
+  *
+- * 巨型 `ColumnType` 接口（demo 用到的 antd column 子集）。
+- * 字段引用 filter 域（FilterValue/ColumnFilterItem/FilterDropdownProps/ColumnFilterDropdownProps）
+- * 与 sort 域（SortOrder/ColumnSorter/SortDirections），均 `import type` 纯类型。
++ * `ColumnType` 接口：antd `TableProps['columns'][number]` 的 data-grid 实现，覆盖 demo 用到的字段集。
+  */
++// 按业务域从 compatTypes.ts 拆出；filter/sort 域类型由各自子模块 `import type` 纯类型引入。
+ 
+ import type { ReactNode } from 'react'
+ import type { Breakpoint } from 'antd/es/_util/responsiveObserver'
+@@ -39,7 +38,7 @@ export interface ColumnType<RecordType = any> {
+   /**
+    * data-grid 列级专属选项命名空间。
+    *
+-   * **与 antd 不兼容**：antd `ColumnType` 没有 dragColumnLock / recycling cell 渲染 hook 等概念，
++   * **与 antd 不兼容**：antd `ColumnType` 没有 dragColumnLock / cell 渲染钩子 等概念，
+    * 故 dg 列级专属字段一律归入此命名空间（顶层 `ColumnType` 只保留与 antd 同名同义字段）。
+    *
+    *   - `dragColumnLock`：列拖拽锁定模式（列拖拽排序）。
+@@ -50,20 +49,26 @@ export interface ColumnType<RecordType = any> {
+   fixed?: FixedInput
+   /**
+    * 该列单元格的额外 className（对齐 antd v6 `column.className`）。
+-   * 透传到本列所有数据单元格 `.dg-cell-body` + 表头格 `.dg-cell-header`。
+    *
+-   * ★ 与 antd 差异：antd 把 className 作用于 `<td>`/`<th>`；data-grid grid 渲染下
+-   *   直接合并到 dg-cell div 的 className 列表（与语义化 body.cell/header.cell 同款注入）。
++   * 注入到本列所有数据单元格 + 表头格。
++   *
++   * ★ 与 antd 差异：antd 把 className 作用于 `<td>`/`<th>`；data-grid 用 div 渲染，
++   *   className 合并到单元格 div（与语义化 `body.cell`/`header.cell` 同款注入路径）。
+    *
+    * 未提供（undefined）时不注入（零回归）。
++   *
++   * @internal 数据格对应 `.dg-cell-body`、表头格对应 `.dg-cell-header`；grid 渲染下直接合并到
++   *   单元格 div 的 className 列表。
+    */
+   className?: string
+   /**
+-   * 该列单元格的额外 inline style（对齐 antd v6 `column.style`，rc-table `ColumnSharedType.style`）。
+-   * 透传到本列所有数据单元格 + 表头格。
+-   * 与 `className` 同款注入（合并到 dg-cell div 的 style，覆盖同名字段）。
++   * 该列单元格的额外 inline style（对齐 antd v6 `column.style`，对齐 antd 列类型）。
++   *
++   * 注入到本列所有数据单元格 + 表头格，与 `className` 同款注入（合并到单元格 style，覆盖同名字段）。
+    *
+    * 未提供（undefined）时不注入（零回归）。
++   *
++   * @internal 与 className 同款注入路径：grid 渲染下合并到单元格 div 的 style。
+    */
+   style?: import('react').CSSProperties
+   /**
+@@ -89,52 +94,52 @@ export interface ColumnType<RecordType = any> {
+    * 省略号（对齐 antd v6 `column.ellipsis`）。
+    *
+    * 取值：
+-   *   - `true`（默认）：单元格/表头加 ellipsis CSS 类（`text-overflow:ellipsis` +
++   *   - `true`：单元格/表头加 ellipsis CSS 类（`text-overflow:ellipsis` +
+    *     `white-space:nowrap` + `overflow:hidden`）+ **默认 native `title`** 悬浮提示
+-   *     （cell-inner 上加 title 属性，hover 显示完整文本；对齐 antd 默认 `showTitle: true`）。
++   *     （hover 显示完整文本；对齐 antd 默认 `showTitle: true`）。
+    *   - `false` / undefined：不省略、无 title（零回归）。
+    *   - 对象 `{ showTitle?: boolean }`（对齐 antd v6）：
+-   *       * `showTitle: false` → 加 ellipsis CSS 类（仍省略），但**关闭默认 native title**
+-   *         （cell-inner 不加 title 属性），让用户在 `render` 内自行包 antd `<Tooltip>` 接管
+-   *         hover 提示（antd ellipsis-custom-tooltip demo 用法）。
++   *       * `showTitle: false` → 加 ellipsis CSS 类（仍省略），但**关闭默认 native title**，
++   *         让用户在 `render` 内自行包 antd `<Tooltip>` 接管 hover 提示
++   *         （antd ellipsis-custom-tooltip demo 用法）。
+    *       * `showTitle: true` / 缺省 → 等价 `ellipsis: true`（加类 + 加默认 title）。
+    *
+-   * 适配层 normalize：`true` / `{showTitle:true}` / `{}` → ellipsis=true & showTitle=true；
+-   * `{showTitle:false}` → ellipsis=true & showTitle=false；`false`/undefined → ellipsis=false。
++   * 详见 `docs/features/display/ellipsis.md`；列宽与省略号视觉的关系见
++   * `docs/features/columns/column-width.md`。
+    *
+-   * **视觉 gap**：grid 列宽默认 `max-content` 使 ellipsis 列 track=content 宽，
+-   * cell-inner 不溢出 → 视觉无 `...`（CSS 契约正确，缺列宽约束）。核心验证 showTitle 开关 + Tooltip hover，
+-   * 不依赖省略号视觉生效。详见 `docs/design-notes/column-width.md`。
++   * @internal 适配层 normalize：`true` / `{showTitle:true}` / `{}` → ellipsis=true & showTitle=true；
++   *   `{showTitle:false}` → ellipsis=true & showTitle=false；`false`/undefined → ellipsis=false。
++   *   title 属性挂在单元格 `.dg-cell-inner` 上。已知视觉 gap：列宽默认 max-content 使 ellipsis 列
++   *   track=content 宽，cell-inner 不溢出 → 视觉无 `...`（CSS 契约正确，缺列宽约束）；核心验证
++   *   showTitle 开关 + Tooltip hover，不依赖省略号视觉生效。
+    */
+   ellipsis?: boolean | { showTitle?: boolean }
+   /**
+-   * 隐藏该列。
+-   *
+-   * **语义（对齐 antd `column.hidden`）**：
+-   *   - `true`：该叶子列不渲染其单元格/表头格的可视内容——实现采用 **grid track `0fr`**
+-   *     方案（grid track `0fr` 占位），即把该叶子列对应的 `grid-template-columns` 一条 track 置为
+-   *     `0fr`（track 仍存在，列线号不变），单元格内容用 `visibility:hidden` +
+-   *     `overflow:hidden` 隐藏；`.dg-grid` 上 `transition: grid-template-columns`
+-   *     实现 `0fr↔1fr` 平滑过渡。
++   * 隐藏该列（对齐 antd `column.hidden`）。
++   *
++   *   - `true`：该叶子列的可视内容不渲染（表头格 + 数据单元格均隐藏）。
+    *   - `false` / undefined：正常渲染。
+    *
+-   * **关键设计：track 数保持不变**。隐藏列**不删除**其 grid track，只把 track 大小置为 `0fr`，
+-   * 这样多级表头父分组格 `grid-column` 范围不变（隐藏子叶子时父格因其中一条子 track 为 `0fr`
+-   * 而自动横向收缩）；固定列 sticky 偏移按叶子列宽累加（隐藏列宽度为 0，自动从累加中"消失"）；
+-   * 合并格 `grid-column: span N` 仍跨原叶子区间；列 track 与行 track 正交，虚拟不受影响；
+-   * 选择列作为普通叶子列参与，可同样被 hidden。
++   * **多级表头**：分组列（有 `children`）的 `hidden` 字段**无效**——只有叶子列的 `hidden` 生效
++   *   （与 antd 一致：隐藏分组列请隐藏其全部子叶子；父分组格随子叶子收缩自动横向收起）。
++   *
++   * **与各能力组合**：隐藏列宽度计为 0，固定列 sticky 偏移按可见叶子列累加；合并单元格仍跨原叶子区间；
++   * 多级表头父分组格随子叶子收缩；选择列作为普通叶子列参与，同样可被 hidden。
+    *
+-   * 分组列（有 `children`）的 `hidden` 字段**无效**——只有叶子列的 `hidden` 生效（与 antd 一致：
+-   * 多级表头隐藏通过隐藏子叶子实现，父分组格随之收缩）。
++   * 详见 `docs/features/columns/hidden-column.md`。
+    *
+-   * 详见 `docs/design-notes/hidden-column.md`。
++   * @internal 实现采用 **grid track `0fr`** 方案：把该叶子列对应的 `grid-template-columns`
++   *   一条 track 置为 `0fr`（track 仍存在、列线号不变），单元格内容用 `visibility:hidden` +
++   *   `overflow:hidden` 隐藏；`.dg-grid` 上 `transition: grid-template-columns` 实现 `0fr↔1fr`
++   *   平滑过渡。track 数保持不变是关键设计——多级表头父格 `grid-column` 范围、合并格
++   *   `grid-column: span N`、固定列 sticky 偏移、虚拟窗口都因此透明。
+    */
+   hidden?: boolean
+   /**
+    * antd render：(text, record, index) => ReactNode | RenderedCell。
+    *
+    * data-grid only consumes `children` from the legacy RenderedCell object form.
+-   * `props` is obsolete because antd/rc-table also warns this shape has perf issues.
++   * `props` is obsolete because antd also warns this shape has perf issues.
+    * Use `onCell` for colSpan/rowSpan and custom body-cell props.
+    */
+   render?: (text: any, record: RecordType, index: number) => ReactNode | RenderedCell
+@@ -143,7 +148,7 @@ export interface ColumnType<RecordType = any> {
+    * 有 children 时该列视为分组列（仅取 key/title/align/fixed）；
+    * 叶子列属性（dataIndex/width/render）仅取自无 children 的节点。
+    *
+-   * 详见 `docs/design-notes/header.md`。
++   * 详见 `docs/features/layout/header-and-span.md`。
+    */
+   children?: Array<ColumnType<RecordType>>
+   /**
+@@ -159,7 +164,7 @@ export interface ColumnType<RecordType = any> {
+    * 注意：data-grid 内部仅支持 `colSpan`（表头跨列）；多级表头请用 `children`。
+    * 两者**不要在同一列上混用**（与 antd 行为一致）。
+    *
+-   * 详见 `docs/design-notes/header.md`。
++   * 详见 `docs/features/layout/header-and-span.md`。
+    */
+   colSpan?: number
+   /**
+@@ -173,8 +178,8 @@ export interface ColumnType<RecordType = any> {
+    * 单元格事件 + 合并入口。
+    *
+    * antd column.onCell 签名：`(record, index) => { colSpan?, rowSpan?, className?, onClick?, ... }`。
+-   * 返回值**整体**透传给 `components.body.cell` 作为 props（antd v6 同语义：BodyRow 把 onCell
+-   * 返回值合并到 td/cell 组件的 props）。data-grid 消费其中的 `colSpan` / `rowSpan`：
++   * 返回值**整体**透传给 `components.body.cell` 作为 props（与 antd v6 一致：返回值合并到
++   * td/cell 组件的 props）。data-grid 消费其中的 `colSpan` / `rowSpan`：
+    *   - `colSpan: N`（N>=2）：当前数据行该格向右合并 N 个叶子列（含自身）。
+    *     紧随其后的 `N-1` 个叶子列在该行的单元格必须由它们各自的 onCell 返回 `colSpan: 0`（被覆盖，不渲染）。
+    *   - `rowSpan: N`（N>=2）：当前格向下合并 N 行（含自身）。被覆盖行的同列格由其 onCell 返回 `rowSpan: 0`。
+@@ -185,8 +190,9 @@ export interface ColumnType<RecordType = any> {
+    * `components.body.cell` 组件作为 props（典型用法：返回 `{ record, editable, dataIndex,
+    * title, handleSave }` 给自定义 EditableCell）。与 antd demo edit-cell 的 onCell 写法一致。
+    *
+-   * 注意：colSpan/rowSpan 由合并算法消费（cellMerge），其余字段由渲染层透传（GridTable）；
+-   * 两者正交——合并格仍可携带编辑 props，编辑 props 不影响合并。
++   * colSpan/rowSpan 与其余字段正交——合并格仍可携带编辑 props，编辑 props 不影响合并。
++   *
++   * @internal 合并由 cellMerge 模块消费，其余字段由 GridTable 渲染层透传。
+    */
+   onCell?: (record: RecordType, index: number) => Record<string, any> | undefined
+   /**
+@@ -198,17 +204,17 @@ export interface ColumnType<RecordType = any> {
+    *   - `false` / undefined：该列不可排序（表头无排序图标、不响应排序点击）。
+    *   - 对象 `{ compare, multiple }`：多列排序（multiple 为优先级数字）。
+    *
+-   * **前端排序**（非受控）：引擎按当前 `sortOrder` + `sorter` 对 dataSource 排序后渲染；
+-   * **受控排序**（外部传 `sortOrder`）：引擎不主动排序，调用方在 onChange 后自行更新 dataSource；
+-   *   引擎仍按 `sortOrder` 显示排序图标、触发 onChange。
++   * **前端排序**（非受控）：data-grid 按当前 `sortOrder` + `sorter` 对 dataSource 排序后渲染；
++   * **受控排序**（外部传 `sortOrder`）：data-grid 不主动排序，调用方在 onChange 后自行更新 dataSource；
++   *   data-grid 仍按 `sortOrder` 显示排序图标、触发 onChange。
+    *
+    * 与各能力组合：排序只改变数据行顺序，不改变列结构（多级表头/固定列/合并/虚拟/选择/展开均不受影响）。
+    *
+-   * 详见 `docs/design-notes/filter-sorter.md`。
++   * 详见 `docs/features/interaction/filter-sorter.md`。
+    */
+   sorter?: ColumnSorter<RecordType>
+   /**
+-   * 受控排序方向。传入即受控（引擎不主动排序，调用方负责 dataSource）。
++   * 受控排序方向。传入即受控（data-grid 不主动排序，调用方负责 dataSource）。
+    * 与 `defaultSortOrder` 互斥：`sortOrder` 优先。
+    */
+   sortOrder?: SortOrder
+@@ -241,7 +247,7 @@ export interface ColumnType<RecordType = any> {
+    * 与 `onFilter` 配合：onFilter(value, record) 决定该 value 是否"命中" record；
+    * 多选时命中任一即保留该 record（OR 语义）；单选时只保留命中该 value 的 record。
+    *
+-   * 详见 `docs/design-notes/filter-sorter.md`。
++   * 详见 `docs/features/interaction/filter-sorter.md`。
+    */
+   filters?: Array<ColumnFilterItem>
+   /**
+@@ -250,12 +256,12 @@ export interface ColumnType<RecordType = any> {
+    * 签名 `(value, record) => boolean`：返回 true 表示该 value 命中该 record。
+    * 与 `filters` 配合：当前选中值集合中**任一**命中即保留该 record（OR 语义，对齐 antd）。
+    *
+-   * **前端筛选**（非受控）：引擎按 `filters` + `onFilter` 对 dataSource 过滤后渲染
++   * **前端筛选**（非受控）：data-grid 按 `filters` + `onFilter` 对 dataSource 过滤后渲染
+    * （与排序叠加：antd 顺序 raw → sort → filter，即先排序后过滤）。
+-   * **受控筛选**（外部传 `filteredValue`）：引擎不主动过滤，调用方在 onChange 后自行更新 dataSource；
+-   *   引擎仍按 `filteredValue` 显示漏斗激活态、触发 onChange。
++   * **受控筛选**（外部传 `filteredValue`）：data-grid 不主动过滤，调用方在 onChange 后自行更新 dataSource；
++   *   data-grid 仍按 `filteredValue` 显示漏斗激活态、触发 onChange。
+    *
+-   * 详见 `docs/design-notes/filter-sorter.md`。
++   * 详见 `docs/features/interaction/filter-sorter.md`。
+    */
+   onFilter?: (value: FilterValue, record: RecordType) => boolean
+   /**
+@@ -269,7 +275,7 @@ export interface ColumnType<RecordType = any> {
+    */
+   defaultFilteredValue?: Array<FilterValue>
+   /**
+-   * 受控筛选值。传入即受控（引擎不主动过滤，调用方负责 dataSource）。
++   * 受控筛选值。传入即受控（data-grid 不主动过滤，调用方负责 dataSource）。
+    * 与 `defaultFilteredValue` 互斥：`filteredValue` 优先。
+    *
+    * 传 `[]`（空数组）表示"无激活筛选"（受控显式空）；传非空数组表示激活筛选。
+@@ -288,22 +294,25 @@ export interface ColumnType<RecordType = any> {
+   /**
+    * 自定义筛选下拉面板（对齐 antd `column.filterDropdown`）。
+    *
+-   * **语义**：传入即**取代**内置 Checkbox/Radio 下拉。引擎把它渲染进 antd Dropdown 的
++   * **语义**：传入即**取代**内置 Checkbox/Radio 下拉。data-grid 把它渲染进 antd Dropdown 的
+    * popupRender，并按 antd 兼容签名注入 props（`selectedKeys`/`setSelectedKeys`/`confirm`/
+    * `clearFilters`/`visible`/`close`/`prefixCls`/`filters`）。调用方在面板内自绘搜索框、
+-   * 自定义勾选 UI 等，通过 `confirm`/`clearFilters` 与引擎交互（onFilter 仍按选中 keys 过滤）。
++   * 自定义勾选 UI 等，通过 `confirm`/`clearFilters` 与 data-grid 交互（onFilter 仍按选中 keys 过滤）。
+    *
+    * 也可传 ReactNode（非函数）——此时直接渲染为下拉内容，无法获得 confirm 等 props（与 antd 一致）。
+    * 一般用法是函数。
+    *
+-   * 与 `onFilter` 关系：自定义面板只是替换**下拉 UI**；实际过滤仍由 `onFilter` + 引擎 useFilter
+-   * 完成（filterDropdown 的 selectedKeys 经 confirm 应用为 filteredValue，再由 useFilter 过滤）。
++   * 与 `onFilter` 关系：自定义面板只是替换**下拉 UI**；实际过滤仍由 `onFilter` 完成
++   * （filterDropdown 的 selectedKeys 经 confirm 应用为 filteredValue）。
+    * 故即使使用 filterDropdown，仍须提供 `onFilter`。
+    *
+    * 与内置 `filters` 关系：filterDropdown 存在时不渲染内置 Checkbox/Radio（即使同时配置了
+    * `filters` 也忽略其 UI——但 filters 仍可用于 onChange 的 filters 形态来源等）。
+    *
+-   * 详见 `docs/design-notes/filter-sorter.md`。
++   * 详见 `docs/features/interaction/filter-sorter.md`。
++   *
++   * @internal 过滤管线由 `useFilter` 实现：filterDropdown 的 selectedKeys 经 confirm 应用为
++   *   filteredValue，再由 useFilter 过滤。
+    */
+   filterDropdown?:
+     | React.ReactNode
+@@ -314,14 +323,16 @@ export interface ColumnType<RecordType = any> {
+    * 函数签名 `(filtered: boolean) => ReactNode`：filtered=true 表示该列有激活筛选（图标激活态）。
+    * 也可直接传 ReactNode（恒定图标，不随激活态变化）。
+    *
+-   * 缺省：引擎自绘 FilterOutlined（灰）/FilterFilled（高亮）。
++   * 缺省：未提供时 data-grid 渲染默认漏斗图标（未激活态/激活态）。
++   *
++   * @internal 缺省图标为 FilterOutlined（未激活）/ FilterFilled（激活）。
+    */
+   filterIcon?: React.ReactNode | ((filtered: boolean) => React.ReactNode)
+   /**
+    * 透传给筛选下拉 antd Dropdown 的 props（对齐 antd `column.filterDropdownProps`，since 5.22）。
+    *
+    * 用于受控打开（`open`）、`onOpenChange` 订阅、`triggerClassName`/`overlayClassName` 等。
+-   * 与内置 Dropdown 集成：引擎把这些 props 合并到 antd Dropdown（open 受控优先于内部 state）。
++   * 与内置 Dropdown 集成：data-grid 把这些 props 合并到 antd Dropdown（open 受控优先于内部 state）。
+    */
+   filterDropdownProps?: ColumnFilterDropdownProps
+   /**
+@@ -343,7 +354,7 @@ export interface ColumnType<RecordType = any> {
+    *
+    * 默认 `'menu'`：现有 head/filter-search/custom-filter-panel 等不设 filterMode 的列仍走 menu 分支（零回归）。
+    *
+-   * 详见 `docs/design-notes/filter-sorter.md`。
++   * 详见 `docs/features/interaction/filter-sorter.md`。
+    */
+   filterMode?: 'menu' | 'tree'
+   /**
+@@ -357,8 +368,7 @@ export interface ColumnType<RecordType = any> {
+    *     （对齐 antd FilterSearch 默认 `searchValueMatched`）。
+    *   - `(input, record) => boolean`：自定义匹配。`input` 为已 normalize 的输入（trim+toLowerCase，
+    *     与 antd 一致——antd 在 menu 模式传 `normalizedSearchValue`），`record` 为筛选项
+-   *     `{ text, value, children? }`（与 `ColumnFilterItem` 同构；data-grid 引擎层为 `EngineFilterItem`）。
+-   *     返回 true 表示该项保留显示。
++   *     `{ text, value, children? }`（与 `ColumnFilterItem` 同构）。返回 true 表示该项保留显示。
+    *   - `false` / undefined：不渲染搜索框（默认）。
+    *
+    * 输入为空时显示全部筛选项（不过滤）。
+@@ -368,7 +378,9 @@ export interface ColumnType<RecordType = any> {
+    *   - menu：过滤扁平筛选项列表（命中保留）。
+    *   - tree：过滤树节点（命中保留 + 保留祖先链维持结构，对齐 antd `Tree.filterTreeNode`）。
+    *
+-   * 详见 `docs/design-notes/filter-sorter.md`。
++   * 详见 `docs/features/interaction/filter-sorter.md`。
++   *
++   * @internal data-grid 引擎层筛选项内部类型为 `EngineFilterItem`，与 `ColumnFilterItem` 同构。
+    */
+   filterSearch?:
+     | true
+@@ -386,31 +398,29 @@ export interface ColumnType<RecordType = any> {
+   /**
+    * 响应式列显隐（对齐 antd `column.responsive`，since 4.x）。
+    *
+-   * **语义（严格对齐 antd `InternalTable.tsx:235-246`）**：
++   * **语义**：
+    *   - `undefined` / 空数组：该列**始终显示**（所有现有 demo 的默认行为，零回归）。
+    *   - 非空 `Breakpoint[]`：仅当**任一**列出的断点在当前视口下激活时，该列才显示；否则该列
+-   *     从列树中**整体移除**（表头格 + 表体单元格均不渲染，列号不占位）。
++   *     从渲染中**整体移除**（表头格 + 表体单元格均不渲染，列号不占位）。
+    *
+-   * 断点激活判定用 antd `Grid.useBreakpoint`——返回
+-   * `{ xs, sm, md, lg, xl, xxl, xxxl }` 各断点布尔。antd 的 `screens[bp] === true` 表示
++   * 断点激活判定对齐 antd `Grid.useBreakpoint`——返回
++   * `{ xs, sm, md, lg, xl, xxl, xxxl }` 各断点布尔。`screens[bp] === true` 表示
+    * 当前视口 **>= bp**（即该断点及其以上都激活）。故 `responsive: ['md']` 实际语义是
+    * **md 及以上视口显示**（与 antd responsive demo 注释 "medium screen or bigger" 一致）。
+    *
+-   * 匹配算法（逐字对齐 antd InternalTable.tsx:242-246）：
+-   *   ```
+-   *   matched = Object.keys(screens).filter(bp => screens[bp])   // 当前激活的断点集合
+-   *   显示该列 <=> !responsive || responsive.some(r => matched.has(r))
+-   *   ```
+-   *
+    * 取值（antd `Breakpoint`，7 个）：`'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl' | 'xxxl'`
+    * （来自 antd `_util/responsiveObserver` responsiveArray）。
+    *
+-   * **实现位置**：Table 适配层（`Table.tsx`）在构建列树前用 `Grid.useBreakpoint` 过滤 columns——
+-   * responsive 不匹配的列直接从 columns 数组移除（不进入 `toEngineColumns` / 引擎列树），
+-   * 引擎层无需感知 responsive（与 antd 一致：antd 也在 InternalTable 派生 mergedColumns 时过滤）。
+-   *
+    * 与各能力组合：被移除的列不参与排序/筛选/选择/固定/合并/虚拟——所有现有机制透明（列号自然收缩）。
+-   * 树形/编辑等以列位置为基础的机制也正确（过滤发生在列树构建前）。
++   * 树形/编辑等以列位置为基础的机制也正确（过滤发生在列结构构建前）。
++   *
++   * 详见 `docs/features/columns/responsive-columns.md`。
++   *
++   * @internal 匹配算法与实现位置对齐 antd InternalTable（mergedColumns 派生时过滤）：
++   *   Table 适配层在构建列树前用 `Grid.useBreakpoint` 过滤 columns——responsive 不匹配的列
++   *   直接从 columns 数组移除（不进入 `toEngineColumns` / 引擎列树），引擎层无需感知 responsive。
++   *   匹配式：`matched = Object.keys(screens).filter(bp => screens[bp])`，
++   *   显示该列 ⇔ `!responsive || responsive.some(r => matched.includes(r))`。
+    */
+   responsive?: Array<Breakpoint>
+ }
+diff --git a/src/table/compat/expand.ts b/src/table/compat/expand.ts
+index 3e295a0..568c011 100644
+--- a/src/table/compat/expand.ts
++++ b/src/table/compat/expand.ts
+@@ -1,9 +1,10 @@
+ /**
+- * 行展开 + 哨兵列（按业务域从 compatTypes.ts 拆出）。
++ * 行展开 + 哨兵列。
+  *
+  * 包含 antd `expandable` 接口 + EXPAND_COLUMN / SELECTION_COLUMN 占位哨兵常量 +
+- * ColumnOrSentinel 联合类型。哨兵常量随展开域就近放置（runtime 值，barrel re-export 透传）。
++ * ColumnOrSentinel 联合类型。
+  */
++// 按业务域从 compatTypes.ts 拆出；哨兵常量随展开域就近放置（runtime 值，barrel re-export 透传）。
+ 
+ import type { ReactNode } from 'react'
+ import type { ColumnType } from './column'
+@@ -17,31 +18,30 @@ import type { ColumnType } from './column'
+  *
+  * 与 antd 同名字段同语义，便于直接替换。
+  *
+- * === grid `0fr↔1fr` 过渡 ===
++ * === 展开/收起动画 ===
+  *
+- * 每个可展开数据行（rowExpandable !== false）在其数据行 track **之后**插入一条"展开内容 track"：
+- *   - 收起：track size = `0fr`（track 仍存在，行线号稳定）。
+- *   - 展开：track size = `1fr`（grid 自动按展开内容自然高撑开）。
+- * `.dg-grid` 上 `transition: grid-template-rows 0.3s ease` 实现 0fr↔1fr 的平滑展开/收起动画
+- * （grid-template-rows 是可动画属性，fr 单位可逐项插值）。
+- *
+- * 展开内容作为 grid item 放在该展开 track（grid-row 指向展开 track，默认 grid-column: 1 / -1 跨整行；
+- * 传 expandedRowOffset 时从第 N+1 个叶子列开始）；
+- * 展开内容容器设 `overflow: hidden; min-height: 0`，使其在 0fr track 下被裁剪、在 1fr 下自然展开。
++ * 展开内容随展开状态平滑过渡（高度动画）；收起时内容被裁剪、不占可视高度。
+  *
+  * === 虚拟 × 展开约定 ===
+  *
+- * 虚拟模式下，`useVirtualList` 仍只按"收起态"约定行高算可视窗口（start/end + paddingTop/paddingBottom）。
+- * 展开内容 track 不参与虚拟窗口计算——展开某行会让该行实际 DOM 更高（多了展开 track），
+- * 但虚拟窗口范围不变；展开内容溢出渲染（牺牲性能换稳定）。详见 `docs/design-notes/virtualization.md`
+- * 的「虚拟 × 展开」节。
++ * 虚拟模式下，展开内容**不参与虚拟窗口计算**——展开某行会让该行实际 DOM 更高，
++ * 但虚拟窗口范围不变；展开内容溢出渲染（牺牲性能换稳定）。
++ * 详见 `docs/features/scrolling/virtualization.md` 的「虚拟 × 展开」节。
++ *
++ * 详见 `docs/features/interaction/expand.md`。
+  *
+- * 详见 `docs/design-notes/expand.md`。
++ * @internal 动画采用 CSS grid `0fr↔1fr` 过渡：每个可展开数据行（rowExpandable !== false）在其
++ *   数据行 track 之后插入一条"展开内容 track"——收起=`0fr`（track 仍存在、行线号稳定），
++ *   展开=`1fr`（按内容自然高撑开）；`.dg-grid` 上 `transition: grid-template-rows 0.3s ease`
++ *   实现 0fr↔1fr 平滑动画（grid-template-rows 可动画、fr 单位可逐项插值）。展开内容作为 grid item
++ *   放在该展开 track（grid-row 指向展开 track，默认 grid-column: 1 / -1 跨整行；传 expandedRowOffset
++ *   时从第 N+1 个叶子列开始）；展开内容容器 `overflow: hidden; min-height: 0`，0fr 下裁剪、1fr 下展开。
++ *   虚拟下 `useVirtualList` 仍按"收起态"行高算窗口（start/end + paddingTop/paddingBottom）。
+  */
+ export interface Expandable<RecordType = any> {
+   /**
+    * 展开行内容渲染器。
+-   * 返回 null/undefined 的行视为不可展开（不渲染展开图标、不插入展开 track）。
++   * 返回 null/undefined 的行视为不可展开（不渲染展开图标、不插入展开内容区）。
+    * 签名对齐 antd：`(record, index, indent, expanded) => ReactNode`。
+    * （indent/expanded 固定 0/当前态；树形模式下 indent 才有意义。）
+    */
+@@ -59,7 +59,7 @@ export interface Expandable<RecordType = any> {
+    */
+   expandedRowOffset?: number
+   /**
+-   * 某行是否可展开。返回 false 的行不渲染展开图标（也不插入展开 track）。
++   * 某行是否可展开。返回 false 的行不渲染展开图标（也不插入展开内容区）。
+    * 缺省视所有行可展开（前提是有 expandedRowRender）。
+    */
+   rowExpandable?: (record: RecordType) => boolean
+@@ -90,14 +90,15 @@ export interface Expandable<RecordType = any> {
+    */
+   childrenColumnName?: string
+   /**
+-   * 树形缩进宽度（对齐 antd `expandable.indentSize`，默认 `15`——以 antd 6.4.4 实测为准，
+-   * 见 `InternalTable.tsx:611`）。
++   * 树形缩进宽度（对齐 antd `expandable.indentSize`，默认 `15`）。
+    *
+    * 树形模式下，第一列数据单元格按 `level × indentSize` 左缩进（px）。
++   *
++   * @internal 默认值以 antd 6.4.4 实测为准（见 `InternalTable.tsx:611`）。
+    */
+   indentSize?: number
+   /**
+-   * 行展开：点击行体切换（对齐 antd `expandable.expandRowByClick`，rc-table interface.d.ts:179）。
++   * 行展开：点击行体切换（对齐 antd `expandable.expandRowByClick`）。
+    *
+    * true 时点击**行体**（任意非展开图标的单元格）切换该行展开/收起。
+    *
+@@ -107,16 +108,20 @@ export interface Expandable<RecordType = any> {
+    * 仅对该行 `rowExpandable !== false` 的可展开行生效（不可展开行点击无反应，与 antd 一致）。
+    *
+    * 默认 false（仅展开图标点击切换，行体点击不触发展开——零回归）。
++   *
++   * @internal 字段定义对齐 rc-table interface.d.ts:179。
+    */
+   expandRowByClick?: boolean
+   /**
+-   * 行展开：展开后追加行 className（对齐 antd `expandable.expandedRowClassName`，rc-table interface.d.ts:188）。
++   * 行展开：展开后追加行 className（对齐 antd `expandable.expandedRowClassName`）。
+    *
+    * 行**展开后**额外附加到该行所有单元格的 class（与 `rowClassName` 同款行级 class 注入路径）。
+    * 仅在该行 `expanded=true` 时生效（收起时不加）。
+    *
+    * 签名 `(record, index) => string`，返回值合并到该行 body 单元格 className。
+    * 与 `TableProps.rowClassName` 叠加（两者都生效，互不覆盖）。
++   *
++   * @internal 字段定义对齐 rc-table interface.d.ts:188。
+    */
+   expandedRowClassName?: (record: RecordType, index: number) => string
+ }
+@@ -125,7 +130,7 @@ export interface Expandable<RecordType = any> {
+  * 展开列占位哨兵（对齐 antd `Table.EXPAND_COLUMN`）。
+  *
+  * 在 `columns` 数组中插入此哨兵可**控制展开列位置**（不一定首列）。
+- * 与 `SELECTION_COLUMN` 类似：哨兵被识别后，适配层把展开列插在该位置而非默认首列。
++ * 与 `SELECTION_COLUMN` 类似：哨兵被识别后，data-grid 把展开列插在该位置而非默认首列。
+  *
+  * 详见 demo `order-column`。
+  */
+diff --git a/src/table/compat/filter.ts b/src/table/compat/filter.ts
+index 86ea92b..b3ded3b 100644
+--- a/src/table/compat/filter.ts
++++ b/src/table/compat/filter.ts
+@@ -57,7 +57,7 @@ export interface FilterDropdownProps {
+ export interface ColumnFilterDropdownProps {
+   /** 受控打开状态（与 antd `Dropdown.open` 一致）。 */
+   open?: boolean
+-  /** 打开/关闭回调。引擎在 filterOnClose=true 时据此应用草稿。 */
++  /** 打开/关闭回调。filterOnClose=true 时据此应用草稿。 */
+   onOpenChange?: (open: boolean) => void
+   /** 触发器额外 className（作用于漏斗 trigger span）。 */
+   triggerClassName?: string
+diff --git a/src/table/compat/jsx.ts b/src/table/compat/jsx.ts
+index d90d12c..de598db 100644
+--- a/src/table/compat/jsx.ts
++++ b/src/table/compat/jsx.ts
+@@ -1,8 +1,9 @@
+ /**
+- * JSX 风格 API 列类型（按业务域从 compatTypes.ts 拆出）。
++ * JSX 风格 API 列类型。
+  *
+  * `<Table.Column>` / `<Table.ColumnGroup>` 的 props（对齐 antd v6）。
+  */
++// 按业务域从 compatTypes.ts 拆出。
+ 
+ import type { ReactElement } from 'react'
+ import type { ColumnType } from './column'
+@@ -11,7 +12,7 @@ import type { ColumnType } from './column'
+  * JSX 风格 API：`<Table.Column>` 单列声明组件的 props（对齐 antd v6 `ColumnProps`）。
+  *
+  * **语义**：`<Table.Column>` 是 `columns` prop 的语法糖——它本身**不渲染 DOM**（渲染 null），
+- * 仅作为 `<Table>` JSX 子元素声明一列。Table 适配层用 React.Children 遍历 JSX 子元素，
++ * 仅作为 `<Table>` JSX 子元素声明一列。Table 在内部用 React.Children 遍历 JSX 子元素，
+  * 把每个 `<Table.Column>` 的 props（除 children）转换为 ColumnType 对象，等价于传 `columns` prop。
+  *
+  * props = `ColumnType<RecordType>` 全部字段（title/dataIndex/key/render/width/align/fixed/...）。
+@@ -41,7 +42,7 @@ export interface ColumnProps<RecordType = any> extends Omit<ColumnType<RecordTyp
+  *
+  * **语义**：`<Table.ColumnGroup>` 声明一个**多级表头分组列**（`columns[].children` 的 JSX 等价物）。
+  * 其 `children` 是一个或多个 `<Table.Column>`（或嵌套 `<Table.ColumnGroup>`，支持任意深度）。
+- * Table 适配层把 ColumnGroup 转换为 `{ title, ...rest, children: [...] }`（复用多级表头渲染）。
++ * Table 在内部把 ColumnGroup 转换为 `{ title, ...rest, children: [...] }`（复用多级表头渲染）。
+  *
+  * props：
+  *   - `title`：分组列表头文案（与 ColumnType.title 同义）。
+@@ -60,7 +61,7 @@ export interface ColumnProps<RecordType = any> extends Omit<ColumnType<RecordTyp
+  * ```
+  *
+  * **与多级表头复用**：ColumnGroup 转换出的 `{ title, children: [...] }` 结构与
+- * `columns[].children` 嵌套完全一致，直接复用多级表头渲染（引擎无需感知 JSX 来源）。
++ * `columns[].children` 嵌套完全一致，直接复用多级表头渲染（无需感知 JSX 来源）。
+  */
+ export interface ColumnGroupProps<RecordType = any> extends Omit<ColumnType<RecordType>, 'children'> {
+   /** 分组内的列声明（Column / ColumnGroup 的 ReactElement；可单个或数组，支持任意深度嵌套）。 */
+diff --git a/src/table/compat/locale.ts b/src/table/compat/locale.ts
+index 187a464..ed40537 100644
+--- a/src/table/compat/locale.ts
++++ b/src/table/compat/locale.ts
+@@ -13,7 +13,7 @@ import type { ReactNode } from 'react'
+  * 全部 optional；未传的字段回退到内置默认值（与 antd `locale/en_US.ts` 的 Table 段一致——
+  * 保持英文默认、与 antd 行为对齐）。FilterDropdown 消费 filterConfirm/filterReset/filterEmptyText/
+  * filterSearchPlaceholder/filterCheckAll/filterCheckall；emptyText 由 Table 表体空态消费，使用
+- * Table.tsx 合并后的 Table locale（包含 `TableProps.locale` 与 `ConfigProvider locale.Table`）；
++ * Table 合并后的 Table locale（包含 `TableProps.locale` 与 `ConfigProvider locale.Table`）；
+  * 其余字段（filterTitle/selectAll/selectNone/selectInvert/selectionAll/sortTitle/expand/collapse/
+  * triggerDesc/triggerAsc/cancelSort）为接口完整性保留，供后续任务（如排序 tooltip i18n、选择菜单 i18n）消费。
+  *
+diff --git a/src/table/compat/semantic.ts b/src/table/compat/semantic.ts
+index 1c932ce..301f39e 100644
+--- a/src/table/compat/semantic.ts
++++ b/src/table/compat/semantic.ts
+@@ -1,30 +1,32 @@
+ /**
+- * 语义化 classNames/styles（按业务域从 compatTypes.ts 拆出）。
++ * 语义化 classNames/styles。
+  *
+  * 对齐 antd v6 `ComponentsSemanticClassNames` / `ComponentsSemanticStyles` /
+- * `TableSemanticType['classNames']` / `TableSemanticType['styles']`，
+- * 见 `components/table/InternalTable.tsx:90-112`。
++ * `TableSemanticType['classNames']` / `TableSemanticType['styles']`。
+  */
++// 按业务域从 compatTypes.ts 拆出；字段对照见 antd `components/table/InternalTable.tsx:90-112`。
+ 
+ import type { SizeType } from './size'
+ import type { TablePaginationConfig } from './pagination'
+ 
+ /**
+  * 语义化样式：内层 wrapper / cell / row 三部位（header 与 body 共用同结构）。
+- * 对齐 antd v6 `ComponentsSemanticClassNames` / `ComponentsSemanticStyles`
+- * （`components/table/InternalTable.tsx:90-100`）。
++ * 对齐 antd v6 `ComponentsSemanticClassNames` / `ComponentsSemanticStyles`。
+  *
+  * - `wrapper`：header / body 的容器层（data-grid 中对应滚动容器/分组的根容器）。
+  * - `row`：行（表头行 / 表体行）。
+  * - `cell`：单元格（表头格 / 表体格）。
+  *
+- * 对应 data-grid DOM 注入点：
+- *   - `header.wrapper`：表头区根容器（渲染层无独立 DOM 时注入到 grid）。
++ * data-grid 各部位的对应注入点：
++ *   - `header.wrapper`：表头区根容器。
+  *   - `header.row`：表头行。
+- *   - `header.cell`：`.dg-cell-header`。
++ *   - `header.cell`：表头格。
+  *   - `body.wrapper`：表体区根容器。
+- *   - `body.row`：表体行（`.dg-row`，data-grid 因 grid 布局无单一 `<tr>`，row class 透传到该行单元格）。
+- *   - `body.cell`：`.dg-cell-body`。
++ *   - `body.row`：表体行（data-grid 用 div 渲染、无单一 `<tr>`，row className 透传到该行每个单元格）。
++ *   - `body.cell`：表体格。
++ *
++ * @internal DOM class 对应：`header.cell`→`.dg-cell-header`、`body.row`→`.dg-row`、
++ *   `body.cell`→`.dg-cell-body`；header.wrapper 在渲染层无独立 DOM 时注入到 grid。
+  */
+ export interface ComponentsSemanticClassNames {
+   wrapper?: string
+@@ -39,8 +41,10 @@ export interface ComponentsSemanticStyles {
+ 
+ /**
+  * 分页器语义化样式（对齐 antd v6 `PaginationSemanticType`）。
+- * - `root`：分页根容器（`.dg-pagination`）。
+- * - `item`：分页单项（透传到 antd Pagination 的 item 项——本引擎透传到外层 `.dg-pagination` 子层）。
++ * - `root`：分页根容器。
++ * - `item`：分页单项（透传到 antd Pagination 的 item 项）。
++ *
++ * @internal DOM class 对应：`root`→`.dg-pagination`；item 透传到外层 `.dg-pagination` 子层。
+  */
+ export interface PaginationSemanticClassNames {
+   root?: string
+@@ -52,21 +56,24 @@ export interface PaginationSemanticStyles {
+ }
+ 
+ /**
+- * 语义化 classNames 结构（对齐 antd v6 `TableSemanticType['classNames']`，
+- * 见 `components/table/InternalTable.tsx:102-112`）。
++ * 语义化 classNames 结构（对齐 antd v6 `TableSemanticType['classNames']`）。
+  *
+  * 嵌套部位：
+- *   - `root`：根元素 `.dg-wrapper`。
+- *   - `section`：包装容器元素（`.dg-section`，data-grid 在 grid 外包一层 section 容器承载）。
+- *   - `content`：内容元素（`.dg-content`，title/footer 之间的表格内容区）。
+- *   - `title`：标题 `.dg-title`。
+- *   - `footer`：脚注 `.dg-footer`。
++ *   - `root`：根元素。
++ *   - `section`：包装容器元素（data-grid 在 grid 外包一层 section 容器承载）。
++ *   - `content`：内容元素（title/footer 之间的表格内容区）。
++ *   - `title`：标题。
++ *   - `footer`：脚注。
+  *   - `header`：表头 `{ wrapper, row, cell }`。
+  *   - `body`：表体 `{ wrapper, row, cell }`。
+  *   - `pagination`：分页 `{ root, item }`。
+  *
+  * 字段语义对照 antd `_semantic.tsx`（root / title / content / section / header.{wrapper,row,cell} /
+  * body.{wrapper,row,cell} / footer / pagination.{root,item}）。
++ *
++ * @internal DOM class 对应：`root`→`.dg-wrapper`、`section`→`.dg-section`、`content`→`.dg-content`、
++ *   `title`→`.dg-title`、`footer`→`.dg-footer`；字段对照见 antd
++ *   `components/table/InternalTable.tsx:102-112`。
+  */
+ export interface TableSemanticClassNames {
+   root?: string
+diff --git a/src/table/compat/size.ts b/src/table/compat/size.ts
+index 6a724cc..57d9a0a 100644
+--- a/src/table/compat/size.ts
++++ b/src/table/compat/size.ts
+@@ -13,15 +13,17 @@
+  *   - `'small'`：紧凑行高 padding（block 8 / inline 8；antd 文档标注用于 Modal 内）。
+  *
+  * ★ 关于 `'compact'`（实测结论）：
+- *   antd v6 **Table 组件本身不存在 compact size**——`SizeType = 'small' | 'medium' | 'middle' | 'large'`
+- *   （`components/config-provider/SizeContext.tsx:6`），Table style 只输出 large/MD/SM 三档 token
+- *   （`components/table/style/index.ts:516-528`）。`compact` 是 Button/Space/Input 等其它组件的尺寸概念，
++ *   antd v6 **Table 组件本身不存在 compact size**——antd `SizeType = 'small' | 'medium' | 'middle' | 'large'`，
++ *   但 Table style 只输出 large/MD/SM 三档 token。`compact` 是 Button/Space/Input 等其它组件的尺寸概念，
+  *   不属于 Table。data-grid 的 SizeType 保留 `'compact'`（用于 `<ConfigProvider componentSize>` 全局消费的
+  *   兜底，传入时 sizeToClass 把它视觉等价为 `'small'`——即 antd 6.4.4 实测最紧凑 Table 尺寸）。
+  *
+  * data-grid 兼容性：
+  *   - 同时接受 v5 的 `'middle'`（旧 demo / 调用方零回归）与 v6 的 `'medium'`。
+- *   - `'middle'` / `'medium'` 视觉等价（共用 `dg-size-middle` 类，见 tokens.css）。
+- *   - `'compact'` 视觉等价 `'small'`（共用 `dg-size-small` 类；不造 antd 不存在的 token）。
++ *   - `'middle'` / `'medium'` 视觉等价（同一档尺寸类）。
++ *   - `'compact'` 视觉等价 `'small'`（同一档尺寸类；不造 antd 不存在的 token）。
++ *
++ * @internal `'middle'` / `'medium'` 共用 `dg-size-middle` 类；`'compact'` / `'small'` 共用
++ *   `dg-size-small` 类（见 tokens.css）。
+  */
+ export type SizeType = 'large' | 'middle' | 'medium' | 'small' | 'compact'
+diff --git a/src/table/compat/sticky.ts b/src/table/compat/sticky.ts
+index 3396dfe..011f33d 100644
+--- a/src/table/compat/sticky.ts
++++ b/src/table/compat/sticky.ts
+@@ -1,29 +1,20 @@
+ /**
+- * 粘性表头配置（按业务域从 compatTypes.ts 拆出）。
++ * 粘性表头配置。
+  *
+- * 对齐 antd v6 `TableProps.sticky`，见
+- * `react-component/table/src/hooks/useSticky.ts` + `components/table/style/sticky.ts`。
++ * 对齐 antd v6 `TableProps.sticky`。
+  */
++// 按业务域从 compatTypes.ts 拆出；实现参考 antd `react-component/table/src/hooks/useSticky.ts`
++// + `components/table/style/sticky.ts`。
+ 
+ /**
+- * 粘性表头 + 页面级滚动条（对齐 antd v6 `TableProps.sticky`，
+- * 见 `react-component/table/src/hooks/useSticky.ts` + `components/table/style/sticky.ts`）。
++ * 粘性表头 + 页面级滚动条（对齐 antd v6 `TableProps.sticky`）。
+  *
+  * **语义（区别容器内固定）**：
+- *   - **容器内固定**：`scroll.y` → 表头 `position: sticky; top: 0` 相对**表格滚动容器**
+- *     （`.dg-fixed-header-scroll`）固定。表格在容器内纵向滚动，表头钉在容器顶部。
+- *   - **页面级固定**（sticky prop）：表头 `position: sticky; top: offsetHeader` 相对
+- *     **页面 viewport**（`getContainer` 默认 `window`）固定。表格**不在容器内滚动**，而是
+- *     页面（document）滚动时表头钉在视口顶部 `offsetHeader` 处（典型：站点 header 高度偏移）。
+- *
+- * **实现要点（data-grid CSS Grid 一体化渲染下的折中）**：
+- *   - antd 把表头拆为独立元素（FixedHolder）放在页面流中 `position: sticky; top: offsetHeader`；
+- *     data-grid 用 CSS Grid 一体渲染（表头行 + 数据行同属 `.dg-grid`），无法拆分表头为独立元素。
+- *   - data-grid 方案：`sticky` 启用时，`.dg-grid` 外只包一层 `overflow: clip` 视口。clip 会裁剪宽表，
+- *     但不创建滚动容器，避免普通 `overflow-x:auto` 拦截 sticky 上下文。表头 grid item
+- *     `position: sticky; top: offsetHeader` 相对 viewport 固定（页面纵向滚动时钉在视口顶部）。
+- *   - 横向滚动：不让宽表撑宽页面；`StickyScrollBar`（`position: sticky; bottom: offsetScroll`）
+- *     维护虚拟 scrollLeft，并用 transform 驱动 grid 横向位移（视觉对齐 antd fake scrollbar）。
++ *   - **容器内固定**：`scroll.y` → 表头相对**表格滚动容器**固定（`position: sticky; top: 0`）。
++ *     表格在容器内纵向滚动，表头钉在容器顶部。
++ *   - **页面级固定**（sticky prop）：表头相对**页面 viewport**固定（`position: sticky; top: offsetHeader`，
++ *     `getContainer` 默认 `window`）。表格**不在容器内滚动**，而是页面（document）滚动时表头钉在
++ *     视口顶部 `offsetHeader` 处（典型：站点 header 高度偏移）。
+  *
+  * **取值**：
+  *   - `undefined` / `false`：不启用页面级 sticky（所有现有 demo 行为不变，零回归）。
+@@ -38,12 +29,21 @@
+  *   - 虚拟 / 容器内固定：与 sticky 互斥（sticky 是页面级，容器内是页面级优先；同时传时 sticky 优先，
+  *     因为 sticky 不包 overflow 容器，容器内滚动不生效）。
+  *
+- * **getContainer 说明**：对齐 antd，允许自定义"判定 sticky 生效的滚动容器"。data-grid 中
+- *   `getContainer` 主要用于 StickyScrollBar 的纵向滚动/resize 同步监听；
+- *   表头 sticky 本身靠 CSS（无 overflow 祖先 → 相对 viewport），不直接消费 getContainer。
+- *   默认 `() => window`。
++ * **getContainer 说明**：对齐 antd，允许自定义"判定 sticky 生效的滚动容器"。默认 `() => window`。
+  *
+- * 详见 `docs/design-notes/sticky.md`。
++ * 详见 `docs/features/layout/sticky.md`。
++ *
++ * @internal 实现要点（data-grid CSS Grid 一体化渲染下的折中）：
++ *   - antd 把表头拆为独立元素（FixedHolder）放在页面流中 `position: sticky; top: offsetHeader`；
++ *     data-grid 用 CSS Grid 一体渲染（表头行 + 数据行同属 `.dg-grid`），无法拆分表头为独立元素。
++ *   - data-grid 方案：`sticky` 启用时，`.dg-grid` 外只包一层 `overflow: clip` 视口。clip 会裁剪宽表，
++ *     但不创建滚动容器，避免普通 `overflow-x:auto` 拦截 sticky 上下文。表头 grid item
++ *     `position: sticky; top: offsetHeader` 相对 viewport 固定（页面纵向滚动时钉在视口顶部）。
++ *   - 横向滚动：不让宽表撑宽页面；`StickyScrollBar`（`position: sticky; bottom: offsetScroll`）
++ *     维护虚拟 scrollLeft，并用 transform 驱动 grid 横向位移（视觉对齐 antd fake scrollbar）。
++ *     data-grid 中 `getContainer` 主要用于 StickyScrollBar 的纵向滚动/resize 同步监听；表头 sticky
++ *     本身靠 CSS（无 overflow 祖先 → 相对 viewport），不直接消费 getContainer。
++ *   - 容器内固定对应的滚动容器 DOM 类为 `.dg-fixed-header-scroll`。
+  */
+ export interface StickyConfig {
+   /**
+@@ -52,12 +52,12 @@ export interface StickyConfig {
+    */
+   offsetHeader?: number
+   /**
+-   * 底部 StickyScrollBar 相对视口底部的偏移（px）。
++   * 底部悬浮滚动条相对视口底部的偏移（px）。
+    * 默认 0。
+    */
+   offsetScroll?: number
+   /**
+-   * 自定义滚动容器（用于 StickyScrollBar 同步监听）。默认 `() => window`。
++   * 自定义滚动容器（用于悬浮滚动条同步监听）。默认 `() => window`。
+    * 返回 `undefined`/`null` 时回退到 `window`。
+    */
+   getContainer?: () => HTMLElement | Window | undefined

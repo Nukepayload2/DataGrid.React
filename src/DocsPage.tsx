@@ -1,8 +1,9 @@
 /** docs 视图：网页化文档壳，内容由 src/docs 注册表驱动。 */
 
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import type { CSSProperties } from 'react'
-import { Drawer, theme } from 'antd'
+import { Drawer, Input, theme } from 'antd'
+import { CaretRightOutlined } from '@ant-design/icons'
 import { DocArticle } from './docs/components'
 import { docs, groupDocs } from './docs/docRegistry'
 import type { DocEntry, DocGroup, DocsAction } from './docs/types'
@@ -17,6 +18,13 @@ function openDocsAction(action: DocsAction, goDoc: (slug: string) => void) {
   else navigate(action.value)
 }
 
+function matchDoc(doc: DocEntry, lowerQuery: string): boolean {
+  if (!lowerQuery) return true
+  return [doc.title, doc.description, doc.group, doc.slug].some((s) =>
+    s.toLowerCase().includes(lowerQuery),
+  )
+}
+
 function DocsToc({
   groups,
   activeSlug,
@@ -26,27 +34,102 @@ function DocsToc({
   activeSlug: string
   onSelect: (slug: string) => void
 }) {
+  const { token } = theme.useToken()
+  const [query, setQuery] = useState('')
+  // 默认所有分组展开；用户点 title 折叠/展开。空 query 时受控于用户操作。
+  const [collapsedSet, setCollapsedSet] = useState<Set<string>>(() => new Set())
+  const trimmed = query.trim()
+  const lowerQuery = trimmed.toLowerCase()
+  const hasQuery = lowerQuery.length > 0
+
+  // 搜索时按标题/描述/分组过滤；命中分组保留并强制展开，未命中分组整组隐藏。
+  const visibleGroups = useMemo(() => {
+    return groups
+      .map((group) => ({
+        ...group,
+        items: group.items.filter((item) => matchDoc(item, lowerQuery)),
+      }))
+      .filter((group) => group.items.length > 0)
+  }, [groups, lowerQuery])
+
+  const toggleGroup = (group: string) => {
+    setCollapsedSet((prev) => {
+      const next = new Set(prev)
+      if (next.has(group)) next.delete(group)
+      else next.add(group)
+      return next
+    })
+  }
+
   return (
-    <nav className="docs-toc-list" aria-label="文档目录">
-      {groups.map((group) => (
-        <div key={group.group} className="docs-toc-group">
-          <div className="docs-toc-group-title">{group.group}</div>
-          {group.items.map((item) => (
-            <a
-              key={item.slug}
-              className={item.slug === activeSlug ? 'docs-toc-link docs-toc-link-active' : 'docs-toc-link'}
-              href={`#/docs/${item.slug}`}
-              onClick={(event) => {
-                event.preventDefault()
-                onSelect(item.slug)
+    <div className="docs-toc-list">
+      <Input
+        className="docs-toc-search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="过滤文档..."
+        allowClear
+        aria-label="过滤文档目录"
+      />
+      {visibleGroups.length === 0 ? (
+        <div className="docs-toc-empty">没有匹配的文档</div>
+      ) : null}
+      {visibleGroups.map((group) => {
+        // 搜索时强制展开，否则看 collapsedSet。
+        const collapsed = hasQuery ? false : collapsedSet.has(group.group)
+        return (
+          <div key={group.group} className="docs-toc-group">
+            <button
+              type="button"
+              className="docs-toc-group-title"
+              aria-expanded={!collapsed}
+              aria-label={collapsed ? `展开 ${group.group} 分组` : `折叠 ${group.group} 分组`}
+              onClick={() => toggleGroup(group.group)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 4,
+                width: '100%',
+                padding: '6px 10px 5px',
+                border: 0,
+                background: 'transparent',
+                color: token.colorTextSecondary,
+                fontSize: 12,
+                fontWeight: 600,
+                textAlign: 'start',
+                cursor: 'pointer',
               }}
             >
-              <span>{item.title}</span>
-            </a>
-          ))}
-        </div>
-      ))}
-    </nav>
+              <CaretRightOutlined
+                style={{
+                  fontSize: 10,
+                  transition: 'transform 0.15s',
+                  transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)',
+                }}
+              />
+              <span>{group.group}</span>
+            </button>
+            {collapsed ? null : (
+              <div className="docs-toc-group-items">
+                {group.items.map((item) => (
+                  <a
+                    key={item.slug}
+                    className={item.slug === activeSlug ? 'docs-toc-link docs-toc-link-active' : 'docs-toc-link'}
+                    href={`#/docs/${item.slug}`}
+                    onClick={(event) => {
+                      event.preventDefault()
+                      onSelect(item.slug)
+                    }}
+                  >
+                    <span>{item.title}</span>
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -107,7 +190,17 @@ export default function DocsPage({
     '--docs-primary': token.colorPrimary,
     '--docs-primary-bg': token.colorPrimaryBg,
     '--docs-bg-container': token.colorBgContainer,
+    // Mirror SplitDemo's `--compare-primary-text` so the `活对照` badge (and any
+    // other docs element keyed off --docs-primary-text) stays legible on the
+    // primary-colored background in both light and dark mode.
+    '--docs-primary-text': token.colorTextLightSolid,
   } as CSSProperties
+
+  // 面包屑分组级目标：同组第一个文档 slug。
+  const groupEntrySlug = useMemo(() => {
+    const sameGroup = docs.filter((d) => d.group === activeDoc.group)
+    return sameGroup[0]?.slug ?? activeDoc.slug
+  }, [activeDoc.group, activeDoc.slug])
 
   return (
     <div className="docs-layout" style={docsStyle}>
@@ -117,7 +210,7 @@ export default function DocsPage({
 
       <div className="docs-main-shell">
         <main className="docs-content">
-          <div className="docs-breadcrumb">
+          <nav className="docs-breadcrumb" aria-label="breadcrumb">
             <a
               href="#/docs/intro"
               onClick={(event) => {
@@ -127,11 +220,28 @@ export default function DocsPage({
             >
               Docs
             </a>
-            <span>/</span>
-            <span>{activeDoc.group}</span>
-            <span>/</span>
-            <span>{activeDoc.title}</span>
-          </div>
+            <span aria-hidden="true">/</span>
+            <a
+              href={`#/docs/${groupEntrySlug}`}
+              onClick={(event) => {
+                event.preventDefault()
+                goDoc(groupEntrySlug)
+              }}
+            >
+              {activeDoc.group}
+            </a>
+            <span aria-hidden="true">/</span>
+            <a
+              href={`#/docs/${activeDoc.slug}`}
+              aria-current="page"
+              onClick={(event) => {
+                event.preventDefault()
+                document.querySelector('.docs-article')?.scrollIntoView({ block: 'start' })
+              }}
+            >
+              {activeDoc.title}
+            </a>
+          </nav>
           <DocArticle
             doc={activeDoc}
             previous={previousDoc}

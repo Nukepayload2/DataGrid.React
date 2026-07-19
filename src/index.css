@@ -302,6 +302,23 @@ body {
   gap: 18px;
 }
 
+.docs-toc-search {
+  margin-bottom: 4px;
+}
+
+.docs-toc-empty {
+  padding: 6px 10px;
+  color: var(--docs-text-secondary);
+  font-size: 12px;
+}
+
+.docs-toc-group-items {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 2px;
+}
+
 .docs-toc-group {
   display: flex;
   min-width: 0;
@@ -506,6 +523,22 @@ body {
   border-left: 3px solid var(--docs-primary);
   background: var(--docs-fill);
   line-height: 1.7;
+}
+
+/* Editable docs code block (#20): preview + LiveEditor wrapper.
+   Token-driven so dark mode inherits from --docs-* the rest of the
+   docs site uses; mirrors the Phase 0 copy-button card style. */
+.docs-editable-code {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.docs-editable-preview {
+  padding: 12px;
+  border: 1px solid var(--docs-border);
+  border-radius: 6px;
+  background: var(--docs-fill);
 }
 
 .docs-table-wrap {
