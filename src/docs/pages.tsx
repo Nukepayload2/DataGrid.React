@@ -172,7 +172,7 @@ interface Record {
 
 const columns: ColumnType<Record>[] = [
   { title: 'Name', dataIndex: 'name', key: 'name' },
-  { title: 'Age', dataIndex: 'age', key: 'age', align: 'end' },
+  { title: 'Age', dataIndex: 'age', key: 'age' },
 ]
 
 const data: Record[] = [

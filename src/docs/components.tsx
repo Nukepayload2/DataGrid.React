@@ -225,7 +225,10 @@ function EditableDocsCode({
         setBootError(evaluated.error)
         return
       }
-      setComp(evaluated.Comp)
+      // 组件本身是函数，必须用 updater 形式返回；直接 setComp(fn) 会被 React 当作
+      // state updater 调用（fn(prev)），返回的 React 元素而非组件被存进 state，
+      // 后续 <Comp/> 渲染会报 "Element type is invalid"。
+      setComp(() => evaluated.Comp)
     } catch (e) {
       setComp(null)
       setBootError((e as Error)?.message ?? String(e))
@@ -284,7 +287,8 @@ function EditableDocsCode({
               // 重置：重新跑初始代码。
               void seed()
             } else {
-              setComp(c)
+              // 同 seed：c 是组件函数，必须 updater 返回，避免被当 state updater 调用。
+              setComp(() => c)
               setBootError(e)
             }
           }}
