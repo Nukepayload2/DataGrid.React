@@ -7,7 +7,7 @@
 import type { ReactNode } from 'react'
 
 /**
- * Table 国际化文案（对齐 antd v6 `TableLocale`，共 18 字段）。
+ * Table 国际化文案（共 18 字段）。
  *
  * 全部 optional；未传的字段回退到内置默认值（与 antd 英文 locale 默认 Table 段一致——
  * 保持英文默认、与 antd 行为对齐）。FilterDropdown 消费 filterConfirm/filterReset/filterEmptyText/
@@ -18,6 +18,8 @@ import type { ReactNode } from 'react'
  *
  * `filterCheckall`（小写 l）是 antd @deprecated 别名，消费处用 `filterCheckall ?? filterCheckAll`
  * （对齐 antd FilterDropdown 的 fallback 语义）。
+ *
+ * 字段集合同名同义于 antd v6 `TableLocale`。
  */
 export interface TableLocale {
   filterTitle?: string
@@ -42,11 +44,13 @@ export interface TableLocale {
 }
 
 /**
- * TableLocale 字段默认值（对齐 antd 英文 locale 的 Table 段）。
+ * TableLocale 字段默认值（英文 locale 的 Table 段）。
  *
  * 未传 locale / 未传某字段时，FilterDropdown 等消费处回退到这里（保持英文默认、与 antd 一致）。
  * 仅暴露 FilterDropdown 实际消费的 5 个字段默认值（filterConfirm/filterReset/filterEmptyText/
  * filterSearchPlaceholder/filterCheckAll）——其余字段消费处落地时按需补。
+ *
+ * 默认值与 antd 英文 locale 的 Table 段一致。
  */
 export const TABLE_LOCALE_DEFAULT = {
   filterConfirm: 'OK',

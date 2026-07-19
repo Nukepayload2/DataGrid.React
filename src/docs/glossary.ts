@@ -76,12 +76,12 @@ export const GLOSSARY = {
   },
 
   /**
-   * gridColumnOptions 中的低层渲染 hook（renderCellElement / renderCellReact /
+   * gridColumnOptions 中的低层渲染回调（renderCellElement / renderCellReact /
    * disposeCellElement）。统一叫「逃逸舱（escape-hatch）」，不再裸用「低层 hook」。
    */
   escapeHatch: {
     canonical: '逃逸舱（escape-hatch）',
-    summary: '面向特定渲染路径开放的低层 hook；常规业务无需触碰。',
+    summary: '面向特定渲染路径开放的低层回调；常规业务无需触碰。',
     avoid: ['低层 hook（裸用）', '内部 hook', '低层渲染 hook（裸用）'],
   },
 
@@ -94,6 +94,60 @@ export const GLOSSARY = {
     summary: '与 antd v6 Table 同名同义的字段所在的 API 面（TableProps / ColumnType 顶层）。',
     avoid: ['适配层', '兼容 API 层'],
   },
+
+  /**
+   * rc-table：React 表格底层库。data-grid 不复用其代码，仅在 API 兼容层对齐其部分行为。
+   * 正文首次出现时需要括注「React 表格底层库」，让不熟悉 antd 内部的读者也能理解。
+   */
+  rcTable: {
+    canonical: 'rc-table（React 表格底层库）',
+    summary:
+      'React 表格底层实现库，是 antd Table 的底层依赖；data-grid 不复用其代码，仅在 API 兼容层对齐其部分行为。',
+  },
+
+  /**
+   * 哨兵列：columns 数组里的特殊占位对象，用来控制展开列 / 选择列的渲染位置。
+   * 对应 Table.EXPAND_COLUMN / Table.SELECTION_COLUMN 两个常量。
+   * 统一叫「哨兵列（sentinel column）」，不再裸用「哨兵」（避免读者不清楚是列数组里的一项还是别的概念）。
+   */
+  sentinelColumn: {
+    canonical: '哨兵列（sentinel column）',
+    summary:
+      'columns 数组里的特殊占位对象，插入即可控制展开列 / 选择列的渲染位置（不传则默认在最前）；对应 Table.EXPAND_COLUMN / Table.SELECTION_COLUMN。',
+    avoid: ['哨兵（裸用无上下文）'],
+  },
+
+  /**
+   * ConfigProvider token：antd 主题系统的设计令牌。
+   * data-grid 复用同一套 token 以保持视觉与 antd 生态一致。
+   */
+  configProviderToken: {
+    canonical: 'ConfigProvider token（主题令牌）',
+    summary:
+      'antd 主题系统的设计令牌（design token），通过 `<ConfigProvider theme={{ token: {...} }}>` 注入；data-grid 复用同一套 token 以保持视觉一致。',
+    avoid: ['token（裸用）'],
+  },
+
+  /**
+   * RenderedCell：列 render 函数返回的旧对象形态。
+   * data-grid 仅消费其 children 字段；建议改用普通 ReactNode。
+   */
+  renderedCell: {
+    canonical: 'RenderedCell（旧式 render 返回对象）',
+    summary:
+      '列 render 函数返回的旧对象形态 `{ children, props }`；data-grid 仅消费 children，建议改用普通 ReactNode。',
+  },
+
+  /**
+   * Table.Summary 三段式：data-grid 汇总栏 API。
+   * 以容器 + 行 + 单元格三段组合声明表体底部的总计/统计行。
+   */
+  summaryThreePart: {
+    canonical: 'Table.Summary 三段式',
+    summary:
+      'data-grid 汇总栏 API：以 `<Table.Summary>` 容器 + `<Table.Summary.Row>` 行 + `<Table.Summary.Cell>` 单元格三段组合声明表体底部的总计或统计行。',
+    avoid: ['Summary 三段式（无 Table 前缀）', '三段式 API（无 Summary 上下文）'],
+  },
 } as const satisfies Record<string, GlossaryEntry>
 
 export type GlossaryKey = keyof typeof GLOSSARY
@@ -103,7 +157,7 @@ export type GlossaryKey = keyof typeof GLOSSARY
  * 命中即提示替换为对应 canonical。
  */
 export const GLOSSARY_AVOID_LIST: Array<{ avoid: string; canonical: string }> =
-  Object.values(GLOSSARY)
+  (Object.values(GLOSSARY) as readonly GlossaryEntry[])
     .filter((entry) => Array.isArray(entry.avoid))
     .flatMap((entry) =>
       (entry.avoid ?? []).map((avoid) => ({

@@ -7,7 +7,7 @@
       "type": "Partial<ColumnType<RecordType>>",
       "required": false,
       "advanced": false,
-      "summary": "列默认值（对齐 antd v6 `TableProps.column`）。\n\n**语义**：Table 级列默认属性，作为**所有列**（含 `columns` 与 JSX children 声明的列）\n的公共默认值。单列可通过自身同名字段覆盖。\n\n**合并方向（列自身优先）**：对每列做浅合并——`column` prop 提供默认值，列自身同名字段覆盖之；\n列自身未设置（`undefined`）的字段回退到 `column` 默认。合并语义与 antd 一致。\n\n**递归**：多级表头（`column.children`）的每个层级都应用 `column` 默认；`column` 自身的\n`children` 字段不参与合并（与 antd 一致，避免错误注入分组结构）。\n\n**哨兵豁免**：`Table.EXPAND_COLUMN` / `Table.SELECTION_COLUMN` 哨兵对象不参与合并。\n\n**典型用例**（antd `column-defaults` demo）：`column={{ align: 'center', ellipsis: true }}`\n让所有列默认居中 + 省略；单列 `align: 'left'` 覆盖为左对齐。\n\n未提供（undefined）时不做任何合并，所有列保持原样（零回归）。"
+      "summary": "Table 级列默认属性，作为**所有列**（含 `columns` 与 JSX children 声明的列）\n的公共默认值；单列可通过自身同名字段覆盖。\n\n**合并方向（列自身优先）**：对每列做浅合并——`column` prop 提供默认值，列自身同名字段覆盖之；\n列自身未设置（`undefined`）的字段回退到 `column` 默认。\n\n**递归**：多级表头（`column.children`）的每个层级都应用 `column` 默认；`column` 自身的\n`children` 字段不参与合并（避免错误注入分组结构）。\n\n**哨兵豁免**：`Table.EXPAND_COLUMN` / `Table.SELECTION_COLUMN` 哨兵对象不参与合并。\n\n**典型用例**：`column={{ align: 'center', ellipsis: true }}`\n让所有列默认居中 + 省略；单列 `align: 'left'` 覆盖为左对齐。\n\n未提供（undefined）时不做任何合并，所有列保持原样（零回归）。\n\n同名同义于 antd v6 `TableProps.column`：合并语义、递归规则、哨兵豁免均与 antd 一致\n（典型用例可参照 antd `column-defaults` demo）。"
     },
     {
       "name": "columns",
@@ -25,7 +25,7 @@
       "type": "Array<RecordType>",
       "required": false,
       "advanced": false,
-      "summary": ""
+      "summary": "表格渲染数据源（行数组）。\n\n**语义**：data-grid 以本数组为唯一数据真理源——排序、筛选、分页管线均基于其派生渲染数据\n（raw → sort → filter → paginate），**不会修改原数组**；受控场景下调用方在 `onChange` 后\n自行 `setDataSource(...)` 更新。\n  - 未传 / 空数组：表体渲染空状态占位（由 `locale.emptyText` 优先级链驱动）。\n  - 树形模式（`childrenColumnName` 命中）下，每行 record 的 children 字段递归展开为子行。\n\n与 antd `TableProps.dataSource` 同义（仅 data-grid 内部管线不同）。"
     },
     {
       "name": "rowKey",
@@ -34,7 +34,7 @@
       "type": "RowKeyType",
       "required": false,
       "advanced": false,
-      "summary": ""
+      "summary": "行唯一 key 取值方式。\n\n**取值**：\n  - 字符串：取 `record[rowKey]` 作为行 key（如 `'id'`）。\n  - 函数 `(record) => string | number`：按 record 自定义返回 key（复合主键、需 transform\n    字段等场景使用）。\n\n**用途**：选择（`rowSelection.selectedRowKeys`）、受控展开（`expandable.expandedRowKeys`）、\n行拖拽排序（`rowDragSort.selectedRowKeys`）、虚拟滚动 `scrollTo({ key })`、React key 复用\n等机制都以 rowKey 作为行的唯一标识。\n\n未提供（undefined）时用行索引兜底——但树形 / 选择 / 拖拽场景**强烈建议显式提供稳定 rowKey**，\n避免因排序 / 筛选导致索引漂移而误识别（行为与 antd 一致）。"
     },
     {
       "name": "bordered",
@@ -43,7 +43,7 @@
       "type": "boolean",
       "required": false,
       "advanced": false,
-      "summary": ""
+      "summary": "是否显示边框（默认 `false`）。\n\n`true` 时给表格根容器加边框类，渲染单元格竖向分隔线 + 外边框；\n`false`（默认）只有行底分隔线（无边框、无竖向分隔）。\n\n与 antd `TableProps.bordered` 同义。"
     },
     {
       "name": "size",
@@ -52,7 +52,7 @@
       "type": "SizeType",
       "required": false,
       "advanced": false,
-      "summary": ""
+      "summary": "表格密度（默认 `'large'`）。\n\n取值（覆盖 antd v6 Table size 三档 + v5 别名）：\n  - `'large'`（默认）：标准行高 padding。\n  - `'middle'` / `'medium'`：中等行高 padding（v5 `'middle'` 与 v6 `'medium'` 视觉等价，\n    共用同一档尺寸类）。\n  - `'small'` / `'compact'`：紧凑行高 padding（`'compact'` 视觉等价 `'small'`）。\n\n未提供（undefined）时默认 `'large'`，与 antd v6 默认一致。"
     },
     {
       "name": "showHeader",
@@ -61,7 +61,7 @@
       "type": "boolean",
       "required": false,
       "advanced": false,
-      "summary": ""
+      "summary": "是否显示表头（默认 `true`）。\n\n`false` 时不渲染表头行（叶子列表头格全部隐藏，表体从顶部第一行直接开始）；\n`true`（默认）按列 `title` 渲染表头。多级表头同理（`column.children` 分组结构仍生效）。\n\n与 antd `TableProps.showHeader` 同义。"
     },
     {
       "name": "title",
@@ -70,7 +70,7 @@
       "type": "(currentPageData: Array<RecordType>) => ReactNode",
       "required": false,
       "advanced": false,
-      "summary": ""
+      "summary": "表格顶部标题区渲染函数。\n\n传入即在表格内容区**上方**渲染 `.dg-title` 容器（视觉对齐 antd `.ant-table-title`），\n内容为函数返回的 ReactNode。\n\n**入参语义**：`currentPageData` 收到的是**排序 + 筛选后、分页前**的全量数据\n（与 `footer` 一致；与 `summary` 的\"当前页数据\"不同）。未启用分页时即等于当前全量数据。\n\n与 antd `TableProps.title` 同名同形（data-grid 明确入参语义为分页前全量）。\n\n未提供（undefined）时不渲染标题区（零回归）。"
     },
     {
       "name": "footer",
@@ -79,7 +79,7 @@
       "type": "(currentPageData: Array<RecordType>) => ReactNode",
       "required": false,
       "advanced": false,
-      "summary": ""
+      "summary": "表格底部脚注区渲染函数。\n\n传入即在表格内容区**下方**（pagination 之上）渲染 `.dg-footer` 容器\n（视觉对齐 antd `.ant-table-footer`），内容为函数返回的 ReactNode。\n\n**入参语义**：与 `title` 一致——`currentPageData` 收到的是**排序 + 筛选后、分页前**的全量数据\n（与 `summary` 的\"当前页数据\"不同）。未启用分页时即等于当前全量数据。\n\n与 antd `TableProps.footer` 同名同形（data-grid 明确入参语义为分页前全量）。\n\n未提供（undefined）时不渲染脚注区（零回归）。"
     },
     {
       "name": "scroll",
@@ -151,7 +151,7 @@
       "type": "boolean | SpinProps",
       "required": false,
       "advanced": false,
-      "summary": "加载态（对齐 antd `TableProps.loading`）。\n\n**语义**：传入即用 antd `<Spin>` 包裹整个表格内容（含 topPagination / title / 表体 / footer /\nbottomPagination），显示加载转圈遮罩。典型用于 ajax 远程数据请求中。\n  - `boolean`：`true` 转圈、`false`（默认）不转。等价 `SpinProps={{ spinning: <bool> }}`。\n  - `SpinProps` 对象：透传给 antd `<Spin>`（如 `{ spinning: true, delay: 200, tip: 'Loading...' }`）。\n    此时 `spinning` 字段优先（与 antd 一致：`<Spin spinning={false} {...spinProps}>`）。\n\nSpin 用 antd（loading/spin 非表格核心，用 antd）。\n\n不传（默认）→ 不包 Spin，保持现有 demo 行为不变（零回归）。\n\n详见 `docs/features/layout/layout.md`。"
+      "summary": "表格加载态遮罩。\n\n**语义**：传入即用 antd `<Spin>` 包裹整个表格内容（含 topPagination / title / 表体 / footer /\nbottomPagination），显示加载转圈遮罩。典型用于 ajax 远程数据请求中。\n  - `boolean`：`true` 转圈、`false`（默认）不转。等价 `SpinProps={{ spinning: <bool> }}`。\n  - `SpinProps` 对象：透传给 antd `<Spin>`（如 `{ spinning: true, delay: 200, tip: 'Loading...' }`）。\n    此时 `spinning` 字段优先（与 antd 一致：`<Spin spinning={false} {...spinProps}>`）。\n\nSpin 用 antd（loading/spin 非表格核心，用 antd）。\n\n不传（默认）→ 不包 Spin，保持现有 demo 行为不变（零回归）。\n\n同名同义于 antd `TableProps.loading`。详见 `docs/features/layout/layout.md`。"
     },
     {
       "name": "className",
@@ -178,7 +178,7 @@
       "type": "TableClassNames<RecordType>",
       "required": false,
       "advanced": false,
-      "summary": "语义化 classNames（对齐 antd v6 `TableProps.classNames`）。\n\n**支持对象（静态）与函数 `(info) => 对象`（动态）两种**：\n  - 对象：直接作为各部位 className 注入。\n  - 函数：按 `info.props`（含 size/bordered/virtual/scroll/pagination）求值返回对象，\n    便于按当前 props 子集动态返回不同样式（如 size='medium' 时返回特定 root/title/header.cell）。\n\n嵌套部位（对齐 antd v6 `_semantic`）：`root` / `section` / `content` / `title` / `footer` /\n`header.{wrapper,row,cell}` / `body.{wrapper,row,cell}` / `pagination.{root,item}`。\n\n注入点（按部位）：`root`（与 `className` 合并）/ `title` / `footer` /\n`section`（content 外的包装容器）/ `content`（标题与脚注之间的表格内容区）/\n`header.{wrapper,row,cell}` / `body.{wrapper,row,cell}` /\n`pagination.{root,item}`（item 透传到 antd Pagination）。\n\n未提供（undefined）时所有部位走默认 className，零回归。"
+      "summary": "语义化 classNames：按表格各部位注入自定义 className。\n\n**支持对象（静态）与函数 `(info) => 对象`（动态）两种**：\n  - 对象：直接作为各部位 className 注入。\n  - 函数：按 `info.props`（含 size/bordered/virtual/scroll/pagination）求值返回对象，\n    便于按当前 props 子集动态返回不同样式（如 size='medium' 时返回特定 root/title/header.cell）。\n\n嵌套部位（对齐 antd v6 `_semantic`）：`root` / `section` / `content` / `title` / `footer` /\n`header.{wrapper,row,cell}` / `body.{wrapper,row,cell}` / `pagination.{root,item}`。\n\n注入点（按部位）：`root`（与 `className` 合并）/ `title` / `footer` /\n`section`（content 外的包装容器）/ `content`（标题与脚注之间的表格内容区）/\n`header.{wrapper,row,cell}` / `body.{wrapper,row,cell}` /\n`pagination.{root,item}`（item 透传到 antd Pagination）。\n\n未提供（undefined）时所有部位走默认 className，零回归。\n\n同名同义于 antd v6 `TableProps.classNames`。"
     },
     {
       "name": "styles",
@@ -187,7 +187,7 @@
       "type": "TableStyles<RecordType>",
       "required": false,
       "advanced": false,
-      "summary": "语义化 styles（对齐 antd v6 `TableProps.styles`）。结构与 `classNames` 同构，\n值为 `CSSProperties`；同样支持对象（静态）与函数 `(info) => 对象`（动态）。\n\n注入点同 `classNames`（合并到对应部位的 inline style）。\n\n未提供（undefined）时所有部位走默认 style，零回归。"
+      "summary": "语义化 styles：按表格各部位注入 inline style。结构与 `classNames` 同构，\n值为 `CSSProperties`；同样支持对象（静态）与函数 `(info) => 对象`（动态）。\n\n注入点同 `classNames`（合并到对应部位的 inline style）。\n\n未提供（undefined）时所有部位走默认 style，零回归。\n\n同名同义于 antd v6 `TableProps.styles`。"
     },
     {
       "name": "onChange",
@@ -205,7 +205,7 @@
       "type": "boolean | { target?: 'full-header' | 'sorter-icon' }",
       "required": false,
       "advanced": false,
-      "summary": "是否全局显示排序提示 tooltip（对齐 antd `TableProps.showSorterTooltip`）。\n单列可由 `column.showSorterTooltip` 覆盖。默认 `true`。"
+      "summary": "是否全局显示排序提示 tooltip。\n单列可由 `column.showSorterTooltip` 覆盖。默认 `true`。\n\n同名同义于 antd `TableProps.showSorterTooltip`。"
     },
     {
       "name": "childrenColumnName",
@@ -214,7 +214,7 @@
       "type": "string",
       "required": false,
       "advanced": false,
-      "summary": "树形数据子字段名（对齐 antd `TableProps.childrenColumnName`，默认 `'children'`）。\n\n**语义**：dataSource 中每个 record 的 `record[childrenColumnName]` 若为非空数组，\n视为该 record 的子行（递归支持任意深度）。\n  - 检测到任一 record 含此字段（且 `expandable.expandedRowRender` 未提供——树形与展开渲染\n    自定义内容互斥，antd 中树形优先）→ 进入**树形模式**：\n      * 数据源被**扁平化**（DFS 遍历 children，按展开状态过滤未展开父行的子孙行）。\n      * 第一列数据单元格内按 `level × indentSize` 左缩进 + `hasChildren` 行渲染展开/收起图标。\n      * `rowSelection.checkStrictly=false` 时父子勾选联动。\n  - 无任何 record 含此字段 → 退化为普通扁平表格（零回归）。\n\n与 `expandable.childrenColumnName` / `expandable.indentSize` 同名字段优先级：\n`expandable.*` 字段优先（与 antd `getExpandableProps` 一致）；未设时用 Table 级本字段。\n\n默认 `'children'`。"
+      "summary": "树形数据子字段名（默认 `'children'`）。\n\n**语义**：dataSource 中每个 record 的 `record[childrenColumnName]` 若为非空数组，\n视为该 record 的子行（递归支持任意深度）。\n  - 检测到任一 record 含此字段（且 `expandable.expandedRowRender` 未提供——树形与展开渲染\n    自定义内容互斥，antd 中树形优先）→ 进入**树形模式**：\n      * 数据源被**扁平化**（DFS 遍历 children，按展开状态过滤未展开父行的子孙行）。\n      * 第一列数据单元格内按 `level × indentSize` 左缩进 + `hasChildren` 行渲染展开/收起图标。\n      * `rowSelection.checkStrictly=false` 时父子勾选联动。\n  - 无任何 record 含此字段 → 退化为普通扁平表格（零回归）。\n\n与 `expandable.childrenColumnName` / `expandable.indentSize` 同名字段优先级：\n`expandable.*` 字段优先（与 antd `getExpandableProps` 一致）；未设时用 Table 级本字段。\n\n默认 `'children'`。同名同义于 antd `TableProps.childrenColumnName`。"
     },
     {
       "name": "components",
@@ -223,7 +223,7 @@
       "type": "TableComponents",
       "required": false,
       "advanced": false,
-      "summary": "自定义组件（对齐 antd `TableProps.components`，v6 `TableComponents` 子集）。\n\n替换表格内部默认渲染的元素。详见 `TableComponents` 类型注释。\n\n**data-grid div 渲染适配**（与 antd `<table>` 实现不同）：\n  - `body.cell`：替换单元格**内部内容**（非整个 td）；返回 ReactNode。\n  - `body.row`：每行渲染一个包裹层组件（用于 Form/Context 等）；未提供时维持现有布局。\n  - `header.cell`：表头格（列拖拽会用；当前占位）。\n\n典型用例：单元格编辑（edit-cell）——传入 `{ body: { row: EditableRow, cell: EditableCell } }，\n配合 column.onCell 返回编辑 props（record/editable/dataIndex/handleSave）。\n\n未提供（undefined）时所有渲染走默认路径，保证现有 demo 零回归。"
+      "summary": "自定义组件：替换表格内部默认渲染的元素（`body.cell` / `body.row` / `header.cell`）。\n详见 `TableComponents` 类型注释。\n\n**data-grid div 渲染适配**（与 antd `<table>` 实现不同）：\n  - `body.cell`：替换单元格**内部内容**（非整个 td）；返回 ReactNode。\n  - `body.row`：每行渲染一个包裹层组件（用于 Form/Context 等）；未提供时维持现有布局。\n  - `header.cell`：表头格（列拖拽会用；当前占位）。\n\n典型用例：单元格编辑（edit-cell）——传入 `{ body: { row: EditableRow, cell: EditableCell } }，\n配合 column.onCell 返回编辑 props（record/editable/dataIndex/handleSave）。\n\n未提供（undefined）时所有渲染走默认路径，保证现有 demo 零回归。\n\n同名同义于 antd `TableProps.components`（v6 `TableComponents` 子集）。"
     },
     {
       "name": "locale",
@@ -232,7 +232,7 @@
       "type": "TableLocale",
       "required": false,
       "advanced": false,
-      "summary": "本地化文案（对齐 antd `TableProps.locale` 子集）。\n\ndata-grid 自研文案统一接入 antd `useLocale('Table')`：\n- `TableProps.locale` 覆盖 `ConfigProvider locale`。\n- `ConfigProvider locale` 覆盖默认英文。\n- 已消费：表体 empty、FilterDropdown、自研选择菜单、自研排序 hover title、自研展开按钮 aria。\n\n=== emptyText 语义（data-grid 当前兼容语义）===\n\n- 当 `pagedDataSource` 为空（dataSource 空 或 筛选/分页后无数据）时，表格在表体区域\n  渲染一个跨整行的 empty 占位区，内容取 `emptyText`。\n- `emptyText` 优先级：\n    1. `TableProps.locale.emptyText`（Table 级，最高优先级）。\n    2. `ConfigProvider locale.Table.emptyText`（全局 Table locale，由 merged Table locale 提供）。\n    3. `ConfigProvider.renderEmpty('Table')`（全局表体空状态）。\n    4. 默认 antd `<Empty>`（无描述）。\n- **表体 empty 不区分\"空数据 vs 筛选无结果\"**：data-grid 当前兼容语义下，两种场景\n  共用同一表体 emptyText，并按上述优先级解析。\n\n  ★ `'Table.filter'` 是**另一个**独立语义（对齐 antd FilterDropdown 的 renderEmpty 语义）：仅用于\n  **filter 下拉面板内部**当 `column.filters` 为空数组时的占位（默认 Empty SIMPLE +\n  locale.filterEmptyText），**不是**表体筛选无结果。data-grid 由 FilterDropdown 消费此语义。\n\n=== antd custom-empty demo 要素 ===\n\n- `locale={{ emptyText: <Empty description=\"No Data\">{toggleButton}</Empty> }}`：Table 级\n  空状态文案（含 toggle 按钮子节点；空数据与筛选无结果共用）。\n- `<ConfigProvider renderEmpty={renderEmpty}>`：renderEmpty 仅处理 'Table.filter' →\n  `<Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description=\"No Filter(Custom)\" />`\n  （filter 下拉内 filters 空时占位）。\n\n不传（默认）→ 用 `ConfigProvider locale.Table.emptyText`、ConfigProvider.renderEmpty 或默认 antd Empty\n（零回归：现有 demo 无 locale）。"
+      "summary": "本地化文案。\n\ndata-grid 自研文案统一接入 antd `useLocale('Table')`：\n- `TableProps.locale` 覆盖 `ConfigProvider locale`。\n- `ConfigProvider locale` 覆盖默认英文。\n- 已消费：表体 empty、FilterDropdown、自研选择菜单、自研排序 hover title、自研展开按钮 aria。\n\n=== emptyText 语义（data-grid 当前兼容语义）===\n\n- 当 `pagedDataSource` 为空（dataSource 空 或 筛选/分页后无数据）时，表格在表体区域\n  渲染一个跨整行的 empty 占位区，内容取 `emptyText`。\n- `emptyText` 优先级：\n    1. `TableProps.locale.emptyText`（Table 级，最高优先级）。\n    2. `ConfigProvider locale.Table.emptyText`（全局 Table locale，由 merged Table locale 提供）。\n    3. `ConfigProvider.renderEmpty('Table')`（全局表体空状态）。\n    4. 默认 antd `<Empty>`（无描述）。\n- **表体 empty 不区分\"空数据 vs 筛选无结果\"**：data-grid 当前兼容语义下，两种场景\n  共用同一表体 emptyText，并按上述优先级解析。\n\n  ★ `'Table.filter'` 是**另一个**独立语义（对齐 antd FilterDropdown 的 renderEmpty 语义）：仅用于\n  **filter 下拉面板内部**当 `column.filters` 为空数组时的占位（默认 Empty SIMPLE +\n  locale.filterEmptyText），**不是**表体筛选无结果。data-grid 由 FilterDropdown 消费此语义。\n\n=== antd custom-empty demo 要素 ===\n\n- `locale={{ emptyText: <Empty description=\"No Data\">{toggleButton}</Empty> }}`：Table 级\n  空状态文案（含 toggle 按钮子节点；空数据与筛选无结果共用）。\n- `<ConfigProvider renderEmpty={renderEmpty}>`：renderEmpty 仅处理 'Table.filter' →\n  `<Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description=\"No Filter(Custom)\" />`\n  （filter 下拉内 filters 空时占位）。\n\n不传（默认）→ 用 `ConfigProvider locale.Table.emptyText`、ConfigProvider.renderEmpty 或默认 antd Empty\n（零回归：现有 demo 无 locale）。\n\n字段集合对齐 antd `TableProps.locale` 子集。"
     },
     {
       "name": "summary",
@@ -241,7 +241,7 @@
       "type": "((currentPageData: Array<RecordType>) => ReactNode) | ReactNode",
       "required": false,
       "advanced": false,
-      "summary": "汇总栏 summary（对齐 antd `TableProps.summary`）。\n\n**语义**：渲染在表体底部的总结栏（一行或多行）。典型用法：计算列总计、显示汇总信息。\n\n取值：\n  - **函数** `(currentPageData) => ReactNode`：接收当前页数据（pagedDataSource——排序+筛选+\n    分页切片后的数据），返回 summary 内容（通常用 `Table.Summary` / `Table.Summary.Row` /\n    `Table.Summary.Cell` 组合声明）。\n  - **ReactNode**：直接作为 summary 内容（不依赖 pageData 计算）。\n\n=== `Table.Summary` 组件族（对齐 antd v6）===\n\n- `Table.Summary`（容器）：`fixed?: boolean`。`fixed: true` 时 summary 区 sticky bottom\n  （配合 `scroll.y`，表体滚动时 summary 固定在底部）。\n- `Table.Summary.Row`（行）：分组语法糖，可含多个 Cell。\n- `Table.Summary.Cell`（单元格）：\n    * `index?: number`：列索引（0-based，对应叶子列序号）。决定该 cell 在 grid 中的横向位置。\n    * `colSpan?: number`：跨列数（默认 1）。\n    * `align?: 'start' | 'center' | 'end'`：对齐方式。\n    * `children`：单元格内容（任意 ReactNode，如 `<Text type=\"danger\">{total}</Text>`）。\n\n=== data-grid 实现（与 antd 差异）===\n\n- data-grid 用 div + CSS Grid 渲染（无 `<tfoot>`），summary Cell 按 `index` + `colSpan` 定位。\n- `fixed` sticky bottom：summary 区固定在表体底部，与表体共享滚动容器。\n- 功能等价：summary 在表体底部，Cell 按 index+colSpan 定位，fixed sticky bottom。\n\n**pageData 入参差异**（与 antd）：\n  - data-grid：函数收到 **pagedDataSource**（当前页数据——排序+筛选+分页切片后），\n    与 title/footer 收到 filteredDataSource（全量）不同。对齐 antd `summary` 实际行为\n    （antd summary 的 pageData 也是当前页数据）。\n  - 若未启用分页，pagedDataSource = filteredDataSource（全量），与 antd 不分页时一致。\n\n未提供（undefined）时不渲染 summary 区（零回归：现有 demo 无 summary 行）。"
+      "summary": "表体底部汇总栏（summary）。\n\n**语义**：渲染在表体底部的总结栏（一行或多行）。典型用法：计算列总计、显示汇总信息。\n\n取值：\n  - **函数** `(currentPageData) => ReactNode`：接收当前页数据（pagedDataSource——排序+筛选+\n    分页切片后的数据），返回 summary 内容（通常用 `Table.Summary` / `Table.Summary.Row` /\n    `Table.Summary.Cell` 组合声明）。\n  - **ReactNode**：直接作为 summary 内容（不依赖 pageData 计算）。\n\n=== `Table.Summary` 组件族（对齐 antd v6）===\n\n- `Table.Summary`（容器）：`fixed?: boolean`。`fixed: true` 时 summary 区 sticky bottom\n  （配合 `scroll.y`，表体滚动时 summary 固定在底部）。\n- `Table.Summary.Row`（行）：分组语法糖，可含多个 Cell。\n- `Table.Summary.Cell`（单元格）：\n    * `index?: number`：列索引（0-based，对应叶子列序号）。决定该 cell 在 grid 中的横向位置。\n    * `colSpan?: number`：跨列数（默认 1）。\n    * `align?: 'start' | 'center' | 'end'`：对齐方式。\n    * `children`：单元格内容（任意 ReactNode，如 `<Text type=\"danger\">{total}</Text>`）。\n\n=== data-grid 实现（与 antd 差异）===\n\n- data-grid 用 div + CSS Grid 渲染（无 `<tfoot>`），summary Cell 按 `index` + `colSpan` 定位。\n- `fixed` sticky bottom：summary 区固定在表体底部，与表体共享滚动容器。\n- 功能等价：summary 在表体底部，Cell 按 index+colSpan 定位，fixed sticky bottom。\n\n**pageData 入参差异**（与 antd）：\n  - data-grid：函数收到 **pagedDataSource**（当前页数据——排序+筛选+分页切片后），\n    与 title/footer 收到 filteredDataSource（全量）不同。对齐 antd `summary` 实际行为\n    （antd summary 的 pageData 也是当前页数据）。\n  - 若未启用分页，pagedDataSource = filteredDataSource（全量），与 antd 不分页时一致。\n\n未提供（undefined）时不渲染 summary 区（零回归：现有 demo 无 summary 行）。\n\n同名同义于 antd `TableProps.summary`。"
     },
     {
       "name": "children",
@@ -250,7 +250,7 @@
       "type": "ReactNode",
       "required": false,
       "advanced": false,
-      "summary": "JSX 风格 API：`<Table>` 的 JSX 子元素声明列（对齐 antd `<Table><Column/></Table>`）。\n\n**语义**：当**未传 `columns` prop** 时，Table 内部用 React.Children 遍历 JSX 子元素，\n识别 `<Table.Column>`（→ ColumnType）与 `<Table.ColumnGroup>`（→ `{ title, children: [...] }`\n嵌套，复用多级表头），生成 columns 数组（等价于传 `columns` prop）。\n\n**columns 或 children 二选一**（与 antd 一致）：\n  - 传 `columns` prop：走 columns 路径（所有现有 demo，零回归），JSX children 被忽略。\n  - 不传 `columns` prop 但传 JSX children：走解析路径。\n  - 两者都未传：空表（无列）。\n\n详见 `ColumnProps` / `ColumnGroupProps`。"
+      "summary": "JSX 风格 API：`<Table>` 的 JSX 子元素声明列。\n\n**语义**：当**未传 `columns` prop** 时，Table 内部用 React.Children 遍历 JSX 子元素，\n识别 `<Table.Column>`（→ ColumnType）与 `<Table.ColumnGroup>`（→ `{ title, children: [...] }`\n嵌套，复用多级表头），生成 columns 数组（等价于传 `columns` prop）。\n\n**columns 或 children 二选一**（与 antd 一致）：\n  - 传 `columns` prop：走 columns 路径（所有现有 demo，零回归），JSX children 被忽略。\n  - 不传 `columns` prop 但传 JSX children：走解析路径。\n  - 两者都未传：空表（无列）。\n\n用法等价 antd `<Table><Column/></Table>`。详见 `ColumnProps` / `ColumnGroupProps`。"
     },
     {
       "name": "sticky",
@@ -259,7 +259,7 @@
       "type": "boolean | StickyConfig",
       "required": false,
       "advanced": false,
-      "summary": "粘性表头 + 页面级滚动条（对齐 antd v6 `TableProps.sticky`）。\n\n**语义（区别容器内固定）**：表头跟随**页面**滚动固定（sticky 钉在 `offsetHeader` 处，\n相对 `getContainer` 默认 `window`），而非容器内固定（`scroll.y` 表体限高滚动）。\n详见 `StickyConfig` 注释。\n\n**取值**：\n  - `undefined` / `false`：不启用（所有现有 demo 行为不变，零回归）。\n  - `true`：启用（默认偏移 0）。\n  - 对象 `{ offsetHeader?, offsetScroll?, getContainer? }`：自定义。\n\n**与容器内固定互斥语义**：同时传 `sticky` 与 `scroll.y` 时，`sticky` 优先（页面级固定），\n`scroll.y` 的容器内固定表头不生效（data-grid 简化：不为同表同时支持两种固定模式）。\n\n未提供（undefined）时不启用，零回归。\n\n详见 `docs/features/layout/sticky.md`。"
+      "summary": "粘性表头 + 页面级滚动条。\n\n**语义（区别容器内固定）**：表头跟随**页面**滚动固定（sticky 钉在 `offsetHeader` 处，\n相对 `getContainer` 默认 `window`），而非容器内固定（`scroll.y` 表体限高滚动）。\n详见 `StickyConfig` 注释。\n\n**取值**：\n  - `undefined` / `false`：不启用（所有现有 demo 行为不变，零回归）。\n  - `true`：启用（默认偏移 0）。\n  - 对象 `{ offsetHeader?, offsetScroll?, getContainer? }`：自定义。\n\n**与容器内固定互斥语义**：同时传 `sticky` 与 `scroll.y` 时，`sticky` 优先（页面级固定），\n`scroll.y` 的容器内固定表头不生效（data-grid 简化：不为同表同时支持两种固定模式）。\n\n未提供（undefined）时不启用，零回归。\n\n同名同义于 antd v6 `TableProps.sticky`。详见 `docs/features/layout/sticky.md`。"
     },
     {
       "name": "onHeaderRow",
@@ -268,7 +268,7 @@
       "type": "(\n    columns: Array<ColumnType<RecordType>>,\n    index: number,\n  ) => HTMLAttributes<HTMLElement> | undefined",
       "required": false,
       "advanced": false,
-      "summary": "表头**行** props 注入（对齐 antd v6 `TableProps.onHeaderRow`）。\n\n表头**行** props 注入。签名 `(columns, index) => React.HTMLAttributes`：\n  - `columns`：该表头行涉及的列（单层表头 = 全部 columns；多级表头 = 该层的分组列集合）。\n  - `index`：表头行号（单层表头恒 0；多级表头 0=顶层分组, maxDepth-1=叶子层）。\n  - 返回值整体作为该表头**行**的 HTML 属性（onClick/onDoubleClick/.../className/style）。\n\n**data-grid 行为**：onHeaderRow 返回值应用到该表头行的所有表头格：\n  - 事件类（onClick/onMouseEnter/...）：点击该表头行任一表头格即触发（行为等价\"点击表头行\"）。\n  - className / style：合并到该表头行每个表头格。\n\n典型用法（对齐 antd 文档 onRow 用法）：\n```tsx\n<Table onHeaderRow={(columns, index) => ({ onClick: () => {...} })} />\n```\n\n未提供（undefined）时不注入（零回归）。"
+      "summary": "表头**行** props 注入。\n\n签名 `(columns, index) => React.HTMLAttributes`：\n  - `columns`：该表头行涉及的列（单层表头 = 全部 columns；多级表头 = 该层的分组列集合）。\n  - `index`：表头行号（单层表头恒 0；多级表头 0=顶层分组, maxDepth-1=叶子层）。\n  - 返回值整体作为该表头**行**的 HTML 属性（onClick/onDoubleClick/.../className/style）。\n\n**data-grid 行为**：onHeaderRow 返回值应用到该表头行的所有表头格：\n  - 事件类（onClick/onMouseEnter/...）：点击该表头行任一表头格即触发（行为等价\"点击表头行\"）。\n  - className / style：合并到该表头行每个表头格。\n\n典型用法（对齐 antd 文档 onRow 用法）：\n```tsx\n<Table onHeaderRow={(columns, index) => ({ onClick: () => {...} })} />\n```\n\n未提供（undefined）时不注入（零回归）。\n\n同名同义于 antd v6 `TableProps.onHeaderRow`。"
     },
     {
       "name": "onRow",
@@ -277,7 +277,7 @@
       "type": "(\n    record: RecordType,\n    index: number,\n  ) => HTMLAttributes<HTMLElement> | undefined",
       "required": false,
       "advanced": false,
-      "summary": "表体**行** props 注入（对齐 antd v6 `TableProps.onRow`）。\n\n表体**行** props 注入。签名 `(record, index) => React.HTMLAttributes`：\n  - `record`：该行数据。\n  - `index`：该行在 dataSource 中的索引。\n  - 返回值整体作为该表体**行**的 HTML 属性（onClick/onDoubleClick/onContextMenu/onMouseEnter/onMouseLeave/...）。\n\n**data-grid 行为**：onRow 返回值应用到该行的所有数据单元格：\n  - 事件类（onClick/onMouseEnter/...）：点击该行任一单元格即触发（行为等价\"点击该行\"）。\n    * ★ 与内置 hover 区分：onRow.onMouseEnter/onMouseLeave 会**覆盖**内置 hover 高亮；\n      若需同时保留 hover，请在自定义 handler 内自行处理视觉，或用 `rowHoverable=false`\n      关闭内置 hover 避免冲突。\n  - className / style：合并到该行每个单元格。\n\n典型用法（对齐 antd 文档 onRow 用法）：\n```tsx\n<Table onRow={(record, rowIndex) => ({\n  onClick: (event) => {},\n  onDoubleClick: (event) => {},\n  onContextMenu: (event) => {},\n  onMouseEnter: (event) => {},\n  onMouseLeave: (event) => {},\n})} />\n```\n\n**与 components.body.row 关系**：两者正交——components.body.row 提供包裹层组件\n（Form/Context），onRow 提供事件 props。可同时使用：onRow props 在无 body.row 时透传到单元格；\n有 body.row 时 onRow 不自动透传到 body.row 组件（body.row 是用户自定义组件，应由用户自行\n处理事件）。\n\n未提供（undefined）时不注入（零回归）。"
+      "summary": "表体**行** props 注入。\n\n签名 `(record, index) => React.HTMLAttributes`：\n  - `record`：该行数据。\n  - `index`：该行在 dataSource 中的索引。\n  - 返回值整体作为该表体**行**的 HTML 属性（onClick/onDoubleClick/onContextMenu/onMouseEnter/onMouseLeave/...）。\n\n**data-grid 行为**：onRow 返回值应用到该行的所有数据单元格：\n  - 事件类（onClick/onMouseEnter/...）：点击该行任一单元格即触发（行为等价\"点击该行\"）。\n    * ★ 与内置 hover 区分：onRow.onMouseEnter/onMouseLeave 会**覆盖**内置 hover 高亮；\n      若需同时保留 hover，请在自定义 handler 内自行处理视觉，或用 `rowHoverable=false`\n      关闭内置 hover 避免冲突。\n  - className / style：合并到该行每个单元格。\n\n典型用法（对齐 antd 文档 onRow 用法）：\n```tsx\n<Table onRow={(record, rowIndex) => ({\n  onClick: (event) => {},\n  onDoubleClick: (event) => {},\n  onContextMenu: (event) => {},\n  onMouseEnter: (event) => {},\n  onMouseLeave: (event) => {},\n})} />\n```\n\n**与 components.body.row 关系**：两者正交——components.body.row 提供包裹层组件\n（Form/Context），onRow 提供事件 props。可同时使用：onRow props 在无 body.row 时透传到单元格；\n有 body.row 时 onRow 不自动透传到 body.row 组件（body.row 是用户自定义组件，应由用户自行\n处理事件）。\n\n未提供（undefined）时不注入（零回归）。\n\n同名同义于 antd v6 `TableProps.onRow`。"
     },
     {
       "name": "rowClassName",
@@ -286,7 +286,7 @@
       "type": "string | ((record: RecordType, index: number) => string)",
       "required": false,
       "advanced": false,
-      "summary": "表体行的 className（对齐 antd v6 `TableProps.rowClassName`）。\n\n表体行的 className。取值：\n  - 字符串：所有行加该 class（统一行样式）。\n  - 函数 `(record, index) => string`：按行返回 class（典型用法：编辑态行 `editable-row`、\n    奇偶行条纹、特殊行高亮等）。\n\n**data-grid 行为**：rowClassName 应用到该行的所有数据单元格（同一行的每个单元格都带这个 class）。\n\n**典型用法**（antd edit-cell demo）：`rowClassName={() => 'editable-row'}`——编辑态行视觉。\n\n**与内置选中态视觉关系**：内置选中态视觉在命中 `selectedRowKeys` 的行自动注入\n  （详见 `docs/features/interaction/selection.md`），rowClassName 是用户自定义层，与之正交。\n\n未提供（undefined）时不注入（零回归）。"
+      "summary": "表体行的 className。\n\n取值：\n  - 字符串：所有行加该 class（统一行样式）。\n  - 函数 `(record, index) => string`：按行返回 class（典型用法：编辑态行 `editable-row`、\n    奇偶行条纹、特殊行高亮等）。\n\n**data-grid 行为**：rowClassName 应用到该行的所有数据单元格（同一行的每个单元格都带这个 class）。\n\n**典型用法**（antd edit-cell demo）：`rowClassName={() => 'editable-row'}`——编辑态行视觉。\n\n**与内置选中态视觉关系**：内置选中态视觉在命中 `selectedRowKeys` 的行自动注入\n  （详见 `docs/features/interaction/selection.md`），rowClassName 是用户自定义层，与之正交。\n\n未提供（undefined）时不注入（零回归）。\n\n同名同义于 antd v6 `TableProps.rowClassName`。"
     },
     {
       "name": "getPopupContainer",
@@ -295,7 +295,7 @@
       "type": "(triggerNode: HTMLElement) => HTMLElement",
       "required": false,
       "advanced": false,
-      "summary": "dropdown 挂载容器（对齐 antd v6 `TableProps.getPopupContainer`）。\n\n表格内 dropdown（筛选下拉等）的挂载容器。签名 `(triggerNode) => HTMLElement`：\n  - `triggerNode`：触发 dropdown 的 DOM 节点（如筛选漏斗 trigger span）。\n  - 返回值：dropdown 弹出层的挂载父节点（默认 antd Dropdown 默认行为 = document.body）。\n\n**生效范围**：本字段作为**筛选下拉**（FilterDropdown 内 antd Dropdown）的默认 getPopupContainer。\n  - 列级 `column.filterDropdownProps.getPopupContainer` 优先（覆盖 Table 级）。\n  - Table 级 `getPopupContainer` 作为列级未指定时的默认值。\n\n典型用法：在滚动容器 / modal / drawer 内嵌入表格时，让 dropdown 跟随滚动而非固定到 body：\n```tsx\n<Table getPopupContainer={(trigger) => trigger.parentElement as HTMLElement} />\n```\n\n未提供（undefined）时 antd Dropdown 走默认（document.body 挂载），与现有 demo 一致（零回归）。"
+      "summary": "dropdown 挂载容器。\n\n表格内 dropdown（筛选下拉等）的挂载容器。签名 `(triggerNode) => HTMLElement`：\n  - `triggerNode`：触发 dropdown 的 DOM 节点（如筛选漏斗 trigger span）。\n  - 返回值：dropdown 弹出层的挂载父节点（默认 antd Dropdown 默认行为 = document.body）。\n\n**生效范围**：本字段作为**筛选下拉**（FilterDropdown 内 antd Dropdown）的默认 getPopupContainer。\n  - 列级 `column.filterDropdownProps.getPopupContainer` 优先（覆盖 Table 级）。\n  - Table 级 `getPopupContainer` 作为列级未指定时的默认值。\n\n典型用法：在滚动容器 / modal / drawer 内嵌入表格时，让 dropdown 跟随滚动而非固定到 body：\n```tsx\n<Table getPopupContainer={(trigger) => trigger.parentElement as HTMLElement} />\n```\n\n未提供（undefined）时 antd Dropdown 走默认（document.body 挂载），与现有 demo 一致（零回归）。\n\n同名同义于 antd v6 `TableProps.getPopupContainer`。"
     },
     {
       "name": "rowHoverable",
@@ -304,7 +304,7 @@
       "type": "boolean",
       "required": false,
       "advanced": false,
-      "summary": "行是否可 hover 高亮（对齐 antd v6 `TableProps.rowHoverable`，since 5.16.0）。\n\n行是否可 hover 高亮。默认 `true`。\n  - `true`（默认）：鼠标 hover 某行时该行单元格显示行高亮视觉。\n  - `false`：关闭 hover 高亮（hover 视觉消失）。\n\n**与 onRow.onMouseEnter/Leave 关系**：rowHoverable=false 仅关闭内置 hover 视觉；\n  若 onRow 返回了 onMouseEnter/Leave，用户自定义 handler 仍生效（事件本身不因 rowHoverable 关闭）。\n\n未提供（undefined）时默认 true（保持现有所有 demo 的 hover 行为不变，零回归）。"
+      "summary": "行是否可 hover 高亮（默认 `true`）。\n\n  - `true`（默认）：鼠标 hover 某行时该行单元格显示行高亮视觉。\n  - `false`：关闭 hover 高亮（hover 视觉消失）。\n\n**与 onRow.onMouseEnter/Leave 关系**：rowHoverable=false 仅关闭内置 hover 视觉；\n  若 onRow 返回了 onMouseEnter/Leave，用户自定义 handler 仍生效（事件本身不因 rowHoverable 关闭）。\n\n未提供（undefined）时默认 true（保持现有所有 demo 的 hover 行为不变，零回归）。\n\n同名同义于 antd v6 `TableProps.rowHoverable`（since 5.16.0）。"
     },
     {
       "name": "ref",
@@ -490,7 +490,7 @@
       "type": "React.Key",
       "required": false,
       "advanced": false,
-      "summary": ""
+      "summary": "列唯一 key。\n\n**用途**：列拖拽排序（`columnDragSort.onSort` 回调里的列标识）、React key 复用、\n筛选状态对象 `{ [columnKey]: filteredValue[] }` 的 key 来源、受控排序 `{ columnKey }` 标识。\n\n**缺省兜底**：未提供时按 `dataIndex` 兜底；`dataIndex` 也未提供时按列在数组中的索引兜底。\n多级表头 / 筛选 / 排序 / 拖拽场景**建议显式提供稳定 key**，避免因列顺序变化导致标识漂移。\n\n与 antd `column.key` 同义。"
     },
     {
       "name": "title",
@@ -499,7 +499,7 @@
       "type": "ReactNode",
       "required": false,
       "advanced": false,
-      "summary": ""
+      "summary": "列标题内容。\n\n**取值**：任意 ReactNode（字符串最常见；也可传 JSX，如带图标的标题、带排序提示的复合标题）。\n\n**多级表头**：分组列（有 `children`）的 `title` 作为该分组的分组标题渲染；\n叶子列的 `title` 作为该列的列表头格内容。\n\n与 antd `column.title` 同义。"
     },
     {
       "name": "dataIndex",
@@ -508,7 +508,7 @@
       "type": "string | number | Array<string | number>",
       "required": false,
       "advanced": false,
-      "summary": ""
+      "summary": "取值字段路径。\n\n**取值**：\n  - 字符串：取 `record[dataIndex]`（如 `'name'`）。\n  - 数字：按数组下标取值（用于 record 字段是数组的场景）。\n  - 路径数组：嵌套 record 取值（如 `['user', 'address', 'city']` 取 `record.user.address.city`）。\n\n**用途**：默认单元格渲染（无 `render` 时直接显示 `record[dataIndex]`）、\n排序默认比较字段（`sorter: true` 时按本字段值比较）、筛选 onChange 的 filters 对象 key 兜底\n（当 `column.key` 未提供时以 `dataIndex` 作 key）。\n\n与 antd `column.dataIndex` 同义（data-grid 同样支持路径数组形态）。"
     },
     {
       "name": "gridColumnOptions",
@@ -526,7 +526,7 @@
       "type": "number | string",
       "required": false,
       "advanced": false,
-      "summary": ""
+      "summary": "列宽。\n\n**取值**：\n  - number：px（如 `100` → `100px`）。\n  - string：原样作为 CSS 长度（如 `'30%'`、`'10em'`、`'100px'`）。\n\n**缺省语义**：未提供（undefined）时该列 track 走 auto 计算策略（内容 + grid `1fr` 分配），\n不强加固定下限。**与 antd 差异**：data-grid 在 CSS Grid 下用 `minmax(min-content, 1fr)`\n表达 auto 列（内容会换行而非硬撑单行），详见 `docs/features/columns/column-width.md`。\n\n与列宽拖拽（`gridOptions.resizable`）组合：拖拽结果会覆盖本字段的运行时宽度。"
     },
     {
       "name": "align",
@@ -535,7 +535,7 @@
       "type": "Align",
       "required": false,
       "advanced": false,
-      "summary": ""
+      "summary": "单元格内容对齐方式。\n\n**取值**：`'start'`（默认，视觉左对齐）/ `'center'`（居中）/ `'end'`（视觉右对齐）。\n\n**生效范围**：本列**所有数据单元格 + 表头格**的对齐都由本字段决定（与 antd 一致）。\n\n**与 antd 差异**：antd 取 `'left' | 'center' | 'right'`；data-grid 用 CSS Logical Properties\n风格的 `'start' | 'center' | 'end'`（在 LTR 上下文下视觉等价 antd 取值）。"
     },
     {
       "name": "fixed",
@@ -544,7 +544,7 @@
       "type": "FixedInput",
       "required": false,
       "advanced": false,
-      "summary": ""
+      "summary": "固定列（sticky）。\n\n**取值**：\n  - `true` / `'left'` / `'start'`：固定在表格左侧（多列固定按声明顺序从左到右叠放，\n    sticky left 偏移按其左侧已固定列宽累加）。\n  - `'right'` / `'end'`：固定在表格右侧（sticky right 偏移按其右侧已固定列宽累加）。\n  - `false` / undefined：普通列（随横向滚动）。\n\n**生效条件**：固定列视觉仅在启用横向滚动（`scroll.x`）时显现（否则无横向位移，sticky 无视觉差异）。\n多级表头下分组列的 `fixed` 透传到全部子叶子；合并单元格（`onCell` colSpan / rowSpan）跨固定列\n边界的行为与 antd 一致。\n\n与 antd `column.fixed` 同义（data-grid 额外接受 `'start'` / `'end'` 别名）。"
     },
     {
       "name": "className",
@@ -553,7 +553,7 @@
       "type": "string",
       "required": false,
       "advanced": false,
-      "summary": "该列单元格的额外 className（对齐 antd v6 `column.className`）。\n\n注入到本列所有数据单元格 + 表头格。\n\n★ 与 antd 差异：antd 把 className 作用于 `<td>`/`<th>`；data-grid 用 div 渲染，\n  className 合并到单元格 div（与语义化 `body.cell`/`header.cell` 同款注入路径）。\n\n未提供（undefined）时不注入（零回归）。"
+      "summary": "该列单元格的额外 className。\n\n注入到本列所有数据单元格 + 表头格。\n\n★ 与 antd 差异：antd 把 className 作用于 `<td>`/`<th>`；data-grid 用 div 渲染，\n  className 合并到单元格 div（与语义化 `body.cell`/`header.cell` 同款注入路径）。\n\n未提供（undefined）时不注入（零回归）。\n\n同名同义于 antd v6 `column.className`。"
     },
     {
       "name": "style",
@@ -562,7 +562,7 @@
       "type": "CSSProperties",
       "required": false,
       "advanced": false,
-      "summary": "该列单元格的额外 inline style（对齐 antd v6 `column.style`，对齐 antd 列类型）。\n\n注入到本列所有数据单元格 + 表头格，与 `className` 同款注入（合并到单元格 style，覆盖同名字段）。\n\n未提供（undefined）时不注入（零回归）。"
+      "summary": "该列单元格的额外 inline style。\n\n注入到本列所有数据单元格 + 表头格，与 `className` 同款注入（合并到单元格 style，覆盖同名字段）。\n\n未提供（undefined）时不注入（零回归）。\n\n同名同义于 antd v6 `column.style`。"
     },
     {
       "name": "onHeaderCell",
@@ -571,7 +571,7 @@
       "type": "(\n    column: ColumnType<RecordType>,\n    index: number,\n  ) => HTMLAttributes<HTMLElement> | undefined",
       "required": false,
       "advanced": false,
-      "summary": "表头格 props 注入（对齐 antd v6 `column.onHeaderCell`）。\n\n签名 `(column, index) => React.HTMLAttributes`：\n  - `column`：该列表头格对应的原始 antd 列定义（调用方一般不读，直接返回固定 props）。\n  - `index`：表头行号（单层表头恒 0；多级表头按行号）。\n  - 返回值整体合并到表头格 div 的 props（className/style/onClick/... 与 onCell 同款透传）。\n\n**与 antd 一致**：返回值合并到 `<th>`（data-grid 是表头格 div）；典型用法为列拖拽（drag-column-sorting demo\n  `onHeaderCell: () => ({ id: ... })` 注入 dnd 标识）、表头点击交互等。\n\n**与 onCell 对称**：onCell 注入数据格，onHeaderCell 注入表头格。\n\n未提供（undefined）时不注入（零回归）。"
+      "summary": "表头格 props 注入。\n\n签名 `(column, index) => React.HTMLAttributes`：\n  - `column`：该列表头格对应的原始 antd 列定义（调用方一般不读，直接返回固定 props）。\n  - `index`：表头行号（单层表头恒 0；多级表头按行号）。\n  - 返回值整体合并到表头格 div 的 props（className/style/onClick/... 与 onCell 同款透传）。\n\n**与 antd 一致**：返回值合并到 `<th>`（data-grid 是表头格 div）；典型用法为列拖拽（drag-column-sorting demo\n  `onHeaderCell: () => ({ id: ... })` 注入 dnd 标识）、表头点击交互等。\n\n**与 onCell 对称**：onCell 注入数据格，onHeaderCell 注入表头格。\n\n未提供（undefined）时不注入（零回归）。\n\n同名同义于 antd v6 `column.onHeaderCell`。"
     },
     {
       "name": "ellipsis",
@@ -580,7 +580,7 @@
       "type": "boolean | { showTitle?: boolean }",
       "required": false,
       "advanced": false,
-      "summary": "省略号（对齐 antd v6 `column.ellipsis`）。\n\n取值：\n  - `true`：单元格/表头加 ellipsis CSS 类（`text-overflow:ellipsis` +\n    `white-space:nowrap` + `overflow:hidden`）+ **默认 native `title`** 悬浮提示\n    （hover 显示完整文本；对齐 antd 默认 `showTitle: true`）。\n  - `false` / undefined：不省略、无 title（零回归）。\n  - 对象 `{ showTitle?: boolean }`（对齐 antd v6）：\n      * `showTitle: false` → 加 ellipsis CSS 类（仍省略），但**关闭默认 native title**，\n        让用户在 `render` 内自行包 antd `<Tooltip>` 接管 hover 提示\n        （antd ellipsis-custom-tooltip demo 用法）。\n      * `showTitle: true` / 缺省 → 等价 `ellipsis: true`（加类 + 加默认 title）。\n\n详见 `docs/features/display/ellipsis.md`；列宽与省略号视觉的关系见\n`docs/features/columns/column-width.md`。"
+      "summary": "单元格内容省略号（text-overflow:ellipsis）。\n\n取值：\n  - `true`：单元格/表头加 ellipsis CSS 类（`text-overflow:ellipsis` +\n    `white-space:nowrap` + `overflow:hidden`）+ **默认 native `title`** 悬浮提示\n    （hover 显示完整文本；对齐 antd 默认 `showTitle: true`）。\n  - `false` / undefined：不省略、无 title（零回归）。\n  - 对象 `{ showTitle?: boolean }`（对齐 antd v6）：\n      * `showTitle: false` → 加 ellipsis CSS 类（仍省略），但**关闭默认 native title**，\n        让用户在 `render` 内自行包 antd `<Tooltip>` 接管 hover 提示\n        （antd ellipsis-custom-tooltip demo 用法）。\n      * `showTitle: true` / 缺省 → 等价 `ellipsis: true`（加类 + 加默认 title）。\n\n详见 `docs/features/display/ellipsis.md`；列宽与省略号视觉的关系见\n`docs/features/columns/column-width.md`。\n\n取值形态同名同义于 antd v6 `column.ellipsis`（含 `{ showTitle?: boolean }` 对象形态）。"
     },
     {
       "name": "hidden",
@@ -589,7 +589,7 @@
       "type": "boolean",
       "required": false,
       "advanced": false,
-      "summary": "隐藏该列（对齐 antd `column.hidden`）。\n\n  - `true`：该叶子列的可视内容不渲染（表头格 + 数据单元格均隐藏）。\n  - `false` / undefined：正常渲染。\n\n**多级表头**：分组列（有 `children`）的 `hidden` 字段**无效**——只有叶子列的 `hidden` 生效\n  （与 antd 一致：隐藏分组列请隐藏其全部子叶子；父分组格随子叶子收缩自动横向收起）。\n\n**与各能力组合**：隐藏列宽度计为 0，固定列 sticky 偏移按可见叶子列累加；合并单元格仍跨原叶子区间；\n多级表头父分组格随子叶子收缩；选择列作为普通叶子列参与，同样可被 hidden。\n\n详见 `docs/features/columns/hidden-column.md`。"
+      "summary": "隐藏该列。\n\n  - `true`：该叶子列的可视内容不渲染（表头格 + 数据单元格均隐藏）。\n  - `false` / undefined：正常渲染。\n\n**多级表头**：分组列（有 `children`）的 `hidden` 字段**无效**——只有叶子列的 `hidden` 生效\n  （与 antd 一致：隐藏分组列请隐藏其全部子叶子；父分组格随子叶子收缩自动横向收起）。\n\n**与各能力组合**：隐藏列宽度计为 0，固定列 sticky 偏移按可见叶子列累加；合并单元格仍跨原叶子区间；\n多级表头父分组格随子叶子收缩；选择列作为普通叶子列参与，同样可被 hidden。\n\n详见 `docs/features/columns/hidden-column.md`。\n\n同名同义于 antd `column.hidden`。"
     },
     {
       "name": "render",
@@ -688,7 +688,7 @@
       "type": "Array<ColumnFilterItem>",
       "required": false,
       "advanced": false,
-      "summary": "筛选项列表（对齐 antd `column.filters`）。\n\n**语义**：数组非空 + 配 `onFilter` 时该列表头渲染筛选漏斗图标，点击弹出筛选下拉。\n  - 顶层项作为勾选项参与筛选（`text` 显示，`value` 作为 onFilter 第一参 + onChange filters 数组元素）。\n  - `children`（树形筛选）保留字段但**不做二级菜单 UI**——出现时内部扁平化为顶层项参与勾选\n    （行为与 antd 默认 menu 模式下的扁平化相近，但不渲染二级菜单 UI；属 tree 模式消费）。\n\n与 `onFilter` 配合：onFilter(value, record) 决定该 value 是否\"命中\" record；\n多选时命中任一即保留该 record（OR 语义）；单选时只保留命中该 value 的 record。\n\n详见 `docs/features/interaction/filter-sorter.md`。"
+      "summary": "筛选项列表。\n\n**语义**：数组非空 + 配 `onFilter` 时该列表头渲染筛选漏斗图标，点击弹出筛选下拉。\n  - 顶层项作为勾选项参与筛选（`text` 显示，`value` 作为 onFilter 第一参 + onChange filters 数组元素）。\n  - `children`（树形筛选）保留字段但**不做二级菜单 UI**——出现时内部扁平化为顶层项参与勾选\n    （行为与 antd 默认 menu 模式下的扁平化相近，但不渲染二级菜单 UI；属 tree 模式消费）。\n\n与 `onFilter` 配合：onFilter(value, record) 决定该 value 是否\"命中\" record；\n多选时命中任一即保留该 record（OR 语义）；单选时只保留命中该 value 的 record。\n\n详见 `docs/features/interaction/filter-sorter.md`。\n\n同名同义于 antd `column.filters`。"
     },
     {
       "name": "onFilter",
@@ -697,7 +697,7 @@
       "type": "(value: FilterValue, record: RecordType) => boolean",
       "required": false,
       "advanced": false,
-      "summary": "筛选判定函数（对齐 antd `column.onFilter`）。\n\n签名 `(value, record) => boolean`：返回 true 表示该 value 命中该 record。\n与 `filters` 配合：当前选中值集合中**任一**命中即保留该 record（OR 语义，对齐 antd）。\n\n**前端筛选**（非受控）：data-grid 按 `filters` + `onFilter` 对 dataSource 过滤后渲染\n（与排序叠加：antd 顺序 raw → sort → filter，即先排序后过滤）。\n**受控筛选**（外部传 `filteredValue`）：data-grid 不主动过滤，调用方在 onChange 后自行更新 dataSource；\n  data-grid 仍按 `filteredValue` 显示漏斗激活态、触发 onChange。\n\n详见 `docs/features/interaction/filter-sorter.md`。"
+      "summary": "筛选判定函数。\n\n签名 `(value, record) => boolean`：返回 true 表示该 value 命中该 record。\n与 `filters` 配合：当前选中值集合中**任一**命中即保留该 record（OR 语义，对齐 antd）。\n\n**前端筛选**（非受控）：data-grid 按 `filters` + `onFilter` 对 dataSource 过滤后渲染\n（与排序叠加：antd 顺序 raw → sort → filter，即先排序后过滤）。\n**受控筛选**（外部传 `filteredValue`）：data-grid 不主动过滤，调用方在 onChange 后自行更新 dataSource；\n  data-grid 仍按 `filteredValue` 显示漏斗激活态、触发 onChange。\n\n详见 `docs/features/interaction/filter-sorter.md`。\n\n同名同义于 antd `column.onFilter`。"
     },
     {
       "name": "filterMultiple",
@@ -706,7 +706,7 @@
       "type": "boolean",
       "required": false,
       "advanced": false,
-      "summary": "是否多选（对齐 antd `column.filterMultiple`，默认 true）。\n- `true`（默认）：Checkbox.Group 多选，命中任一保留（OR）。\n- `false`：Radio 单选，仅保留命中该 value 的 record。"
+      "summary": "是否多选（默认 true）。\n- `true`（默认）：Checkbox.Group 多选，命中任一保留（OR）。\n- `false`：Radio 单选，仅保留命中该 value 的 record。\n\n同名同义于 antd `column.filterMultiple`。"
     },
     {
       "name": "defaultFilteredValue",
@@ -733,7 +733,7 @@
       "type": "boolean",
       "required": false,
       "advanced": false,
-      "summary": "关闭下拉即应用筛选（对齐 antd `column.filterOnClose`，默认 true）。\n\n- `true`（默认）：用户关闭下拉（点击外部/ESC/确定按钮）即把当前勾选应用为 filteredValue。\n- `false`：必须点\"确定\"按钮才应用；关闭下拉（点外部/ESC）丢弃未确认的勾选（恢复到上次应用值）。\n\n对齐 antd v6 默认行为（filterOnClose=true）。"
+      "summary": "关闭下拉即应用筛选（默认 true）。\n\n- `true`（默认）：用户关闭下拉（点击外部/ESC/确定按钮）即把当前勾选应用为 filteredValue。\n- `false`：必须点\"确定\"按钮才应用；关闭下拉（点外部/ESC）丢弃未确认的勾选（恢复到上次应用值）。\n\n默认值与 antd v6 一致（filterOnClose=true）。同名同义于 antd `column.filterOnClose`。"
     },
     {
       "name": "filterDropdown",
@@ -742,7 +742,7 @@
       "type": "| React.ReactNode\n    | ((props: FilterDropdownProps) => React.ReactNode)",
       "required": false,
       "advanced": false,
-      "summary": "自定义筛选下拉面板（对齐 antd `column.filterDropdown`）。\n\n**语义**：传入即**取代**内置 Checkbox/Radio 下拉。data-grid 把它渲染进 antd Dropdown 的\npopupRender，并按 antd 兼容签名注入 props（`selectedKeys`/`setSelectedKeys`/`confirm`/\n`clearFilters`/`visible`/`close`/`prefixCls`/`filters`）。调用方在面板内自绘搜索框、\n自定义勾选 UI 等，通过 `confirm`/`clearFilters` 与 data-grid 交互（onFilter 仍按选中 keys 过滤）。\n\n也可传 ReactNode（非函数）——此时直接渲染为下拉内容，无法获得 confirm 等 props（与 antd 一致）。\n一般用法是函数。\n\n与 `onFilter` 关系：自定义面板只是替换**下拉 UI**；实际过滤仍由 `onFilter` 完成\n（filterDropdown 的 selectedKeys 经 confirm 应用为 filteredValue）。\n故即使使用 filterDropdown，仍须提供 `onFilter`。\n\n与内置 `filters` 关系：filterDropdown 存在时不渲染内置 Checkbox/Radio（即使同时配置了\n`filters` 也忽略其 UI——但 filters 仍可用于 onChange 的 filters 形态来源等）。\n\n详见 `docs/features/interaction/filter-sorter.md`。"
+      "summary": "自定义筛选下拉面板。\n\n**语义**：传入即**取代**内置 Checkbox/Radio 下拉。data-grid 把它渲染进 antd Dropdown 的\npopupRender，并按 antd 兼容签名注入 props（`selectedKeys`/`setSelectedKeys`/`confirm`/\n`clearFilters`/`visible`/`close`/`prefixCls`/`filters`）。调用方在面板内自绘搜索框、\n自定义勾选 UI 等，通过 `confirm`/`clearFilters` 与 data-grid 交互（onFilter 仍按选中 keys 过滤）。\n\n也可传 ReactNode（非函数）——此时直接渲染为下拉内容，无法获得 confirm 等 props（与 antd 一致）。\n一般用法是函数。\n\n与 `onFilter` 关系：自定义面板只是替换**下拉 UI**；实际过滤仍由 `onFilter` 完成\n（filterDropdown 的 selectedKeys 经 confirm 应用为 filteredValue）。\n故即使使用 filterDropdown，仍须提供 `onFilter`。\n\n与内置 `filters` 关系：filterDropdown 存在时不渲染内置 Checkbox/Radio（即使同时配置了\n`filters` 也忽略其 UI——但 filters 仍可用于 onChange 的 filters 形态来源等）。\n\n详见 `docs/features/interaction/filter-sorter.md`。\n\n同名同义于 antd `column.filterDropdown`。"
     },
     {
       "name": "filterIcon",
@@ -751,7 +751,7 @@
       "type": "React.ReactNode | ((filtered: boolean) => React.ReactNode)",
       "required": false,
       "advanced": false,
-      "summary": "自定义漏斗图标（对齐 antd `column.filterIcon`）。\n\n函数签名 `(filtered: boolean) => ReactNode`：filtered=true 表示该列有激活筛选（图标激活态）。\n也可直接传 ReactNode（恒定图标，不随激活态变化）。\n\n缺省：未提供时由 data-grid 默认渲染漏斗图标（未激活态/激活态）。"
+      "summary": "自定义漏斗图标。\n\n函数签名 `(filtered: boolean) => ReactNode`：filtered=true 表示该列有激活筛选（图标激活态）。\n也可直接传 ReactNode（恒定图标，不随激活态变化）。\n\n缺省：未提供时由 data-grid 默认渲染漏斗图标（未激活态/激活态）。\n\n同名同义于 antd `column.filterIcon`。"
     },
     {
       "name": "filterDropdownProps",
@@ -760,7 +760,7 @@
       "type": "ColumnFilterDropdownProps",
       "required": false,
       "advanced": false,
-      "summary": "透传给筛选下拉 antd Dropdown 的 props（对齐 antd `column.filterDropdownProps`，since 5.22）。\n\n用于受控打开（`open`）、`onOpenChange` 订阅、`triggerClassName`/`overlayClassName` 等。\n与内置 Dropdown 集成：data-grid 把这些 props 合并到 antd Dropdown（open 受控优先于内部 state）。"
+      "summary": "透传给筛选下拉底层 antd Dropdown 的 props。\n\n用于受控打开（`open`）、`onOpenChange` 订阅、`triggerClassName`/`overlayClassName` 等。\n与内置 Dropdown 集成：data-grid 把这些 props 合并到 antd Dropdown（open 受控优先于内部 state）。\n\n同名同义于 antd `column.filterDropdownProps`（since 5.22）。"
     },
     {
       "name": "filterMode",
@@ -769,7 +769,7 @@
       "type": "'menu' | 'tree'",
       "required": false,
       "advanced": false,
-      "summary": "筛选下拉展示模式（对齐 antd `column.filterMode`，默认 `'menu'`）。\n\n取值：\n  - `'menu'`（默认）：内置扁平下拉（Checkbox.Group 多选 / Radio.Group 单选）。\n    顶层 `filters` 项作为勾选项参与筛选；`children` 扁平化展示（不渲染二级菜单 UI）。\n  - `'tree'`：内置**树形**下拉（antd `<Tree checkable>`）。`filters` 含 `children` 时渲染为树形结构\n    （父子缩进 + 展开图标），勾选父子联动（`checkStrictly=false`，即勾父自动勾全部子、勾全部子自动勾父）。\n    选中值（含各级 value，含半选父级若用户主动勾选）作为 filteredValue，`onFilter` 对每个勾选 value\n    逐一判定（OR 语义，与 menu 一致）。\n\n与 `filterSearch` 组合：tree 模式下 filterSearch 过滤**树节点**（命中节点 + 保留祖先链维持结构，\n对齐 antd `Tree.filterTreeNode`）；输入为空显全树。\n\n与 `filterDropdown`（自定义面板）关系：filterDropdown 存在时**取代**内置下拉（含 tree）——\nfilterMode 仅对内置 Checkbox/Radio vs Tree 切换生效。\n\n默认 `'menu'`：现有 head/filter-search/custom-filter-panel 等不设 filterMode 的列仍走 menu 分支（零回归）。\n\n详见 `docs/features/interaction/filter-sorter.md`。"
+      "summary": "筛选下拉展示模式（默认 `'menu'`）。\n\n取值：\n  - `'menu'`（默认）：内置扁平下拉（Checkbox.Group 多选 / Radio.Group 单选）。\n    顶层 `filters` 项作为勾选项参与筛选；`children` 扁平化展示（不渲染二级菜单 UI）。\n  - `'tree'`：内置**树形**下拉（antd `<Tree checkable>`）。`filters` 含 `children` 时渲染为树形结构\n    （父子缩进 + 展开图标），勾选父子联动（`checkStrictly=false`，即勾父自动勾全部子、勾全部子自动勾父）。\n    选中值（含各级 value，含半选父级若用户主动勾选）作为 filteredValue，`onFilter` 对每个勾选 value\n    逐一判定（OR 语义，与 menu 一致）。\n\n与 `filterSearch` 组合：tree 模式下 filterSearch 过滤**树节点**（命中节点 + 保留祖先链维持结构，\n对齐 antd `Tree.filterTreeNode`）；输入为空显全树。\n\n与 `filterDropdown`（自定义面板）关系：filterDropdown 存在时**取代**内置下拉（含 tree）——\nfilterMode 仅对内置 Checkbox/Radio vs Tree 切换生效。\n\n默认 `'menu'`：现有 head/filter-search/custom-filter-panel 等不设 filterMode 的列仍走 menu 分支（零回归）。\n\n详见 `docs/features/interaction/filter-sorter.md`。\n\n同名同义于 antd `column.filterMode`。"
     },
     {
       "name": "filterSearch",
@@ -778,7 +778,7 @@
       "type": "| true\n    | ((input: string, record: ColumnFilterItem) => boolean)",
       "required": false,
       "advanced": false,
-      "summary": "筛选项搜索（对齐 antd `column.filterSearch`）。\n\n对**内置下拉面板**生效（menu 模式：Checkbox.Group/Radio.Group 顶部渲染搜索框过滤扁平项；\ntree 模式：antd `<Tree filterTreeNode>` 过滤树节点）；自定义面板（`filterDropdown`）不消费此字段。\n\n取值：\n  - `true`：默认匹配。item.text 转字符串后 **trim + toLowerCase**，**包含**输入（trim+toLowerCase）即命中\n    （对齐 antd FilterSearch 默认 `searchValueMatched`）。\n  - `(input, record) => boolean`：自定义匹配。`input` 为已 normalize 的输入（trim+toLowerCase，\n    与 antd 一致——antd 在 menu 模式传 `normalizedSearchValue`），`record` 为筛选项\n    `{ text, value, children? }`（与 `ColumnFilterItem` 同构）。返回 true 表示该项保留显示。\n  - `false` / undefined：不渲染搜索框（默认）。\n\n输入为空时显示全部筛选项（不过滤）。\n关闭下拉时清空搜索值（对齐 antd `useEffect[visible]` 清空；下次打开为空）。\n\nmenu 模式（默认）与 tree 模式（`filterMode='tree'`）均消费 filterSearch：\n  - menu：过滤扁平筛选项列表（命中保留）。\n  - tree：过滤树节点（命中保留 + 保留祖先链维持结构，对齐 antd `Tree.filterTreeNode`）。\n\n详见 `docs/features/interaction/filter-sorter.md`。"
+      "summary": "筛选项搜索。\n\n对**内置下拉面板**生效（menu 模式：Checkbox.Group/Radio.Group 顶部渲染搜索框过滤扁平项；\ntree 模式：antd `<Tree filterTreeNode>` 过滤树节点）；自定义面板（`filterDropdown`）不消费此字段。\n\n取值：\n  - `true`：默认匹配。item.text 转字符串后 **trim + toLowerCase**，**包含**输入（trim+toLowerCase）即命中\n    （对齐 antd FilterSearch 默认 `searchValueMatched`）。\n  - `(input, record) => boolean`：自定义匹配。`input` 为已 normalize 的输入（trim+toLowerCase，\n    与 antd 一致——antd 在 menu 模式传 `normalizedSearchValue`），`record` 为筛选项\n    `{ text, value, children? }`（与 `ColumnFilterItem` 同构）。返回 true 表示该项保留显示。\n  - `false` / undefined：不渲染搜索框（默认）。\n\n输入为空时显示全部筛选项（不过滤）。\n关闭下拉时清空搜索值（对齐 antd `useEffect[visible]` 清空；下次打开为空）。\n\nmenu 模式（默认）与 tree 模式（`filterMode='tree'`）均消费 filterSearch：\n  - menu：过滤扁平筛选项列表（命中保留）。\n  - tree：过滤树节点（命中保留 + 保留祖先链维持结构，对齐 antd `Tree.filterTreeNode`）。\n\n详见 `docs/features/interaction/filter-sorter.md`。\n\n同名同义于 antd `column.filterSearch`。"
     },
     {
       "name": "shouldCellUpdate",
@@ -787,7 +787,7 @@
       "type": "(prevRecord: RecordType, nextRecord: RecordType) => boolean",
       "required": false,
       "advanced": false,
-      "summary": "单元格重渲染优化（对齐 antd `column.shouldCellUpdate`）。\n\n签名 `(prevRecord, nextRecord) => boolean`：返回 `false` 时该单元格在 record 变化时**不重渲染**\n（沿用上一次渲染结果）；返回 `true` 或不提供时正常重渲染。用于编辑/复杂单元格场景的性能优化\n（避免无关 record 字段变化触发昂贵重渲染）。\n\n注意：仅当 `components.body.cell` 提供时本字段才被消费（默认渲染路径不消费，零回归）。"
+      "summary": "单元格重渲染优化。\n\n签名 `(prevRecord, nextRecord) => boolean`：返回 `false` 时该单元格在 record 变化时**不重渲染**\n（沿用上一次渲染结果）；返回 `true` 或不提供时正常重渲染。用于编辑/复杂单元格场景的性能优化\n（避免无关 record 字段变化触发昂贵重渲染）。\n\n注意：仅当 `components.body.cell` 提供时本字段才被消费（默认渲染路径不消费，零回归）。\n\n同名同义于 antd `column.shouldCellUpdate`。"
     },
     {
       "name": "responsive",
@@ -796,7 +796,7 @@
       "type": "Array<Breakpoint>",
       "required": false,
       "advanced": false,
-      "summary": "响应式列显隐（对齐 antd `column.responsive`，since 4.x）。\n\n**语义**：\n  - `undefined` / 空数组：该列**始终显示**（所有现有 demo 的默认行为，零回归）。\n  - 非空 `Breakpoint[]`：仅当**任一**列出的断点在当前视口下激活时，该列才显示；否则该列\n    从渲染中**整体移除**（表头格 + 表体单元格均不渲染，列号不占位）。\n\n断点激活判定对齐 antd `Grid.useBreakpoint`——返回\n`{ xs, sm, md, lg, xl, xxl, xxxl }` 各断点布尔。`screens[bp] === true` 表示\n当前视口 **>= bp**（即该断点及其以上都激活）。故 `responsive: ['md']` 实际语义是\n**md 及以上视口显示**（与 antd responsive demo 注释 \"medium screen or bigger\" 一致）。\n\n取值（antd `Breakpoint`，7 个）：`'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl' | 'xxxl'`\n（来自 antd responsiveArray）。\n\n与各能力组合：被移除的列不参与排序/筛选/选择/固定/合并/虚拟——所有现有机制透明（列号自然收缩）。\n树形/编辑等以列位置为基础的机制也正确（过滤发生在列结构构建前）。\n\n详见 `docs/features/columns/responsive-columns.md`。"
+      "summary": "响应式列显隐：按视口断点决定该列是否渲染。\n\n**语义**：\n  - `undefined` / 空数组：该列**始终显示**（所有现有 demo 的默认行为，零回归）。\n  - 非空 `Breakpoint[]`：仅当**任一**列出的断点在当前视口下激活时，该列才显示；否则该列\n    从渲染中**整体移除**（表头格 + 表体单元格均不渲染，列号不占位）。\n\n断点激活判定对齐 antd `Grid.useBreakpoint`——返回\n`{ xs, sm, md, lg, xl, xxl, xxxl }` 各断点布尔。`screens[bp] === true` 表示\n当前视口 **>= bp**（即该断点及其以上都激活）。故 `responsive: ['md']` 实际语义是\n**md 及以上视口显示**（与 antd responsive demo 注释 \"medium screen or bigger\" 一致）。\n\n取值（antd `Breakpoint`，7 个）：`'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl' | 'xxxl'`\n（来自 antd responsiveArray）。\n\n与各能力组合：被移除的列不参与排序/筛选/选择/固定/合并/虚拟——所有现有机制透明（列号自然收缩）。\n树形/编辑等以列位置为基础的机制也正确（过滤发生在列结构构建前）。\n\n详见 `docs/features/columns/responsive-columns.md`。\n\n同名同义于 antd `column.responsive`（since 4.x）；断点激活判定对齐 antd `Grid.useBreakpoint`。"
     }
   ],
   "gridColumnOptions": [
@@ -816,7 +816,7 @@
       "type": "(\n    params: GridCellElementRenderParams<RecordType>,\n    oldElement: HTMLElement | undefined,\n  ) => HTMLElement",
       "required": false,
       "advanced": true,
-      "summary": "逃逸舱（escape-hatch）HTMLElement 渲染 hook，仅在 recycling cell 路径下使用。\n\n`oldElement` 是上一轮可复用的元素；可返回它并自行更新 DOM，也可返回新元素。返回的元素由\ndata-grid 接管定位和生命周期。不要在这里读取 React state 闭包后长期缓存，滚动复用会让同一\nelement 对应不同 record。"
+      "summary": "逃逸舱（escape-hatch）HTMLElement 渲染回调，仅在 recycling cell 路径下使用。\n\n`oldElement` 是上一轮可复用的元素；可返回它并自行更新 DOM，也可返回新元素。返回的元素由\ndata-grid 接管定位和生命周期。不要在这里读取 React state 闭包后长期缓存，滚动复用会让同一\nelement 对应不同 record。"
     },
     {
       "name": "renderCellReact",
@@ -825,7 +825,7 @@
       "type": "(\n    params: GridCellRenderParams<RecordType>,\n    slot: GridCellReactSlotProps,\n  ) => ReactElement | null",
       "required": false,
       "advanced": true,
-      "summary": "recycling cell 的 React slot 渲染 hook。\n\n返回的 ReactElement 必须使用 `slot.key` 作为 key；返回 null 表示该格无 React 内容。\n适合仍想写 React 内容、但希望由 recycling 路径控制外层 cell 复用的场景。"
+      "summary": "recycling cell 的 React slot 渲染回调。\n\n返回的 ReactElement 必须使用 `slot.key` 作为 key；返回 null 表示该格无 React 内容。\n适合仍想写 React 内容、但希望由 recycling 路径控制外层 cell 复用的场景。"
     },
     {
       "name": "disposeCellElement",

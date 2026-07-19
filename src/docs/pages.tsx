@@ -256,74 +256,17 @@ const GRID_COLUMN_OPTIONS_CODE = `const columns: ColumnType<Row>[] = [
   },
 ]`
 
-const overviewRows: OverviewRow[] = [
-  {
-    key: 'quick-start',
-    area: '快速开始',
-    purpose: '安装、导入样式，再把 columns、dataSource 和 rowKey 接起来。',
-    entry: '快速开始',
-  },
-  {
-    key: 'migration',
-    area: '从 antd 迁移',
-    purpose: '复用熟悉 props，同时避开 scroll.y 和 DOM 形态差异。',
-    entry: '迁移指南',
-  },
-  {
-    key: 'table-api',
-    area: 'Table API',
-    purpose: '查看高频 Table、Column 和静态属性入口。',
-    entry: 'API 参考',
-  },
-  {
-    key: 'compat-matrix',
-    area: '兼容矩阵',
-    purpose: '确认完全兼容、部分兼容和明确不做的边界。',
-    entry: '兼容状态',
-  },
-  {
-    key: 'deprecated-members',
-    area: '过时成员',
-    purpose: '单独核对 deprecated antd Table 成员、旧写法和 data-grid 的降级行为。',
-    entry: '过时成员',
-  },
-  {
-    key: 'architecture',
-    area: '架构',
-    purpose: '用 CSS Grid 重做 antd Table，同时保持熟悉的 React API。',
-    entry: '架构总览',
-  },
-  {
-    key: 'compat',
-    area: '兼容',
-    purpose: '优先对齐真实业务常用的 antd v6 Table 行为。',
-    entry: '兼容矩阵',
-  },
-  {
-    key: 'scroll',
-    area: '滚动',
-    purpose: '把 scroll.y 定义为数据区域模式，由容器高度驱动。',
-    entry: 'scroll.y 语义',
-  },
-  {
-    key: 'style',
-    area: '样式',
-    purpose: '复用 antd token，用语义槽位处理局部覆盖。',
-    entry: '样式和主题',
-  },
-]
-
 const compatRows: CompatRow[] = [
   { key: 'base', api: 'dataSource / columns / rowKey', status: '完全兼容', detail: '基础数据、列定义和行 key 维持 antd 使用习惯。' },
   { key: 'selection', api: 'rowSelection', status: '部分兼容', detail: '常用选择、受控键、自定义选择项和 renderCell 已覆盖；DOM 形态存在适配差异。具体过时成员（如 onSelectMultiple）见过时成员页。' },
   { key: 'expandable', api: 'expandable', status: '部分兼容', detail: '展开行、默认展开和 expandRowByClick 已覆盖；columnTitle / fixed 仍是 backlog；expandedRowOffset 见过时成员页。' },
-  { key: 'scroll', api: 'scroll', status: '部分兼容', detail: 'x 支持常用形态；y 重新定义为数据区域模式开关（只接受 true），不接受 number / string max-height 语义。细节见 scroll.y 语义页。' },
+  { key: 'scroll', api: 'scroll', status: '部分兼容', detail: 'x 支持常用形态；y 只接受 true（数据区域模式，高度由父容器驱动）。详见 #/docs/scroll-y。' },
   { key: 'components', api: 'components', status: '部分兼容', detail: '支持 body.cell、body.row；header.cell、wrapper / table 级替换不是当前公开能力。落点差异见 Semantic DOM 页。' },
   { key: 'locale', api: 'locale', status: '部分兼容', detail: '表体空态、筛选下拉、选择菜单、排序和展开文案已接入 antd locale 链路；filterCheckall 兼容别名见过时成员页。' },
   { key: 'sticky', api: 'sticky', status: '部分兼容', detail: '表头吸顶与 offsetHeader 已支持；offsetSummary 仍是 backlog。' },
-  { key: 'summary', api: 'Table.Summary', status: '完全兼容', detail: 'Summary / Summary.Row / Summary.Cell 三段式 API 与 antd 对齐。' },
+  { key: 'summary', api: 'Table.Summary', status: '完全兼容', detail: '以 Table.Summary 容器 + Row + Cell 三段组合声明汇总栏（与 antd v6 对齐）。' },
   { key: 'pagination', api: 'pagination', status: '完全兼容', detail: '复用 antd Pagination 组件，props 直接透传。' },
-  { key: 'size', api: 'size', status: '部分兼容', detail: 'small / middle / default 与 antd 对齐；compact 是 data-grid 兜底值，视觉映射为 small。' },
+  { key: 'size', api: 'size', status: '部分兼容', detail: '合法取值 large / middle / medium / small / compact；缺省视觉等价 large（与 antd v6 默认一致）。middle ≡ medium、compact ≡ small 视觉等价；antd v3 旧名 default 不支持。' },
 ]
 
 const deprecatedRows: DeprecatedRow[] = [
@@ -331,7 +274,7 @@ const deprecatedRows: DeprecatedRow[] = [
     key: 'rendered-cell',
     member: 'column.render 返回 { children, props }',
     support: '部分兼容',
-    behavior: '识别 legacy RenderedCell 对象，但只消费 children；props 不会合并到单元格。',
+    behavior: '识别 legacy RenderedCell 对象（render 返回的 `{ children, props }` 旧形态），但只消费 children；props 不会合并到单元格。',
     migration: '返回普通 ReactNode；合并格和单元格 props 改用 column.onCell。',
   },
   {
@@ -387,7 +330,7 @@ const deprecatedRows: DeprecatedRow[] = [
 
 const limitationRows: GapRow[] = [
   { key: 'semantic-dom', topic: 'semantic DOM', boundary: '不能完整复刻 thead / tbody / tr 层级。', action: '用 data-grid 语义槽位做适配。' },
-  { key: 'scroll-y', topic: 'scroll.y', boundary: '不支持 antd number/string max-height 语义。', action: '改成 `scroll={{ y: true }}`，表格占满父容器可用空间。' },
+  { key: 'scroll-y', topic: 'scroll.y', boundary: '不支持 antd number/string max-height 语义。', action: '改成 `scroll={{ y: true }}`，表格占满父容器可用空间（详见 #/docs/scroll-y）。' },
   { key: 'rtl', topic: 'RTL', boundary: '尚未系统处理方向、fixed、sticky 和拖拽方向。', action: '需要独立设计和回归范围。' },
 ]
 
@@ -425,45 +368,49 @@ export function renderIntro({ onOpen }: DocsPageContext) {
   return (
     <>
       <DocSection
-        id="start"
-        title="阅读路径"
-        description="第一次接入时先看快速开始；迁移和排查时再进入 API、兼容矩阵和核心概念。"
+        id="what-is"
+        eyebrow="data-grid 是什么"
+        title="用 CSS Grid 重做的 React 表格组件"
+        description="data-grid 把表格布局交给 CSS Grid——不再输出原生 table / thead / tbody / tr 结构，让多级表头、合并单元格、固定列、动态行高这些原本要互相迁就的能力可以在同一套布局下共存，并原生支持大数据量虚拟滚动、列宽拖拽、行/列拖拽排序。"
       >
-        <DocsDataGrid<OverviewRow>
-          columns={[
-            { title: '范围', dataIndex: 'area', key: 'area', width: '18%' },
-            { title: '说明', dataIndex: 'purpose', key: 'purpose', width: '56%' },
-            {
-              title: '入口',
-              dataIndex: 'entry',
-              key: 'entry',
-              width: '26%',
-              render: (value, record) => (
-                <button
-                  type="button"
-                  className="docs-table-action"
-                  onClick={() => {
-                    const target = {
-                      'quick-start': 'quick-start',
-                      migration: 'migrate-from-antd',
-                      'table-api': 'table-api',
-                      'compat-matrix': 'compat-matrix',
-                      'deprecated-members': 'deprecated-antd-members',
-                      architecture: 'architecture-overview',
-                      compat: 'compat-matrix',
-                      scroll: 'scroll-y',
-                      style: 'styling-and-theme',
-                    }[record.key]
-                    if (target) onOpen({ label: value, kind: 'doc', value: target })
-                  }}
-                >
-                  {value}
-                </button>
-              ),
-            },
+        <p>
+          <Text strong>适合</Text>：多级表头 + 合并 + 固定列组合、超大数据量（万行级）、动态行高、列宽拖拽、行/列拖拽排序等真实业务常见但原 React 表格库难处理的场景。
+        </p>
+        <p>
+          <Text strong>不追求</Text>：完整复刻 antd Table 全量历史 API；输出原生 <Text code>{'<table>'}</Text> / <Text code>{'<thead>'}</Text> / <Text code>{'<tbody>'}</Text> / <Text code>{'<tr>'}</Text> DOM（爬虫、第三方表格插件按 <Text code>tbody tr td</Text> 写的样式选择器会失效）；伪造完整 ARIA table / row / rowgroup role 树；RTL 系统支持。
+        </p>
+        <p>
+          如果你已熟悉 antd Table，多数顶层 props 和 Column 字段可以平滑迁移（详见 <a href="#/docs/migrate-from-antd">从 antd 迁移</a>）；如果你是新接入，从下面的最小例子开始即可。
+        </p>
+      </DocSection>
+
+      <DocSection
+        id="minimal"
+        eyebrow="最小例子"
+        title="一段代码跑通最小表格"
+        description="columns + dataSource + 稳定 rowKey 三件套就能跑通；下方代码可直接编辑，活预览实时反映修改。"
+      >
+        <DocsCode
+          code={QUICK_START_MINIMAL}
+          editable
+          scope={docsScope}
+          height={280}
+          ariaLabel="最小表格代码"
+        />
+      </DocSection>
+
+      <DocSection
+        id="paths"
+        eyebrow="下一步"
+        title="选一条主路径继续"
+        description="两条路径覆盖最常见的两种使用场景；按当前需要选一条即可。"
+      >
+        <DocsActionList
+          actions={[
+            { label: '快速用（5 分钟跑通基础）', kind: 'doc', value: 'quick-start' },
+            { label: '从 antd Table 迁移', kind: 'doc', value: 'migrate-from-antd' },
           ]}
-          dataSource={overviewRows}
-          rowKey="key"
+          onOpen={onOpen}
         />
       </DocSection>
 
@@ -488,6 +435,21 @@ export function renderIntro({ onOpen }: DocsPageContext) {
           </li>
           <li>
             <Text strong>{GLOSSARY.compatApi.canonical}</Text>：{GLOSSARY.compatApi.summary}
+          </li>
+          <li>
+            <Text strong>{GLOSSARY.rcTable.canonical}</Text>：{GLOSSARY.rcTable.summary}
+          </li>
+          <li>
+            <Text strong>{GLOSSARY.sentinelColumn.canonical}</Text>：{GLOSSARY.sentinelColumn.summary}
+          </li>
+          <li>
+            <Text strong>{GLOSSARY.configProviderToken.canonical}</Text>：{GLOSSARY.configProviderToken.summary}
+          </li>
+          <li>
+            <Text strong>{GLOSSARY.renderedCell.canonical}</Text>：{GLOSSARY.renderedCell.summary}
+          </li>
+          <li>
+            <Text strong>{GLOSSARY.summaryThreePart.canonical}</Text>：{GLOSSARY.summaryThreePart.summary}
           </li>
         </ul>
       </DocSection>
@@ -623,7 +585,7 @@ export function renderArchitecture() {
           ]}
           dataSource={[
             { key: 'render', area: '渲染层', purpose: '列轨道、表头、表体、固定列、合并和虚拟化。', entry: '渲染模型' },
-            { key: 'compat', area: '兼容层', purpose: '暴露与 antd Table 尽量一致的 TableProps、ColumnType 和 JSX API。', entry: '兼容矩阵' },
+            { key: 'compat', area: '兼容层', purpose: '暴露 TableProps、ColumnType 和 JSX API，与 antd Table 同名同义以便直接迁移。', entry: '兼容矩阵' },
             { key: 'style', area: '样式层', purpose: '复用 antd v6 token 和 CSS variables。', entry: '样式和主题' },
             { key: 'demo', area: 'demo 站点', purpose: '用左右对照验证 data-grid 与 antd 官方示例的差异。', entry: 'demo' },
           ]}
@@ -695,7 +657,7 @@ export function renderApiNamespace({ onOpen }: DocsPageContext) {
               <Text code>gridOptions.*</Text>：表级专属能力 — 行高模型、列宽拖拽、悬浮滚动条策略、原生选择、行/列拖拽排序、虚拟化模式。
             </li>
             <li>
-              <Text code>column.gridColumnOptions.*</Text>：列级专属能力 — 列拖拽锁定与 recycling 虚拟化的逃逸舱（escape-hatch）hook。
+              <Text code>column.gridColumnOptions.*</Text>：列级专属能力 — 列拖拽锁定与 recycling 虚拟化的逃逸舱（escape-hatch）回调。
             </li>
           </ul>
         </DocsNote>
@@ -719,163 +681,196 @@ export function renderApiNamespace({ onOpen }: DocsPageContext) {
   )
 }
 
-export function renderFeaturePage(topic: 'columns' | 'layout' | 'scrolling' | 'interaction' | 'styling' | 'api') {
-  const content = {
-    columns: {
-      title: '列能力入口',
-      body: (
-        <>
-          <p>
-            列能力都收敛到 <Text code>ColumnType</Text>：列宽、固定列、隐藏列、响应式列与列默认值都在同一个列定义上配置，不需要切换 API 面。本页把这些能力的入口 demo 集中起来，方便对照选用。
-          </p>
-          <p>
-            想看完整字段清单去 <Text code>Column API</Text> 参考页；data-grid 专属列级能力（拖拽锁定、recycling 虚拟化的逃逸舱 hook）写在 <Text code>gridColumnOptions</Text>，归 <Text code>gridOptions</Text> 参考页。
-          </p>
-        </>
-      ),
-      actions: [
-        { label: '全固定列宽 demo', kind: 'path' as const, value: '/demos/all-columns-fixed-width' },
-        { label: '固定列 demo', kind: 'path' as const, value: '/demos/fixed-columns' },
-        { label: '调整列宽 demo', kind: 'path' as const, value: '/demos/resizable-columns' },
-        { label: '隐藏列 demo', kind: 'path' as const, value: '/demos/hidden-columns' },
-      ],
-      references: [
-        { label: 'Column API 参考页', kind: 'doc' as const, value: 'column-api' },
-        { label: 'gridOptions 参考页', kind: 'doc' as const, value: 'grid-options' },
-      ],
-    },
-    layout: {
-      title: '布局能力入口',
-      body: (
-        <>
-          <p>
-            布局能力建立在 CSS Grid 之上：列轨道、行轨道、固定列与合并单元格共用同一套布局模型，因此多级表头、合并和固定列可以自由组合，不会互相拆台。本页汇总这些能力的入口 demo。
-          </p>
-          <p>
-            需要局部结构差异时，<Text code>classNames</Text> / <Text code>styles</Text> 的语义槽位是首选入口；落点对照见 Semantic DOM 页。
-          </p>
-        </>
-      ),
-      actions: [
-        { label: '分组表头 demo', kind: 'path' as const, value: '/demos/grouped-header' },
-        { label: '合并单元格 demo', kind: 'path' as const, value: '/demos/merged-cells' },
-        { label: '总结栏 demo', kind: 'path' as const, value: '/demos/summary-row' },
-      ],
-      references: [
-        { label: '渲染模型', kind: 'doc' as const, value: 'rendering-model' },
-        { label: 'Semantic DOM', kind: 'doc' as const, value: 'semantic-dom' },
-      ],
-    },
-    scrolling: {
-      title: '滚动和虚拟化',
-      body: (
-        <>
-          <p>
-            滚动能力分两层：常规 <Text code>{'scroll={{ x, y }}'}</Text> 覆盖大部分场景；超大数据量时再启用 <Text code>virtual</Text>，必要时切到 <Text code>recycling</Text> 虚拟化走 DOM 复用路径。所有路径都要求父容器有明确高度。
-          </p>
-          <p>
-            <Text code>scroll.y</Text> 在 data-grid 里只接受 <Text code>true</Text>，启用数据区域模式——和 antd 的 number max-height 语义不一样，迁移时务必先看 scroll.y 语义页。
-          </p>
-        </>
-      ),
-      actions: [
-        { label: '虚拟列表 demo', kind: 'path' as const, value: '/demos/virtual-list' },
-        { label: 'DOM 复用 demo', kind: 'path' as const, value: '/demos/dom-recycled-virtual-list' },
-        { label: '页面级 sticky demo', kind: 'path' as const, value: '/demos/page-sticky-header' },
-      ],
-      references: [
-        { label: 'scroll.y 语义', kind: 'doc' as const, value: 'scroll-y' },
-        { label: 'gridOptions（VirtualizationMode）', kind: 'doc' as const, value: 'grid-options' },
-      ],
-    },
-    interaction: {
-      title: '交互能力入口',
-      body: (
-        <>
-          <p>
-            交互入口保留 antd 风格的 props：<Text code>rowSelection</Text>、<Text code>expandable</Text>、筛选排序、分页、编辑等。data-grid 专属增强（原生行选择、行 / 列拖拽排序）进入 <Text code>gridOptions</Text>，不污染兼容 API。
-          </p>
-          <p>
-            命中部分兼容项时，先查兼容矩阵看整体状态，再过一遍过时成员页确认迁移动作。
-          </p>
-        </>
-      ),
-      actions: [
-        { label: '行选择 demo', kind: 'path' as const, value: '/demos/basic-row-selection' },
-        { label: '展开行 demo', kind: 'path' as const, value: '/demos/expandable-rows' },
-        { label: '拖拽行排序 demo', kind: 'path' as const, value: '/demos/drag-row-sorting' },
-      ],
-      references: [
-        { label: '兼容矩阵', kind: 'doc' as const, value: 'compat-matrix' },
-        { label: 'gridOptions（行 / 列拖拽）', kind: 'doc' as const, value: 'grid-options' },
-      ],
-    },
-    styling: {
-      title: '样式和主题',
-      body: (
-        <>
-          <p>
-            全局主题走 antd <Text code>ConfigProvider</Text> 的 Table token，data-grid 复用整套 token 并把 CSS 变量映射到单元格、表头、边框等视觉模块。局部结构差异通过 <Text code>classNames</Text> / <Text code>styles</Text> 的语义槽位覆盖。
-          </p>
-          <p>
-            槽位落点与 a11y 兼容状态见 Semantic DOM 页；主题编辑器在顶栏 Modal，可实时预览 token 改动。
-          </p>
-        </>
-      ),
-      actions: [
-        { label: 'Semantic DOM 文档', kind: 'doc' as const, value: 'semantic-dom' },
-        { label: '组件主题令牌 demo', kind: 'path' as const, value: '/demos/component-theme-tokens' },
-        { label: '语义化样式 demo', kind: 'path' as const, value: '/demos/semantic-styling' },
-        { label: '语义化 DOM 插槽 demo', kind: 'path' as const, value: '/demos/semantic-dom-slots' },
-      ],
-      references: [
-        { label: 'Semantic DOM 槽位矩阵', kind: 'doc' as const, value: 'semantic-dom' },
-        { label: 'Table API', kind: 'doc' as const, value: 'table-api' },
-      ],
-    },
-    api: {
-      title: 'API 扩展点',
-      body: (
-        <>
-          <p>
-            扩展 data-grid 的主要路径：JSX 列声明（<Text code>{'<Table.Column>'}</Text>）、<Text code>components</Text> 按槽位替换、<Text code>onRow</Text> / <Text code>onCell</Text> 行 / 单元格钩子，以及 <Text code>classNames</Text> / <Text code>styles</Text> 语义槽位。本页汇总各路径的 demo 入口。
-          </p>
-          <p>
-            字段级细节去 Table API / Column API 参考页；槽位落点去 Semantic DOM 页。
-          </p>
-        </>
-      ),
-      actions: [
-        { label: 'JSX 列声明 demo', kind: 'path' as const, value: '/demos/jsx-columns' },
-        { label: '单元格编辑 demo', kind: 'path' as const, value: '/demos/cell-editing' },
-        { label: '语义 DOM demo', kind: 'path' as const, value: '/demos/semantic-dom-slots' },
-      ],
-      references: [
-        { label: 'Table API', kind: 'doc' as const, value: 'table-api' },
-        { label: 'Column API', kind: 'doc' as const, value: 'column-api' },
-        { label: 'Semantic DOM', kind: 'doc' as const, value: 'semantic-dom' },
-      ],
-    },
-  }[topic]
+const featureRows: OverviewRow[] = [
+  {
+    key: 'columns',
+    area: '列',
+    purpose:
+      '列宽、固定列、隐藏列、响应式列与列默认值都收敛到 ColumnType 同一个列定义上配置，不需要切换 API 面；data-grid 专属列级能力（拖拽锁定、recycling 虚拟化逃逸舱回调）归 gridColumnOptions。',
+    entry: 'Column API · gridOptions',
+  },
+  {
+    key: 'layout',
+    area: '布局',
+    purpose:
+      '多级表头、合并单元格、summary 与 sticky 共用 CSS Grid 布局模型，因此可以自由组合而不会互相拆台；需要局部结构差异时优先用 classNames / styles 的语义槽位。',
+    entry: '渲染模型 · Semantic DOM',
+  },
+  {
+    key: 'interaction',
+    area: '交互',
+    purpose:
+      '行选择、展开、树形、筛选排序、分页、编辑保留 antd 风格的 props；行 / 列拖拽排序等原生增强进入 gridOptions，不污染兼容 API。',
+    entry: '兼容矩阵 · gridOptions',
+  },
+  {
+    key: 'api-extension',
+    area: 'API 扩展点',
+    purpose:
+      '扩展 data-grid 的主要路径：JSX 列声明、components 按槽位替换、onRow / onCell 行级钩子与 classNames / styles 语义槽位；字段级细节去 Table / Column API 参考页。',
+    entry: 'Table API · Column API · Semantic DOM',
+  },
+]
 
-  return ({ onOpen }: DocsPageContext) => (
+export function renderFeatures({ onOpen }: DocsPageContext) {
+  return (
     <>
-      <DocSection id="overview" eyebrow="指南" title={content.title}>
-        {content.body}
+      <DocSection
+        id="overview"
+        eyebrow="能力总览"
+        title="data-grid 能力清单"
+        description="data-grid 的能力按 4 个域组织：列、布局、交互、API 扩展点。下表是每个域的一句话说明与主要入口；具体 demo 与参考页在下方按域分组列出。"
+      >
+        <DocsDataGrid<OverviewRow>
+          columns={[
+            { title: '能力域', dataIndex: 'area', key: 'area', width: '16%' },
+            { title: '说明', dataIndex: 'purpose', key: 'purpose', width: '64%' },
+            { title: '主要入口', dataIndex: 'entry', key: 'entry', width: '20%' },
+          ]}
+          dataSource={featureRows}
+          rowKey="key"
+        />
       </DocSection>
-      {topic === 'styling' ? (
-        <DocSection id="theme-code" eyebrow="代码" title="ConfigProvider token">
-          <DocsCode code={THEMING_CODE} height={300} ariaLabel="主题代码" />
-        </DocSection>
-      ) : null}
+
+      <DocSection id="demos" eyebrow="demo" title="按能力域分类的 demo 入口">
+        <p>
+          <Text strong>列</Text>：列宽、固定列、隐藏列与列默认值等列级能力。
+        </p>
+        <DocsActionList
+          actions={[
+            { label: '全固定列宽 demo', kind: 'path', value: '/demos/all-columns-fixed-width' },
+            { label: '固定列 demo', kind: 'path', value: '/demos/fixed-columns' },
+            { label: '调整列宽 demo', kind: 'path', value: '/demos/resizable-columns' },
+            { label: '隐藏列 demo', kind: 'path', value: '/demos/hidden-columns' },
+          ]}
+          onOpen={onOpen}
+        />
+        <p>
+          <Text strong>布局</Text>：多级表头、合并单元格、summary 等共用 CSS Grid 布局模型的能力。
+        </p>
+        <DocsActionList
+          actions={[
+            { label: '分组表头 demo', kind: 'path', value: '/demos/grouped-header' },
+            { label: '合并单元格 demo', kind: 'path', value: '/demos/merged-cells' },
+            { label: '总结栏 demo', kind: 'path', value: '/demos/summary-row' },
+          ]}
+          onOpen={onOpen}
+        />
+        <p>
+          <Text strong>交互</Text>：行选择、展开、拖拽排序等保留 antd 风格的交互能力。
+        </p>
+        <DocsActionList
+          actions={[
+            { label: '行选择 demo', kind: 'path', value: '/demos/basic-row-selection' },
+            { label: '展开行 demo', kind: 'path', value: '/demos/expandable-rows' },
+            { label: '拖拽行排序 demo', kind: 'path', value: '/demos/drag-row-sorting' },
+          ]}
+          onOpen={onOpen}
+        />
+        <p>
+          <Text strong>API 扩展点</Text>：JSX 列声明、components 替换、行级钩子等扩展路径。
+        </p>
+        <DocsActionList
+          actions={[
+            { label: 'JSX 列声明 demo', kind: 'path', value: '/demos/jsx-columns' },
+            { label: '单元格编辑 demo', kind: 'path', value: '/demos/cell-editing' },
+            { label: '语义 DOM demo', kind: 'path', value: '/demos/semantic-dom-slots' },
+          ]}
+          onOpen={onOpen}
+        />
+      </DocSection>
+
+      <DocSection id="references" eyebrow="交叉参考" title="相关文档">
+        <DocsActionList
+          actions={[
+            { label: 'Table API', kind: 'doc', value: 'table-api' },
+            { label: 'Column API', kind: 'doc', value: 'column-api' },
+            { label: 'gridOptions', kind: 'doc', value: 'grid-options' },
+            { label: '渲染模型', kind: 'doc', value: 'rendering-model' },
+            { label: 'Semantic DOM', kind: 'doc', value: 'semantic-dom' },
+            { label: '兼容矩阵', kind: 'doc', value: 'compat-matrix' },
+          ]}
+          onOpen={onOpen}
+        />
+      </DocSection>
+    </>
+  )
+}
+
+export function renderScrolling({ onOpen }: DocsPageContext) {
+  return (
+    <>
+      <DocSection id="overview" eyebrow="指南" title="滚动和虚拟化">
+        <p>
+          滚动能力分两层：常规 <Text code>{'scroll={{ x, y }}'}</Text> 覆盖大部分场景；超大数据量时再启用 <Text code>virtual</Text>，必要时切到 <Text code>recycling</Text> 虚拟化走 DOM 复用路径。所有路径都要求父容器有明确高度。
+        </p>
+        <p>
+          <Text code>scroll.y</Text> 只接受 <Text code>true</Text>（数据区域模式，高度由父容器驱动，不接受 antd 的 number/string max-height）。详见{' '}
+          <a href="#/docs/scroll-y">scroll.y 语义页</a>。
+        </p>
+      </DocSection>
       <DocSection id="demos" eyebrow="对照" title="优先查看的 demo">
-        <DocsActionList actions={content.actions} onOpen={onOpen} />
+        <DocsActionList
+          actions={[
+            { label: '虚拟列表 demo', kind: 'path', value: '/demos/virtual-list' },
+            { label: 'DOM 复用 demo', kind: 'path', value: '/demos/dom-recycled-virtual-list' },
+            { label: '页面级 sticky demo', kind: 'path', value: '/demos/page-sticky-header' },
+          ]}
+          onOpen={onOpen}
+        />
       </DocSection>
-      {content.references && content.references.length > 0 ? (
-        <DocSection id="references" eyebrow="交叉参考" title="相关文档">
-          <DocsActionList actions={content.references} onOpen={onOpen} />
-        </DocSection>
-      ) : null}
+      <DocSection id="references" eyebrow="交叉参考" title="相关文档">
+        <DocsActionList
+          actions={[
+            { label: 'scroll.y 语义', kind: 'doc', value: 'scroll-y' },
+            { label: 'gridOptions（VirtualizationMode）', kind: 'doc', value: 'grid-options' },
+          ]}
+          onOpen={onOpen}
+        />
+      </DocSection>
+    </>
+  )
+}
+
+export function renderStyling({ onOpen }: DocsPageContext) {
+  return (
+    <>
+      <DocSection id="overview" eyebrow="指南" title="样式和主题">
+        <p>
+          全局主题走 antd <Text code>ConfigProvider</Text> 的 Table token，data-grid 复用整套 token 并把 CSS 变量映射到单元格、表头、边框等视觉模块。局部结构差异通过 <Text code>classNames</Text> / <Text code>styles</Text> 的语义槽位覆盖。
+        </p>
+        <p>
+          槽位落点与 a11y 兼容状态见 Semantic DOM 页；主题编辑器在顶栏 Modal，可实时预览 token 改动。
+        </p>
+      </DocSection>
+      <DocSection
+        id="theme-code"
+        eyebrow="代码"
+        title="ConfigProvider token"
+        description="ConfigProvider token 是 antd 主题系统的设计令牌（design token），通过 `<ConfigProvider theme={{ token: {...} }}>` 注入；data-grid 复用同一套 token 以保持视觉一致。"
+      >
+        <DocsCode code={THEMING_CODE} height={300} ariaLabel="主题代码" />
+      </DocSection>
+      <DocSection id="demos" eyebrow="对照" title="优先查看的 demo">
+        <DocsActionList
+          actions={[
+            { label: 'Semantic DOM 文档', kind: 'doc', value: 'semantic-dom' },
+            { label: '组件主题令牌 demo', kind: 'path', value: '/demos/component-theme-tokens' },
+            { label: '语义化样式 demo', kind: 'path', value: '/demos/semantic-styling' },
+            { label: '语义化 DOM 插槽 demo', kind: 'path', value: '/demos/semantic-dom-slots' },
+          ]}
+          onOpen={onOpen}
+        />
+      </DocSection>
+      <DocSection id="references" eyebrow="交叉参考" title="相关文档">
+        <DocsActionList
+          actions={[
+            { label: 'Semantic DOM 槽位矩阵', kind: 'doc', value: 'semantic-dom' },
+            { label: 'Table API', kind: 'doc', value: 'table-api' },
+          ]}
+          onOpen={onOpen}
+        />
+      </DocSection>
     </>
   )
 }
@@ -887,7 +882,7 @@ export function renderSemanticDom({ onOpen }: DocsPageContext) {
         id="slots"
         eyebrow="classNames / styles"
         title="Semantic DOM 槽位矩阵"
-        description="data-grid 对齐 antd Table 的 Semantic DOM 槽位命名；未消费的槽位会明确标出，避免给业务代码承诺不存在的 DOM 落点。"
+        description="data-grid 提供 Semantic DOM 槽位命名，与 antd Table 对齐；未消费的槽位会明确标出，避免给业务代码承诺不存在的 DOM 落点。"
       >
         <DocsDataGrid<SemanticSlotRow>
           columns={[
@@ -984,20 +979,75 @@ export function renderTableApi({ onOpen }: DocsPageContext) {
 // 关键公开导出的人工描述映射（api.json 的 re-export 没带 JSDoc，这里 layered
 // 补一层）。spec 列出的关键导出全部覆盖；其余按 name/kind/from 显示。
 const EXPORT_DESCRIPTIONS: Record<string, string> = {
+  // === 值导出（组件 / 哨兵 / 工具，8 条）===
   Table: 'data-grid 表格组件（兼容 antd v6 Table）。',
   getRowKey: '与 Table 内部一致的 rowKey 解析工具；用于业务侧复现选中 / 展开锚点。',
-  EXPAND_COLUMN: 'antd 兼容哨兵列；插入 columns 即控制展开列渲染位置。',
-  SELECTION_COLUMN: 'antd 兼容哨兵列；插入 columns 即控制选择列渲染位置。',
-  SELECTION_ALL: 'antd 兼容选择菜单"全选"哨兵。',
-  SELECTION_NONE: 'antd 兼容选择菜单"清空"哨兵。',
-  SELECTION_INVERT: 'antd 兼容选择菜单"反选"哨兵。',
-  Summary: 'antd 兼容 summary API（`Summary` / `Summary.Row` / `Summary.Cell`）。',
+  EXPAND_COLUMN: '展开列占位哨兵；插入 columns 数组即控制展开列渲染位置（不传则默认最前）。',
+  SELECTION_COLUMN: '选择列占位哨兵；插入 columns 数组即控制选择列渲染位置（不传则默认最前）。',
+  SELECTION_ALL: '选择菜单"全选"操作哨兵；放入 rowSelection.selections 即在选择下拉里渲染"全选当前页"项。',
+  SELECTION_NONE: '选择菜单"清空"操作哨兵；放入 rowSelection.selections 即在选择下拉里渲染"清空选中"项。',
+  SELECTION_INVERT: '选择菜单"反选"操作哨兵；放入 rowSelection.selections 即在选择下拉里渲染"反选当前页"项。',
+  Summary: '表体底部汇总栏组件；以 Summary / Summary.Row / Summary.Cell 三段式声明总计或统计行。',
+  // === 类型导出：summary 域 ===
+  SelectionItem: '选择菜单单项类型；rowSelection.selections 数组元素（哨兵或自定义项）。',
+  SummaryProps: '`<Summary>` 容器组件的 props 类型（含 fixed 控制 sticky bottom）。',
+  SummaryRowProps: '`<Summary.Row>` 行组件的 props 类型。',
+  SummaryCellProps: '`<Summary.Cell>` 单元格的 props 类型（含 index 列号 / colSpan 跨列 / align 对齐）。',
+  // === 类型导出：Table / 列基础 ===
   TableProps: 'Table 组件的 props 类型。',
-  ColumnType: '列定义类型（兼容 antd `ColumnsType` 的元素类型）。',
+  ColumnType: '单列定义类型（含 key / title / dataIndex / width / render / sorter / filter 等字段）。',
+  ColumnsType: '列数组类型别名（`Array<ColumnType>`；分组列通过 children 嵌套表达）。',
+  TableColumnType: 'ColumnType 的命名空间风格别名（`Table.Column` 形态导入兼容）。',
+  TableColumnsType: 'ColumnsType 的命名空间风格别名（`Table.Columns` 形态导入兼容）。',
   TableRef: 'Table ref 句柄类型，暴露 `scrollTo` API。',
+  RowKeyType: '行 key 取值方式类型（字段名字符串或 `(record) => string | number` 函数）。',
+  SizeType: '表格密度取值类型（large / middle / medium / small / compact；缺省视觉等价 large）。',
+  Align: '单元格内容对齐方式类型（start / center / end；CSS Logical Properties 风格）。',
+  FixedInput: '固定列方向输入类型（true / left / right / start / end；布尔值内部归一化为左固定）。',
+  RenderedCell: '列 render 返回的旧对象形态类型（@deprecated 仅消费 children；建议改用普通 ReactNode）。',
+  ColumnOrSentinel: '列定义或哨兵联合类型（columns 数组元素；可混入 EXPAND_COLUMN / SELECTION_COLUMN）。',
+  // === 类型导出：选择域 ===
+  TableRowSelection: '行选择配置类型（rowSelection prop 的形状；含 selectedRowKeys / onChange / selections 等）。',
   GridSelectionOptions: 'data-grid 原生行选择配置类型（优先级高于 `rowSelection`）。',
-  GridColumnOptions: 'data-grid 列级专属选项类型（dragColumnLock / recycling cell hook）。',
-  VirtualizationMode: '虚拟渲染模式类型（`\'standard\'` | `\'recycling\'`）。',
+  GridSelectionMode: 'data-grid 原生行选择模式枚举（disabled / single / multiple / extended；extended 支持 Ctrl/Shift）。',
+  GridSelectionValue: 'data-grid 原生选择的业务选中值类型（string / number / boolean / symbol；建议 string/number）。',
+  RowSelectionType: '行选择模式枚举（checkbox 多选 / radio 单选）。',
+  RowSelectMethod: '行选择操作类型枚举（all / none / invert / single / multiple；onChange info.type 取值）。',
+  RowCheckboxProps: '行勾选 checkbox 的 props 子集（disabled / name；不含 checked，由状态机驱动）。',
+  Expandable: '行展开配置类型（expandable prop 的形状；含 expandedRowRender / rowExpandable / expandedRowKeys 等）。',
+  // === 类型导出：排序域 ===
+  SortOrder: '排序方向枚举（ascend / descend / null）。',
+  SortDirections: '排序方向循环数组类型（如 [ascend, descend]；点击表头按序循环）。',
+  CompareFn: '行比较函数类型 `(a, b) => number`；自定义排序比较，返回值同 `Array.prototype.sort`。',
+  ColumnSorter: '列排序器类型（boolean 开启默认比较 / CompareFn 自定义 / 对象多列排序）。',
+  SorterResult: '排序结果对象类型（column / order / field / columnKey；onChange 第三参的元素形态）。',
+  TableCurrentDataSource: 'onChange 第四参 extra 的类型（含 currentDataSource 当前数据源 + action 触发动作）。',
+  // === 类型导出：筛选域 ===
+  ColumnFilterItem: '单个筛选项类型（text 展示文案 / value 取值 / children 树形子项）。',
+  FilterConfirmProps: '自定义筛选面板 `confirm()` 入参类型（含 closeDropdown 控制确认后是否关闭下拉）。',
+  FilterResetProps: '自定义筛选面板 `clearFilters()` 入参类型（含 closeDropdown / confirm）。',
+  FilterDropdownProps: '自定义筛选面板渲染函数收到的 props 类型（selectedKeys / setSelectedKeys / confirm / clearFilters / visible 等）。',
+  ColumnFilterDropdownProps: '透传给筛选下拉底层 Dropdown 的 props 类型（open / onOpenChange / overlayClassName 等）。',
+  // === 类型导出：分页域 ===
+  TablePaginationConfig: '分页配置类型（current / pageSize / total / placement 等；透传给底层 antd Pagination）。',
+  TablePaginationPlacement: '分页位置枚举（topStart / topCenter / topEnd / bottomStart / bottomCenter / bottomEnd / none）。',
+  TablePaginationState: 'onChange 第一参 pagination 类型（含 current / pageSize / total 当前实际分页状态）。',
+  // === 类型导出：classNames / styles / sticky / locale / scrollbar ===
+  TableClassNames: 'classNames prop 的类型（TableSemanticClassNames 对象 或 `(info) => 对象` 函数）。',
+  TableStyles: 'styles prop 的类型（TableSemanticStyles 对象 或 `(info) => 对象` 函数）。',
+  TableSemanticClassNames: '按部位注入的 classNames 对象形态（root / header.cell / body.cell / pagination 等部位 → className 字符串）。',
+  TableSemanticStyles: '按部位注入的 styles 对象形态（结构与 TableSemanticClassNames 同构，值为 CSSProperties）。',
+  TableSemanticInfo: 'classNames/styles 函数形态收到的 info 参数类型（含 size / bordered / virtual / scroll / pagination 子集）。',
+  StickyConfig: 'sticky prop 的对象配置类型（offsetHeader / offsetScroll / getContainer）。',
+  ScrollBarFoldMode: '悬浮滚动条折叠或显示策略类型（showOnTableHover / expandOnHover）。',
+  TableLocale: '本地化文案配置类型（filterConfirm / filterReset / emptyText / selectAll 等文案字段）。',
+  // === 类型导出：recycling cell 域 ===
+  GridColumnOptions: 'data-grid 列级专属选项类型（dragColumnLock / recycling cell 回调）。',
+  VirtualizationMode: '虚拟渲染模式类型（standard 默认 / recycling DOM 复用）。',
+  DisposeCellElementReason: 'recycling cell element 被释放的原因枚举（recycle / replace / discard / unmount）。',
+  GridCellRenderParams: 'recycling cell 渲染回调共用的基础参数类型（value / record / rowIndex / columnIndex / columnKey 等）。',
+  GridCellElementRenderParams: 'recycling cell HTMLElement 渲染回调的参数类型（继承 GridCellRenderParams）。',
+  GridCellReactSlotProps: 'recycling cell React slot 渲染回调的 slot 参数类型（含 key，必须用作返回元素 key）。',
 }
 
 export function renderPublicApi({ onOpen }: DocsPageContext) {
@@ -1066,7 +1116,7 @@ export function renderColumnApi({ onOpen }: DocsPageContext) {
       id="column-props"
       eyebrow="列"
       title="Column props"
-      description="属性清单由 src/docs/generated/api.json 自动生成（extract-api.mjs 提取 ColumnType 公开成员）。data-grid 专属列级能力（拖拽锁定、recycling cell hook）归入 gridColumnOptions，参考 gridOptions 页。"
+      description="属性清单由 src/docs/generated/api.json 自动生成（extract-api.mjs 提取 ColumnType 公开成员）。data-grid 专属列级能力（拖拽锁定、recycling cell 回调）归入 gridColumnOptions，参考 gridOptions 页。"
     >
       <ApiRefTable
         members={getApiMembers('column')}
@@ -1177,7 +1227,7 @@ export function renderDeprecatedAntdMembers({ onOpen }: DocsPageContext) {
   )
 }
 
-export function renderKnownLimitations() {
+export function renderKnownLimitations({ onOpen }: DocsPageContext) {
   return (
     <>
       <DocSection id="boundaries" eyebrow="边界" title="架构边界和兼容缺口">
@@ -1190,6 +1240,9 @@ export function renderKnownLimitations() {
           dataSource={limitationRows}
           rowKey="key"
         />
+        <DocsNote title="本页与兼容矩阵 / 过时成员页的分工">
+          本页回答「data-grid 在架构层有哪些边界与 backlog」——DOM 形态、ARIA、RTL、scroll.y 数字语义、components 替换范围等。想看某个 API 领域整体兼容到什么程度，去兼容矩阵；想看具体某个 deprecated 成员怎么改，去过时成员页。
+        </DocsNote>
       </DocSection>
       <DocSection id="backlog" eyebrow="Backlog" title="可实施兼容项">
         <ul className="docs-bullet-list">
@@ -1199,6 +1252,16 @@ export function renderKnownLimitations() {
           <li><Text code>dataIndex</Text> 的 DeepNamePath 类型增强。</li>
           <li><Text code>sticky.offsetSummary</Text></li>
         </ul>
+      </DocSection>
+      <DocSection id="related" eyebrow="相关" title="相关边界细节页">
+        <DocsActionList
+          actions={[
+            { label: 'scroll.y 语义', kind: 'doc', value: 'scroll-y' },
+            { label: 'Semantic DOM 槽位落点', kind: 'doc', value: 'semantic-dom' },
+            { label: '兼容矩阵', kind: 'doc', value: 'compat-matrix' },
+          ]}
+          onOpen={onOpen}
+        />
       </DocSection>
     </>
   )
@@ -1245,14 +1308,15 @@ export function renderGridOptions({ onOpen }: DocsPageContext) {
           members={getApiMembers('gridColumnOptions')}
           anchorPrefix="grid-column-options"
           onOpenDoc={(slug) => onOpen({ kind: 'doc', value: slug, label: slug })}
-          description="列级专属能力；逃逸舱（escape-hatch）hook 自动分区显示。"
+          description="列级专属能力；逃逸舱（escape-hatch）回调自动分区显示。"
         />
         <DocsCode code={GRID_COLUMN_OPTIONS_CODE} height={300} ariaLabel="gridColumnOptions 示例代码" />
       </DocSection>
       <DocSection id="recycling" eyebrow="虚拟化" title="recycling 渲染模式">
         <DocsNote title="使用条件">
           <Text code>virtualizationMode: 'recycling'</Text> 只在 <Text code>virtual</Text> 与
-          <Text code>{'scroll={{ y: true }}'}</Text> 同时启用时生效。普通业务优先使用默认
+          <Text code>{'scroll={{ y: true }}'}</Text>（详见{' '}
+          <a href="#/docs/scroll-y">scroll.y 语义</a>）同时启用时生效。普通业务优先使用默认
           <Text code>standard</Text>，只有超大表格或需要在 DOM 层做深度集成时才考虑 recycling。
         </DocsNote>
         <DocsCode code={RECYCLING_CODE} height={260} ariaLabel="recycling 虚拟化示例代码" />
@@ -1290,7 +1354,7 @@ export function renderWhenToMigrate({ onOpen }: DocsPageContext) {
             <Text code>onSort</Text> 内提交新顺序，无需拼装 DnD 库。
           </li>
           <li>
-            <Text strong>多级表头 + 合并 + 固定列组合</Text>：CSS Grid 渲染模型让三者能在同一套布局下共存，避免 rc-table 在复杂组合下的对齐漂移。
+            <Text strong>多级表头 + 合并 + 固定列组合</Text>：CSS Grid 渲染模型让三者能在同一套布局下共存，避免传统 React 表格底层库（如 rc-table）在复杂组合下的对齐漂移。
           </li>
           <li>
             <Text strong>antd v6 兼容 API + grid 渲染</Text>：希望继续用
@@ -1308,27 +1372,10 @@ export function renderWhenToMigrate({ onOpen }: DocsPageContext) {
       >
         <ul className="docs-bullet-list">
           <li>
-            <Text strong>强依赖原生 table/thead/tbody/tr DOM 选择器</Text>：data-grid 是 CSS Grid div 结构，不输出
-            <Text code>thead</Text> / <Text code>tbody</Text> / <Text code>tr</Text> 容器。爬虫、第三方表格插件、按
-            <Text code>tbody tr td</Text> 写的样式选择器都会失效。
-          </li>
-          <li>
-            <Text strong>需要完整 ARIA table / row / rowgroup role 树</Text>：data-grid 不伪造
-            <Text code>role="row"</Text> / <Text code>rowgroup</Text> 等依赖原生 DOM 层级的角色。已支持的
-            <Text code>aria-sort</Text> / <Text code>aria-expanded</Text> / <Text code>aria-colspan</Text> /
-            <Text code>aria-rowspan</Text> 在「Semantic DOM」页列出。
-          </li>
-          <li>
-            <Text strong>需要 antd <Text code>scroll.y</Text> 数字 max-height 语义</Text>：data-grid 把
-            <Text code>scroll.y</Text> 重新定义为数据区域模式开关，只接受
-            <Text code>true</Text>，高度由父容器决定，不接受数字 / 字符串 max-height。
-          </li>
-          <li>
-            <Text strong>需要 RTL 系统支持</Text>：方向、fixed、sticky 和拖拽方向尚未系统处理，需要独立设计与回归。
-          </li>
-          <li>
-            <Text strong>依赖 <Text code>components.header.cell</Text> / <Text code>wrapper</Text> / <Text code>table</Text> 级替换</Text>：data-grid 当前公开的
-            <Text code>components</Text> 仅支持 <Text code>body.cell</Text> 与 <Text code>body.row</Text>。
+            <Text strong>架构边界 / 兼容缺口</Text>：data-grid 不复刻原生 table / thead / tbody / tr DOM、不伪造完整 ARIA table / row / rowgroup role 树、
+            <Text code>scroll.y</Text> 不接受数字 / 字符串 max-height、RTL 未系统支持、
+            <Text code>components</Text> 仅暴露 <Text code>body.cell</Text> / <Text code>body.row</Text>（无 header.cell / wrapper / table）。详见{' '}
+            <a href="#/docs/known-limitations">已知限制页</a>。
           </li>
           <li>
             <Text strong>依赖大量 deprecated antd 成员</Text>：例如
@@ -1339,9 +1386,6 @@ export function renderWhenToMigrate({ onOpen }: DocsPageContext) {
             <Text strong>需要逐字对齐 antd 历史所有 API</Text>：data-grid 优先对齐真实业务常用的 antd v6 Table 行为，不追求全量历史兼容 API。
           </li>
         </ul>
-        <DocsNote title="先核对再迁">
-          迁移前请先过一遍「已知限制」「兼容矩阵」「过时成员」三页，把上面的红色场景圈出来；命中任意一条都需要先决定改造方案再动手。
-        </DocsNote>
       </DocSection>
 
       <DocSection id="next" eyebrow="继续" title="相关参考">

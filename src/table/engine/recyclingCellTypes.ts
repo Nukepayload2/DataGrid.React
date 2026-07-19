@@ -52,7 +52,7 @@ export type DisposeCellElementReason =
  * data-grid 专属列级选项。
  *
  * 这些字段不属于 antd ColumnType，必须放在 `column.gridColumnOptions` 下。普通业务优先使用
- * `render` / `onCell` / `components.body.cell`；下面的 cell render hooks 是为 recycling 虚拟化、
+ * `render` / `onCell` / `components.body.cell`；下面的 cell render 回调是为 recycling 虚拟化、
  * 大规模列表或非 React DOM 集成准备的逃逸舱（escape-hatch）。
  */
 export interface GridColumnOptions<RecordType> {
@@ -65,7 +65,7 @@ export interface GridColumnOptions<RecordType> {
    */
   dragColumnLock?: 'lockDrag' | 'lockPosition'
   /**
-   * 逃逸舱（escape-hatch）HTMLElement 渲染 hook，仅在 recycling cell 路径下使用。
+   * 逃逸舱（escape-hatch）HTMLElement 渲染回调，仅在 recycling cell 路径下使用。
    *
    * `oldElement` 是上一轮可复用的元素；可返回它并自行更新 DOM，也可返回新元素。返回的元素由
    * data-grid 接管定位和生命周期。不要在这里读取 React state 闭包后长期缓存，滚动复用会让同一
@@ -76,7 +76,7 @@ export interface GridColumnOptions<RecordType> {
     oldElement: HTMLElement | undefined,
   ) => HTMLElement
   /**
-   * recycling cell 的 React slot 渲染 hook。
+   * recycling cell 的 React slot 渲染回调。
    *
    * 返回的 ReactElement 必须使用 `slot.key` 作为 key；返回 null 表示该格无 React 内容。
    * 适合仍想写 React 内容、但希望由 recycling 路径控制外层 cell 复用的场景。

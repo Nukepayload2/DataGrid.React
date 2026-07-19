@@ -8,7 +8,7 @@
 import type { ReactNode } from 'react'
 
 /**
- * 分页位置（对齐 antd v6 `TablePaginationPlacement`，**以 antd 6.4.4 实测为准**）。
+ * 分页位置（v6 数组语义，**以 antd 6.4.4 实测为准**）。
  *
  * antd v6 的 `Pagination.placement` 是**数组**（非 v5 的 `position`）：
  *   - `'topStart' | 'topCenter' | 'topEnd'`：顶部 + 对齐（Start 左 / Center 中 / End 右）。
@@ -17,6 +17,8 @@ import type { ReactNode } from 'react'
  *
  * 数组取"含 'top' 的首个元素"决定顶部位置 + 对齐；"含 'bottom' 的首个元素"决定底部位置 + 对齐；
  * 全部为 'none' → 不渲染分页器。默认 `['bottomEnd']`（底部右对齐）。
+ *
+ * 同名同义于 antd v6 `TablePaginationPlacement`。
  */
 export type TablePaginationPlacement =
   | 'topStart'
@@ -28,7 +30,7 @@ export type TablePaginationPlacement =
   | 'none'
 
 /**
- * 分页配置（对齐 antd v6 `TablePaginationConfig extends PaginationProps`）。
+ * 分页配置（data-grid 透传给底层 antd `<Pagination>`）。
  *
  * **默认分页对齐 antd**：`pagination` 为 `undefined` 时等价 `{}`，默认 pageSize=10 并渲染
  * bottomEnd 分页器；`pagination={false}` 才关闭分页、数据全显。
@@ -43,6 +45,8 @@ export type TablePaginationPlacement =
  *   - `onChange(page, pageSize)` / `onShowSizeChange(current, size)`：透传 antd Pagination（在 Table onChange 之外独立）。
  *
  * 非核心控件用 antd `<Pagination>`，不自研。详见 `docs/features/interaction/pagination-and-data.md`。
+ *
+ * 类型同名同义于 antd v6 `TablePaginationConfig extends PaginationProps`。
  */
 export interface TablePaginationConfig {
   /** 受控当前页（1-based）。传入即受控。 */

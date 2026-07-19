@@ -27,12 +27,14 @@ export interface RowCheckboxProps {
 }
 
 /**
- * 行选择回调用"操作类型"（对齐 antd `RowSelectMethod`，便于调用方区分批量/单次）。
+ * 行选择回调用"操作类型"（便于调用方区分批量/单次操作）。
  * - 'all'：多选全选。
  * - 'none'：多选全不选。
  * - 'invert'：反选（状态机已支持，UI 暴露视 selections 配置）。
  * - 'single'：单选（radio 或单次点击 checkbox）。
  * - 'multiple'：多选连续操作（单一勾选也归类为 single）。
+ *
+ * 同名同义于 antd `RowSelectMethod`。
  */
 export type RowSelectMethod = 'all' | 'none' | 'invert' | 'single' | 'multiple'
 
@@ -80,10 +82,11 @@ export interface GridSelectionOptions<RecordType = any> {
 }
 
 /**
- * 自定义组件类型（对齐 antd v6 `TableComponents` 子集）。
+ * 自定义组件类型：`components` prop 的形状，让调用方替换表格内部默认渲染的元素。
  *
- * `components` prop 让调用方替换表格内部默认渲染的元素。data-grid 用 div 渲染（非 table/tr/td），
- * 故 `body.cell` / `body.row` 的语义与 antd 略有适配（见各字段注释）。
+ * data-grid 用 div 渲染（非 table/tr/td），故 `body.cell` / `body.row` 的语义与 antd 略有适配（见各字段注释）。
+ *
+ * 类型同名同义于 antd v6 `TableComponents` 子集。
  */
 export interface TableComponents {
   /**

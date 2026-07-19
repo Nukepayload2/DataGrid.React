@@ -4,6 +4,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -158,6 +159,11 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
   const algorithm =
     themeMode === 'dark' ? theme.darkAlgorithm : theme.defaultAlgorithm
+
+  useEffect(() => {
+    document.documentElement.style.colorScheme =
+      themeMode === 'dark' ? 'dark' : 'light'
+  }, [themeMode])
 
   const ctxValue = useMemo<ThemeContextValue>(
     () => ({

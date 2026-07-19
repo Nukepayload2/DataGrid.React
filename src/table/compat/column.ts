@@ -1,7 +1,9 @@
 /**
- * antd column 兼容类型。
+ * data-grid 列定义类型。
  *
- * `ColumnType` 接口：antd `TableProps['columns'][number]` 的 data-grid 实现，覆盖 demo 用到的字段集。
+ * `ColumnType` 接口是 data-grid 列定义的主入口，覆盖真实业务常用的字段集
+ * （key/title/dataIndex/width/align/fixed + render/onCell/sorter/filter/ellipsis/hidden/responsive 等）。
+ * 字段集与 antd `TableProps['columns'][number]` 同名同义，便于直接迁移。
  */
 // 按业务域从 compatTypes.ts 拆出；filter/sort 域类型由各自子模块 `import type` 纯类型引入。
 
@@ -28,12 +30,47 @@ export interface RenderedCell {
 }
 
 /**
- * antd column 子集（demo 用到的）。
- * `dataIndex` 支持字符串/数字/路径数组（与 antd 一致）。
+ * 列定义（data-grid 列类型，覆盖真实业务常用的 antd column 子集）。
+ * `dataIndex` 支持字符串/数字/路径数组。
  */
 export interface ColumnType<RecordType = any> {
+  /**
+   * 列唯一 key。
+   *
+   * **用途**：列拖拽排序（`columnDragSort.onSort` 回调里的列标识）、React key 复用、
+   * 筛选状态对象 `{ [columnKey]: filteredValue[] }` 的 key 来源、受控排序 `{ columnKey }` 标识。
+   *
+   * **缺省兜底**：未提供时按 `dataIndex` 兜底；`dataIndex` 也未提供时按列在数组中的索引兜底。
+   * 多级表头 / 筛选 / 排序 / 拖拽场景**建议显式提供稳定 key**，避免因列顺序变化导致标识漂移。
+   *
+   * 与 antd `column.key` 同义。
+   */
   key?: React.Key
+  /**
+   * 列标题内容。
+   *
+   * **取值**：任意 ReactNode（字符串最常见；也可传 JSX，如带图标的标题、带排序提示的复合标题）。
+   *
+   * **多级表头**：分组列（有 `children`）的 `title` 作为该分组的分组标题渲染；
+   * 叶子列的 `title` 作为该列的列表头格内容。
+   *
+   * 与 antd `column.title` 同义。
+   */
   title?: ReactNode
+  /**
+   * 取值字段路径。
+   *
+   * **取值**：
+   *   - 字符串：取 `record[dataIndex]`（如 `'name'`）。
+   *   - 数字：按数组下标取值（用于 record 字段是数组的场景）。
+   *   - 路径数组：嵌套 record 取值（如 `['user', 'address', 'city']` 取 `record.user.address.city`）。
+   *
+   * **用途**：默认单元格渲染（无 `render` 时直接显示 `record[dataIndex]`）、
+   * 排序默认比较字段（`sorter: true` 时按本字段值比较）、筛选 onChange 的 filters 对象 key 兜底
+   * （当 `column.key` 未提供时以 `dataIndex` 作 key）。
+   *
+   * 与 antd `column.dataIndex` 同义（data-grid 同样支持路径数组形态）。
+   */
   dataIndex?: string | number | Array<string | number>
   /**
    * data-grid 列级专属选项命名空间。
@@ -44,11 +81,49 @@ export interface ColumnType<RecordType = any> {
    *   - `dragColumnLock`：列拖拽锁定模式（列拖拽排序）。
    */
   gridColumnOptions?: GridColumnOptions<RecordType>
+  /**
+   * 列宽。
+   *
+   * **取值**：
+   *   - number：px（如 `100` → `100px`）。
+   *   - string：原样作为 CSS 长度（如 `'30%'`、`'10em'`、`'100px'`）。
+   *
+   * **缺省语义**：未提供（undefined）时该列 track 走 auto 计算策略（内容 + grid `1fr` 分配），
+   * 不强加固定下限。**与 antd 差异**：data-grid 在 CSS Grid 下用 `minmax(min-content, 1fr)`
+   * 表达 auto 列（内容会换行而非硬撑单行），详见 `docs/features/columns/column-width.md`。
+   *
+   * 与列宽拖拽（`gridOptions.resizable`）组合：拖拽结果会覆盖本字段的运行时宽度。
+   */
   width?: number | string
+  /**
+   * 单元格内容对齐方式。
+   *
+   * **取值**：`'start'`（默认，视觉左对齐）/ `'center'`（居中）/ `'end'`（视觉右对齐）。
+   *
+   * **生效范围**：本列**所有数据单元格 + 表头格**的对齐都由本字段决定（与 antd 一致）。
+   *
+   * **与 antd 差异**：antd 取 `'left' | 'center' | 'right'`；data-grid 用 CSS Logical Properties
+   * 风格的 `'start' | 'center' | 'end'`（在 LTR 上下文下视觉等价 antd 取值）。
+   */
   align?: Align
+  /**
+   * 固定列（sticky）。
+   *
+   * **取值**：
+   *   - `true` / `'left'` / `'start'`：固定在表格左侧（多列固定按声明顺序从左到右叠放，
+   *     sticky left 偏移按其左侧已固定列宽累加）。
+   *   - `'right'` / `'end'`：固定在表格右侧（sticky right 偏移按其右侧已固定列宽累加）。
+   *   - `false` / undefined：普通列（随横向滚动）。
+   *
+   * **生效条件**：固定列视觉仅在启用横向滚动（`scroll.x`）时显现（否则无横向位移，sticky 无视觉差异）。
+   * 多级表头下分组列的 `fixed` 透传到全部子叶子；合并单元格（`onCell` colSpan / rowSpan）跨固定列
+   * 边界的行为与 antd 一致。
+   *
+   * 与 antd `column.fixed` 同义（data-grid 额外接受 `'start'` / `'end'` 别名）。
+   */
   fixed?: FixedInput
   /**
-   * 该列单元格的额外 className（对齐 antd v6 `column.className`）。
+   * 该列单元格的额外 className。
    *
    * 注入到本列所有数据单元格 + 表头格。
    *
@@ -57,22 +132,26 @@ export interface ColumnType<RecordType = any> {
    *
    * 未提供（undefined）时不注入（零回归）。
    *
+   * 同名同义于 antd v6 `column.className`。
+   *
    * @internal 数据格对应 `.dg-cell-body`、表头格对应 `.dg-cell-header`；grid 渲染下直接合并到
    *   单元格 div 的 className 列表。
    */
   className?: string
   /**
-   * 该列单元格的额外 inline style（对齐 antd v6 `column.style`，对齐 antd 列类型）。
+   * 该列单元格的额外 inline style。
    *
    * 注入到本列所有数据单元格 + 表头格，与 `className` 同款注入（合并到单元格 style，覆盖同名字段）。
    *
    * 未提供（undefined）时不注入（零回归）。
    *
+   * 同名同义于 antd v6 `column.style`。
+   *
    * @internal 与 className 同款注入路径：grid 渲染下合并到单元格 div 的 style。
    */
   style?: import('react').CSSProperties
   /**
-   * 表头格 props 注入（对齐 antd v6 `column.onHeaderCell`）。
+   * 表头格 props 注入。
    *
    * 签名 `(column, index) => React.HTMLAttributes`：
    *   - `column`：该列表头格对应的原始 antd 列定义（调用方一般不读，直接返回固定 props）。
@@ -85,13 +164,15 @@ export interface ColumnType<RecordType = any> {
    * **与 onCell 对称**：onCell 注入数据格，onHeaderCell 注入表头格。
    *
    * 未提供（undefined）时不注入（零回归）。
+   *
+   * 同名同义于 antd v6 `column.onHeaderCell`。
    */
   onHeaderCell?: (
     column: ColumnType<RecordType>,
     index: number,
   ) => import('react').HTMLAttributes<HTMLElement> | undefined
   /**
-   * 省略号（对齐 antd v6 `column.ellipsis`）。
+   * 单元格内容省略号（text-overflow:ellipsis）。
    *
    * 取值：
    *   - `true`：单元格/表头加 ellipsis CSS 类（`text-overflow:ellipsis` +
@@ -107,6 +188,8 @@ export interface ColumnType<RecordType = any> {
    * 详见 `docs/features/display/ellipsis.md`；列宽与省略号视觉的关系见
    * `docs/features/columns/column-width.md`。
    *
+   * 取值形态同名同义于 antd v6 `column.ellipsis`（含 `{ showTitle?: boolean }` 对象形态）。
+   *
    * @internal 适配层 normalize：`true` / `{showTitle:true}` / `{}` → ellipsis=true & showTitle=true；
    *   `{showTitle:false}` → ellipsis=true & showTitle=false；`false`/undefined → ellipsis=false。
    *   title 属性挂在单元格 `.dg-cell-inner` 上。已知视觉 gap：列宽默认 max-content 使 ellipsis 列
@@ -115,7 +198,7 @@ export interface ColumnType<RecordType = any> {
    */
   ellipsis?: boolean | { showTitle?: boolean }
   /**
-   * 隐藏该列（对齐 antd `column.hidden`）。
+   * 隐藏该列。
    *
    *   - `true`：该叶子列的可视内容不渲染（表头格 + 数据单元格均隐藏）。
    *   - `false` / undefined：正常渲染。
@@ -127,6 +210,8 @@ export interface ColumnType<RecordType = any> {
    * 多级表头父分组格随子叶子收缩；选择列作为普通叶子列参与，同样可被 hidden。
    *
    * 详见 `docs/features/columns/hidden-column.md`。
+   *
+   * 同名同义于 antd `column.hidden`。
    *
    * @internal 实现采用 **grid track `0fr`** 方案：把该叶子列对应的 `grid-template-columns`
    *   一条 track 置为 `0fr`（track 仍存在、列线号不变），单元格内容用 `visibility:hidden` +
@@ -237,7 +322,7 @@ export interface ColumnType<RecordType = any> {
    */
   showSorterTooltip?: boolean | { target?: 'full-header' | 'sorter-icon' }
   /**
-   * 筛选项列表（对齐 antd `column.filters`）。
+   * 筛选项列表。
    *
    * **语义**：数组非空 + 配 `onFilter` 时该列表头渲染筛选漏斗图标，点击弹出筛选下拉。
    *   - 顶层项作为勾选项参与筛选（`text` 显示，`value` 作为 onFilter 第一参 + onChange filters 数组元素）。
@@ -248,10 +333,12 @@ export interface ColumnType<RecordType = any> {
    * 多选时命中任一即保留该 record（OR 语义）；单选时只保留命中该 value 的 record。
    *
    * 详见 `docs/features/interaction/filter-sorter.md`。
+   *
+   * 同名同义于 antd `column.filters`。
    */
   filters?: Array<ColumnFilterItem>
   /**
-   * 筛选判定函数（对齐 antd `column.onFilter`）。
+   * 筛选判定函数。
    *
    * 签名 `(value, record) => boolean`：返回 true 表示该 value 命中该 record。
    * 与 `filters` 配合：当前选中值集合中**任一**命中即保留该 record（OR 语义，对齐 antd）。
@@ -262,12 +349,16 @@ export interface ColumnType<RecordType = any> {
    *   data-grid 仍按 `filteredValue` 显示漏斗激活态、触发 onChange。
    *
    * 详见 `docs/features/interaction/filter-sorter.md`。
+   *
+   * 同名同义于 antd `column.onFilter`。
    */
   onFilter?: (value: FilterValue, record: RecordType) => boolean
   /**
-   * 是否多选（对齐 antd `column.filterMultiple`，默认 true）。
+   * 是否多选（默认 true）。
    * - `true`（默认）：Checkbox.Group 多选，命中任一保留（OR）。
    * - `false`：Radio 单选，仅保留命中该 value 的 record。
+   *
+   * 同名同义于 antd `column.filterMultiple`。
    */
   filterMultiple?: boolean
   /**
@@ -283,16 +374,16 @@ export interface ColumnType<RecordType = any> {
    */
   filteredValue?: Array<FilterValue> | null
   /**
-   * 关闭下拉即应用筛选（对齐 antd `column.filterOnClose`，默认 true）。
+   * 关闭下拉即应用筛选（默认 true）。
    *
    * - `true`（默认）：用户关闭下拉（点击外部/ESC/确定按钮）即把当前勾选应用为 filteredValue。
    * - `false`：必须点"确定"按钮才应用；关闭下拉（点外部/ESC）丢弃未确认的勾选（恢复到上次应用值）。
    *
-   * 对齐 antd v6 默认行为（filterOnClose=true）。
+   * 默认值与 antd v6 一致（filterOnClose=true）。同名同义于 antd `column.filterOnClose`。
    */
   filterOnClose?: boolean
   /**
-   * 自定义筛选下拉面板（对齐 antd `column.filterDropdown`）。
+   * 自定义筛选下拉面板。
    *
    * **语义**：传入即**取代**内置 Checkbox/Radio 下拉。data-grid 把它渲染进 antd Dropdown 的
    * popupRender，并按 antd 兼容签名注入 props（`selectedKeys`/`setSelectedKeys`/`confirm`/
@@ -311,6 +402,8 @@ export interface ColumnType<RecordType = any> {
    *
    * 详见 `docs/features/interaction/filter-sorter.md`。
    *
+   * 同名同义于 antd `column.filterDropdown`。
+   *
    * @internal 过滤管线由 `useFilter` 实现：filterDropdown 的 selectedKeys 经 confirm 应用为
    *   filteredValue，再由 useFilter 过滤。
    */
@@ -318,25 +411,29 @@ export interface ColumnType<RecordType = any> {
     | React.ReactNode
     | ((props: FilterDropdownProps) => React.ReactNode)
   /**
-   * 自定义漏斗图标（对齐 antd `column.filterIcon`）。
+   * 自定义漏斗图标。
    *
    * 函数签名 `(filtered: boolean) => ReactNode`：filtered=true 表示该列有激活筛选（图标激活态）。
    * 也可直接传 ReactNode（恒定图标，不随激活态变化）。
    *
    * 缺省：未提供时由 data-grid 默认渲染漏斗图标（未激活态/激活态）。
    *
+   * 同名同义于 antd `column.filterIcon`。
+   *
    * @internal 缺省图标为 FilterOutlined（未激活）/ FilterFilled（激活）。
    */
   filterIcon?: React.ReactNode | ((filtered: boolean) => React.ReactNode)
   /**
-   * 透传给筛选下拉 antd Dropdown 的 props（对齐 antd `column.filterDropdownProps`，since 5.22）。
+   * 透传给筛选下拉底层 antd Dropdown 的 props。
    *
    * 用于受控打开（`open`）、`onOpenChange` 订阅、`triggerClassName`/`overlayClassName` 等。
    * 与内置 Dropdown 集成：data-grid 把这些 props 合并到 antd Dropdown（open 受控优先于内部 state）。
+   *
+   * 同名同义于 antd `column.filterDropdownProps`（since 5.22）。
    */
   filterDropdownProps?: ColumnFilterDropdownProps
   /**
-   * 筛选下拉展示模式（对齐 antd `column.filterMode`，默认 `'menu'`）。
+   * 筛选下拉展示模式（默认 `'menu'`）。
    *
    * 取值：
    *   - `'menu'`（默认）：内置扁平下拉（Checkbox.Group 多选 / Radio.Group 单选）。
@@ -355,10 +452,12 @@ export interface ColumnType<RecordType = any> {
    * 默认 `'menu'`：现有 head/filter-search/custom-filter-panel 等不设 filterMode 的列仍走 menu 分支（零回归）。
    *
    * 详见 `docs/features/interaction/filter-sorter.md`。
+   *
+   * 同名同义于 antd `column.filterMode`。
    */
   filterMode?: 'menu' | 'tree'
   /**
-   * 筛选项搜索（对齐 antd `column.filterSearch`）。
+   * 筛选项搜索。
    *
    * 对**内置下拉面板**生效（menu 模式：Checkbox.Group/Radio.Group 顶部渲染搜索框过滤扁平项；
    * tree 模式：antd `<Tree filterTreeNode>` 过滤树节点）；自定义面板（`filterDropdown`）不消费此字段。
@@ -380,23 +479,27 @@ export interface ColumnType<RecordType = any> {
    *
    * 详见 `docs/features/interaction/filter-sorter.md`。
    *
+   * 同名同义于 antd `column.filterSearch`。
+   *
    * @internal data-grid 引擎层筛选项内部类型为 `EngineFilterItem`，与 `ColumnFilterItem` 同构。
    */
   filterSearch?:
     | true
     | ((input: string, record: ColumnFilterItem) => boolean)
   /**
-   * 单元格重渲染优化（对齐 antd `column.shouldCellUpdate`）。
+   * 单元格重渲染优化。
    *
    * 签名 `(prevRecord, nextRecord) => boolean`：返回 `false` 时该单元格在 record 变化时**不重渲染**
    * （沿用上一次渲染结果）；返回 `true` 或不提供时正常重渲染。用于编辑/复杂单元格场景的性能优化
    * （避免无关 record 字段变化触发昂贵重渲染）。
    *
    * 注意：仅当 `components.body.cell` 提供时本字段才被消费（默认渲染路径不消费，零回归）。
+   *
+   * 同名同义于 antd `column.shouldCellUpdate`。
    */
   shouldCellUpdate?: (prevRecord: RecordType, nextRecord: RecordType) => boolean
   /**
-   * 响应式列显隐（对齐 antd `column.responsive`，since 4.x）。
+   * 响应式列显隐：按视口断点决定该列是否渲染。
    *
    * **语义**：
    *   - `undefined` / 空数组：该列**始终显示**（所有现有 demo 的默认行为，零回归）。
@@ -416,6 +519,8 @@ export interface ColumnType<RecordType = any> {
    *
    * 详见 `docs/features/columns/responsive-columns.md`。
    *
+   * 同名同义于 antd `column.responsive`（since 4.x）；断点激活判定对齐 antd `Grid.useBreakpoint`。
+   *
    * @internal 匹配算法与实现位置对齐 antd InternalTable（mergedColumns 派生时过滤）：
    *   Table 适配层在构建列树前用 `Grid.useBreakpoint` 过滤 columns——responsive 不匹配的列
    *   直接从 columns 数组移除（不进入 `toEngineColumns` / 引擎列树），引擎层无需感知 responsive。
@@ -426,9 +531,9 @@ export interface ColumnType<RecordType = any> {
 }
 
 /**
- * antd 风格列数组别名。
+ * 列数组别名（`Array<ColumnType<RecordType>>`）。
  *
- * data-grid 的分组列通过 `ColumnType.children` 表达，因此这里直接对齐
- * antd `ColumnsType<T>` 的数组入口形状。
+ * data-grid 的分组列通过 `ColumnType.children` 表达，因此该入口形状与
+ * antd `ColumnsType<T>` 同构，便于直接迁移。
  */
 export type ColumnsType<RecordType = any> = Array<ColumnType<RecordType>>

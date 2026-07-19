@@ -356,6 +356,7 @@ function App() {
 
   const goDocsSearchResult = (slug: string) => {
     setDocsSearchOpen(false)
+    setDocsSearch('')
     navigate(`/docs/${slug}`)
   }
 
@@ -422,8 +423,9 @@ function App() {
             options={globalSearchOptions}
             open={globalSearchOpen && globalSearchQuery.length > 0}
             onChange={(value) => {
-              setGlobalSearch(value)
-              setGlobalSearchOpen(value.trim().length > 0)
+              const next = value ?? ''
+              setGlobalSearch(next)
+              setGlobalSearchOpen(next.trim().length > 0)
             }}
             onFocus={() => setGlobalSearchOpen(globalSearchQuery.length > 0)}
             onBlur={() => setGlobalSearchOpen(false)}
@@ -436,12 +438,15 @@ function App() {
         ) : view.kind === 'docs' ? (
           <AutoComplete
             className="app-docs-search"
+            popupMatchSelectWidth={false}
+            classNames={{ popup: { root: 'app-docs-search-popup' } }}
             value={docsSearch}
             options={docsSearchOptions}
             open={docsSearchOpen && docsSearchQuery.length > 0}
             onChange={(value) => {
-              setDocsSearch(value)
-              setDocsSearchOpen(value.trim().length > 0)
+              const next = value ?? ''
+              setDocsSearch(next)
+              setDocsSearchOpen(next.trim().length > 0)
             }}
             onFocus={() => setDocsSearchOpen(docsSearchQuery.length > 0)}
             onBlur={() => setDocsSearchOpen(false)}

@@ -32,23 +32,24 @@ export type RowKeyType = string | ((record: any) => string | number)
 
 export interface TableProps<RecordType = any> {
   /**
-   * 列默认值（对齐 antd v6 `TableProps.column`）。
-   *
-   * **语义**：Table 级列默认属性，作为**所有列**（含 `columns` 与 JSX children 声明的列）
-   * 的公共默认值。单列可通过自身同名字段覆盖。
+   * Table 级列默认属性，作为**所有列**（含 `columns` 与 JSX children 声明的列）
+   * 的公共默认值；单列可通过自身同名字段覆盖。
    *
    * **合并方向（列自身优先）**：对每列做浅合并——`column` prop 提供默认值，列自身同名字段覆盖之；
-   * 列自身未设置（`undefined`）的字段回退到 `column` 默认。合并语义与 antd 一致。
+   * 列自身未设置（`undefined`）的字段回退到 `column` 默认。
    *
    * **递归**：多级表头（`column.children`）的每个层级都应用 `column` 默认；`column` 自身的
-   * `children` 字段不参与合并（与 antd 一致，避免错误注入分组结构）。
+   * `children` 字段不参与合并（避免错误注入分组结构）。
    *
    * **哨兵豁免**：`Table.EXPAND_COLUMN` / `Table.SELECTION_COLUMN` 哨兵对象不参与合并。
    *
-   * **典型用例**（antd `column-defaults` demo）：`column={{ align: 'center', ellipsis: true }}`
+   * **典型用例**：`column={{ align: 'center', ellipsis: true }}`
    * 让所有列默认居中 + 省略；单列 `align: 'left'` 覆盖为左对齐。
    *
    * 未提供（undefined）时不做任何合并，所有列保持原样（零回归）。
+   *
+   * 同名同义于 antd v6 `TableProps.column`：合并语义、递归规则、哨兵豁免均与 antd 一致
+   * （典型用例可参照 antd `column-defaults` demo）。
    *
    * @internal 精确合并算法对齐 antd `useFilledColumns`
    *   （`components/table/hooks/useFilledColumns.ts`）+ `@rc-component/util` 的 `mergeProps`
@@ -68,12 +69,91 @@ export interface TableProps<RecordType = any> {
    * 多级表头递归合并）；详见 `TableProps.column`。
    */
   columns?: Array<ColumnOrSentinel<RecordType>>
+  /**
+   * 表格渲染数据源（行数组）。
+   *
+   * **语义**：data-grid 以本数组为唯一数据真理源——排序、筛选、分页管线均基于其派生渲染数据
+   * （raw → sort → filter → paginate），**不会修改原数组**；受控场景下调用方在 `onChange` 后
+   * 自行 `setDataSource(...)` 更新。
+   *   - 未传 / 空数组：表体渲染空状态占位（由 `locale.emptyText` 优先级链驱动）。
+   *   - 树形模式（`childrenColumnName` 命中）下，每行 record 的 children 字段递归展开为子行。
+   *
+   * 与 antd `TableProps.dataSource` 同义（仅 data-grid 内部管线不同）。
+   */
   dataSource?: Array<RecordType>
+  /**
+   * 行唯一 key 取值方式。
+   *
+   * **取值**：
+   *   - 字符串：取 `record[rowKey]` 作为行 key（如 `'id'`）。
+   *   - 函数 `(record) => string | number`：按 record 自定义返回 key（复合主键、需 transform
+   *     字段等场景使用）。
+   *
+   * **用途**：选择（`rowSelection.selectedRowKeys`）、受控展开（`expandable.expandedRowKeys`）、
+   * 行拖拽排序（`rowDragSort.selectedRowKeys`）、虚拟滚动 `scrollTo({ key })`、React key 复用
+   * 等机制都以 rowKey 作为行的唯一标识。
+   *
+   * 未提供（undefined）时用行索引兜底——但树形 / 选择 / 拖拽场景**强烈建议显式提供稳定 rowKey**，
+   * 避免因排序 / 筛选导致索引漂移而误识别（行为与 antd 一致）。
+   */
   rowKey?: RowKeyType
+  /**
+   * 是否显示边框（默认 `false`）。
+   *
+   * `true` 时给表格根容器加边框类，渲染单元格竖向分隔线 + 外边框；
+   * `false`（默认）只有行底分隔线（无边框、无竖向分隔）。
+   *
+   * 与 antd `TableProps.bordered` 同义。
+   */
   bordered?: boolean
+  /**
+   * 表格密度（默认 `'large'`）。
+   *
+   * 取值（覆盖 antd v6 Table size 三档 + v5 别名）：
+   *   - `'large'`（默认）：标准行高 padding。
+   *   - `'middle'` / `'medium'`：中等行高 padding（v5 `'middle'` 与 v6 `'medium'` 视觉等价，
+   *     共用同一档尺寸类）。
+   *   - `'small'` / `'compact'`：紧凑行高 padding（`'compact'` 视觉等价 `'small'`）。
+   *
+   * 未提供（undefined）时默认 `'large'`，与 antd v6 默认一致。
+   */
   size?: SizeType
+  /**
+   * 是否显示表头（默认 `true`）。
+   *
+   * `false` 时不渲染表头行（叶子列表头格全部隐藏，表体从顶部第一行直接开始）；
+   * `true`（默认）按列 `title` 渲染表头。多级表头同理（`column.children` 分组结构仍生效）。
+   *
+   * 与 antd `TableProps.showHeader` 同义。
+   */
   showHeader?: boolean
+  /**
+   * 表格顶部标题区渲染函数。
+   *
+   * 传入即在表格内容区**上方**渲染 `.dg-title` 容器（视觉对齐 antd `.ant-table-title`），
+   * 内容为函数返回的 ReactNode。
+   *
+   * **入参语义**：`currentPageData` 收到的是**排序 + 筛选后、分页前**的全量数据
+   * （与 `footer` 一致；与 `summary` 的"当前页数据"不同）。未启用分页时即等于当前全量数据。
+   *
+   * 与 antd `TableProps.title` 同名同形（data-grid 明确入参语义为分页前全量）。
+   *
+   * 未提供（undefined）时不渲染标题区（零回归）。
+   */
   title?: (currentPageData: Array<RecordType>) => ReactNode
+  /**
+   * 表格底部脚注区渲染函数。
+   *
+   * 传入即在表格内容区**下方**（pagination 之上）渲染 `.dg-footer` 容器
+   * （视觉对齐 antd `.ant-table-footer`），内容为函数返回的 ReactNode。
+   *
+   * **入参语义**：与 `title` 一致——`currentPageData` 收到的是**排序 + 筛选后、分页前**的全量数据
+   * （与 `summary` 的"当前页数据"不同）。未启用分页时即等于当前全量数据。
+   *
+   * 与 antd `TableProps.footer` 同名同形（data-grid 明确入参语义为分页前全量）。
+   *
+   * 未提供（undefined）时不渲染脚注区（零回归）。
+   */
   footer?: (currentPageData: Array<RecordType>) => ReactNode
   /**
    * 滚动配置。
@@ -297,7 +377,7 @@ export interface TableProps<RecordType = any> {
    */
   pagination?: false | TablePaginationConfig
   /**
-   * 加载态（对齐 antd `TableProps.loading`）。
+   * 表格加载态遮罩。
    *
    * **语义**：传入即用 antd `<Spin>` 包裹整个表格内容（含 topPagination / title / 表体 / footer /
    * bottomPagination），显示加载转圈遮罩。典型用于 ajax 远程数据请求中。
@@ -309,7 +389,7 @@ export interface TableProps<RecordType = any> {
    *
    * 不传（默认）→ 不包 Spin，保持现有 demo 行为不变（零回归）。
    *
-   * 详见 `docs/features/layout/layout.md`。
+   * 同名同义于 antd `TableProps.loading`。详见 `docs/features/layout/layout.md`。
    */
   loading?: boolean | SpinProps
   /** 自定义根 className。 */
@@ -317,7 +397,7 @@ export interface TableProps<RecordType = any> {
   /** 自定义根 style。 */
   style?: import('react').CSSProperties
   /**
-   * 语义化 classNames（对齐 antd v6 `TableProps.classNames`）。
+   * 语义化 classNames：按表格各部位注入自定义 className。
    *
    * **支持对象（静态）与函数 `(info) => 对象`（动态）两种**：
    *   - 对象：直接作为各部位 className 注入。
@@ -334,6 +414,8 @@ export interface TableProps<RecordType = any> {
    *
    * 未提供（undefined）时所有部位走默认 className，零回归。
    *
+   * 同名同义于 antd v6 `TableProps.classNames`。
+   *
    * @internal data-grid 各部位对应 DOM 类名：`root`→`.dg-wrapper`、`title`→`.dg-title`、
    *   `footer`→`.dg-footer`、`section`→`.dg-section`、`content`→`.dg-content`、
    *   `header.cell`→`.dg-cell-header`、`body.cell`→`.dg-cell-body`、
@@ -341,12 +423,14 @@ export interface TableProps<RecordType = any> {
    */
   classNames?: TableClassNames<RecordType>
   /**
-   * 语义化 styles（对齐 antd v6 `TableProps.styles`）。结构与 `classNames` 同构，
+   * 语义化 styles：按表格各部位注入 inline style。结构与 `classNames` 同构，
    * 值为 `CSSProperties`；同样支持对象（静态）与函数 `(info) => 对象`（动态）。
    *
    * 注入点同 `classNames`（合并到对应部位的 inline style）。
    *
    * 未提供（undefined）时所有部位走默认 style，零回归。
+   *
+   * 同名同义于 antd v6 `TableProps.styles`。
    */
   styles?: TableStyles<RecordType>
   /**
@@ -382,12 +466,14 @@ export interface TableProps<RecordType = any> {
     extra: TableCurrentDataSource<RecordType>,
   ) => void
   /**
-   * 是否全局显示排序提示 tooltip（对齐 antd `TableProps.showSorterTooltip`）。
+   * 是否全局显示排序提示 tooltip。
    * 单列可由 `column.showSorterTooltip` 覆盖。默认 `true`。
+   *
+   * 同名同义于 antd `TableProps.showSorterTooltip`。
    */
   showSorterTooltip?: boolean | { target?: 'full-header' | 'sorter-icon' }
   /**
-   * 树形数据子字段名（对齐 antd `TableProps.childrenColumnName`，默认 `'children'`）。
+   * 树形数据子字段名（默认 `'children'`）。
    *
    * **语义**：dataSource 中每个 record 的 `record[childrenColumnName]` 若为非空数组，
    * 视为该 record 的子行（递归支持任意深度）。
@@ -401,13 +487,12 @@ export interface TableProps<RecordType = any> {
    * 与 `expandable.childrenColumnName` / `expandable.indentSize` 同名字段优先级：
    * `expandable.*` 字段优先（与 antd `getExpandableProps` 一致）；未设时用 Table 级本字段。
    *
-   * 默认 `'children'`。
+   * 默认 `'children'`。同名同义于 antd `TableProps.childrenColumnName`。
    */
   childrenColumnName?: string
   /**
-   * 自定义组件（对齐 antd `TableProps.components`，v6 `TableComponents` 子集）。
-   *
-   * 替换表格内部默认渲染的元素。详见 `TableComponents` 类型注释。
+   * 自定义组件：替换表格内部默认渲染的元素（`body.cell` / `body.row` / `header.cell`）。
+   * 详见 `TableComponents` 类型注释。
    *
    * **data-grid div 渲染适配**（与 antd `<table>` 实现不同）：
    *   - `body.cell`：替换单元格**内部内容**（非整个 td）；返回 ReactNode。
@@ -418,10 +503,12 @@ export interface TableProps<RecordType = any> {
    * 配合 column.onCell 返回编辑 props（record/editable/dataIndex/handleSave）。
    *
    * 未提供（undefined）时所有渲染走默认路径，保证现有 demo 零回归。
+   *
+   * 同名同义于 antd `TableProps.components`（v6 `TableComponents` 子集）。
    */
   components?: TableComponents
   /**
-   * 本地化文案（对齐 antd `TableProps.locale` 子集）。
+   * 本地化文案。
    *
    * data-grid 自研文案统一接入 antd `useLocale('Table')`：
    * - `TableProps.locale` 覆盖 `ConfigProvider locale`。
@@ -454,10 +541,12 @@ export interface TableProps<RecordType = any> {
    *
    * 不传（默认）→ 用 `ConfigProvider locale.Table.emptyText`、ConfigProvider.renderEmpty 或默认 antd Empty
    * （零回归：现有 demo 无 locale）。
+   *
+   * 字段集合对齐 antd `TableProps.locale` 子集。
    */
   locale?: TableLocale
   /**
-   * 汇总栏 summary（对齐 antd `TableProps.summary`）。
+   * 表体底部汇总栏（summary）。
    *
    * **语义**：渲染在表体底部的总结栏（一行或多行）。典型用法：计算列总计、显示汇总信息。
    *
@@ -491,10 +580,12 @@ export interface TableProps<RecordType = any> {
    *   - 若未启用分页，pagedDataSource = filteredDataSource（全量），与 antd 不分页时一致。
    *
    * 未提供（undefined）时不渲染 summary 区（零回归：现有 demo 无 summary 行）。
+   *
+   * 同名同义于 antd `TableProps.summary`。
    */
   summary?: ((currentPageData: Array<RecordType>) => ReactNode) | ReactNode
   /**
-   * JSX 风格 API：`<Table>` 的 JSX 子元素声明列（对齐 antd `<Table><Column/></Table>`）。
+   * JSX 风格 API：`<Table>` 的 JSX 子元素声明列。
    *
    * **语义**：当**未传 `columns` prop** 时，Table 内部用 React.Children 遍历 JSX 子元素，
    * 识别 `<Table.Column>`（→ ColumnType）与 `<Table.ColumnGroup>`（→ `{ title, children: [...] }`
@@ -505,11 +596,11 @@ export interface TableProps<RecordType = any> {
    *   - 不传 `columns` prop 但传 JSX children：走解析路径。
    *   - 两者都未传：空表（无列）。
    *
-   * 详见 `ColumnProps` / `ColumnGroupProps`。
+   * 用法等价 antd `<Table><Column/></Table>`。详见 `ColumnProps` / `ColumnGroupProps`。
    */
   children?: ReactNode
   /**
-   * 粘性表头 + 页面级滚动条（对齐 antd v6 `TableProps.sticky`）。
+   * 粘性表头 + 页面级滚动条。
    *
    * **语义（区别容器内固定）**：表头跟随**页面**滚动固定（sticky 钉在 `offsetHeader` 处，
    * 相对 `getContainer` 默认 `window`），而非容器内固定（`scroll.y` 表体限高滚动）。
@@ -525,13 +616,13 @@ export interface TableProps<RecordType = any> {
    *
    * 未提供（undefined）时不启用，零回归。
    *
-   * 详见 `docs/features/layout/sticky.md`。
+   * 同名同义于 antd v6 `TableProps.sticky`。详见 `docs/features/layout/sticky.md`。
    */
   sticky?: boolean | StickyConfig
   /**
-   * 表头**行** props 注入（对齐 antd v6 `TableProps.onHeaderRow`）。
+   * 表头**行** props 注入。
    *
-   * 表头**行** props 注入。签名 `(columns, index) => React.HTMLAttributes`：
+   * 签名 `(columns, index) => React.HTMLAttributes`：
    *   - `columns`：该表头行涉及的列（单层表头 = 全部 columns；多级表头 = 该层的分组列集合）。
    *   - `index`：表头行号（单层表头恒 0；多级表头 0=顶层分组, maxDepth-1=叶子层）。
    *   - 返回值整体作为该表头**行**的 HTML 属性（onClick/onDoubleClick/.../className/style）。
@@ -547,6 +638,8 @@ export interface TableProps<RecordType = any> {
    *
    * 未提供（undefined）时不注入（零回归）。
    *
+   * 同名同义于 antd v6 `TableProps.onHeaderRow`。
+   *
    * @internal grid 布局下表头无独立 `<tr>`，表头格直接是 grid item；返回值挂到该行每个表头格 div
    *   （与 header.row 语义化 class 同款行级透传）。
    */
@@ -555,9 +648,9 @@ export interface TableProps<RecordType = any> {
     index: number,
   ) => import('react').HTMLAttributes<HTMLElement> | undefined
   /**
-   * 表体**行** props 注入（对齐 antd v6 `TableProps.onRow`）。
+   * 表体**行** props 注入。
    *
-   * 表体**行** props 注入。签名 `(record, index) => React.HTMLAttributes`：
+   * 签名 `(record, index) => React.HTMLAttributes`：
    *   - `record`：该行数据。
    *   - `index`：该行在 dataSource 中的索引。
    *   - 返回值整体作为该表体**行**的 HTML 属性（onClick/onDoubleClick/onContextMenu/onMouseEnter/onMouseLeave/...）。
@@ -587,6 +680,8 @@ export interface TableProps<RecordType = any> {
    *
    * 未提供（undefined）时不注入（零回归）。
    *
+   * 同名同义于 antd v6 `TableProps.onRow`。
+   *
    * @internal grid 布局下表体无独立 `<tr>`，单元格直接是 grid item；返回值挂到该行每个单元格 div
    *   （与 body.row 语义化 class 同款行级透传）。内置 hover 由 `dg-row-hover` 类驱动。
    */
@@ -595,9 +690,9 @@ export interface TableProps<RecordType = any> {
     index: number,
   ) => import('react').HTMLAttributes<HTMLElement> | undefined
   /**
-   * 表体行的 className（对齐 antd v6 `TableProps.rowClassName`）。
+   * 表体行的 className。
    *
-   * 表体行的 className。取值：
+   * 取值：
    *   - 字符串：所有行加该 class（统一行样式）。
    *   - 函数 `(record, index) => string`：按行返回 class（典型用法：编辑态行 `editable-row`、
    *     奇偶行条纹、特殊行高亮等）。
@@ -611,13 +706,15 @@ export interface TableProps<RecordType = any> {
    *
    * 未提供（undefined）时不注入（零回归）。
    *
+   * 同名同义于 antd v6 `TableProps.rowClassName`。
+   *
    * @internal grid 布局下表体无独立 `<tr>`，单元格直接是 grid item；rowClassName 挂到该行每个单元格 div
    *   （与 body.row 语义化 class 同款行级透传）。data-grid 选中态视觉由 `dg-row-selected` 类驱动
    *   （antd 对应 `ant-table-row-selected`，由 InternalTable 注入）。
    */
   rowClassName?: string | ((record: RecordType, index: number) => string)
   /**
-   * dropdown 挂载容器（对齐 antd v6 `TableProps.getPopupContainer`）。
+   * dropdown 挂载容器。
    *
    * 表格内 dropdown（筛选下拉等）的挂载容器。签名 `(triggerNode) => HTMLElement`：
    *   - `triggerNode`：触发 dropdown 的 DOM 节点（如筛选漏斗 trigger span）。
@@ -633,12 +730,13 @@ export interface TableProps<RecordType = any> {
    * ```
    *
    * 未提供（undefined）时 antd Dropdown 走默认（document.body 挂载），与现有 demo 一致（零回归）。
+   *
+   * 同名同义于 antd v6 `TableProps.getPopupContainer`。
    */
   getPopupContainer?: (triggerNode: HTMLElement) => HTMLElement
   /**
-   * 行是否可 hover 高亮（对齐 antd v6 `TableProps.rowHoverable`，since 5.16.0）。
+   * 行是否可 hover 高亮（默认 `true`）。
    *
-   * 行是否可 hover 高亮。默认 `true`。
    *   - `true`（默认）：鼠标 hover 某行时该行单元格显示行高亮视觉。
    *   - `false`：关闭 hover 高亮（hover 视觉消失）。
    *
@@ -646,6 +744,8 @@ export interface TableProps<RecordType = any> {
    *   若 onRow 返回了 onMouseEnter/Leave，用户自定义 handler 仍生效（事件本身不因 rowHoverable 关闭）。
    *
    * 未提供（undefined）时默认 true（保持现有所有 demo 的 hover 行为不变，零回归）。
+   *
+   * 同名同义于 antd v6 `TableProps.rowHoverable`（since 5.16.0）。
    *
    * @internal 内置 hover 视觉由 `dg-row-hover` 类驱动（hover 时给该行单元格加此类）。
    */

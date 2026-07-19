@@ -8,11 +8,13 @@
 import type { ReactNode } from 'react'
 import type { DropdownProps } from 'antd'
 
-/** Filter item value type, aligned with antd v6 `ColumnFilterItem['value']`. */
+/** 筛选项取值类型（boolean 或 React.Key）。同名同义于 antd v6 `ColumnFilterItem['value']`。 */
 export type FilterValue = boolean | React.Key
 
 /**
- * `confirm` 参数（自定义筛选面板，对齐 antd `FilterConfirmProps`）。
+ * `confirm` 参数（自定义筛选面板调用 confirm 时收到的入参形状）。
+ *
+ * 同名同义于 antd `FilterConfirmProps`。
  */
 export interface FilterConfirmProps {
   /** 应用筛选后是否同时关闭筛选下拉。 */
@@ -20,7 +22,9 @@ export interface FilterConfirmProps {
 }
 
 /**
- * `clearFilters` 参数（自定义筛选面板，对齐 antd `FilterResetProps`）。
+ * `clearFilters` 参数（自定义筛选面板调用 clearFilters 时收到的入参形状）。
+ *
+ * 同名同义于 antd `FilterResetProps`。
  */
 export interface FilterResetProps {
   /** 清空后是否同时关闭筛选下拉（默认 false）。 */
@@ -57,7 +61,7 @@ export interface FilterDropdownProps {
 
 /** 透传给筛选下拉 antd `Dropdown` 的 props。 */
 export interface ColumnFilterDropdownProps {
-  /** 受控打开状态（与 antd `Dropdown.open` 一致）。 */
+  /** 受控打开状态。语义与 antd `Dropdown.open` 一致。 */
   open?: boolean
   /** 打开/关闭回调。filterOnClose=true 时据此应用草稿。 */
   onOpenChange?: (open: boolean) => void

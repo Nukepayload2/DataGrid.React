@@ -436,12 +436,24 @@ function parseInline(input: string): MdInline[] {
 }
 
 /** Map repo-relative paths used inside JSDoc to in-app doc slugs. */
+const FEATURES_CATEGORY_TO_SLUG: Record<string, string> = {
+  // 4 个薄页已合并到 features：columns / display / layout / interaction / api。
+  columns: 'features',
+  display: 'features',
+  layout: 'features',
+  interaction: 'features',
+  api: 'features',
+  // 留独立的页（styling 修正：实际 slug 是 styling-and-theme）。
+  scrolling: 'scrolling',
+  styling: 'styling-and-theme',
+}
+
 function resolveDocLink(path: string): { kind: 'doc'; value: string } | null {
-  // docs/features/<category>/*.md → doc slug `<category>` (with one alias).
+  // docs/features/<category>/*.md → doc slug（按 FEATURES_CATEGORY_TO_SLUG 映射；未列出的 category 原样作 slug fallback）。
   const features = path.match(/^docs\/features\/([^/]+)\//)
   if (features) {
     const category = features[1]
-    const slug = category === 'display' ? 'columns' : category
+    const slug = FEATURES_CATEGORY_TO_SLUG[category] ?? category
     return { kind: 'doc', value: slug }
   }
   return null
@@ -767,7 +779,7 @@ export function ApiRefTable({
           >
             <Tag color="orange">advanced</Tag>
             <Text type="secondary" strong>
-              逃逸舱（escape-hatch）hook — 仅在特定渲染路径下消费，常规业务无需触碰。
+              逃逸舱（escape-hatch）回调 — 仅在特定渲染路径下消费，常规业务无需触碰。
             </Text>
           </div>
           <RefTable
