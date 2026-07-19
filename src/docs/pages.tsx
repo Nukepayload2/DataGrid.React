@@ -1300,7 +1300,6 @@ export function renderGridOptions({ onOpen }: DocsPageContext) {
           anchorPrefix="virtualization-mode"
           onOpenDoc={(slug) => onOpen({ kind: 'doc', value: slug, label: slug })}
           description="虚拟渲染模式枚举（`standard` 默认 / `recycling` DOM 复用路径）。"
-          splitAdvanced={false}
         />
       </DocSection>
       <DocSection id="column-options" eyebrow="列级" title="gridColumnOptions">
@@ -1308,7 +1307,7 @@ export function renderGridOptions({ onOpen }: DocsPageContext) {
           members={getApiMembers('gridColumnOptions')}
           anchorPrefix="grid-column-options"
           onOpenDoc={(slug) => onOpen({ kind: 'doc', value: slug, label: slug })}
-          description="列级专属能力；逃逸舱（escape-hatch）回调自动分区显示。"
+          description="data-grid 列级专属能力（dragColumnLock 与 recycling 逃逸舱回调）。"
         />
         <DocsCode code={GRID_COLUMN_OPTIONS_CODE} height={300} ariaLabel="gridColumnOptions 示例代码" />
       </DocSection>

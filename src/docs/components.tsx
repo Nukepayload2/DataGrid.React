@@ -362,8 +362,9 @@ export function DocsNote({
 //   tables — same path as the rest of the docs site.
 // - Property name is rendered as an `<a>` with a stable `id` so other pages
 //   can deep-link (e.g. `#/docs/table-api` + scrollIntoView by id).
-// - Advanced (escape-hatch) members render in a visually-separated
-//   sub-section under the same namespace so the public surface stays scannable.
+// - All members of a namespace render in a single flat table. Escape-hatch
+//   callbacks (advanced) are identified inline in their summary text rather
+//   than via a separate marker column or visually-partitioned sub-section.
 // - Summary is markdown-rendered with a hand-rolled minimal renderer
 //   (no new deps). Subset: `**bold**`, `` `code` ``, `- list`, `[link](path)`,
 //   ``` ``` fenced code. `docs/features/<category>/*.md` paths resolve to the
@@ -679,40 +680,6 @@ function TypeSignature({ type }: { type: string }) {
   )
 }
 
-function TagsCell({ member }: { member: ApiMember }) {
-  const tags: ReactNode[] = []
-  if (member.required && member.kind !== 'export' && member.kind !== 'type' && member.kind !== 'enumValue') {
-    tags.push(
-      <Tag key="req" color="red">
-        必填
-      </Tag>,
-    )
-  }
-  if (member.advanced) {
-    tags.push(
-      <Tag key="adv" color="orange">
-        advanced
-      </Tag>,
-    )
-  }
-  if (member.deprecated) {
-    tags.push(
-      <Tag key="dep" color="default">
-        deprecated
-      </Tag>,
-    )
-  }
-  if (member.since) {
-    tags.push(
-      <Tag key="since" color="blue">
-        since {member.since}
-      </Tag>,
-    )
-  }
-  if (tags.length === 0) return null
-  return <span style={{ display: 'inline-flex', gap: 4, flexWrap: 'wrap' }}>{tags}</span>
-}
-
 // --- Main component ---------------------------------------------------------
 
 type ApiRefVariant = 'props' | 'exports'
@@ -726,8 +693,6 @@ export interface ApiRefTableProps {
   onOpenDoc?: (slug: string) => void
   /** Optional lede above the table. */
   description?: ReactNode
-  /** Split `advanced: true` members into a visually-separated sub-section. */
-  splitAdvanced?: boolean
   /** Override the markdown description for specific members by name (layered
    *  on top of api.json summaries). Useful for re-exports that carry no JSDoc. */
   summaryOverrides?: Record<string, string>
@@ -739,7 +704,6 @@ export function ApiRefTable({
   variant = 'props',
   onOpenDoc,
   description,
-  splitAdvanced = true,
   summaryOverrides,
 }: ApiRefTableProps) {
   const withOverrides = summaryOverrides
@@ -747,48 +711,19 @@ export function ApiRefTable({
         summaryOverrides[m.name] ? { ...m, summary: summaryOverrides[m.name] } : m,
       )
     : members
-  const regular = splitAdvanced ? withOverrides.filter((m) => !m.advanced) : withOverrides
-  const advanced = splitAdvanced ? withOverrides.filter((m) => m.advanced) : []
 
   return (
     <div>
       {description ? (
         <Paragraph className="docs-table-description">{description}</Paragraph>
       ) : null}
-      {regular.length > 0 ? (
+      {withOverrides.length > 0 ? (
         <RefTable
-          members={regular}
+          members={withOverrides}
           anchorPrefix={anchorPrefix}
           variant={variant}
           onOpenDoc={onOpenDoc}
         />
-      ) : null}
-      {advanced.length > 0 ? (
-        <div style={{ marginTop: 28 }}>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              marginBottom: 10,
-              padding: '8px 12px',
-              background: 'var(--docs-fill)',
-              borderLeft: '3px solid var(--docs-primary)',
-              borderRadius: 4,
-            }}
-          >
-            <Tag color="orange">advanced</Tag>
-            <Text type="secondary" strong>
-              逃逸舱（escape-hatch）回调 — 仅在特定渲染路径下消费，常规业务无需触碰。
-            </Text>
-          </div>
-          <RefTable
-            members={advanced}
-            anchorPrefix={anchorPrefix}
-            variant={variant}
-            onOpenDoc={onOpenDoc}
-          />
-        </div>
       ) : null}
     </div>
   )
@@ -869,13 +804,6 @@ function RefTable({ members, anchorPrefix, variant, onOpenDoc }: RefTableProps) 
           key: 'type',
           width: 300,
           render: (value) => <TypeSignature type={value} />,
-        },
-        {
-          title: '标记',
-          dataIndex: 'advanced',
-          key: 'tags',
-          width: 120,
-          render: (_value, record) => <TagsCell member={record} />,
         },
         {
           title: '描述',
