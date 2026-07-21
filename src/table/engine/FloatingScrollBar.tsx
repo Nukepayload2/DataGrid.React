@@ -57,6 +57,8 @@ import {
 } from 'react'
 import {
   EMPTY_FLOATING_SCROLLBAR_GEOMETRY,
+  TRACK_REPEAT_DELAY_MS,
+  TRACK_REPEAT_INTERVAL_MS,
   computeFloatingDragScrollOffset,
   computeFloatingScrollbarGeometry,
   computeFloatingThumbOffset,
@@ -246,6 +248,13 @@ export function FloatingScrollBar({
     startScrollTop: number
   } | null>(null)
 
+  // === 纵向轨道 repeat（Windows repeat button）===
+  // pointerdown 命中轨道空白时启动：500ms 初始延迟后每 50ms 跳一页，直到松开 / 到边界 / pointer 进入 thumb。
+  // timeoutRef = 初始延迟；intervalRef = 后续周期；stopRef = 当前会话的 stop 函数（供任意停止条件调用）。
+  const vRepeatTimeoutRef = useRef<number | null>(null)
+  const vRepeatIntervalRef = useRef<number | null>(null)
+  const vRepeatStopRef = useRef<(() => void) | null>(null)
+
   // === 横向悬浮条 ===
   const hThumbRef = useRef<HTMLDivElement | null>(null)
   const hHitRef = useRef<HTMLDivElement | null>(null)
@@ -265,6 +274,12 @@ export function FloatingScrollBar({
     startX: number
     startScrollLeft: number
   } | null>(null)
+
+  // === 横向轨道 repeat（Windows repeat button）===
+  // 同纵向：500ms 初始延迟 + 50ms 周期，三种停止条件。
+  const hRepeatTimeoutRef = useRef<number | null>(null)
+  const hRepeatIntervalRef = useRef<number | null>(null)
+  const hRepeatStopRef = useRef<(() => void) | null>(null)
 
   // === onScroll RAF 节流句柄 ===
   // -1 表示未调度；多次 scroll 事件合并到每帧一次 doSync。
@@ -289,6 +304,9 @@ export function FloatingScrollBar({
         cancelAnimationFrame(scrollRafRef.current)
         scrollRafRef.current = -1
       }
+      // 卸载时也清轨道 repeat 定时器（防止卸载后仍触发跳页）。
+      vRepeatStopRef.current?.()
+      hRepeatStopRef.current?.()
     }
   }, [])
 
@@ -553,10 +571,12 @@ export function FloatingScrollBar({
     return () => ro.disconnect()
   }, [recompute])
 
-  // 纵向拖动 / 轨道按页跳（pointerdown 绑在 hit 容器，整个 8px hit 区可靠抓取，不依赖 thumb 先 hover 展开）：
+  // 纵向拖动 / 轨道按页跳 / Windows repeat button（pointerdown 绑在 hit 容器，整个 8px hit 区可靠抓取，
+  // 不依赖 thumb 先 hover 展开）：
   //   - 命中 thumb：pointerdown → capture（hit 容器自身）→ move 换算 → 容器 scrollTop。
-  //   - 命中轨道空白（thumb 上方/下方）：按页跳转一次（±viewportSize，对齐浏览器原生滚动条轨道点击），
-  //     不进入拖动循环；用户可重复点击继续按页跳。
+  //   - 命中轨道空白（thumb 上方/下方）：立即按页跳一页（±viewportSize），并启动 Windows repeat button
+  //     ——500ms 后每 50ms 再跳一页，三种条件停止：pointerup/pointercancel、到边界（nextScroll 无变化）、
+  //     pointer 进入 thumb。repeat 期间不进入增量拖动循环。
   // thumb 仅用于几何计算 + transform 同步，其 ref 仍保留（vThumbRef）但不再绑 pointerdown。
   const onVHitPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const container = innerScrollRef.current
@@ -587,9 +607,78 @@ export function FloatingScrollBar({
         maxScroll: g.maxScroll,
       })
       if (jump.zone !== 'thumb') {
-        // 命中轨道空白：直接按页跳转一次，不进入增量拖动循环。
-        // 即使 nextScroll === currentScroll（已到边界）也按"无操作"返回，避免建立空 drag state。
+        // 命中轨道空白：立即跳一页，不进入增量拖动循环。
+        const beforeJump = container.scrollTop
         container.scrollTop = jump.nextScroll
+        // 启动 Windows repeat button：500ms 后每 50ms 再跳一页。
+        // 首跳已到边界（nextScroll === beforeJump，无空间可跳）→ 不启动 repeat。
+        if (jump.nextScroll !== beforeJump) {
+          const pointerId = e.pointerId
+          const clientPos = e.clientY
+          // stop：清两个定时器 + 移除三个 window 监听 + 清 stopRef（标记 repeat 会话结束）。
+          // onMoveCheck：停止条件 3 —— pointer 进入 thumb 屏幕范围 → 停止 repeat（用户可能想转去拖 thumb）。
+          // tick：停止条件 2 —— computeTrackJump 重算后 nextScroll === currentScroll（到边界 / thumb 已
+          //   到 pointer）→ 停止；否则赋 nextScroll 继续跳。每次重读 thumb rect 因 thumb 随滚动位移。
+          const stop = () => {
+            if (vRepeatTimeoutRef.current !== null) {
+              clearTimeout(vRepeatTimeoutRef.current)
+              vRepeatTimeoutRef.current = null
+            }
+            if (vRepeatIntervalRef.current !== null) {
+              clearInterval(vRepeatIntervalRef.current)
+              vRepeatIntervalRef.current = null
+            }
+            window.removeEventListener('pointerup', stop)
+            window.removeEventListener('pointercancel', stop)
+            window.removeEventListener('pointermove', onMoveCheck)
+            vRepeatStopRef.current = null
+          }
+          const onMoveCheck = (ev: PointerEvent) => {
+            if (ev.pointerId !== pointerId) return
+            // 停止条件 3：当前 pointer 屏幕位置（ev.clientY）落在 thumb 范围内 → 停止 repeat。
+            // 注意：用 ev.clientY 而非闭包的 clientPos（clientPos 是 pointerdown 点击位置，固定不变；
+            // 用户移动鼠标后应用最新位置判定是否进入 thumb）。
+            const rect = thumbEl.getBoundingClientRect()
+            if (ev.clientY >= rect.top && ev.clientY <= rect.bottom) {
+              stop()
+            }
+          }
+          const tick = () => {
+            const currentScroll = container.scrollTop
+            const rect = thumbEl.getBoundingClientRect()
+            const next = computeTrackJump({
+              currentScroll,
+              viewportSize,
+              clientPos,
+              thumbStart: rect.top,
+              thumbEnd: rect.bottom,
+              maxScroll: g.maxScroll,
+            })
+            if (next.nextScroll === currentScroll) {
+              stop()
+              return
+            }
+            container.scrollTop = next.nextScroll
+          }
+          vRepeatStopRef.current = stop
+          // 停止条件 1：pointerup / pointercancel（不管 pointer 位置，对齐 Windows）。
+          window.addEventListener('pointerup', stop)
+          window.addEventListener('pointercancel', stop)
+          // 停止条件 3：pointer 进入 thumb → 停止 repeat。
+          window.addEventListener('pointermove', onMoveCheck)
+          // 初始延迟 500ms；触发后立即跑首次 repeat tick（Windows 习惯：延迟结束即触发首次额外跳），
+          // 若 tick 未触发 stop（未到边界 / 未进 thumb）则启动 setInterval 每 50ms 一跳。
+          vRepeatTimeoutRef.current = window.setTimeout(() => {
+            vRepeatTimeoutRef.current = null
+            tick()
+            if (vRepeatStopRef.current === stop) {
+              vRepeatIntervalRef.current = window.setInterval(
+                tick,
+                TRACK_REPEAT_INTERVAL_MS,
+              )
+            }
+          }, TRACK_REPEAT_DELAY_MS)
+        }
         return
       }
     }
@@ -628,10 +717,10 @@ export function FloatingScrollBar({
     window.addEventListener('pointercancel', onUp)
   }
 
-  // 横向拖动 / 轨道按页跳（pointerdown 绑在 hit 容器，整个 8px hit 区可靠抓取）：
+  // 横向拖动 / 轨道按页跳 / Windows repeat button（pointerdown 绑在 hit 容器，整个 8px hit 区可靠抓取）：
   //   - 命中 thumb：pointerdown → capture（hit 容器自身）→ move 换算 → 容器 scrollLeft。
-  //   - 命中轨道空白（thumb 左/右）：按页跳转一次（±viewportSize，对齐浏览器原生滚动条轨道点击），
-  //     不进入拖动循环；用户可重复点击继续按页跳。
+  //   - 命中轨道空白（thumb 左/右）：立即按页跳一页（±viewportSize），并启动 Windows repeat button
+  //     ——500ms 后每 50ms 再跳一页，三种条件停止：pointerup/pointercancel、到边界、pointer 进入 thumb。
   // thumb ref 保留但不绑 pointerdown。
   const onHHitPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const container = innerScrollRef.current
@@ -660,7 +749,67 @@ export function FloatingScrollBar({
         maxScroll: g.maxScroll,
       })
       if (jump.zone !== 'thumb') {
+        const beforeJump = container.scrollLeft
         container.scrollLeft = jump.nextScroll
+        // 启动 Windows repeat button（同纵向，方向改为水平）。
+        if (jump.nextScroll !== beforeJump) {
+          const pointerId = e.pointerId
+          const clientPos = e.clientX
+          const stop = () => {
+            if (hRepeatTimeoutRef.current !== null) {
+              clearTimeout(hRepeatTimeoutRef.current)
+              hRepeatTimeoutRef.current = null
+            }
+            if (hRepeatIntervalRef.current !== null) {
+              clearInterval(hRepeatIntervalRef.current)
+              hRepeatIntervalRef.current = null
+            }
+            window.removeEventListener('pointerup', stop)
+            window.removeEventListener('pointercancel', stop)
+            window.removeEventListener('pointermove', onMoveCheck)
+            hRepeatStopRef.current = null
+          }
+          const onMoveCheck = (ev: PointerEvent) => {
+            if (ev.pointerId !== pointerId) return
+            // 停止条件 3：当前 pointer 屏幕位置（ev.clientX）落在 thumb 范围内 → 停止 repeat。
+            // 用 ev.clientX 而非闭包 clientPos（同纵向：用户移动鼠标后用最新位置判定）。
+            const rect = thumbEl.getBoundingClientRect()
+            if (ev.clientX >= rect.left && ev.clientX <= rect.right) {
+              stop()
+            }
+          }
+          const tick = () => {
+            const currentScroll = container.scrollLeft
+            const rect = thumbEl.getBoundingClientRect()
+            const next = computeTrackJump({
+              currentScroll,
+              viewportSize,
+              clientPos,
+              thumbStart: rect.left,
+              thumbEnd: rect.right,
+              maxScroll: g.maxScroll,
+            })
+            if (next.nextScroll === currentScroll) {
+              stop()
+              return
+            }
+            container.scrollLeft = next.nextScroll
+          }
+          hRepeatStopRef.current = stop
+          window.addEventListener('pointerup', stop)
+          window.addEventListener('pointercancel', stop)
+          window.addEventListener('pointermove', onMoveCheck)
+          hRepeatTimeoutRef.current = window.setTimeout(() => {
+            hRepeatTimeoutRef.current = null
+            tick()
+            if (hRepeatStopRef.current === stop) {
+              hRepeatIntervalRef.current = window.setInterval(
+                tick,
+                TRACK_REPEAT_INTERVAL_MS,
+              )
+            }
+          }, TRACK_REPEAT_DELAY_MS)
+        }
         return
       }
     }

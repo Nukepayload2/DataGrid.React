@@ -26,6 +26,19 @@ export const EMPTY_FLOATING_SCROLLBAR_GEOMETRY: FloatingScrollbarGeometry = {
   visible: false,
 }
 
+/**
+ * Windows 风格 repeat button：轨道空白按住时连续翻页。
+ *
+ * - {@link TRACK_REPEAT_DELAY_MS}：pointerdown 立即跳一页后，等到该延迟结束才开始后续 repeat。
+ *   500ms 对齐 Windows 默认键盘/滚动条初始延迟（SystemParametersInfo SPI_GETKEYBOARDDELAY）。
+ * - {@link TRACK_REPEAT_INTERVAL_MS}：repeat 启动后每两次跳页之间的间隔；20 CPS 对齐 Windows
+ *   默认重复率上限（SystemParametersInfo SPI_GETKEYBOARDSPEED，最大值约 31/秒，滚动条场景略放宽）。
+ *
+ * 这两个常量单独导出便于单测断言"边界等待 + 节奏"行为（fake timer 推进验证）。
+ */
+export const TRACK_REPEAT_DELAY_MS = 500
+export const TRACK_REPEAT_INTERVAL_MS = 50
+
 export function computeFloatingScrollbarGeometry(
   options: ComputeFloatingScrollbarGeometryOptions,
 ): FloatingScrollbarGeometry {
@@ -131,8 +144,10 @@ export interface ComputeTrackJumpResult {
  *
  * 设计为纯函数（无 DOM/React 依赖），便于独立单测覆盖各分支与边界（极值/越界/退化尺寸）。
  *
- * 注意：本函数不实现"按住连续按页跳"——只处理单次 pointerdown 的跳转。若未来需要长按持续翻页，
- * 由 caller 用 timer 周期调用本函数即可（nextScroll 会因 currentScroll 更新而逐步逼近 maxScroll）。
+ * 单次 pointerdown 的跳转由本函数完成；按住连续翻页（Windows repeat button）由 caller 在
+ * pointerdown 之后挂定时器周期调用本函数实现（每次都传**当前** scrollTop 与 thumb 屏幕坐标，
+ * nextScroll 会因 currentScroll 更新而逐步逼近 maxScroll）。repeat 节奏由
+ * {@link TRACK_REPEAT_DELAY_MS} / {@link TRACK_REPEAT_INTERVAL_MS} 控制。
  */
 export function computeTrackJump(options: ComputeTrackJumpOptions): ComputeTrackJumpResult {
   const {

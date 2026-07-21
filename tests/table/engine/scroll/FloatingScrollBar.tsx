@@ -1,5 +1,5 @@
 import { act, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FloatingScrollBar } from '../../../../src/table/engine/FloatingScrollBar'
 
 type ROCallback = (entries: Array<ResizeObserverEntry>) => void
@@ -622,5 +622,457 @@ describe('FloatingScrollBar', () => {
     })
     expect(hit.releasePointerCapture).toHaveBeenCalledWith(27)
     expect(document.body).not.toHaveClass('dg-scrollbar-pointer-capturing')
+  })
+
+  describe('Windows repeat button (track hold)', () => {
+    beforeEach(() => {
+      vi.stubGlobal('ResizeObserver', CapturingResizeObserver)
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('repeats vertical page jumps while holding the track below the thumb', () => {
+      render(
+        <FloatingScrollBar scrollContainerClassName="dg-scroll">
+          <div className="dg-grid" />
+        </FloatingScrollBar>,
+      )
+
+      const container = document.querySelector<HTMLElement>('.dg-scroll')!
+      // clientHeight=200, scrollHeight=600 → maxScroll=400；viewportSize=200。
+      // 起点 scrollTop=0；下方轨道点击预期跳页序列：0 → 200 → 400 → 400 (stop).
+      setScrollMetrics(container, { clientHeight: 200, scrollHeight: 600, scrollTop: 0 })
+
+      act(() => {
+        CapturingResizeObserver.callbacks.forEach((callback) => callback([]))
+      })
+
+      const hit = document.querySelector<HTMLElement>('.dg-floating-scrollbar-v')!
+      const thumb = hit.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb')!
+      hit.setPointerCapture = vi.fn()
+      hit.releasePointerCapture = vi.fn()
+      // thumb [100, 132]；clientY=180 落在下方轨道空白 → zone='after'。整个 repeat 期间 thumb rect
+      // mock 保持 [100, 132]（jsdom 不会真移 thumb），computeTrackJump 始终判 zone='after'，
+      // nextScroll 由 currentScroll+200 推进 → 边界 clamp 到 400 后 next===current 触发 stop。
+      vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+        domRect({ top: 100, height: 32 }),
+      )
+
+      // pointerdown：立即首跳一页（0 → 200）。
+      act(() => {
+        hit.dispatchEvent(pointer('pointerdown', { pointerId: 30, clientY: 180 }))
+      })
+      expect(container.scrollTop).toBe(200)
+
+      // 按住 < 500ms：不应触发任何额外跳。
+      act(() => {
+        vi.advanceTimersByTime(400)
+      })
+      expect(container.scrollTop).toBe(200)
+
+      // 推进到 500ms（首 repeat tick）：再跳一页（200 → 400）。
+      act(() => {
+        vi.advanceTimersByTime(100)
+      })
+      expect(container.scrollTop).toBe(400)
+
+      // 推进到 550ms（setInterval 首 tick）：currentScroll=400=maxScroll → next clamp 仍 400 → stop。
+      // 在 stop 触发前挂 spy，验证 stop 真的清了 interval（防泄漏回归）。
+      const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval')
+      act(() => {
+        vi.advanceTimersByTime(50)
+      })
+      expect(container.scrollTop).toBe(400)
+      expect(clearIntervalSpy).toHaveBeenCalled()
+
+      // 继续推进：repeat 已停，scrollTop 不再变。
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expect(container.scrollTop).toBe(400)
+
+      // 已 stop → 监听已移除；再 pointerup 应是 no-op（不影响 scrollTop，不抛错）。
+      act(() => {
+        window.dispatchEvent(pointer('pointerup', { pointerId: 30, clientY: 180 }))
+      })
+      expect(container.scrollTop).toBe(400)
+    })
+
+    it('stops repeating on pointerup before reaching the boundary', () => {
+      render(
+        <FloatingScrollBar scrollContainerClassName="dg-scroll">
+          <div className="dg-grid" />
+        </FloatingScrollBar>,
+      )
+
+      const container = document.querySelector<HTMLElement>('.dg-scroll')!
+      // clientHeight=100, scrollHeight=2000 → maxScroll=1900；viewportSize=100；足够多跳几次不停。
+      setScrollMetrics(container, { clientHeight: 100, scrollHeight: 2000, scrollTop: 0 })
+
+      act(() => {
+        CapturingResizeObserver.callbacks.forEach((callback) => callback([]))
+      })
+
+      const hit = document.querySelector<HTMLElement>('.dg-floating-scrollbar-v')!
+      const thumb = hit.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb')!
+      hit.setPointerCapture = vi.fn()
+      hit.releasePointerCapture = vi.fn()
+      vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+        domRect({ top: 0, height: 32 }),
+      )
+
+      // pointerdown：0 → 100。
+      act(() => {
+        hit.dispatchEvent(pointer('pointerdown', { pointerId: 31, clientY: 50 }))
+      })
+      expect(container.scrollTop).toBe(100)
+
+      // 推进 500ms → 首 repeat tick：100 → 200。
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expect(container.scrollTop).toBe(200)
+
+      // 再推进 100ms → setInterval 触发 2 次（50ms + 100ms）：200 → 300 → 400。
+      act(() => {
+        vi.advanceTimersByTime(100)
+      })
+      expect(container.scrollTop).toBe(400)
+
+      // pointerup：立即停。
+      act(() => {
+        window.dispatchEvent(pointer('pointerup', { pointerId: 31, clientY: 50 }))
+      })
+
+      // 继续推进 1s：不应再跳。
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      expect(container.scrollTop).toBe(400)
+    })
+
+    it('stops repeating when pointer moves onto the thumb during hold', () => {
+      render(
+        <FloatingScrollBar scrollContainerClassName="dg-scroll">
+          <div className="dg-grid" />
+        </FloatingScrollBar>,
+      )
+
+      const container = document.querySelector<HTMLElement>('.dg-scroll')!
+      setScrollMetrics(container, { clientHeight: 100, scrollHeight: 2000, scrollTop: 0 })
+
+      act(() => {
+        CapturingResizeObserver.callbacks.forEach((callback) => callback([]))
+      })
+
+      const hit = document.querySelector<HTMLElement>('.dg-floating-scrollbar-v')!
+      const thumb = hit.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb')!
+      hit.setPointerCapture = vi.fn()
+      hit.releasePointerCapture = vi.fn()
+      vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+        domRect({ top: 100, height: 32 }),
+      )
+
+      // pointerdown clientY=200（在 thumb [100,132] 下方）→ zone='after' → 0 → 100。
+      act(() => {
+        hit.dispatchEvent(pointer('pointerdown', { pointerId: 32, clientY: 200 }))
+      })
+      expect(container.scrollTop).toBe(100)
+
+      // 推进 500ms → 首 repeat tick：100 → 200。
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expect(container.scrollTop).toBe(200)
+
+      // 模拟 pointer 移到 thumb 上（clientY=110 落在 [100, 132] 内）→ 停止条件 3。
+      act(() => {
+        window.dispatchEvent(pointer('pointermove', { pointerId: 32, clientY: 110 }))
+      })
+
+      // 继续推进：不应再跳。
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expect(container.scrollTop).toBe(200)
+    })
+
+    it('does not start repeat when first jump already hits the boundary', () => {
+      render(
+        <FloatingScrollBar scrollContainerClassName="dg-scroll">
+          <div className="dg-grid" />
+        </FloatingScrollBar>,
+      )
+
+      const container = document.querySelector<HTMLElement>('.dg-scroll')!
+      // scrollTop 已在 maxScroll：computeTrackJump next === current → 不启动 repeat。
+      setScrollMetrics(container, { clientHeight: 200, scrollHeight: 600, scrollTop: 400 })
+
+      act(() => {
+        CapturingResizeObserver.callbacks.forEach((callback) => callback([]))
+      })
+
+      const hit = document.querySelector<HTMLElement>('.dg-floating-scrollbar-v')!
+      const thumb = hit.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb')!
+      hit.setPointerCapture = vi.fn()
+      hit.releasePointerCapture = vi.fn()
+      vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+        domRect({ top: 100, height: 32 }),
+      )
+
+      act(() => {
+        hit.dispatchEvent(pointer('pointerdown', { pointerId: 33, clientY: 180 }))
+      })
+      // next=clamp(400+200)=400 === current → 赋值后不变；首跳无空间 → 不启动 repeat。
+      expect(container.scrollTop).toBe(400)
+
+      // 推进 1s：repeat 没启动，scrollTop 不变。
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      expect(container.scrollTop).toBe(400)
+    })
+
+    it('does not start repeat when clicking on the thumb body (still enters drag)', () => {
+      render(
+        <FloatingScrollBar scrollContainerClassName="dg-scroll">
+          <div className="dg-grid" />
+        </FloatingScrollBar>,
+      )
+
+      const container = document.querySelector<HTMLElement>('.dg-scroll')!
+      setScrollMetrics(container, { clientHeight: 200, scrollHeight: 600, scrollTop: 200 })
+
+      act(() => {
+        CapturingResizeObserver.callbacks.forEach((callback) => callback([]))
+      })
+
+      const hit = document.querySelector<HTMLElement>('.dg-floating-scrollbar-v')!
+      const thumb = hit.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb')!
+      hit.setPointerCapture = vi.fn()
+      hit.releasePointerCapture = vi.fn()
+      // thumb [100, 132]；clientY=110 命中 thumb → zone='thumb' → 拖动路径，不触发 repeat。
+      vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+        domRect({ top: 100, height: 32 }),
+      )
+
+      act(() => {
+        hit.dispatchEvent(pointer('pointerdown', { pointerId: 34, clientY: 110 }))
+      })
+
+      expect(container.scrollTop).toBe(200)
+      expect(hit.setPointerCapture).toHaveBeenCalledWith(34)
+
+      // 推进 1s：thumb 命中不应启动 repeat，scrollTop 不变。
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      expect(container.scrollTop).toBe(200)
+
+      // 释放 pointer 清理。
+      act(() => {
+        window.dispatchEvent(pointer('pointerup', { pointerId: 34, clientY: 110 }))
+      })
+    })
+
+    it('repeats horizontal page jumps while holding the track after the thumb', () => {
+      render(
+        <FloatingScrollBar horizontal scrollContainerClassName="dg-scroll">
+          <div className="dg-grid" />
+        </FloatingScrollBar>,
+      )
+
+      const container = document.querySelector<HTMLElement>('.dg-scroll')!
+      setScrollMetrics(container, {
+        clientHeight: 100,
+        scrollHeight: 100,
+        clientWidth: 200,
+        scrollWidth: 600,
+        scrollLeft: 0,
+      })
+
+      act(() => {
+        CapturingResizeObserver.callbacks.forEach((callback) => callback([]))
+      })
+
+      const hit = document.querySelector<HTMLElement>('.dg-floating-scrollbar-h')!
+      const thumb = hit.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb-h')!
+      hit.setPointerCapture = vi.fn()
+      hit.releasePointerCapture = vi.fn()
+      vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+        domRect({ left: 100, width: 32 }),
+      )
+
+      // pointerdown clientX=250 在 thumb [100,132] 右侧 → zone='after' → 0 → 200。
+      act(() => {
+        hit.dispatchEvent(pointer('pointerdown', { pointerId: 35, clientX: 250 }))
+      })
+      expect(container.scrollLeft).toBe(200)
+
+      // 推进 500ms → 首 repeat tick：200 → 400。
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expect(container.scrollLeft).toBe(400)
+
+      // pointerup：停止。
+      act(() => {
+        window.dispatchEvent(pointer('pointerup', { pointerId: 35, clientX: 250 }))
+      })
+
+      // 推进 1s：不应再跳。
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      expect(container.scrollLeft).toBe(400)
+    })
+
+    it('stops horizontal repeat at maxScroll boundary', () => {
+      render(
+        <FloatingScrollBar horizontal scrollContainerClassName="dg-scroll">
+          <div className="dg-grid" />
+        </FloatingScrollBar>,
+      )
+
+      const container = document.querySelector<HTMLElement>('.dg-scroll')!
+      // clientWidth=200, scrollWidth=600 → maxScroll=400；viewportSize=200。
+      // 起点 0；连续跳：0 → 200 → 400 → 400 (stop)。
+      setScrollMetrics(container, {
+        clientHeight: 100,
+        scrollHeight: 100,
+        clientWidth: 200,
+        scrollWidth: 600,
+        scrollLeft: 0,
+      })
+
+      act(() => {
+        CapturingResizeObserver.callbacks.forEach((callback) => callback([]))
+      })
+
+      const hit = document.querySelector<HTMLElement>('.dg-floating-scrollbar-h')!
+      const thumb = hit.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb-h')!
+      hit.setPointerCapture = vi.fn()
+      hit.releasePointerCapture = vi.fn()
+      vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+        domRect({ left: 100, width: 32 }),
+      )
+
+      act(() => {
+        hit.dispatchEvent(pointer('pointerdown', { pointerId: 37, clientX: 250 }))
+      })
+      expect(container.scrollLeft).toBe(200)
+
+      // 500ms：首 repeat tick → 400（=maxScroll）。
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expect(container.scrollLeft).toBe(400)
+
+      // 550ms：setInterval 首 tick → next clamp 仍 400 → stop。
+      const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval')
+      act(() => {
+        vi.advanceTimersByTime(50)
+      })
+      expect(container.scrollLeft).toBe(400)
+      expect(clearIntervalSpy).toHaveBeenCalled()
+
+      // repeat 已停。
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expect(container.scrollLeft).toBe(400)
+    })
+
+    it('stops horizontal repeat when pointer moves onto the thumb', () => {
+      render(
+        <FloatingScrollBar horizontal scrollContainerClassName="dg-scroll">
+          <div className="dg-grid" />
+        </FloatingScrollBar>,
+      )
+
+      const container = document.querySelector<HTMLElement>('.dg-scroll')!
+      setScrollMetrics(container, {
+        clientHeight: 100,
+        scrollHeight: 100,
+        clientWidth: 100,
+        scrollWidth: 2000,
+        scrollLeft: 0,
+      })
+
+      act(() => {
+        CapturingResizeObserver.callbacks.forEach((callback) => callback([]))
+      })
+
+      const hit = document.querySelector<HTMLElement>('.dg-floating-scrollbar-h')!
+      const thumb = hit.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb-h')!
+      hit.setPointerCapture = vi.fn()
+      hit.releasePointerCapture = vi.fn()
+      vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+        domRect({ left: 100, width: 32 }),
+      )
+
+      // pointerdown clientX=200 在 thumb [100,132] 右侧 → zone='after' → 0 → 100。
+      act(() => {
+        hit.dispatchEvent(pointer('pointerdown', { pointerId: 38, clientX: 200 }))
+      })
+      expect(container.scrollLeft).toBe(100)
+
+      // 500ms：首 repeat tick → 200。
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expect(container.scrollLeft).toBe(200)
+
+      // pointer 移到 thumb 上（clientX=110 落在 [100, 132] 内）→ 停止条件 3。
+      act(() => {
+        window.dispatchEvent(pointer('pointermove', { pointerId: 38, clientX: 110 }))
+      })
+
+      // 继续推进：不应再跳。
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expect(container.scrollLeft).toBe(200)
+    })
+
+    it('clears repeat timers on unmount (no leak)', () => {
+      const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout')
+      const clearIntervalSpy = vi.spyOn(globalThis, 'clearInterval')
+
+      const { unmount } = render(
+        <FloatingScrollBar scrollContainerClassName="dg-scroll">
+          <div className="dg-grid" />
+        </FloatingScrollBar>,
+      )
+
+      const container = document.querySelector<HTMLElement>('.dg-scroll')!
+      setScrollMetrics(container, { clientHeight: 100, scrollHeight: 2000, scrollTop: 0 })
+
+      act(() => {
+        CapturingResizeObserver.callbacks.forEach((callback) => callback([]))
+      })
+
+      const hit = document.querySelector<HTMLElement>('.dg-floating-scrollbar-v')!
+      const thumb = hit.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb')!
+      hit.setPointerCapture = vi.fn()
+      hit.releasePointerCapture = vi.fn()
+      vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+        domRect({ top: 0, height: 32 }),
+      )
+
+      act(() => {
+        hit.dispatchEvent(pointer('pointerdown', { pointerId: 36, clientY: 50 }))
+      })
+      // repeat 定时器已挂；卸载应清。
+      clearTimeoutSpy.mockClear()
+      clearIntervalSpy.mockClear()
+      unmount()
+      expect(clearTimeoutSpy).toHaveBeenCalled()
+      // repeat 启动时 setInterval 尚未挂（仅在 setTimeout 触发后挂）；卸载走 stop → clearTimeout 命中。
+      // 不强断言 clearInterval（守卫条件分支可能未触达），只要 clearTimeout 被调即可证明 stop 被执行。
+    })
   })
 })

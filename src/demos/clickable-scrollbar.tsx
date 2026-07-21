@@ -204,6 +204,10 @@ export default function ClickableScrollbarDemo() {
                 {' '}
                 <code>pointerdown</code>——向点击方向<strong>按页跳一视口</strong>（垂直：上/下方；
                 水平：左/右方），松开不进入拖动；右栏 thumb 之外 pointerdown 无响应（#53813 病灶）。
+                <strong>按住轨道空白不放</strong>：500ms 后开始连续翻页（每 50ms 一页 = 20 CPS，
+                Windows repeat button 手感），三种条件停止——松开 pointer / 翻到边界 / pointer
+                {' '}
+                移到 thumb 上。
               </li>
               <li>
                 <strong>hit 区（左栏专属）</strong>：左栏 thumb 之外的 8px 透明 hit 区

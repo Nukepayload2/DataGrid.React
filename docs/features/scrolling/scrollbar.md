@@ -150,8 +150,29 @@ caller 在 pointerdown 入口从 `geometryRef.clientSize` 与 `trackInsetRef` �
 
 #### 非目标（当前不实现）
 
-- **按住连续按页跳**：浏览器原生滚动条按住轨道空白不放会持续翻页，本实现只跳一次。pointerdown → 跳一页 → pointerup（中间 pointermove 不触发额外跳转）。若未来需要，由 caller 用 timer 周期调用 `computeTrackJump` 即可（nextScroll 会因 currentScroll 更新而逐步逼近 maxScroll）。
 - **跳到点击位置（jump-to-position）**：macOS 原生滚动条是"点 track 把 thumb 中心跳到点击位置"（jump-to-position）；本实现采用 Windows/Linux 标准"按页跳"（page jump），与任务规约一致。
+
+#### Windows repeat button（按住连续翻页）
+
+对齐 Windows 原生滚动条 / repeat button 手感：pointerdown 命中轨道空白后**按住不放**会持续按页翻，而不是只跳一次。
+
+行为时序：
+
+1. `pointerdown` 命中轨道空白 → **立即跳一页**（同前）。
+2. **初始延迟 500ms**（`TRACK_REPEAT_DELAY_MS`）内不跳；500ms 触发后**立即跑首次 repeat tick**（再跳一页），之后**每 50ms（= 20 CPS，`TRACK_REPEAT_INTERVAL_MS`）跳一页**。
+3. 每次 repeat tick 重新调 `computeTrackJump`（基于**当前** `scrollTop/Left` 与**当前** thumb 屏幕坐标重算下一页），不缓存首次的 delta——因为每次跳一页后 thumb 跟着位移，下一跳的 currentScroll / thumbStart / thumbEnd 都变了。
+4. **停止条件（任一满足即停 repeat，清两个定时器 + 移除 window 监听）**：
+   - **pointerup / pointercancel**（不管 pointer 位置，对齐 Windows 行为：按住期间持续翻直到松开）。
+   - **到边界**：`computeTrackJump` 算出的 `nextScroll === currentScroll`（已 clamp 到 minScroll/maxScroll，无变化）。
+   - **pointer 进入 thumb**：repeat 期间监听 `pointermove`，若 pointer 屏幕坐标（`clientY/X`）落在 thumb 的 `getBoundingClientRect()` 范围内 → 停止 repeat（用户可能想转去拖 thumb 了）。
+5. thumb 命中分支（`zone === 'thumb'`）不触发 repeat，仍维持增量拖动语义。
+
+实现要点：
+
+- 常量 `TRACK_REPEAT_DELAY_MS = 500` / `TRACK_REPEAT_INTERVAL_MS = 50` 单独导出在 `floatingScrollBarUtils.ts`，便于单测断言"边界等待 + 节奏"。
+- 定时器 id 存 ref（`vRepeatTimeoutRef` / `vRepeatIntervalRef` + 横向对应），`stop()` 函数同时清两个 + 移除 `pointerup`/`pointercancel`/`pointermove` 三个 window 监听。
+- 防泄漏：组件 unmount 的 effect cleanup 也会调一次 `vRepeatStopRef.current?.()` / `hRepeatStopRef.current?.()`，确保卸载时未触发的 repeat 不会残留。
+- repeat 期间不进拖动循环（不 `setPointerCapture`，不建立 drag state），每次 tick 直接赋 `container.scrollTop/Left = nextScroll`。
 
 ## 关联源码
 
