@@ -1,15 +1,14 @@
+import { theme } from 'antd'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { data, type RecordType } from './_compare/resizable-columns.shared'
 
-function InlineTag({
-  color,
-  children,
-}: {
-  color: string
-  children: import('react').ReactNode
-}) {
-  const bg = color
+/**
+ * 内联最小 Tag：视觉对齐 antd `<Tag color="blue">`（preset spot color），
+ * 但用 `colorPrimary` 系列令牌而非裸 #1677ff——主题切换（colorPrimary 改色）自动跟随。
+ */
+function InlineTag({ children }: { children: import('react').ReactNode }) {
+  const { token } = theme.useToken()
   return (
     <span
       style={{
@@ -18,9 +17,9 @@ function InlineTag({
         fontSize: 12,
         lineHeight: '20px',
         borderRadius: 4,
-        color: bg,
-        background: `${bg}1a`, // ~10% alpha
-        border: `1px solid ${bg}33`,
+        color: token.colorPrimary,
+        background: token.colorPrimaryBg,
+        border: `1px solid ${token.colorPrimaryBorder}`,
         marginRight: 4,
       }}
     >
@@ -35,6 +34,10 @@ const dgColumns: ColumnType<RecordType>[] = [
     dataIndex: 'name',
     key: 'name',
     width: 150,
+    // fixed:'start' 演示「固定列 + 可拖拽」组合——Name 钉左缘不动，
+    // 拖其他列边界时 Name 的固定偏移由 useStickyColumns 的 ResizeObserver 自动重算。
+    // 依据：docs/features/columns/column-width.md「与各能力组合 → 固定列」。
+    fixed: 'start',
     render: (text) => <a>{text}</a>,
   },
   {
@@ -62,9 +65,7 @@ const dgColumns: ColumnType<RecordType>[] = [
         }}
       >
         {tags.map((tag) => (
-          <InlineTag color="#1677ff" key={tag}>
-            {tag.toUpperCase()}
-          </InlineTag>
+          <InlineTag key={tag}>{tag.toUpperCase()}</InlineTag>
         ))}
       </span>
     ),
@@ -92,7 +93,10 @@ export default function ResizableDg({
       columns={dgColumns}
       dataSource={data}
       virtual={virtual}
-      scroll={virtual ? { y: true } : undefined}
+      /* `scroll.x:'max-content'` 让表格横可滚，使 Name(fixed:'start') 可见地钉在左缘。
+         虚拟开关接入：ON 时叠加 scroll.y:true（CSS 自适应 SplitDemo 400px 限高，
+         虚拟窗口才有滚动区）。 */
+      scroll={virtual ? { x: 'max-content', y: true } : { x: 'max-content' }}
       pagination={false}
       gridOptions={{
         columnResizeMode,

@@ -1,0 +1,95 @@
+import { useMemo, useState } from 'react'
+import { Alert, Segmented, Space, Switch, Typography } from 'antd'
+import { SplitDemo } from './_compare/SplitDemo'
+import { DemoToolbar } from './_compare/DemoToolbar'
+import { getData } from './_compare/virtual-list.shared'
+import VirtualSummaryDg from './virtual-summary.dg'
+import VirtualSummaryAntd from './virtual-summary.antd'
+
+const ISSUE_URL = 'https://github.com/ant-design/ant-design/issues/47184'
+
+export default function VirtualSummaryDemo() {
+  // 数据量切换：1万 / 10万——证明虚拟化下 summary 仍正常工作。
+  const [count, setCount] = useState<number>(10000)
+  // antd 侧 #47184 的唯一 workaround 开关。默认 false 如实呈现失效态。
+  const [antdFixedSummary, setAntdFixedSummary] = useState(false)
+
+  const data = useMemo(() => getData(count), [count])
+
+  return (
+    <div style={{ padding: 24 }}>
+      <DemoToolbar>
+        <Space wrap>
+          <Segmented
+            value={count}
+            onChange={(val) => setCount(val as number)}
+            options={[
+              { label: '1万行', value: 10000 },
+              { label: '10万行', value: 100000 },
+            ]}
+          />
+          <Switch
+            checked={antdFixedSummary}
+            onChange={setAntdFixedSummary}
+            checkedChildren="antd Summary fixed"
+            unCheckedChildren="antd Summary fixed"
+          />
+        </Space>
+      </DemoToolbar>
+
+      <Alert
+        type="warning"
+        showIcon
+        style={{ marginBottom: 16 }}
+        message={
+          <>
+            antd 在 <code>virtual</code> 模式下 <code>summary</code> 失效——维护者在{' '}
+            <Typography.Link href={ISSUE_URL} target="_blank" rel="noreferrer">
+              #47184
+            </Typography.Link>{' '}
+            中确认「虚拟下 summary 只能用 fixed」。右栏如实呈现：开关关闭时 summary 异常/不可见；开启后才作为 workaround 钉底显示。
+          </>
+        }
+      />
+
+      <SplitDemo
+        minPaneWidth={560}
+        virtualizable={false}
+        left={<VirtualSummaryDg data={data} />}
+        right={
+          <VirtualSummaryAntd data={data} fixedSummary={antdFixedSummary} />
+        }
+      >
+        <div>
+          <strong>对照说明：</strong>左右两侧均开启 <code>virtual</code> 渲染万行/十万行数据，并启用 <code>Table.Summary</code> 表尾汇总。
+          <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+            <li>
+              <strong>antd 病灶（#47184）</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：右栏 antd <code>virtual</code> 下 <code>summary</code> 函数虽被调用，但渲染结果异常/不可见——VirtualTable 用 rc-virtual-list 自管表体滚动容器，<code>&lt;tfoot&gt;</code> 被甩到虚拟视口之外，非 fixed 的 summary 无法正常呈现。</li>
+                <li><strong>触发条件</strong>：顶栏「antd Summary fixed」开关关闭（默认）时即可观察到 summary 缺失。</li>
+                <li><strong>差异原因</strong>：<Typography.Link href={ISSUE_URL} target="_blank" rel="noreferrer">antd#47184</Typography.Link> 维护者确认「虚拟下 summary 只能 fixed」——rc-table VirtualTable 未把 summary 接入虚拟滚动容器。</li>
+              </ul>
+            </li>
+            <li>
+              <strong>data-grid 解药</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>差异行为</strong>：左栏 summary 始终可见——虚拟滚动表体时汇总行（共 N 行 / 均龄）钉在表尾视口底部，数值正确更新。</li>
+                <li><strong>触发条件</strong>：任意滚动表体。</li>
+                <li><strong>差异原因</strong>：data-grid 把 summary 的每个 Cell 渲染为独立 grid item（<code>.dg-cell-summary</code>），位于 grid 末尾、与表体共享滚动容器，但<strong>不进虚拟窗口</strong>（虚拟窗口只覆盖表体行）。<code>&lt;Table.Summary fixed&gt;</code> 加 <code>position: sticky; bottom: 0</code> 即始终可见。源码落点 <code>src/table/engine/Summary.tsx</code>，机制详见 <code>docs/features/layout/summary.md</code>。</li>
+              </ul>
+            </li>
+            <li>
+              <strong>如何观察</strong>
+              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+                <li><strong>左栏（data-grid）</strong>：滚动表体（滚轮/拖拽滚动条/键盘 PgDn），表尾汇总行始终钉在底部，「共 N 行 / 均龄 X」数值正确。</li>
+                <li><strong>右栏（antd）</strong>：默认（fixed 关闭）summary 异常或不可见——这是 #47184 的真实表现，未做任何美化；开启「antd Summary fixed」后 summary 钉底显示（官方唯一 workaround）。</li>
+                <li><strong>切换数据量</strong>：1万 ↔ 10万——两侧均保持虚拟化流畅滚动；左栏 summary 数值随数据量正确更新。</li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </SplitDemo>
+    </div>
+  )
+}

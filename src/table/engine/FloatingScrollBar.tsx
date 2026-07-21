@@ -60,6 +60,7 @@ import {
   computeFloatingDragScrollOffset,
   computeFloatingScrollbarGeometry,
   computeFloatingThumbOffset,
+  computeTrackJump,
   type FloatingScrollbarGeometry,
 } from './floatingScrollBarUtils'
 
@@ -552,8 +553,10 @@ export function FloatingScrollBar({
     return () => ro.disconnect()
   }, [recompute])
 
-  // 纵向拖动（pointerdown 绑在 hit 容器，整个 8px hit 区可靠抓取，不依赖 thumb 先 hover 展开）：
-  // pointerdown → capture（hit 容器自身）→ move 换算 → 容器 scrollTop。
+  // 纵向拖动 / 轨道按页跳（pointerdown 绑在 hit 容器，整个 8px hit 区可靠抓取，不依赖 thumb 先 hover 展开）：
+  //   - 命中 thumb：pointerdown → capture（hit 容器自身）→ move 换算 → 容器 scrollTop。
+  //   - 命中轨道空白（thumb 上方/下方）：按页跳转一次（±viewportSize，对齐浏览器原生滚动条轨道点击），
+  //     不进入拖动循环；用户可重复点击继续按页跳。
   // thumb 仅用于几何计算 + transform 同步，其 ref 仍保留（vThumbRef）但不再绑 pointerdown。
   const onVHitPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const container = innerScrollRef.current
@@ -563,6 +566,34 @@ export function FloatingScrollBar({
     // 用 geometryRef 缓存（不读 container.scrollHeight/clientHeight，避免拖动起点 reflow）。
     const g = vGeometryRef.current
     if (g.maxScroll <= 0) return
+
+    // === 轨道点击按页跳转命中检测 ===
+    // 读 thumb 屏幕坐标（垂直=clientY vs thumb 的 top/bottom）；viewportSize = 可见数据区高度
+    // （clientSize − headerH − summaryH），与"一页"语义一致。getBoundingClientRect 在 pointerdown
+    // 触发一次（非高频路径，reflow 可接受）。
+    const thumbEl = vThumbRef.current
+    if (thumbEl) {
+      const thumbRect = thumbEl.getBoundingClientRect()
+      const inset = trackInsetRef.current
+      const headerH = Number.isFinite(inset.top) ? inset.top : 0
+      const summaryH = Number.isFinite(inset.bottom) ? inset.bottom : 0
+      const viewportSize = Math.max(0, g.clientSize - headerH - summaryH)
+      const jump = computeTrackJump({
+        currentScroll: container.scrollTop,
+        viewportSize,
+        clientPos: e.clientY,
+        thumbStart: thumbRect.top,
+        thumbEnd: thumbRect.bottom,
+        maxScroll: g.maxScroll,
+      })
+      if (jump.zone !== 'thumb') {
+        // 命中轨道空白：直接按页跳转一次，不进入增量拖动循环。
+        // 即使 nextScroll === currentScroll（已到边界）也按"无操作"返回，避免建立空 drag state。
+        container.scrollTop = jump.nextScroll
+        return
+      }
+    }
+
     vDragStateRef.current = {
       pointerId: e.pointerId,
       startY: e.clientY,
@@ -597,8 +628,11 @@ export function FloatingScrollBar({
     window.addEventListener('pointercancel', onUp)
   }
 
-  // 横向拖动（pointerdown 绑在 hit 容器，整个 8px hit 区可靠抓取）：pointerdown → capture
-  // （hit 容器自身）→ move 换算 → 容器 scrollLeft。thumb ref 保留但不绑 pointerdown。
+  // 横向拖动 / 轨道按页跳（pointerdown 绑在 hit 容器，整个 8px hit 区可靠抓取）：
+  //   - 命中 thumb：pointerdown → capture（hit 容器自身）→ move 换算 → 容器 scrollLeft。
+  //   - 命中轨道空白（thumb 左/右）：按页跳转一次（±viewportSize，对齐浏览器原生滚动条轨道点击），
+  //     不进入拖动循环；用户可重复点击继续按页跳。
+  // thumb ref 保留但不绑 pointerdown。
   const onHHitPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const container = innerScrollRef.current
     if (!container) return
@@ -606,6 +640,31 @@ export function FloatingScrollBar({
     e.stopPropagation()
     const g = hGeometryRef.current
     if (g.maxScroll <= 0) return
+
+    // === 轨道点击按页跳转命中检测 ===
+    // 读 thumb 屏幕坐标（水平=clientX vs thumb 的 left/right）；viewportSize = 可见数据区宽度
+    // （clientSize − left inset − right inset，横向通常 = clientWidth）。
+    const thumbEl = hThumbRef.current
+    if (thumbEl) {
+      const thumbRect = thumbEl.getBoundingClientRect()
+      const inset = hTrackInsetRef.current
+      const leftInset = Number.isFinite(inset.left) ? inset.left : 0
+      const rightInset = Number.isFinite(inset.right) ? inset.right : 0
+      const viewportSize = Math.max(0, g.clientSize - leftInset - rightInset)
+      const jump = computeTrackJump({
+        currentScroll: container.scrollLeft,
+        viewportSize,
+        clientPos: e.clientX,
+        thumbStart: thumbRect.left,
+        thumbEnd: thumbRect.right,
+        maxScroll: g.maxScroll,
+      })
+      if (jump.zone !== 'thumb') {
+        container.scrollLeft = jump.nextScroll
+        return
+      }
+    }
+
     hDragStateRef.current = {
       pointerId: e.pointerId,
       startX: e.clientX,

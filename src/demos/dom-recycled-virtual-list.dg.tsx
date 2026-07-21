@@ -79,7 +79,7 @@ const statuses: Row['status'][] = ['Open', 'Review', 'Closed']
 const priorities: Row['priority'][] = ['P0', 'P1', 'P2']
 
 function makeRows(count: number): Row[] {
-  const rows: Row[] = new Array<Row>(count)
+  const rows: Row[] = Array.from({ length: count })
   for (let index = 0; index < count; index += 1) {
     rows[index] = {
       id: index + 1,

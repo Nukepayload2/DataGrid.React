@@ -103,6 +103,56 @@ hit 容器 `pointer-events: auto`，进入 8px hit 区即触发 `.dg-floating-sc
 
 解决：在 pointerdown 入口（`e.currentTarget` = hit 容器仍有效）把捕获目标元素引用存进闭包变量 `hitEl`，后续 set/release 都用同一元素。
 
+### 轨道点击按页跳转（#33）
+
+老版本 `FloatingScrollBar` 在 hit 容器 `pointerdown` 立即进入「增量拖动模式」：不管点在 thumb 上还是轨道空白，都建立 drag state、`setPointerCapture`、注册 window `pointermove`。结果是单击轨道空白不会触发任何跳页（与 antd #53813 同病）——只是建立一个 dy=0 的"原地拖动"，行为没有意义。
+
+新版本在 pointerdown 入口先做**命中检测**，分流两条路径：
+
+| 命中位置 | 行为 |
+|---|---|
+| 点在 thumb 本体（含边界） | 进入增量拖动模式（与原行为一致）：`setPointerCapture` + window `pointermove` 换算 delta → 更新容器 scroll |
+| 点在 thumb 之前的轨道空白（垂直=上方 / 水平=左方） | **按页向上/左跳**：`container.scrollTop/Left = clamp(currentScroll − viewportSize, minScroll, maxScroll)`，**不**进入拖动循环 |
+| 点在 thumb 之后的轨道空白（垂直=下方 / 水平=右方） | **按页向下/右跳**：`container.scrollTop/Left = clamp(currentScroll + viewportSize, minScroll, maxScroll)`，**不**进入拖动循环 |
+
+行为对齐浏览器原生滚动条轨道点击（Windows/Chrome/Firefox 标准行为：点 track 上方→上一页，下方→下一页）。
+
+#### 命中检测纯函数 `computeTrackJump`
+
+算法抽成纯函数（无 DOM/React 依赖），单独导出便于独立单测：
+
+```ts
+// src/table/engine/floatingScrollBarUtils.ts
+export type TrackHitZone = 'thumb' | 'before' | 'after'
+
+export function computeTrackJump(options: {
+  currentScroll: number     // 当前 scrollTop/scrollLeft
+  viewportSize: number      // 一页的尺寸（可见数据区高度/宽度）
+  clientPos: number         // pointerdown 的 clientY/clientX
+  thumbStart: number        // thumb 屏幕坐标 top/left
+  thumbEnd: number          // thumb 屏幕坐标 bottom/right
+  minScroll?: number        // 默认 0
+  maxScroll: number         // geometry.maxScroll
+}): { zone: TrackHitZone; nextScroll: number }
+```
+
+- `zone === 'thumb'`：nextScroll === currentScroll（caller 沿用增量拖动逻辑）。
+- `zone === 'before'` / `'after'`：nextScroll = clamp(currentScroll ∓ viewportSize)，caller 直接赋值给 `container.scrollTop/Left`。
+
+#### viewportSize 的语义
+
+"一页"= 可见数据区的尺寸（不是整个滚动容器的 `clientHeight/clientWidth`）：
+
+- **垂直**：`clientHeight − headerH − summaryH`（去除 sticky 表头 / sticky summary 占用的非数据区）。
+- **水平**：`clientWidth − left inset − right inset`（横向 hit 容器 `left:0; right:0`，inset 通常都为 0，故等于 `clientWidth`）。
+
+caller 在 pointerdown 入口从 `geometryRef.clientSize` 与 `trackInsetRef` 预算好 viewportSize 再传入。
+
+#### 非目标（当前不实现）
+
+- **按住连续按页跳**：浏览器原生滚动条按住轨道空白不放会持续翻页，本实现只跳一次。pointerdown → 跳一页 → pointerup（中间 pointermove 不触发额外跳转）。若未来需要，由 caller 用 timer 周期调用 `computeTrackJump` 即可（nextScroll 会因 currentScroll 更新而逐步逼近 maxScroll）。
+- **跳到点击位置（jump-to-position）**：macOS 原生滚动条是"点 track 把 thumb 中心跳到点击位置"（jump-to-position）；本实现采用 Windows/Linux 标准"按页跳"（page jump），与任务规约一致。
+
 ## 关联源码
 
 - [`src/table/style/table.css`](../../../src/table/style/table.css) — `.dg-wrapper` / `.dg-wrapper.dg-data-area` / `.dg-wrapper.dg-content-scrolled` 的 `overflow-x: hidden`；`.dg-scroll-floating .dg-scroll` 隐藏原生条；`.dg-floating-scrollbar*` 全套悬浮条规则。

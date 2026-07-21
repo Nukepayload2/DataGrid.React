@@ -131,6 +131,11 @@ describe('FloatingScrollBar', () => {
     const thumb = hit.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb')!
     hit.setPointerCapture = vi.fn()
     hit.releasePointerCapture = vi.fn()
+    // jsdom 不计算 transform 的实际屏幕坐标，getBoundingClientRect 默认全 0；显式 mock
+    // 让 clientY=10 落在 thumb [0, 33.33] 内 → 命中 thumb → 进入增量拖动（而非按页跳）。
+    vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+      domRect({ top: 0, height: 33.33333333333333 }),
+    )
 
     expect(thumb.style.display).toBe('block')
     expect(thumb.style.height).toBe('33.33333333333333px')
@@ -181,6 +186,10 @@ describe('FloatingScrollBar', () => {
     const thumb = hit.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb-h')!
     hit.setPointerCapture = vi.fn()
     hit.releasePointerCapture = vi.fn()
+    // 同纵向：mock thumb 屏幕坐标 [0, 33.33]，让 clientX=10 命中 thumb → 进入增量拖动。
+    vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+      domRect({ left: 0, width: 33.33333333333333 }),
+    )
 
     expect(thumb.style.display).toBe('block')
     expect(thumb.style.width).toBe('33.33333333333333px')
@@ -349,5 +358,269 @@ describe('FloatingScrollBar', () => {
     expect(container).toHaveClass('dg-scroll')
     expect(container).toHaveClass('custom-scroll')
     expect(container).toHaveStyle({ maxHeight: '100px' })
+  })
+
+  it('jumps one page up when clicking the vertical track above the thumb', () => {
+    vi.stubGlobal('ResizeObserver', CapturingResizeObserver)
+
+    render(
+      <FloatingScrollBar scrollContainerClassName="dg-scroll">
+        <div className="dg-grid" />
+      </FloatingScrollBar>,
+    )
+
+    const container = document.querySelector<HTMLElement>('.dg-scroll')!
+    // clientHeight=200, scrollHeight=600 → maxScroll=400；viewportSize=200（无表头/summary）。
+    setScrollMetrics(container, { clientHeight: 200, scrollHeight: 600, scrollTop: 200 })
+
+    act(() => {
+      CapturingResizeObserver.callbacks.forEach((callback) => callback([]))
+    })
+
+    const hit = document.querySelector<HTMLElement>('.dg-floating-scrollbar-v')!
+    const thumb = hit.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb')!
+    hit.setPointerCapture = vi.fn()
+    hit.releasePointerCapture = vi.fn()
+    // thumb 屏幕坐标 [100, 132]；clientY=50 落在 thumb 上方轨道空白 → zone='before'。
+    vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+      domRect({ top: 100, height: 32 }),
+    )
+
+    act(() => {
+      hit.dispatchEvent(pointer('pointerdown', { pointerId: 21, clientY: 50 }))
+    })
+
+    // 跳转：200 - 200 = 0。
+    expect(container.scrollTop).toBe(0)
+    // 不进入拖动：未捕获 pointer、未加 capturing class。
+    expect(hit.setPointerCapture).not.toHaveBeenCalled()
+    expect(document.body).not.toHaveClass('dg-scrollbar-pointer-capturing')
+    expect(hit).not.toHaveClass('dg-floating-scrollbar-dragging')
+  })
+
+  it('jumps one page down when clicking the vertical track below the thumb', () => {
+    vi.stubGlobal('ResizeObserver', CapturingResizeObserver)
+
+    render(
+      <FloatingScrollBar scrollContainerClassName="dg-scroll">
+        <div className="dg-grid" />
+      </FloatingScrollBar>,
+    )
+
+    const container = document.querySelector<HTMLElement>('.dg-scroll')!
+    setScrollMetrics(container, { clientHeight: 200, scrollHeight: 600, scrollTop: 200 })
+
+    act(() => {
+      CapturingResizeObserver.callbacks.forEach((callback) => callback([]))
+    })
+
+    const hit = document.querySelector<HTMLElement>('.dg-floating-scrollbar-v')!
+    const thumb = hit.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb')!
+    hit.setPointerCapture = vi.fn()
+    hit.releasePointerCapture = vi.fn()
+    // thumb [100, 132]；clientY=180 落在下方轨道空白 → zone='after'。
+    vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+      domRect({ top: 100, height: 32 }),
+    )
+
+    act(() => {
+      hit.dispatchEvent(pointer('pointerdown', { pointerId: 22, clientY: 180 }))
+    })
+
+    // 跳转：200 + 200 = 400。
+    expect(container.scrollTop).toBe(400)
+    expect(hit.setPointerCapture).not.toHaveBeenCalled()
+    expect(document.body).not.toHaveClass('dg-scrollbar-pointer-capturing')
+  })
+
+  it('clamps the vertical page jump to maxScroll when near the end', () => {
+    vi.stubGlobal('ResizeObserver', CapturingResizeObserver)
+
+    render(
+      <FloatingScrollBar scrollContainerClassName="dg-scroll">
+        <div className="dg-grid" />
+      </FloatingScrollBar>,
+    )
+
+    const container = document.querySelector<HTMLElement>('.dg-scroll')!
+    setScrollMetrics(container, { clientHeight: 200, scrollHeight: 600, scrollTop: 350 })
+
+    act(() => {
+      CapturingResizeObserver.callbacks.forEach((callback) => callback([]))
+    })
+
+    const hit = document.querySelector<HTMLElement>('.dg-floating-scrollbar-v')!
+    const thumb = hit.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb')!
+    hit.setPointerCapture = vi.fn()
+    hit.releasePointerCapture = vi.fn()
+    vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+      domRect({ top: 100, height: 32 }),
+    )
+
+    act(() => {
+      hit.dispatchEvent(pointer('pointerdown', { pointerId: 23, clientY: 250 }))
+    })
+
+    // maxScroll=400；350 + 200 = 550 clamp 到 400。
+    expect(container.scrollTop).toBe(400)
+  })
+
+  it('clamps the vertical page jump to 0 when near the start', () => {
+    vi.stubGlobal('ResizeObserver', CapturingResizeObserver)
+
+    render(
+      <FloatingScrollBar scrollContainerClassName="dg-scroll">
+        <div className="dg-grid" />
+      </FloatingScrollBar>,
+    )
+
+    const container = document.querySelector<HTMLElement>('.dg-scroll')!
+    setScrollMetrics(container, { clientHeight: 200, scrollHeight: 600, scrollTop: 100 })
+
+    act(() => {
+      CapturingResizeObserver.callbacks.forEach((callback) => callback([]))
+    })
+
+    const hit = document.querySelector<HTMLElement>('.dg-floating-scrollbar-v')!
+    const thumb = hit.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb')!
+    hit.setPointerCapture = vi.fn()
+    hit.releasePointerCapture = vi.fn()
+    vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+      domRect({ top: 100, height: 32 }),
+    )
+
+    act(() => {
+      hit.dispatchEvent(pointer('pointerdown', { pointerId: 24, clientY: 0 }))
+    })
+
+    // 100 - 200 = -100 clamp 到 0。
+    expect(container.scrollTop).toBe(0)
+  })
+
+  it('jumps one page left when clicking the horizontal track before the thumb', () => {
+    vi.stubGlobal('ResizeObserver', CapturingResizeObserver)
+
+    render(
+      <FloatingScrollBar horizontal scrollContainerClassName="dg-scroll">
+        <div className="dg-grid" />
+      </FloatingScrollBar>,
+    )
+
+    const container = document.querySelector<HTMLElement>('.dg-scroll')!
+    setScrollMetrics(container, {
+      clientHeight: 100,
+      scrollHeight: 100,
+      clientWidth: 200,
+      scrollWidth: 600,
+      scrollLeft: 200,
+    })
+
+    act(() => {
+      CapturingResizeObserver.callbacks.forEach((callback) => callback([]))
+    })
+
+    const hit = document.querySelector<HTMLElement>('.dg-floating-scrollbar-h')!
+    const thumb = hit.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb-h')!
+    hit.setPointerCapture = vi.fn()
+    hit.releasePointerCapture = vi.fn()
+    vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+      domRect({ left: 100, width: 32 }),
+    )
+
+    act(() => {
+      hit.dispatchEvent(pointer('pointerdown', { pointerId: 25, clientX: 50 }))
+    })
+
+    expect(container.scrollLeft).toBe(0)
+    expect(hit.setPointerCapture).not.toHaveBeenCalled()
+  })
+
+  it('jumps one page right when clicking the horizontal track after the thumb', () => {
+    vi.stubGlobal('ResizeObserver', CapturingResizeObserver)
+
+    render(
+      <FloatingScrollBar horizontal scrollContainerClassName="dg-scroll">
+        <div className="dg-grid" />
+      </FloatingScrollBar>,
+    )
+
+    const container = document.querySelector<HTMLElement>('.dg-scroll')!
+    setScrollMetrics(container, {
+      clientHeight: 100,
+      scrollHeight: 100,
+      clientWidth: 200,
+      scrollWidth: 600,
+      scrollLeft: 200,
+    })
+
+    act(() => {
+      CapturingResizeObserver.callbacks.forEach((callback) => callback([]))
+    })
+
+    const hit = document.querySelector<HTMLElement>('.dg-floating-scrollbar-h')!
+    const thumb = hit.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb-h')!
+    hit.setPointerCapture = vi.fn()
+    hit.releasePointerCapture = vi.fn()
+    vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+      domRect({ left: 100, width: 32 }),
+    )
+
+    act(() => {
+      hit.dispatchEvent(pointer('pointerdown', { pointerId: 26, clientX: 250 }))
+    })
+
+    // 200 + 200 = 400。
+    expect(container.scrollLeft).toBe(400)
+    expect(hit.setPointerCapture).not.toHaveBeenCalled()
+    expect(document.body).not.toHaveClass('dg-scrollbar-pointer-capturing')
+  })
+
+  it('still enters drag mode when clicking on the thumb body (no page jump)', () => {
+    vi.stubGlobal('ResizeObserver', CapturingResizeObserver)
+
+    render(
+      <FloatingScrollBar scrollContainerClassName="dg-scroll">
+        <div className="dg-grid" />
+      </FloatingScrollBar>,
+    )
+
+    const container = document.querySelector<HTMLElement>('.dg-scroll')!
+    setScrollMetrics(container, { clientHeight: 200, scrollHeight: 600, scrollTop: 200 })
+
+    act(() => {
+      CapturingResizeObserver.callbacks.forEach((callback) => callback([]))
+    })
+
+    const hit = document.querySelector<HTMLElement>('.dg-floating-scrollbar-v')!
+    const thumb = hit.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb')!
+    hit.setPointerCapture = vi.fn()
+    hit.releasePointerCapture = vi.fn()
+    // thumb [100, 132]；clientY=110 命中 thumb → 进入增量拖动（不跳页）。
+    vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+      domRect({ top: 100, height: 32 }),
+    )
+
+    act(() => {
+      hit.dispatchEvent(pointer('pointerdown', { pointerId: 27, clientY: 110 }))
+    })
+
+    // 进入拖动：scrollTop 未变（200），但已 setPointerCapture + 加 capturing class。
+    expect(container.scrollTop).toBe(200)
+    expect(hit.setPointerCapture).toHaveBeenCalledWith(27)
+    expect(document.body).toHaveClass('dg-scrollbar-pointer-capturing')
+
+    // 拖动一帧 dy=20 → scrollTop += 20 / thumbMaxOffset * maxScroll。
+    act(() => {
+      window.dispatchEvent(pointer('pointermove', { pointerId: 27, clientY: 130 }))
+    })
+    // thumbSize=200/600*200=66.67；thumbMaxOffset=200-66.67=133.33；maxScroll=400。
+    // dy=20 → delta scroll = 20/133.33*400 = 60。
+    expect(container.scrollTop).toBeCloseTo(260, 3)
+
+    act(() => {
+      window.dispatchEvent(pointer('pointerup', { pointerId: 27, clientY: 130 }))
+    })
+    expect(hit.releasePointerCapture).toHaveBeenCalledWith(27)
+    expect(document.body).not.toHaveClass('dg-scrollbar-pointer-capturing')
   })
 })

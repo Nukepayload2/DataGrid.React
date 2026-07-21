@@ -69,6 +69,9 @@ export const docs: DocEntry[] = [
     description: 'data-grid 适合与不适合的场景速览，帮助在动手迁移前判断取舍。',
     sections: [
       { id: 'fit', title: '适合迁移' },
+      { id: 'pain-to-cure', title: '痛点 → 解药' },
+      { id: 'cost', title: '迁移成本' },
+      { id: 'prompt', title: 'AI 辅助迁移提示词' },
       { id: 'avoid', title: '先别迁' },
       { id: 'next', title: '相关参考' },
     ],

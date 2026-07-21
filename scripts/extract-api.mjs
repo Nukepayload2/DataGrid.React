@@ -252,12 +252,6 @@ function extractInterfaceMembers(parent) {
   return out
 }
 
-function extractTypeAliasSummary(sourceFile, name) {
-  const alias = findTypeAlias(sourceFile, name)
-  if (!alias) return ''
-  return getSummary(alias)
-}
-
 function extractVirtualizationMode(sourceFile) {
   const alias = findTypeAlias(sourceFile, 'VirtualizationMode')
   if (!alias) {
