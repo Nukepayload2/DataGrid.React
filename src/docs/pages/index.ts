@@ -1,0 +1,23 @@
+// Barrel module for docs pages. Re-exports the 19 render functions used by
+// docRegistry.tsx. `'./pages'` resolves to this file (pages/index.ts).
+// Keep the list in docRegistry import order for easy cross-reference.
+
+export { renderIntro } from './intro'
+export { renderQuickStart } from './quick-start'
+export { renderMigration } from './migrate-from-antd'
+export { renderWhenToMigrate } from './when-to-migrate'
+export { renderArchitecture } from './architecture-overview'
+export { renderRenderingModel } from './rendering-model'
+export { renderScrollY } from './scroll-y'
+export { renderApiNamespace } from './api-namespace'
+export { renderFeatures } from './features'
+export { renderScrolling } from './scrolling'
+export { renderStyling } from './styling-and-theme'
+export { renderSemanticDom } from './semantic-dom'
+export { renderPublicApi } from './public-api'
+export { renderTableApi } from './table-api'
+export { renderColumnApi } from './column-api'
+export { renderCompatMatrix } from './compat-matrix'
+export { renderDeprecatedAntdMembers } from './deprecated-antd-members'
+export { renderKnownLimitations } from './known-limitations'
+export { renderGridOptions } from './grid-options'
