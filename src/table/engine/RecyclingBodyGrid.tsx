@@ -51,6 +51,20 @@ interface ActiveCell<RecordType> {
   reactRenderer: GridColumnOptions<RecordType>['renderCellReact']
   disposer: GridColumnOptions<RecordType>['disposeCellElement']
   listeners: Array<ListenerEntry>
+  /**
+   * 监听器稳定化：监听器在 cell 创建时一次性绑定（setupListeners），handler 闭包稳定捕获 cell，
+   * 触发时读 cell 的最新可变字段——避免每帧 clearListeners + addEventListener 重新创建上千个闭包。
+   * patchOuter 每帧只做这三个字段的引用赋值。
+   */
+  rowHoverable: boolean
+  setHoveredRowIndex: (index: number | null) => void
+  rowEventProps: React.HTMLAttributes<HTMLElement> | undefined
+  /**
+   * 上一帧实际写入 DOM 的 inline style 快照（rendered 值，已过 cssValue/zIndex 规则）。
+   * 用于增量 diff：仅当 desired[key] !== appliedStyle[key] 才写，
+   * 仅当上一帧有但本帧 desired 没有的键才清除。undefined 表示尚未应用过（首帧全量写）。
+   */
+  appliedStyle: Record<string, string> | undefined
 }
 
 interface PoolBucket<RecordType> {
@@ -121,20 +135,50 @@ function cssValue(value: unknown): string {
   return String(value)
 }
 
-function applyStyle(
-  element: HTMLElement,
+/**
+ * 增量 diff 应用 inline style：仅写与上一帧快照不同的键，仅清上一帧有但本帧 desired 没有的键。
+ * 不再 removeAttribute('style') 全量重写——滚动期 ~510 cell × 每帧全量重算 inline style 是主线程热点。
+ *
+ * rendered 规则与原实现逐字节等价：
+ *   - null/undefined 跳过（不入 next；若 previous 有该键则会被清除分支清掉）
+ *   - zIndex 用 String(value)（不加 px）
+ *   - 其余（含 `--` 开头 custom property）用 cssValue(value)（number→px，else String）
+ * 写入分派：camelCase → style[key]=rendered；`--` 开头 → setProperty(key, rendered)。
+ * 清除分派：camelCase → =''；`--` 开头 → removeProperty(key)。
+ */
+function applyStyle<RecordType>(
+  cell: ActiveCell<RecordType>,
   style: Record<string, unknown>,
 ): void {
-  element.removeAttribute('style')
+  const element = cell.outer
+  const previous = cell.appliedStyle
+  const next: Record<string, string> = {}
   for (const [key, value] of Object.entries(style)) {
     if (value === undefined || value === null) continue
-    if (key.startsWith('--')) {
-      element.style.setProperty(key, cssValue(value))
-    } else {
-      const target = element.style as unknown as Record<string, string>
-      target[key] = key === 'zIndex' ? String(value) : cssValue(value)
+    const rendered = key === 'zIndex' ? String(value) : cssValue(value)
+    next[key] = rendered
+    if (rendered !== previous?.[key]) {
+      if (key.startsWith('--')) {
+        element.style.setProperty(key, rendered)
+      } else {
+        const target = element.style as unknown as Record<string, string>
+        target[key] = rendered
+      }
     }
   }
+  if (previous) {
+    for (const key of Object.keys(previous)) {
+      if (!(key in next)) {
+        if (key.startsWith('--')) {
+          element.style.removeProperty(key)
+        } else {
+          const target = element.style as unknown as Record<string, string>
+          target[key] = ''
+        }
+      }
+    }
+  }
+  cell.appliedStyle = next
 }
 
 function clearListeners<RecordType>(cell: ActiveCell<RecordType>): void {
@@ -153,23 +197,64 @@ function addListener<RecordType>(
   cell.listeners.push([type, listener])
 }
 
-function reactEventToDomEvent(name: string): string | undefined {
-  const map: Record<string, string> = {
-    onClick: 'click',
-    onDoubleClick: 'dblclick',
-    onContextMenu: 'contextmenu',
-    onMouseDown: 'mousedown',
-    onMouseUp: 'mouseup',
-    onMouseMove: 'mousemove',
-    onPointerDown: 'pointerdown',
-    onPointerUp: 'pointerup',
-    onPointerMove: 'pointermove',
-    onKeyDown: 'keydown',
-    onKeyUp: 'keyup',
-    onFocus: 'focus',
-    onBlur: 'blur',
+const REACT_TO_DOM_EVENTS: Record<string, string> = {
+  onClick: 'click',
+  onDoubleClick: 'dblclick',
+  onContextMenu: 'contextmenu',
+  onMouseDown: 'mousedown',
+  onMouseUp: 'mouseup',
+  onMouseMove: 'mousemove',
+  onPointerDown: 'pointerdown',
+  onPointerUp: 'pointerup',
+  onPointerMove: 'pointermove',
+  onKeyDown: 'keydown',
+  onKeyUp: 'keyup',
+  onFocus: 'focus',
+  onBlur: 'blur',
+}
+
+/**
+ * 在 cell 创建时一次性绑定全部监听器。handler 闭包稳定捕获 cell 对象本身，
+ * 触发时读 cell 的可变字段（rowHoverable / setHoveredRowIndex / rowEventProps）+ dataset.rowIndex，
+ * 因此跨帧无需 clear/add——消除每帧上千次 add/removeEventListener + 上千个新闭包（GC 主因）。
+ *
+ * cell 对象在 active 期间跨帧稳定（getActiveCell 复用同一对象），patchOuter 每帧只更新引用字段。
+ * releaseCell / unmountCell 仍调 clearListeners 清理，无泄漏。
+ *
+ * 行号从 cell.outer.dataset.rowIndex 现读（patchOuter 每帧 `cell.outer.dataset.rowIndex = String(index)` 写入），
+ * 保证 rowHoverable 切换目标总是当前行。
+ *
+ * handler.call(cell.outer, event) 显式保持原 `addListener(..., handler as EventListener)` 的 this 绑定
+ * （addEventListener 默认 this = 当前元素）。
+ *
+ * 注意：mouseenter / mouseleave 在原 patchOuter 里是无条件绑定（不走 rowEventProps 是否存在的检查），
+ * 这里保持同样语义——hoverable 逻辑恒走，handler 在 rowEventProps 有对应字段时才透传。
+ */
+function setupListeners<RecordType>(cell: ActiveCell<RecordType>): void {
+  addListener(cell, 'mouseenter', (event) => {
+    if (cell.rowHoverable) {
+      const raw = cell.outer.dataset.rowIndex
+      const idx = raw === undefined ? NaN : Number(raw)
+      cell.setHoveredRowIndex(Number.isNaN(idx) ? null : idx)
+    }
+    const handler = cell.rowEventProps?.onMouseEnter
+    if (typeof handler === 'function') (handler as unknown as EventListener).call(cell.outer, event)
+  })
+  addListener(cell, 'mouseleave', (event) => {
+    if (cell.rowHoverable) {
+      cell.setHoveredRowIndex(null)
+    }
+    const handler = cell.rowEventProps?.onMouseLeave
+    if (typeof handler === 'function') (handler as unknown as EventListener).call(cell.outer, event)
+  })
+  for (const [name, domName] of Object.entries(REACT_TO_DOM_EVENTS)) {
+    addListener(cell, domName, (event) => {
+      const handler = cell.rowEventProps?.[name as keyof React.HTMLAttributes<HTMLElement>]
+      if (typeof handler === 'function') {
+        (handler as EventListener).call(cell.outer, event)
+      }
+    })
   }
-  return map[name]
 }
 
 function detach(element: HTMLElement): void {
@@ -454,7 +539,7 @@ function patchOuter<RecordType>({
   cell.outer.removeAttribute('aria-colspan')
   cell.outer.removeAttribute('aria-rowspan')
 
-  applyStyle(cell.outer, {
+  applyStyle(cell, {
     gridColumn: String(colIdx + 1),
     gridRow: String(rowLine),
     ...(column.align ? { textAlign: column.align } : null),
@@ -473,25 +558,13 @@ function patchOuter<RecordType>({
   if (title === undefined) cell.inner.removeAttribute('title')
   else cell.inner.title = title
 
-  clearListeners(cell)
-  const rowEventProps = bodyCellInjectedProps.restRowProps
-  addListener(cell, 'mouseenter', (event) => {
-    if (rowHoverable) setHoveredRowIndex(index)
-    const handler = rowEventProps.onMouseEnter
-    if (typeof handler === 'function') handler(event)
-  })
-  addListener(cell, 'mouseleave', (event) => {
-    if (rowHoverable) setHoveredRowIndex(null)
-    const handler = rowEventProps.onMouseLeave
-    if (typeof handler === 'function') handler(event)
-  })
-  for (const [name, handler] of Object.entries(rowEventProps)) {
-    if (name === 'onMouseEnter' || name === 'onMouseLeave') continue
-    if (typeof handler !== 'function') continue
-    const eventName = reactEventToDomEvent(name)
-    if (!eventName) continue
-    addListener(cell, eventName, handler as EventListener)
-  }
+  // 监听器稳定化：不再每帧 clearListeners + addListener 重绑。
+  // 监听器在 cell 创建时（setupListeners）一次性绑定，handler 闭包捕获 cell 本身，
+  // 触发时读 cell 上的可变字段——这里每帧只做引用赋值。
+  // 行号在 handler 触发时从 cell.outer.dataset.rowIndex 现读（上面 `cell.outer.dataset.rowIndex = String(index)` 处已写入）。
+  cell.rowHoverable = rowHoverable
+  cell.setHoveredRowIndex = setHoveredRowIndex
+  cell.rowEventProps = bodyCellInjectedProps.restRowProps
 
   void rowKey
 }
@@ -709,6 +782,10 @@ export function RecyclingBodyGrid<RecordType>({
         }
         if (!cell) {
           const outer = acquireOuter(store, column)
+          // 池化 outer 可能带上一辈子遗留的 stale inline style；增量 diff 不会清"desired 里没有
+          // 但 DOM 上有"的键，所以 acquire 后一次性清空 style，配合 appliedStyle=undefined 让首帧
+          // 从干净态全量写入。对 makeOuterCell() 全新元素无害（本来就没有 inline style）。
+          outer.removeAttribute('style')
           const inner = outer.firstElementChild instanceof HTMLDivElement
             ? outer.firstElementChild
             : document.createElement('div')
@@ -726,8 +803,16 @@ export function RecyclingBodyGrid<RecordType>({
             reactRenderer,
             disposer,
             listeners: [],
+            appliedStyle: undefined,
+            // 监听器稳定化：handler 闭包捕获 cell，触发时读这些字段。
+            // 这里初始化为安全默认值，紧随其后的 patchOuter 会写入真实值；
+            // setupListeners 一次性绑定全部监听器（监听器触发前 patchOuter 必已执行过首帧）。
+            rowHoverable: false,
+            setHoveredRowIndex: () => {},
+            rowEventProps: undefined,
           }
           setActiveCell(store, cell)
+          setupListeners(cell)
           grid.appendChild(outer)
           renderInner(store, cell, params)
           orderDirty = true

@@ -519,7 +519,7 @@ function App() {
           {view.kind === 'demosHome' ? <DemoHomePage /> : null}
 
           {view.kind === 'demo' && DemoComp ? (
-            <div className="demo-page">
+            <div className="demo-page" data-demo-name={view.name}>
               <Breadcrumb
                 style={{ marginBottom: 16 }}
                 items={[

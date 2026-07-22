@@ -472,7 +472,18 @@ export default function VirtualListRecyclingDg() {
   }
 
   return (
-    <div style={{ padding: 24 }}>
+    <div
+      style={{
+        padding: 24,
+        // flex 链：占满 .demo-page 剩余高度，工具栏自然高、表格 flex:1 占剩余。
+        // 触发条件：App.tsx 给 .demo-page 加 data-demo-name="dom-recycled-virtual-list"
+        // + index.css 针对该属性设 height/display:flex/flex-direction:column。
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+      }}
+    >
       <Space style={{ marginBottom: 8 }} align="center" wrap>
         <Typography.Text strong>Recycling virtual body</Typography.Text>
         <Typography.Text type="secondary">
@@ -518,7 +529,7 @@ export default function VirtualListRecyclingDg() {
         />
         <FrameRateMeter resetVersion={version} />
       </Space>
-      <div style={{ height: 874 }}>
+      <div style={{ flex: 1, minHeight: 0 }}>
         <Table<Row>
           key={version}
           size="small"

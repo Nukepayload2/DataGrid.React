@@ -69,6 +69,22 @@ body {
   margin: 24px 0;
 }
 
+/* dom-recycled-virtual-list：让 demo 页自身不滚动，表格占满剩余高度、由表格内部滚动。
+   - 仅此 demo：data-demo-name 在 App.tsx 针对 view.name 注入，其它 demo/docs 不受影响。
+   - height:100% + margin:0 + padding-block:24：用 padding（box-sizing:border-box 内含于 height）
+     保留原 margin:24px 0 的视觉留白，但不占额外竖向空间 → demo-page 严格等于 Content 高度，
+     Content(overflow:auto) 不再触发滚动。对 760px 媒体查询改 margin:16 也免疫（我们 margin:0
+     特异性更高）。
+   - flex column 让内部 DemoComp(flex:1,minHeight:0) 占 Breadcrumb 与 Collapse 之间的剩余空间。 */
+.demo-page[data-demo-name='dom-recycled-virtual-list'] {
+  height: 100%;
+  margin: 0;
+  padding-block: 24px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .demo-home-page {
   margin: 24px 0;
 }
