@@ -434,6 +434,8 @@ body.dg-scrollbar-pointer-capturing * {
   overflow-x: auto;
   overflow-y: hidden;
   width: 100%;
+  /* 断虚拟列表 ±1px 反馈环，禁止浏览器 scroll anchoring。 */
+  overflow-anchor: none;
 }
 
 /* 固定列需要不透明背景盖住滚动内容。 */
@@ -484,6 +486,8 @@ body.dg-scrollbar-pointer-capturing * {
 .dg-x-scroll {
   /* 与 .dg-scroll 一致：固定列底色由 .dg-cell-fixed-* 提供，这里只管滚动行为。 */
   width: 100%;
+  /* 断虚拟列表 ±1px 反馈环，禁止浏览器 scroll anchoring。 */
+  overflow-anchor: none;
 }
 
 .dg-cell-header-vsticky {
