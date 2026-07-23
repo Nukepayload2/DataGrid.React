@@ -396,6 +396,10 @@ function GridTableInner<RecordType = any>(
     getRowHeight,
     containerRef: virtualScrollRef,
     enabled: virtualEnabled,
+    // 固定行高（rowHeight 为 number）时禁用测量：body track 是定值 `${h}px`，每行实际高度恒等于
+    // getRowHeight(i)，测量不提供新信息 → 跳过（省 overhead，也避免回收/瞬态布局期 offsetHeight 误读）。
+    // 仅当行高真可能随内容或行变化时才测量：rowHeight 未给（undefined，按 antd 策略=内容撑高）/ 是函数 / 有界(min/max)。
+    measurementEnabled: boundedRowHeight || typeof rowHeight !== 'number',
     contentOffset: headerHeightNum,
     // .dg-grid 默认 row-gap:0（CSS 未声明）。data-grid 表格通常无行间距。
     gap: 0,

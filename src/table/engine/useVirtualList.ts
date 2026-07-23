@@ -35,6 +35,21 @@ export interface UseVirtualListOptions {
   overscan?: number
   /** 是否启用（false 时禁用虚拟，返回全集范围）。默认 true。 */
   enabled?: boolean
+  /**
+   * 是否启用行高测量（动态行高场景）。默认 true 保持兼容。
+   *
+   * 实际生效条件 = `enabled && measurementEnabled`（虚拟关闭时整体不工作）。
+   *
+   * **何时传 false**：固定行高 + 无界（无 min/max）场景。此时每行实际高度恒等于
+   * `getRowHeight(i)`（body track 是 `${h}px` 定值），测量毫无意义反而是污染源——
+   * 回收/瞬态布局下 offsetHeight 可能短暂读到 ≠ 约定值，写入 sizeTree 后粘死不自愈，
+   * 导致 totalSize 缩水 / 滚动重叠。关闭后 useRowMeasurements 不 observe 不 flush，
+   * rowSizes 保持 initialRowSizeState（空 offsetTree）→ 走 fallback measurements 数组路径，
+   * 该路径每行用 getRowHeight 累积 offset，totalSize 与 padding 计算对固定行高天然正确。
+   *
+   * **何时保持 true**：有界行高模型（min/max 行高）或 rowHeight 为函数（每行可能不同）。
+   */
+  measurementEnabled?: boolean
   /** 数据区相对滚动容器内容顶部的偏移。 */
   contentOffset?: number
   /** 行间距（px）。 */
@@ -92,6 +107,7 @@ export function useVirtualList(options: UseVirtualListOptions): UseVirtualListRe
     containerRef,
     overscan = 8,
     enabled = true,
+    measurementEnabled = true,
     contentOffset = 0,
     gap = 0,
   } = options
@@ -104,7 +120,9 @@ export function useVirtualList(options: UseVirtualListOptions): UseVirtualListRe
     },
     [gap],
   )
-  useRowMeasurements(containerRef, enabled, handleRanges)
+  // 测量仅在「虚拟启用 + 行高可能变化」时才有意义（详见 measurementEnabled 选项文档）。
+  // 固定行高 + 无界时关闭：避免瞬态 offsetHeight 污染 sizeTree 导致 totalSize 缩水/重叠。
+  useRowMeasurements(containerRef, enabled && measurementEnabled, handleRanges)
 
   // offsetTree 未覆盖时，回退到约定行高数组。
   const measurements = useMemo<Array<VirtualRowMeasurement>>(() => {

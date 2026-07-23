@@ -493,6 +493,9 @@ body.dg-scrollbar-pointer-capturing * {
 .dg-cell-header-vsticky {
   /* 配合 inline style 的 position/top/z-index；这里只补背景，避免表头被表体透过。 */
   background: var(--ant-table-header-bg);
+  /* 大 scrollTop 下 sticky grid item 可能出现合成层舍入抖动，单独提升表头层稳定绘制。 */
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
 }
 
 /* 表头纵向 sticky 时，固定列表头格仍保持不透明背景。 */

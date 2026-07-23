@@ -47,10 +47,15 @@ import pkg from '../package.json'
 const { Header, Sider, Content } = Layout
 const { Title, Link } = Typography
 
-// 有 `*.dg.tsx` 的 demo 视为 split demo。
-const splitDemoNames = new Set(
+// 有 `*.dg.tsx` 的 demo 可编辑；同时有 `*.antd.tsx` 才进入双栏对比编辑。
+const editableDgDemoNames = new Set(
   Object.keys(import.meta.glob('./demos/*.dg.tsx')).map(
     (p) => p.match(/([^/]+)\.dg\.tsx$/)![1],
+  ),
+)
+const editableAntdDemoNames = new Set(
+  Object.keys(import.meta.glob('./demos/*.antd.tsx')).map(
+    (p) => p.match(/([^/]+)\.antd\.tsx$/)![1],
   ),
 )
 
@@ -227,16 +232,18 @@ function App() {
     setEditedAntd(null)
   }, [view])
 
-  // 有 `*.dg.tsx` 的 demo 自动接入 split + 编辑。
-  const isSplitDemo = (n: string) => splitDemoNames.has(n)
+  // 有 `*.dg.tsx` 的 demo 接入 live 编辑；同时有 `*.antd.tsx` 才显示 antd 对照栏。
+  const isEditableDemo = (n: string) => editableDgDemoNames.has(n)
+  const hasAntdCompare = (n: string) => editableAntdDemoNames.has(n)
 
-  // 非 split 取单段源码；split 取 dg/antd 两段源码。
+  // 非可编辑 demo 取单段源码；可编辑 demo 取 dg/antd 两段源码（antd 可为空）。
   const demoName = view.kind === 'demo' ? view.name : undefined
-  const isSplit = view.kind === 'demo' && isSplitDemo(view.name)
+  const isEditable = view.kind === 'demo' && isEditableDemo(view.name)
+  const hasEditableAntd = view.kind === 'demo' && hasAntdCompare(view.name)
   const { source, loading } = useDemoSource(
-    demoName && !isSplit ? demoName : undefined,
+    demoName && !isEditable ? demoName : undefined,
   )
-  const splitSrc = useSplitDemoSource(isSplit ? demoName : undefined)
+  const splitSrc = useSplitDemoSource(isEditable ? demoName : undefined)
   const isDemoArea = view.kind === 'demosHome' || view.kind === 'demo'
 
   useEffect(() => {
@@ -536,15 +543,16 @@ function App() {
               />
               {/*
                 预览区（上方）：
-                - split demo：SplitDemoPreview 承载默认/编辑双模式。默认模式
+                - 可编辑 demo：SplitDemoPreview 承载默认/编辑双模式。默认模式
                   渲染真实 DemoComp（零编辑开销）；任一 edited 非空切编辑模式。
                 - 非 split demo：直接渲染 DemoComp。
               */}
-              {isSplit ? (
+              {isEditable ? (
                 <SplitDemoPreview
                   name={view.name}
                   editedDg={editedDg}
-                  editedAntd={editedAntd}
+                  editedAntd={hasEditableAntd ? editedAntd : null}
+                  compareWithAntd={hasEditableAntd}
                 >
                   <Suspense fallback={<div>Loading demo…</div>}>
                     <DemoComp />
@@ -558,7 +566,7 @@ function App() {
 
               {/*
                 代码区（下方，折叠 Collapse）：
-                - split demo：dg + antd 两段 LiveEditor（可编辑），展开才加载源码 + sucrase。
+                - 可编辑 demo：dg LiveEditor；有 antd 对照时再显示 antd LiveEditor。
                   LiveEditor onApply 三态：(Comp,null)成功→setEditedXxx(Comp)；
                   (null,error)失败→setEditedXxx(null)（同时 Alert 显示错误）；(null,null)重置→
                   setEditedXxx(null) 回默认模式。代码先经 stripComments 去注释再展示。
@@ -569,15 +577,17 @@ function App() {
                 items={[
                   {
                     key: 'code',
-                    label: isSplit ? '源码（可编辑）' : '源码（只读）',
-                    children: isSplit ? (
+                    label: isEditable ? '源码（可编辑）' : '源码（只读）',
+                    children: isEditable ? (
                       splitSrc.loading ? (
                         <div>Loading source…</div>
                       ) : (
                         <div
                           style={{
                             display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))',
+                            gridTemplateColumns: hasEditableAntd
+                              ? 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))'
+                              : 'minmax(0, 1fr)',
                             gap: 16,
                           }}
                         >
@@ -592,13 +602,15 @@ function App() {
                             scope={scopeForDemo(view.name)}
                             onApply={(c, e) => setEditedDg(() => (e ? null : c))}
                           />
-                          <LiveEditor
-                            key={`${view.name}-antd`}
-                            initialCode={stripComments(splitSrc.antdSource ?? '')}
-                            title="antd"
-                            scope={scopeForDemo(view.name)}
-                            onApply={(c, e) => setEditedAntd(() => (e ? null : c))}
-                          />
+                          {hasEditableAntd ? (
+                            <LiveEditor
+                              key={`${view.name}-antd`}
+                              initialCode={stripComments(splitSrc.antdSource ?? '')}
+                              title="antd"
+                              scope={scopeForDemo(view.name)}
+                              onApply={(c, e) => setEditedAntd(() => (e ? null : c))}
+                            />
+                          ) : null}
                         </div>
                       )
                     ) : loading ? (

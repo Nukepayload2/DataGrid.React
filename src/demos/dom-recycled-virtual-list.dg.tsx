@@ -541,7 +541,7 @@ export default function VirtualListRecyclingDg() {
           scroll={{ x: 1800, y: true }}
           gridOptions={{
             virtualizationMode: mode,
-            rowHeight: 28,
+            rowHeight: 20,
             headerHeight: 34,
           }}
         />

@@ -49,6 +49,8 @@ export interface SplitDemoPreviewProps {
   editedDg: ComponentType<Record<string, unknown>> | null
   /** antd 段编辑产物（null = 未编辑/重置）。 */
   editedAntd: ComponentType<Record<string, unknown>> | null
+  /** true 时渲染 data-grid / antd 双栏；false 时只渲染 data-grid。 */
+  compareWithAntd?: boolean
   /** 默认模式渲染内容（真实 DemoComp，由 App 传）。 */
   children: ReactNode
 }
@@ -57,6 +59,7 @@ export function SplitDemoPreview({
   name,
   editedDg,
   editedAntd,
+  compareWithAntd = true,
   children,
 }: SplitDemoPreviewProps) {
   const { virtual } = useVirtualization()
@@ -84,27 +87,30 @@ export function SplitDemoPreview({
   const EditedDg = editedDg as RealComp | null
   const EditedAntd = editedAntd as RealComp | null
   const editProps = propsFor(name, virtual)
+  const dgPreview = EditedDg ? (
+    dgRenderError ? (
+      <Alert
+        type="error"
+        message={`渲染错误：${dgRenderError}`}
+        style={{ margin: 8 }}
+      />
+    ) : (
+      <LiveErrorBoundary key={dgKey} onError={setDgRenderError}>
+        <EditedDg {...editProps} />
+      </LiveErrorBoundary>
+    )
+  ) : RealDg ? (
+    <RealDg {...editProps} />
+  ) : null
+
+  if (!compareWithAntd) {
+    return dgPreview
+  }
 
   return (
     <SplitDemo
       minPaneWidth={480}
-      left={
-        EditedDg ? (
-          dgRenderError ? (
-            <Alert
-              type="error"
-              message={`渲染错误：${dgRenderError}`}
-              style={{ margin: 8 }}
-            />
-          ) : (
-            <LiveErrorBoundary key={dgKey} onError={setDgRenderError}>
-              <EditedDg {...editProps} />
-            </LiveErrorBoundary>
-          )
-        ) : RealDg ? (
-          <RealDg {...editProps} />
-        ) : null
-      }
+      left={dgPreview}
       right={
         EditedAntd ? (
           antdRenderError ? (
