@@ -88,6 +88,16 @@ export const demos: DemoMeta[] = [
     category: '虚拟与汇总',
   },
   {
+    name: 'dom-recycled-virtual-list-antd',
+    aliases: ['virtual-list-recycling-antd', 'antd-virtual-list-recycling-control'],
+    title: '对照：antd 大量数据',
+    subtitle: 'antd Table virtual',
+    description: '使用 antd Table virtual 渲染同一批超大表格数据，作为 DOM 复用虚拟列表的隔离对照组。',
+    element: () => import('./dom-recycled-virtual-list-antd'),
+    compare: false,
+    category: '虚拟与汇总',
+  },
+  {
     name: 'basic-row-selection',
     aliases: ['row-selection'],
     title: '基础行选择',

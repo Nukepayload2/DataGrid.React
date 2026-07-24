@@ -573,6 +573,7 @@ function App() {
                 - 非 split demo：降级为只读 CodeView（原 source 三态）。
               */}
               <Collapse
+                className="demo-source-collapse"
                 style={{ marginTop: 16 }}
                 items={[
                   {

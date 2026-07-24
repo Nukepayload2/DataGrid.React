@@ -72,7 +72,7 @@ export default function LiveEditor({
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+    <div className="live-editor" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <div
         style={{
           display: 'flex',

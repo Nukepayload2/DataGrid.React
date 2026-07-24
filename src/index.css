@@ -76,13 +76,27 @@ body {
      Content(overflow:auto) 不再触发滚动。对 760px 媒体查询改 margin:16 也免疫（我们 margin:0
      特异性更高）。
    - flex column 让内部 DemoComp(flex:1,minHeight:0) 占 Breadcrumb 与 Collapse 之间的剩余空间。 */
-.demo-page[data-demo-name='dom-recycled-virtual-list'] {
+.demo-page[data-demo-name='dom-recycled-virtual-list'],
+.demo-page[data-demo-name='dom-recycled-virtual-list-antd'] {
   height: 100%;
   margin: 0;
   padding-block: 24px;
   display: flex;
   flex-direction: column;
   min-height: 0;
+}
+
+.demo-page[data-demo-name='dom-recycled-virtual-list'] > .demo-source-collapse .ant-collapse-body,
+.demo-page[data-demo-name='dom-recycled-virtual-list-antd'] > .demo-source-collapse .ant-collapse-body {
+  max-height: min(260px, 34vh);
+  overflow: auto;
+}
+
+.demo-page[data-demo-name='dom-recycled-virtual-list'] > .demo-source-collapse .code-view-wrap > div,
+.demo-page[data-demo-name='dom-recycled-virtual-list-antd'] > .demo-source-collapse .code-view-wrap > div,
+.demo-page[data-demo-name='dom-recycled-virtual-list'] > .demo-source-collapse .live-editor > div:nth-child(2),
+.demo-page[data-demo-name='dom-recycled-virtual-list-antd'] > .demo-source-collapse .live-editor > div:nth-child(2) {
+  height: min(220px, 28vh) !important;
 }
 
 .demo-home-page {

@@ -6,26 +6,14 @@ import type {
   DisposeCellElementReason,
   GridCellElementRenderParams,
 } from '../table'
-
-type Row = {
-  id: number
-  account: string
-  status: 'Open' | 'Review' | 'Closed'
-  region: string
-  owner: string
-  priority: 'P0' | 'P1' | 'P2'
-  amount: number
-  score: number
-  updated: string
-  city: string
-  channel: string
-  product: string
-  segment: string
-  risk: string
-  sla: string
-  notes: string
-  flag: string
-}
+import {
+  DEFAULT_RECYCLING_ROW_COUNT,
+  LARGE_RECYCLING_ROW_COUNT,
+  RECYCLING_SCROLL_X,
+  makeRecyclingRows,
+  type RecyclingRow,
+  type RecyclingRowCountOption,
+} from './_compare/dom-recycled-virtual-list.shared'
 
 type Stats = {
   create: number
@@ -55,53 +43,13 @@ type ActionKind = 'details' | 'delete'
 
 type ActionModalState = {
   action: ActionKind
-  row: Row
+  row: RecyclingRow
 } | null
 
 type FrameStats = {
   fps: number
   p95: number
   longFrames: number
-}
-
-type RowCountOption = 8000 | 1048576
-
-const DEFAULT_ROW_COUNT: RowCountOption = 8000
-const LARGE_ROW_COUNT: RowCountOption = 1048576
-
-const regions = ['NA', 'EU', 'APAC', 'LATAM']
-const owners = ['Ada', 'Grace', 'Linus', 'Ken', 'Radia', 'Margaret']
-const cities = ['Tokyo', 'Berlin', 'Seattle', 'Singapore', 'Paris', 'Shenzhen']
-const channels = ['Direct', 'Partner', 'Web', 'Field']
-const products = ['Core', 'Edge', 'Vault', 'Flow', 'Pulse']
-const segments = ['Enterprise', 'Mid Market', 'Startup']
-const statuses: Row['status'][] = ['Open', 'Review', 'Closed']
-const priorities: Row['priority'][] = ['P0', 'P1', 'P2']
-
-function makeRows(count: number): Row[] {
-  const rows: Row[] = Array.from({ length: count })
-  for (let index = 0; index < count; index += 1) {
-    rows[index] = {
-      id: index + 1,
-      account: `AC-${String(index + 1).padStart(5, '0')}`,
-      status: statuses[index % statuses.length],
-      region: regions[index % regions.length],
-      owner: owners[index % owners.length],
-      priority: priorities[index % priorities.length],
-      amount: 5000 + (index * 137) % 90000,
-      score: 40 + (index * 7) % 60,
-      updated: `2026-07-${String((index % 28) + 1).padStart(2, '0')}`,
-      city: cities[index % cities.length],
-      channel: channels[index % channels.length],
-      product: products[index % products.length],
-      segment: segments[index % segments.length],
-      risk: index % 9 === 0 ? 'High' : index % 5 === 0 ? 'Medium' : 'Low',
-      sla: `${4 + (index % 6)}h`,
-      notes: `Batch ${Math.floor(index / 50)} item ${index % 50}`,
-      flag: index % 11 === 0 ? 'Watch' : 'Normal',
-    }
-  }
-  return rows
 }
 
 function createTextRenderer<RecordType>(
@@ -192,9 +140,9 @@ function ActionButtons({
   statsRef,
   onAction,
 }: {
-  row: Row
+  row: RecyclingRow
   statsRef: React.MutableRefObject<Stats>
-  onAction: (action: ActionKind, row: Row) => void
+  onAction: (action: ActionKind, row: RecyclingRow) => void
 }) {
   useEffect(() => {
     statsRef.current.reactMount += 1
@@ -341,17 +289,17 @@ export default function VirtualListRecyclingDg() {
     reactUnmount: 0,
   })
   const [mode, setMode] = useState<'standard' | 'recycling'>('recycling')
-  const [rowCount, setRowCount] = useState<RowCountOption>(DEFAULT_ROW_COUNT)
+  const [rowCount, setRowCount] = useState<RecyclingRowCountOption>(DEFAULT_RECYCLING_ROW_COUNT)
   const [showActionColumn, setShowActionColumn] = useState(false)
   const [actionModal, setActionModal] = useState<ActionModalState>(null)
   const [logEnabled, setLogEnabled] = useState(false)
   const [version, setVersion] = useState(0)
 
-  const data = useMemo(() => makeRows(rowCount), [rowCount])
-  const renderText = useMemo(() => createTextRenderer<Row>(statsRef), [])
+  const data = useMemo(() => makeRecyclingRows(rowCount), [rowCount])
+  const renderText = useMemo(() => createTextRenderer<RecyclingRow>(statsRef), [])
   const renderStatus = useMemo(
     () =>
-      createTextRenderer<Row>(
+      createTextRenderer<RecyclingRow>(
         statsRef,
         (params) => `dg-recycling-text dg-recycling-status-${String(params.value).toLowerCase()}`,
       ),
@@ -359,7 +307,7 @@ export default function VirtualListRecyclingDg() {
   )
   const renderPriority = useMemo(
     () =>
-      createTextRenderer<Row>(
+      createTextRenderer<RecyclingRow>(
         statsRef,
         (params) => `dg-recycling-text dg-recycling-priority-${String(params.value).toLowerCase()}`,
       ),
@@ -371,13 +319,13 @@ export default function VirtualListRecyclingDg() {
     [],
   )
 
-  const openActionModal = useCallback((action: ActionKind, row: Row) => {
+  const openActionModal = useCallback((action: ActionKind, row: RecyclingRow) => {
     setActionModal({ action, row })
   }, [])
 
-  const columns = useMemo<ColumnType<Row>[]>(
+  const columns = useMemo<ColumnType<RecyclingRow>[]>(
     () => {
-      const baseColumns: ColumnType<Row>[] = [
+      const baseColumns: ColumnType<RecyclingRow>[] = [
       { title: 'ID', dataIndex: 'id', width: 72 },
       { title: 'Account', dataIndex: 'account', width: 120 },
       { title: 'Status', dataIndex: 'status', width: 100, render: renderStandardStatus, gridColumnOptions: { renderCellElement: renderStatus, disposeCellElement: dispose } },
@@ -466,7 +414,7 @@ export default function VirtualListRecyclingDg() {
     resetStats()
   }
 
-  const onRowCountChange = (nextRowCount: RowCountOption) => {
+  const onRowCountChange = (nextRowCount: RecyclingRowCountOption) => {
     setRowCount(nextRowCount)
     resetStats()
   }
@@ -501,10 +449,10 @@ export default function VirtualListRecyclingDg() {
         />
         <Segmented
           value={rowCount}
-          onChange={(value) => onRowCountChange(value as RowCountOption)}
+          onChange={(value) => onRowCountChange(value as RecyclingRowCountOption)}
           options={[
-            { label: '8,000 rows', value: DEFAULT_ROW_COUNT },
-            { label: '1,048,576 rows', value: LARGE_ROW_COUNT },
+            { label: '8,000 rows', value: DEFAULT_RECYCLING_ROW_COUNT },
+            { label: '1,048,576 rows', value: LARGE_RECYCLING_ROW_COUNT },
           ]}
         />
         <Switch
@@ -530,7 +478,7 @@ export default function VirtualListRecyclingDg() {
         <FrameRateMeter resetVersion={version} />
       </Space>
       <div style={{ flex: 1, minHeight: 0 }}>
-        <Table<Row>
+        <Table<RecyclingRow>
           key={version}
           size="small"
           virtual
@@ -538,7 +486,7 @@ export default function VirtualListRecyclingDg() {
           columns={columns}
           dataSource={data}
           pagination={false}
-          scroll={{ x: 1800, y: true }}
+          scroll={{ x: RECYCLING_SCROLL_X, y: true }}
           gridOptions={{
             virtualizationMode: mode,
             rowHeight: 20,
