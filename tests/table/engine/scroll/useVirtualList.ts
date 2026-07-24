@@ -172,6 +172,22 @@ describe('useVirtualList pure helpers / computeVirtualRange', () => {
     ).toEqual({ start: 0, end: 4 })
   })
 
+  it('computes fixed-row-height ranges without fallback measurements', () => {
+    expect(
+      computeVirtualRange({
+        enabled: true,
+        itemCount: 1_048_576,
+        overscan: 2,
+        scrollTop: 405,
+        viewportSize: 80,
+        contentOffset: 0,
+        gap: 0,
+        fixedRowHeight: 20,
+        measurements: [],
+      }),
+    ).toEqual({ start: 18, end: 26 })
+  })
+
   it('computes ranges from measured row-size offset trees', () => {
     const rowSizes = applySizeRanges(
       initialRowSizeState(),
@@ -348,6 +364,37 @@ describe('useVirtualList hook', () => {
     })
     expect(el.scrollTop).toBe(65)
     expect(result.current.scrollTop).toBe(65)
+  })
+
+  it('uses fixedRowHeight without allocating fallback measurements', () => {
+    mockQueuedRaf()
+    const el = createScrollElement({ clientHeight: 80, scrollHeight: 20_971_520 })
+    const containerRef = refOf(el)
+    const getRowHeight = vi.fn(() => 20)
+    const { result } = renderHook(() =>
+      useVirtualList({
+        itemCount: 1_048_576,
+        getRowHeight,
+        containerRef,
+        overscan: 1,
+        measurementEnabled: false,
+        fixedRowHeight: 20,
+      }),
+    )
+
+    expect(result.current.measurements).toHaveLength(0)
+    expect(result.current.totalSize).toBe(20_971_520)
+    expect(result.current.start).toBe(0)
+    expect(result.current.end).toBe(5)
+    expect(getRowHeight).not.toHaveBeenCalled()
+
+    act(() => {
+      result.current.scrollTo({ index: 500_000, align: 'start' })
+    })
+
+    expect(el.scrollTop).toBe(10_000_000)
+    expect(result.current.scrollTop).toBe(10_000_000)
+    expect(getRowHeight).not.toHaveBeenCalled()
   })
 
   it('keeps nearest row scroll requests as no-ops when already visible', () => {

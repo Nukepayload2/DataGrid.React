@@ -78,9 +78,13 @@ interface RecyclingStore<RecordType> {
   pools: Map<Identity, PoolBucket<RecordType>>
   reactSlots: WeakMap<HTMLDivElement, ReactSlot<RecordType>>
   reactSlotList: Map<string, ReactSlot<RecordType>>
+  scratchTargets: Map<Identity, Set<Identity>>
+  scratchTargetSetPool: Array<Set<Identity>>
+  scratchLiveColumns: Map<Identity, GridColumnOptions<RecordType> | undefined>
+  scratchDesiredOrder: Array<HTMLDivElement>
+  scratchReleaseCells: Array<ActiveCell<RecordType>>
   nextReactSlotId: number
   portalDirty: boolean
-  lastOrderKey: string
 }
 
 const ReactSlotPortal = memo(function ReactSlotPortal({
@@ -425,10 +429,10 @@ function syncBodyDomOrder(
   desiredOrder: Array<HTMLDivElement>,
 ): void {
   if (desiredOrder.length <= 1) return
-  const desiredSet = new Set<Node>(desiredOrder)
   let cursor: Node | null = null
-  for (const child of Array.from(grid.childNodes)) {
-    if (desiredSet.has(child)) {
+  for (let i = 0; i < grid.childNodes.length; i += 1) {
+    const child = grid.childNodes[i]
+    if (child instanceof HTMLElement && child.classList.contains('dg-cell-body')) {
       cursor = child
       break
     }
@@ -439,6 +443,28 @@ function syncBodyDomOrder(
     }
     cursor = node.nextSibling
   }
+}
+
+function isBodyDomOrderSynced(
+  grid: HTMLDivElement,
+  desiredOrder: Array<HTMLDivElement>,
+): boolean {
+  let desiredIndex = 0
+  for (let i = 0; i < grid.childNodes.length; i += 1) {
+    const child = grid.childNodes[i]
+    if (!(child instanceof HTMLElement) || !child.classList.contains('dg-cell-body')) continue
+    if (child !== desiredOrder[desiredIndex]) return false
+    desiredIndex += 1
+  }
+  return desiredIndex === desiredOrder.length
+}
+
+function clearScratchTargets<RecordType>(store: RecyclingStore<RecordType>): void {
+  for (const row of store.scratchTargets.values()) {
+    row.clear()
+    store.scratchTargetSetPool.push(row)
+  }
+  store.scratchTargets.clear()
 }
 
 function paramsChanged<RecordType>(
@@ -685,9 +711,13 @@ export function RecyclingBodyGrid<RecordType>({
     pools: new Map(),
     reactSlots: new WeakMap(),
     reactSlotList: new Map(),
+    scratchTargets: new Map(),
+    scratchTargetSetPool: [],
+    scratchLiveColumns: new Map(),
+    scratchDesiredOrder: [],
+    scratchReleaseCells: [],
     nextReactSlotId: 0,
     portalDirty: false,
-    lastOrderKey: '',
   })
   const [portalVersion, setPortalVersion] = useState(0)
 
@@ -696,20 +726,18 @@ export function RecyclingBodyGrid<RecordType>({
     if (!grid) return
     const store = storeRef.current
     const maxPoolSize = Math.max(1, virtualState.end - virtualState.start + 16)
-    const targets = new Map<Identity, Set<Identity>>()
-    const desiredOrder: Array<HTMLDivElement> = []
-    const orderParts: Array<string> = [
-      String(virtualState.start),
-      String(virtualState.end),
-      leafColumns.map((column) => String(resolveColumnIdentity(column))).join(','),
-    ]
+    clearScratchTargets(store)
+    const targets = store.scratchTargets
+    const desiredOrder = store.scratchDesiredOrder
+    desiredOrder.length = 0
+    const liveColumns = store.scratchLiveColumns
+    liveColumns.clear()
     let orderDirty = false
 
-    const liveColumns = new Map<Identity, GridColumnOptions<RecordType> | undefined>()
     for (const column of leafColumns) {
       liveColumns.set(resolveColumnIdentity(column), column.gridColumnOptions)
     }
-    for (const [identity, bucket] of Array.from(store.pools)) {
+    for (const [identity, bucket] of store.pools) {
       const options = liveColumns.get(identity)
       if (!liveColumns.has(identity) || !sameOptions(bucket.options, options)) {
         clearBucket(store, bucket, 'unmount')
@@ -719,26 +747,31 @@ export function RecyclingBodyGrid<RecordType>({
 
     for (let index = virtualState.start; index < virtualState.end; index += 1) {
       const record = dataSource[index]
-      orderParts.push(`${index}:${String(record === undefined ? '' : resolveRowIdentity(record, rowKey))}`)
       for (const column of leafColumns) {
         const columnIdentity = resolveColumnIdentity(column)
         if (record === undefined) continue
         const rowIdentity = resolveRowIdentity(record, rowKey)
         let row = targets.get(rowIdentity)
         if (!row) {
-          row = new Set()
+          row = store.scratchTargetSetPool.pop() ?? new Set()
           targets.set(rowIdentity, row)
         }
         row.add(columnIdentity)
       }
     }
 
-    for (const row of Array.from(store.active.values())) {
-      for (const cell of Array.from(row.values())) {
-        if (targets.get(cell.rowIdentity)?.has(cell.columnIdentity)) continue
-        removeActiveCell(store, cell)
-        releaseCell(store, cell, maxPoolSize)
+    const releaseCells = store.scratchReleaseCells
+    releaseCells.length = 0
+    for (const row of store.active.values()) {
+      for (const cell of row.values()) {
+        if (!targets.get(cell.rowIdentity)?.has(cell.columnIdentity)) {
+          releaseCells.push(cell)
+        }
       }
+    }
+    for (const cell of releaseCells) {
+      removeActiveCell(store, cell)
+      releaseCell(store, cell, maxPoolSize)
     }
 
     for (let index = virtualState.start; index < virtualState.end; index += 1) {
@@ -854,10 +887,8 @@ export function RecyclingBodyGrid<RecordType>({
         desiredOrder.push(cell.outer)
       }
     }
-    const orderKey = orderParts.join('|')
-    if (orderDirty || store.lastOrderKey !== orderKey) {
+    if (orderDirty || !isBodyDomOrderSynced(grid, desiredOrder)) {
       syncBodyDomOrder(grid, desiredOrder)
-      store.lastOrderKey = orderKey
     }
     if (store.portalDirty) {
       store.portalDirty = false

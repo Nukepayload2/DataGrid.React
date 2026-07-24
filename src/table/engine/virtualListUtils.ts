@@ -20,6 +20,7 @@ export interface ComputeVirtualRangeOptions {
   viewportSize: number
   contentOffset: number
   gap: number
+  fixedRowHeight?: number
   measurements: Array<VirtualRowMeasurement>
   rowSizes?: RowSizeState
 }
@@ -111,6 +112,7 @@ export function computeVirtualRange(options: ComputeVirtualRangeOptions): {
     viewportSize,
     contentOffset,
     gap,
+    fixedRowHeight,
     measurements,
     rowSizes,
   } = options
@@ -132,6 +134,15 @@ export function computeVirtualRange(options: ComputeVirtualRangeOptions): {
   if (hasOffsetTree) {
     rawStart = findStartIndexByOffset(effectiveScrollTop, rowSizes, gap)
     rawEnd = findStartIndexByOffset(effectiveScrollTop + effectiveViewport, rowSizes, gap)
+  } else if (typeof fixedRowHeight === 'number' && fixedRowHeight > 0) {
+    const total = itemCount * fixedRowHeight
+    const indexOf = (target: number): number => {
+      if (target <= 0) return 0
+      if (target >= total) return itemCount
+      return Math.max(0, Math.min(itemCount, Math.floor(target / fixedRowHeight)))
+    }
+    rawStart = indexOf(effectiveScrollTop)
+    rawEnd = indexOf(effectiveScrollTop + effectiveViewport)
   } else {
     rawStart = findNearestIndex(measurements, effectiveScrollTop)
     rawEnd = findNearestIndex(measurements, effectiveScrollTop + effectiveViewport)

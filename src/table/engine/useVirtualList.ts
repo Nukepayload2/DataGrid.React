@@ -50,6 +50,11 @@ export interface UseVirtualListOptions {
    * **何时保持 true**：有界行高模型（min/max 行高）或 rowHeight 为函数（每行可能不同）。
    */
   measurementEnabled?: boolean
+  /**
+   * 固定数值行高快路径。传入正数时，在没有实测 offsetTree 的场景下直接用 O(1)
+   * 算 offset/range/totalSize，不为每一行创建 fallback measurement 对象。
+   */
+  fixedRowHeight?: number
   /** 数据区相对滚动容器内容顶部的偏移。 */
   contentOffset?: number
   /** 行间距（px）。 */
@@ -108,9 +113,12 @@ export function useVirtualList(options: UseVirtualListOptions): UseVirtualListRe
     overscan = 8,
     enabled = true,
     measurementEnabled = true,
+    fixedRowHeight,
     contentOffset = 0,
     gap = 0,
   } = options
+  const fixedRowHeightEnabled =
+    typeof fixedRowHeight === 'number' && fixedRowHeight > 0
 
   const [rowSizes, setRowSizes] = useState<RowSizeState>(initialRowSizeState)
 
@@ -126,6 +134,7 @@ export function useVirtualList(options: UseVirtualListOptions): UseVirtualListRe
 
   // offsetTree 未覆盖时，回退到约定行高数组。
   const measurements = useMemo<Array<VirtualRowMeasurement>>(() => {
+    if (fixedRowHeightEnabled) return []
     const out: Array<VirtualRowMeasurement> = Array.from({ length: itemCount })
     let acc = 0
     for (let i = 0; i < itemCount; i += 1) {
@@ -135,16 +144,17 @@ export function useVirtualList(options: UseVirtualListOptions): UseVirtualListRe
       acc += safeSize
     }
     return out
-  }, [itemCount, getRowHeight])
+  }, [fixedRowHeightEnabled, itemCount, getRowHeight])
 
   const hasOffsetTree = rowSizes.offsetTree.length > 0
 
   const effectiveSizeOf = useCallback(
     (i: number): number => {
       const measured = sizeOfInState(i, rowSizes)
+      if (measured <= 0 && fixedRowHeightEnabled) return fixedRowHeight
       return measured > 0 ? measured : getRowHeight(i)
     },
-    [rowSizes, getRowHeight],
+    [fixedRowHeightEnabled, fixedRowHeight, rowSizes, getRowHeight],
   )
 
   const effectiveOffsetOf = useCallback(
@@ -153,17 +163,21 @@ export function useVirtualList(options: UseVirtualListOptions): UseVirtualListRe
         const v = offsetOf(i, rowSizes, gap)
         return v
       }
+      if (fixedRowHeightEnabled) return i * fixedRowHeight
       return measurements[i]?.offsetStart ?? 0
     },
-    [hasOffsetTree, rowSizes, gap, measurements],
+    [fixedRowHeightEnabled, fixedRowHeight, hasOffsetTree, rowSizes, gap, measurements],
   )
 
   const measuredTotal = useMemo(
     () => totalHeightInState(itemCount, rowSizes, gap),
     [itemCount, rowSizes, gap],
   )
-  const fallbackTotal =
-    measurements.length > 0 ? measurements[measurements.length - 1].offsetEnd : 0
+  const fallbackTotal = fixedRowHeightEnabled
+    ? itemCount * fixedRowHeight
+    : measurements.length > 0
+      ? measurements[measurements.length - 1].offsetEnd
+      : 0
   const totalSize = hasOffsetTree && measuredTotal > 0 ? measuredTotal : fallbackTotal
 
   const [scrollState, setScrollState] = useState<{ scrollTop: number; viewportHeight: number }>({
@@ -302,18 +316,20 @@ export function useVirtualList(options: UseVirtualListOptions): UseVirtualListRe
       gap,
       measurements,
       rowSizes: hasOffsetTree ? rowSizes : undefined,
+      fixedRowHeight: fixedRowHeightEnabled ? fixedRowHeight : undefined,
     })
-  }, [enabled, itemCount, hasOffsetTree, rowSizes, gap, measurements, overscan, scrollTop, viewportHeight, contentOffset])
+  }, [enabled, itemCount, hasOffsetTree, rowSizes, gap, fixedRowHeightEnabled, fixedRowHeight, measurements, overscan, scrollTop, viewportHeight, contentOffset])
 
   const paddingTop = useMemo(() => {
     if (start >= itemCount) return 0
     if (hasOffsetTree) {
       return Math.max(0, offsetOf(start, rowSizes, gap))
     }
+    if (fixedRowHeightEnabled) return start * fixedRowHeight
     return measurements.length > 0 && start < measurements.length
       ? measurements[start].offsetStart
       : 0
-  }, [hasOffsetTree, rowSizes, gap, start, itemCount, measurements])
+  }, [fixedRowHeightEnabled, fixedRowHeight, hasOffsetTree, rowSizes, gap, start, itemCount, measurements])
 
   const paddingBottom = useMemo(() => {
     if (end <= 0 || end > itemCount) {
@@ -326,13 +342,15 @@ export function useVirtualList(options: UseVirtualListOptions): UseVirtualListRe
       const top = offsetOf(lastRendered, rowSizes, gap)
       const size = effectiveSizeOf(lastRendered)
       lastBottom = top + size
+    } else if (fixedRowHeightEnabled) {
+      lastBottom = (lastRendered + 1) * fixedRowHeight
     } else if (measurements.length > 0 && lastRendered < measurements.length) {
       lastBottom = measurements[lastRendered].offsetEnd
     } else {
       lastBottom = 0
     }
     return Math.max(0, totalSize - lastBottom)
-  }, [hasOffsetTree, rowSizes, gap, end, itemCount, measurements, effectiveSizeOf, totalSize])
+  }, [fixedRowHeightEnabled, fixedRowHeight, hasOffsetTree, rowSizes, gap, end, itemCount, measurements, effectiveSizeOf, totalSize])
 
   const sizeOf = useCallback(
     (i: number): number => effectiveSizeOf(i),

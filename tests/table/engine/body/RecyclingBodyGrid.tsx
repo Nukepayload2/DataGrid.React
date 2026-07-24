@@ -79,6 +79,25 @@ describe('RecyclingBodyGrid', () => {
     expect(renderCellElement).toHaveBeenCalledTimes(2)
   })
 
+  it('does not move DOM nodes again when the desired body order is already current', async () => {
+    const columns: Array<EngineLeafColumn<Row>> = [
+      { key: 'name', dataIndex: 'name', gridColumnOptions: { renderCellElement: textRenderer } },
+      { key: 'age', dataIndex: 'age', gridColumnOptions: { renderCellElement: textRenderer } },
+    ]
+    const { rerender } = render(
+      <Harness columns={columns} start={0} end={2} />,
+    )
+
+    await waitFor(() => expect(screen.getByText('Bob')).toBeInTheDocument())
+    const grid = screen.getByTestId('grid')
+    const insertBefore = vi.spyOn(grid, 'insertBefore')
+
+    rerender(<Harness columns={columns} start={0} end={2} tick={1} />)
+
+    await new Promise((resolve) => window.setTimeout(resolve, 20))
+    expect(insertBefore).not.toHaveBeenCalled()
+  })
+
   it('reuses same-column outer cells and passes pooled inner elements as oldElement', async () => {
     const renderCellElement = vi.fn(textRenderer)
     const disposeCellElement = vi.fn()
