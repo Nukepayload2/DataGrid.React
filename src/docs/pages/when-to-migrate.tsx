@@ -76,7 +76,7 @@ const MIGRATION_PROMPT = `# 任务
 4. 修改时保持业务行为、变量命名和组件结构稳定；不新增业务功能，不做与 Table 迁移无关的重构。
 5. 修改完成后，输出变更摘要，并说明是否还有需要业务方确认的事项。`
 
-// 10 类高频病灶浓缩表（源自 feedbacks/README.md 与用户迁移反馈）。
+// 高频场景浓缩表（源自 feedbacks/README.md 与用户迁移反馈）。
 // 每行：antd 病灶类别 + GitHub issue 链接 + data-grid 一句话解药 + 对照 demo（5 个 drop-in demo 全挂）。
 // 没有现成 demo 的类别留 "—" 并在解药列里指引到对应 docs / 相关 demo。
 const painToCureRows: PainToCureRow[] = [
@@ -128,7 +128,7 @@ const painToCureRows: PainToCureRow[] = [
     antdPain: (
       <>
         <Text code>scroll.y</Text> 是 number / string max-height 语义，没有真正的 fill / auto 模式；业务常要监听容器或窗口尺寸，再把计算出的高度传回表格。证据：{discLink(53395)}{' '}
-        {discLink(56465)} {issueLink(49445)}
+        {discLink(56465)}
       </>
     ),
     dataGridCure: (
@@ -143,30 +143,8 @@ const painToCureRows: PainToCureRow[] = [
     ),
   },
   {
-    key: 'dynamic-row-height',
-    category: '4. 动态行高 / 数据前插未锚定',
-    painQuestion: '行高变化或插入新行时，滚动位置乱跳',
-    humanSummary: '每行高度不一样，或者往表格前面插新行时，你正在看的位置会突然跑到别处。',
-    antdPain: (
-      <>
-        行高变化或在列表前面插入新数据时，当前阅读位置可能漂移；虚拟滚动和树形大数据组合也更容易出问题。证据：{issueLink(54769)}{' '}
-        {issueLink(53932)} {issueLink(48938)} {discLink(36153)}
-      </>
-    ),
-    dataGridCure: (
-      <>
-        支持动态行高测量，并可用 <Text code>gridOptions.minRowHeight</Text> / <Text code>maxRowHeight</Text> 给行高设置边界，减少虚拟滚动中的位置漂移。
-      </>
-    ),
-    demo: (
-      <>
-        见 <a href="#/docs/scrolling">滚动和虚拟化</a>
-      </>
-    ),
-  },
-  {
     key: 'summary-in-virtual',
-    category: '5. summary 与虚拟滚动难共存',
+    category: '4. summary 与虚拟滚动难共存',
     painQuestion: '一开虚拟滚动，表尾汇总就没了',
     humanSummary: '表格底部那行合计 / 小计，打开虚拟滚动之后就不再正常停在表尾了。',
     antdPain: (
@@ -186,7 +164,7 @@ const painToCureRows: PainToCureRow[] = [
   },
   {
     key: 'scrollto-pollution',
-    category: '6. scrollTo 用 scrollIntoView 连外层一起滚',
+    category: '5. scrollTo 用 scrollIntoView 连外层一起滚',
     painQuestion: '滚到某一行，整个页面跟着滚',
     humanSummary: '想让表格滚到某一行，结果连外层页面也跟着一起滚，定位完全错乱。',
     antdPain: (
@@ -206,7 +184,7 @@ const painToCureRows: PainToCureRow[] = [
   },
   {
     key: 'fixed-shadow-sticky',
-    category: '7. fixed 列 box-shadow + sticky 双表格',
+    category: '6. fixed 列 box-shadow + sticky 双表格',
     painQuestion: '固定列横滑卡顿，表头列宽对不上',
     humanSummary: '左右固定的列在横向滑动时会卡顿掉帧，固定表头和表体的列宽还经常对不上。',
     antdPain: (
@@ -228,7 +206,7 @@ const painToCureRows: PainToCureRow[] = [
   },
   {
     key: 'resizable-missing',
-    category: '8. 可伸缩列长期空缺',
+    category: '7. 可伸缩列长期空缺',
     painQuestion: '想要拖拽改列宽——antd 没有原生支持',
     humanSummary: '想用鼠标拖拽改变列宽，antd 自己不带这个能力，得额外接第三方库。',
     antdPain: (
@@ -248,29 +226,29 @@ const painToCureRows: PainToCureRow[] = [
   },
   {
     key: 'merge-cell-coord',
-    category: '9. 合并单元格坐标系错位',
-    painQuestion: '展开行或树形和合并单元格一起用会错位',
-    humanSummary: '把行合并和展开行 / 树形数据一起用，单元格会算错位置，画面直接错乱。',
+    category: '8. 合并单元格坐标系错位',
+    painQuestion: '树形数据和合并单元格一起用会错位',
+    humanSummary: '把行合并和树形数据一起用，单元格会算错位置，画面直接错乱。',
     antdPain: (
       <>
-        rowSpan 声明式（合并 N 个原始数据行）与展开行 / 树形子节点命令式插入的 <Text code>tr</Text> 坐标系不一致；fixed 列 left 偏移未感知 colSpan 渲染结构，<Text code>colSpan:0</Text> 仍污染偏移。证据：{issueLink(53862)}{' '}
+        rowSpan 声明式（合并 N 个原始数据行）与树形子节点插入后的可见行坐标不一致；fixed 列 left 偏移未感知 colSpan 渲染结构，<Text code>colSpan:0</Text> 仍污染偏移。证据：{issueLink(53862)}{' '}
         {issueLink(54860)} {issueLink(34129)}
       </>
     ),
     dataGridCure: (
       <>
-        合并单元格、展开行、树形数据和固定列按同一套可见行列关系计算，减少复杂组合下的错位。
+        合并单元格、树形数据和固定列按同一套可见行列关系计算，减少复杂组合下的错位。
       </>
     ),
     demo: (
       <>
-        见 <a href="#/demos/merged-cells">合并单元格 demo</a>
+        见 <a href="#/demos/merged-expand-tree">合并与树形数据 demo</a>
       </>
     ),
   },
   {
     key: 'measure-row-oscillation',
-    category: '10. 空数据 / 动态列布局抖动',
+    category: '9. 空数据 / 动态列布局抖动',
     painQuestion: '增删列或空数据时表格高度抖动',
     humanSummary: '增加或删除列、表格没数据时，表格的宽度高度会反复跳动，肉眼可见的不稳定。',
     antdPain: (
@@ -355,8 +333,8 @@ export function renderWhenToMigrate({ onOpen }: DocsPageContext) {
       <DocSection
         id="pain-to-cure"
         eyebrow="痛点 → 解药"
-        title="antd Table 常被吐槽的 10 类问题，data-grid 怎么解"
-        description="下面 10 条是迁移收益更直接、业务方更容易感知的 antd Table 痛点，每条展开后能看到 antd 的具体表现（附 GitHub 链接）、data-grid 的做法，以及可以直接打开的对照 demo。先扫一眼标题清单，对哪条感兴趣就点开哪条。"
+        title="antd Table 常见痛点，data-grid 怎么解"
+        description="这里整理的是迁移收益更直接、业务方更容易感知的 antd Table 痛点。展开后可以看到 antd 的具体表现、data-grid 的做法，以及可以直接打开的对照 demo。"
       >
         <Collapse
           items={painToCureRows.map((row) => ({
@@ -372,9 +350,6 @@ export function renderWhenToMigrate({ onOpen }: DocsPageContext) {
             ),
           }))}
         />
-        <DocsNote title="为什么这些问题都同源">
-          这些问题大多不是孤立小 bug，而是表格布局、滚动区域和动态测量叠加后的副作用。data-grid 把列宽、高度和滚动状态收敛到更明确的配置与容器约束里，让业务侧少写测量、同步和补丁代码。
-        </DocsNote>
       </DocSection>
 
       <DocSection

@@ -4,17 +4,31 @@ import { Table } from '../table'
 import type { ColumnType, GridSelectionMode, TableProps } from '../table'
 import { data, type RecordType } from './_compare/basic-row-selection.shared'
 
+const localizedData: RecordType[] = data.map((record) => {
+  const overrides: Record<string, Pick<RecordType, 'name' | 'address'>> = {
+    '1': { name: '张三', address: '纽约湖滨路 1 号' },
+    '2': { name: '李四', address: '伦敦湖滨路 1 号' },
+    '3': { name: '王五', address: '悉尼湖滨路 1 号' },
+    '4': { name: '禁用用户', address: '悉尼湖滨路 1 号' },
+  }
+
+  return {
+    ...record,
+    ...overrides[String(record.key)],
+  }
+})
+
 const columns: ColumnType<RecordType>[] = [
   {
-    title: 'Name',
+    title: '姓名',
     dataIndex: 'name',
   },
   {
-    title: 'Age',
+    title: '年龄',
     dataIndex: 'age',
   },
   {
-    title: 'Address',
+    title: '地址',
     dataIndex: 'address',
   },
 ]
@@ -22,7 +36,7 @@ const columns: ColumnType<RecordType>[] = [
 export default function RowSelectionNativeDemo() {
   const [selectionMode, setSelectionMode] = useState<GridSelectionMode>('extended')
   const [showSelectionColumn, setShowSelectionColumn] = useState(false)
-  const [selectedValues, setSelectedValues] = useState<Array<string>>(['John Brown'])
+  const [selectedValues, setSelectedValues] = useState<Array<string>>(['张三'])
   const [compatSelectedKeys, setCompatSelectedKeys] = useState<Array<React.Key>>(['4'])
 
   const rowSelection = useMemo<NonNullable<TableProps<RecordType>['rowSelection']>>(
@@ -32,7 +46,7 @@ export default function RowSelectionNativeDemo() {
         setCompatSelectedKeys(keys)
       },
       getCheckboxProps: (record) => ({
-        disabled: record.name === 'Disabled User',
+        disabled: record.name === '禁用用户',
         name: record.name,
       }),
     }),
@@ -44,10 +58,10 @@ export default function RowSelectionNativeDemo() {
       <Space wrap>
         <Segmented
           options={[
-            { label: 'Disabled', value: 'disabled' },
-            { label: 'Single', value: 'single' },
-            { label: 'Multiple', value: 'multiple' },
-            { label: 'Extended', value: 'extended' },
+            { label: '禁用', value: 'disabled' },
+            { label: '单选', value: 'single' },
+            { label: '多选', value: 'multiple' },
+            { label: '扩展选择', value: 'extended' },
           ]}
           value={selectionMode}
           onChange={(value) => setSelectionMode(value as GridSelectionMode)}
@@ -55,32 +69,32 @@ export default function RowSelectionNativeDemo() {
         <Switch
           checked={showSelectionColumn}
           onChange={setShowSelectionColumn}
-          checkedChildren="Column"
-          unCheckedChildren="No column"
+          checkedChildren="显示选择列"
+          unCheckedChildren="隐藏选择列"
         />
-        <Button onClick={() => setSelectedValues(['John Brown'])}>Select John</Button>
-        <Button onClick={() => setSelectedValues(['John Brown', 'Joe Black'])}>Select John + Joe</Button>
+        <Button onClick={() => setSelectedValues(['张三'])}>选择张三</Button>
+        <Button onClick={() => setSelectedValues(['张三', '王五'])}>选择张三和王五</Button>
         <Button
           onClick={() => {
             setSelectedValues([])
             setCompatSelectedKeys([])
           }}
         >
-          Clear
+          清空选择
         </Button>
       </Space>
 
       <Typography.Text>
-        `selectedValues` drives UI. In extended mode, normal row click replaces selection, Ctrl/Meta
-        toggles, and Shift ranges from the last row click to the current row.
+        当前选中值会直接控制表格的选中状态。扩展选择模式下，普通点击会改为只选当前行；
+        按住 Ctrl / Command 键可切换单行选中；按住 Shift 键可从上次点击的行连续选到当前行。
       </Typography.Text>
 
       <div>
-        <strong>selectedValues:</strong>{' '}
+        <strong>当前选中值：</strong>
         {selectedValues.length === 0 ? <span>[]</span> : <code>[{selectedValues.join(', ')}]</code>}
       </div>
       <div>
-        <strong>compat selectedRowKeys:</strong>{' '}
+        <strong>兼容行键：</strong>
         {compatSelectedKeys.length === 0 ? (
           <span>[]</span>
         ) : (
@@ -91,7 +105,7 @@ export default function RowSelectionNativeDemo() {
       <Table<RecordType>
         rowSelection={rowSelection}
         columns={columns}
-        dataSource={data}
+        dataSource={localizedData}
         pagination={false}
         gridOptions={{
           selection: {

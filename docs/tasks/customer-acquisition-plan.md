@@ -70,7 +70,7 @@ README 里 62 条 issue 的"蛇打七寸"已逐条对应到 data-grid 已实现�
 面向**决策者**（非开发者细节）。结构：
 
 1. 一句话定位（drop-in，改一行 import，外观不变）
-2. **痛点 → 解药表**：62 条 issue 浓缩的 12 类病灶，每条挂 antd issue 链接 + 对应 data-grid demo 链接（A 的 5 个先上，第二波功能补完后续挂）
+2. **痛点 → 解药表**：整理迁移收益更直接的常见痛点，每条给出 data-grid 的处理方式和对应 demo 链接
 3. **迁移成本**：兼容矩阵链接 + 已知限制（诚实写 `scroll.y` 不做 max-height、semantic DOM 不复刻 thead/tbody/tr）
 4. **迁移示例提示词**：一段现成模板，用户贴进 Claude/Copilot 即可自动改 antd→data-grid。**不做 codemod/迁移 CLI**——顺应 AI 时代，提示词成本低、覆盖广
 

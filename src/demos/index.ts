@@ -69,6 +69,16 @@ export const demos: DemoMeta[] = [
     category: '多级表头与合并',
   },
   {
+    name: 'merged-expand-tree',
+    aliases: ['rowspan-tree'],
+    title: '合并与树形数据',
+    subtitle: 'rowSpan + treeData',
+    description: '观察行合并与树形数据一起使用时的列位稳定性。',
+    element: () => import('./merged-expand-tree'),
+    compare: true,
+    category: '多级表头与合并',
+  },
+  {
     name: 'virtual-list',
     title: '虚拟列表',
     subtitle: 'virtual / scroll',

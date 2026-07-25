@@ -117,7 +117,7 @@ export function renderMigration({ onOpen }: DocsPageContext) {
         title="先接入 data-grid"
         description="把 antd Table 的 import 和类型 import 切到 data-grid；多数 ColumnsType、Table.Column 和 Table.ColumnGroup 写法可直接保留，列对齐值按 data-grid 类型调整。"
       >
-        <DocsCode code={MIGRATION_IMPORTS} height={240} ariaLabel="迁移 import 代码" />
+        <DocsCode code={MIGRATION_IMPORTS} height={160} ariaLabel="迁移 import 代码" />
       </DocSection>
 
       <DocSection
@@ -126,7 +126,7 @@ export function renderMigration({ onOpen }: DocsPageContext) {
         title="改滚动高度"
         description="把 antd 的 scroll.y 数字或字符串改成 data-grid 的 y:true；表格会占满父容器提供的可用空间，不再传高度值。"
       >
-        <DocsCode code={MIGRATION_SCROLL} height={220} ariaLabel="迁移 scroll.y 代码" />
+        <DocsCode code={MIGRATION_SCROLL} height={160} ariaLabel="迁移 scroll.y 代码" />
         <div style={{ margin: '20px 0' }}>
           <div
             style={{
