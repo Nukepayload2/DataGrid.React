@@ -125,9 +125,7 @@ export default function RowSelectionFixedDemo() {
                   右栏 antd 用 <code>fixed:'left'/'right'</code>。控制条 selFixed 取值
                   （'start'/'end'）在右栏 antd 映射为 'left'/'right'。</li>
                 <li><strong>触发条件</strong>：首列 fixed 开关 / rowSelection.fixed 选择。</li>
-                <li><strong>差异原因</strong>：data-grid 用 CSS Grid 起止方向语义（start/end），
-                  引擎 normalizeFixed 把 antd 的 'left'/'right' 映射为 'start'/'end'，
-                  两侧最终视觉效果等价。详见 <code>docs/design-notes/fixed-column.md</code>。</li>
+                <li><strong>说明</strong>：两侧最终视觉效果等价；本页用 start/end 和 left/right 分别展示同一固定方向。</li>
               </ul>
             </li>
             <li>

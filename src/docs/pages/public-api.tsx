@@ -15,7 +15,7 @@ const { Text } = Typography
 const EXPORT_DESCRIPTIONS: Record<string, string> = {
   // === 值导出（组件 / 哨兵 / 工具，8 条）===
   Table: 'data-grid 表格组件（兼容 antd v6 Table）。',
-  getRowKey: '与 Table 内部一致的 rowKey 解析工具；用于业务侧复现选中 / 展开锚点。',
+  getRowKey: 'rowKey 解析工具；用于业务侧复现选中 / 展开锚点。',
   EXPAND_COLUMN: '展开列占位哨兵；插入 columns 数组即控制展开列渲染位置（不传则默认最前）。',
   SELECTION_COLUMN: '选择列占位哨兵；插入 columns 数组即控制选择列渲染位置（不传则默认最前）。',
   SELECTION_ALL: '选择菜单"全选"操作哨兵；放入 rowSelection.selections 即在选择下拉里渲染"全选当前页"项。',
@@ -61,9 +61,9 @@ const EXPORT_DESCRIPTIONS: Record<string, string> = {
   FilterConfirmProps: '自定义筛选面板 `confirm()` 入参类型（含 closeDropdown 控制确认后是否关闭下拉）。',
   FilterResetProps: '自定义筛选面板 `clearFilters()` 入参类型（含 closeDropdown / confirm）。',
   FilterDropdownProps: '自定义筛选面板渲染函数收到的 props 类型（selectedKeys / setSelectedKeys / confirm / clearFilters / visible 等）。',
-  ColumnFilterDropdownProps: '透传给筛选下拉底层 Dropdown 的 props 类型（open / onOpenChange / overlayClassName 等）。',
+  ColumnFilterDropdownProps: '筛选下拉的透传 props 类型（open / onOpenChange / overlayClassName 等）。',
   // === 类型导出：分页域 ===
-  TablePaginationConfig: '分页配置类型（current / pageSize / total / placement 等；透传给底层 antd Pagination）。',
+  TablePaginationConfig: '分页配置类型（current / pageSize / total / placement 等）。',
   TablePaginationPlacement: '分页位置枚举（topStart / topCenter / topEnd / bottomStart / bottomCenter / bottomEnd / none）。',
   TablePaginationState: 'onChange 第一参 pagination 类型（含 current / pageSize / total 当前实际分页状态）。',
   // === 类型导出：classNames / styles / sticky / locale / scrollbar ===
@@ -100,7 +100,7 @@ export function renderPublicApi({ onOpen }: DocsPageContext) {
         id="exports"
         eyebrow="入口"
         title="主入口导出"
-        description="清单由 src/docs/generated/api.json 自动生成（extract-api.mjs 扫描包主入口 re-export）。再导出本身没有 JSDoc，关键导出的描述由文档层 layered on top 补齐。"
+        description="本页列出从包主入口可以导入的组件、工具和类型。"
       >
         <ApiRefTable
           members={valueExports}

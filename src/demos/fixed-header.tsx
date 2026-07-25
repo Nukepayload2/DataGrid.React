@@ -46,7 +46,7 @@ export default function FixedHeaderDemo() {
                 <li><strong>差异行为</strong>：两侧一致——3 列（Name/Age/Address）× 100 行，表头纵向固定
                   （<code>position:sticky; top:0</code>），表体纵向滚动时表头钉顶。</li>
                 <li><strong>触发条件</strong>：表体纵向滚动时。</li>
-                <li><strong>差异原因</strong>：此 demo 无差异，仅作结构对照基线。</li>
+                <li><strong>说明</strong>：此 demo 仅作结构对照基线。</li>
               </ul>
             </li>
             <li>
@@ -56,9 +56,7 @@ export default function FixedHeaderDemo() {
                   height:394 = stickyHeader 54.8 + 表体可见 275.2 + 分页条区 64）；右栏 antd 用数字
                   <code>scroll.y:55*5</code>（忠实官方）。两侧可见行数一致（6 行）。</li>
                 <li><strong>触发条件</strong>：表格进入固定表头模式即出现。</li>
-                <li><strong>差异原因</strong>：data-grid 用纯 CSS flex 自适应高度，<code>y:true</code> 仅支持
-                  布尔，需父容器明确高度；antd 接受数字 max-height。详见
-                  <code>docs/design-notes/layout.md</code>。</li>
+                <li><strong>说明</strong>：data-grid 使用 <code>scroll.y: true</code>，高度由父容器决定；antd 使用数字高度。</li>
               </ul>
             </li>
             <li>
@@ -66,8 +64,7 @@ export default function FixedHeaderDemo() {
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：左栏走悬浮滚动条（macOS 风格细条），右栏用浏览器默认滚动条。</li>
                 <li><strong>触发条件</strong>：表体出现滚动条即出现。</li>
-                <li><strong>差异原因</strong>：antd 官方 demo 用 antd-style 自定义细滚动条，data-grid 项目
-                  未装该依赖，故右栏退回浏览器默认。</li>
+                <li><strong>说明</strong>：两侧滚动条样式不同，但滚动交互一致。</li>
               </ul>
             </li>
           </ul>
@@ -76,4 +73,3 @@ export default function FixedHeaderDemo() {
     </div>
   )
 }
-

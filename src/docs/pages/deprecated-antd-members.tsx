@@ -83,7 +83,7 @@ export function renderDeprecatedAntdMembers({ onOpen }: DocsPageContext) {
         id="policy"
         eyebrow="迁移策略"
         title="只为迁移保留，不作为新代码入口"
-        description="data-grid 优先兼容 antd v6 当前公共 API。对 antd / rc-table 已标记为 deprecated 的成员，data-grid 会根据迁移价值分别处理：能继续承接的保留兼容，语义对不上的降级或忽略，并在下方逐条说明。"
+        description="data-grid 优先兼容 antd v6 当前公共 API。对 antd 已标记为 deprecated 的成员，data-grid 会根据迁移价值分别处理：能继续承接的保留兼容，语义对不上的降级或忽略，并在下方逐条说明。"
       >
         <DocsNote title="本页与兼容矩阵的分工">
           本页逐条列出具体 deprecated 成员的支持状态、data-grid 行为和迁移动作——回答「用了 X 该改成什么」。如果想看某个 API 领域整体是「完全 / 部分 / 未暴露」，去兼容矩阵；同一主题不在两页重复展开。

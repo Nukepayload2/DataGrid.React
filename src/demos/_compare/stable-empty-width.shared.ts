@@ -1,9 +1,7 @@
 /**
  * stable-empty-width demo 共享数据。
  *
- * 直击 antd #56151（空数据列宽缩减）、#56713（scroll.y + 空数据因占位 th 列宽跳动）、
- * #55717（增列时 MeasureRow 高度抖动）。两侧均用**显式数字 px width** 的列，
- * data-grid 由 `grid-template-columns` 单点真理源严格生效；antd 如实呈现空数据/增列时的抖动。
+ * 两侧使用相同的列定义和样本数据，便于观察空数据、滚动和增删列时的列宽变化。
  */
 
 /** 记录类型。两侧共用。 */
@@ -26,7 +24,7 @@ export const sampleData: RecordType[] = [
   { key: '5', id: 'ID-005', name: 'Edward King 4', age: 36, address: 'London, Park Lane no. 4', email: 'edward4@example.com', phone: '+1 202 555 0004' },
 ]
 
-/** 列数上下界（动态增/删列演示 #55717）。 */
+/** 列数上下界（用于演示增删列时的列宽变化）。 */
 export const COLUMN_COUNT_MIN = 3
 export const COLUMN_COUNT_MAX = 6
 
@@ -34,11 +32,7 @@ export const COLUMN_COUNT_MAX = 6
 export const COLUMN_COUNT_DEFAULT = 4
 
 /**
- * scroll.y：两侧均启用以触发 #56713（scroll.y + 空数据占位 th 列宽跳动）。
- *
- * - antd 侧：`scroll={{ y: SCROLL_Y }}`（数字 max-height，与官方一致）。
- * - data-grid 侧：`scroll={{ y: true }}` 仅接受布尔，父容器需明确高度，
- *   外层固定高度 div 用 `DG_WRAPPER_HEIGHT`（≈ 表头 + 5 行可见 + 余量）。
+ * 两侧都开启竖向滚动，便于观察空 / 非空切换时的表头和列宽表现。
  */
 export const SCROLL_Y = 220
 export const DG_WRAPPER_HEIGHT = 280

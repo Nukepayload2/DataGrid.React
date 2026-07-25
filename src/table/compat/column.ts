@@ -88,9 +88,7 @@ export interface ColumnType<RecordType = any> {
    *   - number：px（如 `100` → `100px`）。
    *   - string：原样作为 CSS 长度（如 `'30%'`、`'10em'`、`'100px'`）。
    *
-   * **缺省语义**：未提供（undefined）时该列 track 走 auto 计算策略（内容 + grid `1fr` 分配），
-   * 不强加固定下限。**与 antd 差异**：data-grid 在 CSS Grid 下用 `minmax(min-content, 1fr)`
-   * 表达 auto 列（内容会换行而非硬撑单行），详见 `docs/features/columns/column-width.md`。
+   * **缺省语义**：未提供（undefined）时该列按内容和可用空间自适应，不强加固定下限。
    *
    * 与列宽拖拽（`gridOptions.resizable`）组合：拖拽结果会覆盖本字段的运行时宽度。
    */
@@ -185,9 +183,6 @@ export interface ColumnType<RecordType = any> {
    *         （antd ellipsis-custom-tooltip demo 用法）。
    *       * `showTitle: true` / 缺省 → 等价 `ellipsis: true`（加类 + 加默认 title）。
    *
-   * 详见 `docs/features/display/ellipsis.md`；列宽与省略号视觉的关系见
-   * `docs/features/columns/column-width.md`。
-   *
    * 取值形态同名同义于 antd v6 `column.ellipsis`（含 `{ showTitle?: boolean }` 对象形态）。
    *
    * @internal 适配层 normalize：`true` / `{showTitle:true}` / `{}` → ellipsis=true & showTitle=true；
@@ -208,8 +203,6 @@ export interface ColumnType<RecordType = any> {
    *
    * **与各能力组合**：隐藏列宽度计为 0，固定列 sticky 偏移按可见叶子列累加；合并单元格仍跨原叶子区间；
    * 多级表头父分组格随子叶子收缩；选择列作为普通叶子列参与，同样可被 hidden。
-   *
-   * 详见 `docs/features/columns/hidden-column.md`。
    *
    * 同名同义于 antd `column.hidden`。
    *
@@ -232,8 +225,6 @@ export interface ColumnType<RecordType = any> {
    * 子列（多级表头，任意深度）。
    * 有 children 时该列视为分组列（仅取 key/title/align/fixed）；
    * 叶子列属性（dataIndex/width/render）仅取自无 children 的节点。
-   *
-   * 详见 `docs/features/layout/header-and-span.md`。
    */
   children?: Array<ColumnType<RecordType>>
   /**
@@ -248,8 +239,6 @@ export interface ColumnType<RecordType = any> {
    *
    * 注意：data-grid 内部仅支持 `colSpan`（表头跨列）；多级表头请用 `children`。
    * 两者**不要在同一列上混用**（与 antd 行为一致）。
-   *
-   * 详见 `docs/features/layout/header-and-span.md`。
    */
   colSpan?: number
   /**
@@ -294,8 +283,6 @@ export interface ColumnType<RecordType = any> {
    *   data-grid 仍按 `sortOrder` 显示排序图标、触发 onChange。
    *
    * 与各能力组合：排序只改变数据行顺序，不改变列结构（多级表头/固定列/合并/虚拟/选择/展开均不受影响）。
-   *
-   * 详见 `docs/features/interaction/filter-sorter.md`。
    */
   sorter?: ColumnSorter<RecordType>
   /**
@@ -331,9 +318,6 @@ export interface ColumnType<RecordType = any> {
    *
    * 与 `onFilter` 配合：onFilter(value, record) 决定该 value 是否"命中" record；
    * 多选时命中任一即保留该 record（OR 语义）；单选时只保留命中该 value 的 record。
-   *
-   * 详见 `docs/features/interaction/filter-sorter.md`。
-   *
    * 同名同义于 antd `column.filters`。
    */
   filters?: Array<ColumnFilterItem>
@@ -347,9 +331,6 @@ export interface ColumnType<RecordType = any> {
    * （与排序叠加：antd 顺序 raw → sort → filter，即先排序后过滤）。
    * **受控筛选**（外部传 `filteredValue`）：data-grid 不主动过滤，调用方在 onChange 后自行更新 dataSource；
    *   data-grid 仍按 `filteredValue` 显示漏斗激活态、触发 onChange。
-   *
-   * 详见 `docs/features/interaction/filter-sorter.md`。
-   *
    * 同名同义于 antd `column.onFilter`。
    */
   onFilter?: (value: FilterValue, record: RecordType) => boolean
@@ -370,7 +351,7 @@ export interface ColumnType<RecordType = any> {
    * 与 `defaultFilteredValue` 互斥：`filteredValue` 优先。
    *
    * 传 `[]`（空数组）表示"无激活筛选"（受控显式空）；传非空数组表示激活筛选。
-   * （注意与 undefined 区分：undefined 表示该列非受控，由内部 state / defaultFilteredValue 驱动。）
+   * （注意与 undefined 区分：undefined 表示该列非受控，由 defaultFilteredValue 初始化。）
    */
   filteredValue?: Array<FilterValue> | null
   /**
@@ -399,9 +380,6 @@ export interface ColumnType<RecordType = any> {
    *
    * 与内置 `filters` 关系：filterDropdown 存在时不渲染内置 Checkbox/Radio（即使同时配置了
    * `filters` 也忽略其 UI——但 filters 仍可用于 onChange 的 filters 形态来源等）。
-   *
-   * 详见 `docs/features/interaction/filter-sorter.md`。
-   *
    * 同名同义于 antd `column.filterDropdown`。
    *
    * @internal 过滤管线由 `useFilter` 实现：filterDropdown 的 selectedKeys 经 confirm 应用为
@@ -424,10 +402,10 @@ export interface ColumnType<RecordType = any> {
    */
   filterIcon?: React.ReactNode | ((filtered: boolean) => React.ReactNode)
   /**
-   * 透传给筛选下拉底层 antd Dropdown 的 props。
+   * 透传给筛选下拉的 props。
    *
    * 用于受控打开（`open`）、`onOpenChange` 订阅、`triggerClassName`/`overlayClassName` 等。
-   * 与内置 Dropdown 集成：data-grid 把这些 props 合并到 antd Dropdown（open 受控优先于内部 state）。
+   * 与内置 Dropdown 集成：open 受控配置优先。
    *
    * 同名同义于 antd `column.filterDropdownProps`（since 5.22）。
    */
@@ -450,9 +428,6 @@ export interface ColumnType<RecordType = any> {
    * filterMode 仅对内置 Checkbox/Radio vs Tree 切换生效。
    *
    * 默认 `'menu'`：现有 head/filter-search/custom-filter-panel 等不设 filterMode 的列仍走 menu 分支（零回归）。
-   *
-   * 详见 `docs/features/interaction/filter-sorter.md`。
-   *
    * 同名同义于 antd `column.filterMode`。
    */
   filterMode?: 'menu' | 'tree'
@@ -476,9 +451,6 @@ export interface ColumnType<RecordType = any> {
    * menu 模式（默认）与 tree 模式（`filterMode='tree'`）均消费 filterSearch：
    *   - menu：过滤扁平筛选项列表（命中保留）。
    *   - tree：过滤树节点（命中保留 + 保留祖先链维持结构，对齐 antd `Tree.filterTreeNode`）。
-   *
-   * 详见 `docs/features/interaction/filter-sorter.md`。
-   *
    * 同名同义于 antd `column.filterSearch`。
    *
    * @internal data-grid 引擎层筛选项内部类型为 `EngineFilterItem`，与 `ColumnFilterItem` 同构。
@@ -516,9 +488,6 @@ export interface ColumnType<RecordType = any> {
    *
    * 与各能力组合：被移除的列不参与排序/筛选/选择/固定/合并/虚拟——所有现有机制透明（列号自然收缩）。
    * 树形/编辑等以列位置为基础的机制也正确（过滤发生在列结构构建前）。
-   *
-   * 详见 `docs/features/columns/responsive-columns.md`。
-   *
    * 同名同义于 antd `column.responsive`（since 4.x）；断点激活判定对齐 antd `Grid.useBreakpoint`。
    *
    * @internal 匹配算法与实现位置对齐 antd InternalTable（mergedColumns 派生时过滤）：

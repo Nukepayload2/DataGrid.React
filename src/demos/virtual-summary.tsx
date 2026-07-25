@@ -66,9 +66,9 @@ export default function VirtualSummaryDemo() {
             <li>
               <strong>antd 病灶（#47184）</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：右栏 antd <code>virtual</code> 下 <code>summary</code> 函数虽被调用，但渲染结果异常/不可见——VirtualTable 用 rc-virtual-list 自管表体滚动容器，<code>&lt;tfoot&gt;</code> 被甩到虚拟视口之外，非 fixed 的 summary 无法正常呈现。</li>
+                <li><strong>差异行为</strong>：右栏 antd <code>virtual</code> 下 <code>summary</code> 函数虽被调用，但非 fixed 的 summary 可能无法正常呈现。</li>
                 <li><strong>触发条件</strong>：顶栏「antd Summary fixed」开关关闭（默认）时即可观察到 summary 缺失。</li>
-                <li><strong>差异原因</strong>：<Typography.Link href={ISSUE_URL} target="_blank" rel="noreferrer">antd#47184</Typography.Link> 维护者确认「虚拟下 summary 只能 fixed」——rc-table VirtualTable 未把 summary 接入虚拟滚动容器。</li>
+                <li><strong>说明</strong>：<Typography.Link href={ISSUE_URL} target="_blank" rel="noreferrer">antd#47184</Typography.Link> 记录了「虚拟下 summary 只能 fixed」的限制。</li>
               </ul>
             </li>
             <li>
@@ -76,7 +76,7 @@ export default function VirtualSummaryDemo() {
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：左栏 summary 始终可见——虚拟滚动表体时汇总行（共 N 行 / 均龄）钉在表尾视口底部，数值正确更新。</li>
                 <li><strong>触发条件</strong>：任意滚动表体。</li>
-                <li><strong>差异原因</strong>：data-grid 把 summary 的每个 Cell 渲染为独立 grid item（<code>.dg-cell-summary</code>），位于 grid 末尾、与表体共享滚动容器，但<strong>不进虚拟窗口</strong>（虚拟窗口只覆盖表体行）。<code>&lt;Table.Summary fixed&gt;</code> 加 <code>position: sticky; bottom: 0</code> 即始终可见。源码落点 <code>src/table/engine/Summary.tsx</code>，机制详见 <code>docs/features/layout/summary.md</code>。</li>
+                <li><strong>说明</strong>：左栏在虚拟滚动下仍能稳定显示汇总行；使用 <code>&lt;Table.Summary fixed&gt;</code> 可让汇总行固定在底部。</li>
               </ul>
             </li>
             <li>

@@ -11,7 +11,7 @@ export function renderColumnApi({ onOpen }: DocsPageContext) {
       id="column-props"
       eyebrow="列"
       title="Column props"
-      description="属性清单由 src/docs/generated/api.json 自动生成（extract-api.mjs 提取 ColumnType 公开成员）。data-grid 专属列级能力（拖拽锁定、recycling cell 回调）归入 gridColumnOptions，参考 gridOptions 页。"
+      description="本页列出 ColumnType 可用字段。data-grid 专属列级能力归入 gridColumnOptions，参考 gridOptions 页。"
     >
       <ApiRefTable
         members={getApiMembers('column')}

@@ -39,8 +39,7 @@ export default function RowSelectionCustomDemo() {
                 <li><strong>差异行为</strong>：左栏 <code>Table.SELECTION_ALL/INVERT/NONE</code> 来自
                   data-grid 引擎；右栏同名哨兵来自 antd 本体。</li>
                 <li><strong>触发条件</strong>：表头全选框旁下拉箭头点开后选择前 3 项菜单。</li>
-                <li><strong>差异原因</strong>：data-grid 在引擎内重新声明了与 antd 等价的哨兵常量对象
-                  （供 data-grid 选择体系消费），但语义/结构对齐 antd。两侧 selections 数组结构等价。</li>
+                <li><strong>说明</strong>：两侧 selections 数组结构等价，选择菜单项行为一致。</li>
               </ul>
             </li>
             <li>
@@ -53,8 +52,7 @@ export default function RowSelectionCustomDemo() {
                 <li><strong>差异行为</strong>：页面下方显示共享 <code>selectedRowKeys</code>，
                   antd demo 原本仅 <code>onChange</code> console.log。</li>
                 <li><strong>触发条件</strong>：任意选择变化（内置项 / 自定义 odd-even / 行 checkbox）。</li>
-                <li><strong>差异原因</strong>：双栏对照需在无 console 环境验证两侧同步，
-                  额外加可视化区对照；antd demo 逐字复刻无此区。</li>
+                <li><strong>说明</strong>：本页额外显示 selectedKeys，方便直接观察两侧选择状态。</li>
               </ul>
             </li>
           </ul>

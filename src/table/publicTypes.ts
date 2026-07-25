@@ -72,13 +72,12 @@ export interface TableProps<RecordType = any> {
   /**
    * 表格渲染数据源（行数组）。
    *
-   * **语义**：data-grid 以本数组为唯一数据真理源——排序、筛选、分页管线均基于其派生渲染数据
-   * （raw → sort → filter → paginate），**不会修改原数组**；受控场景下调用方在 `onChange` 后
-   * 自行 `setDataSource(...)` 更新。
+   * **语义**：data-grid 基于本数组派生当前渲染数据，**不会修改原数组**；受控场景下调用方在
+   * `onChange` 后自行 `setDataSource(...)` 更新。
    *   - 未传 / 空数组：表体渲染空状态占位（由 `locale.emptyText` 优先级链驱动）。
    *   - 树形模式（`childrenColumnName` 命中）下，每行 record 的 children 字段递归展开为子行。
    *
-   * 与 antd `TableProps.dataSource` 同义（仅 data-grid 内部管线不同）。
+   * 与 antd `TableProps.dataSource` 同义。
    */
   dataSource?: Array<RecordType>
   /**
@@ -161,7 +160,6 @@ export interface TableProps<RecordType = any> {
    * - `x`：横向滚动配置。`true` 仅开启横向滚动；number→px、string→原样作 min-width。
    *   启用横向滚动时额外渲染**横向悬浮滚动条**，定位在数据区域底部（summary 上方），
    *   替换原生横向滚动条。
-   *   详见 `docs/features/scrolling/scrollbar.md`。
    * - `y`：纵向滚动语义（**仅 `true | undefined`，不支持数字**）。
    *     - `true`：**数据区域模式**——表头固定 + 表体滚动 + 纵向悬浮滚动条；
    *       表体高度 CSS 自动适应，填满表格可用高度。
@@ -173,14 +171,6 @@ export interface TableProps<RecordType = any> {
    * - `scrollToFirstRowOnChange`：分页、排序、筛选变化后是否滚回首行。默认 `true`（对齐 antd），
    *   可设 `false` 保持当前滚动位置。
    *
-   * 详见 `docs/features/layout/layout.md`（数据区域模式节）。
-   *
-   * @internal 数据区域模式由纯 CSS（flex/grid）实现，不用 JS 算数字高度：
-   *   `.dg-wrapper` 加 `dg-data-area` 类（`display:flex; flex-direction:column; height:100%`），
-   *   内部 `.dg-scroll-wrap`（FloatingScrollBar 包装）`flex:1; min-height:0`，
-   *   `.dg-scroll` `flex:1; min-height:0; overflow-y:auto`（表头 sticky top 钉顶）。
-   *   悬浮滚动条实现为 `HorizontalFloatingScrollBar`（细线 2px + hit 上下各 8px +
-   *   hover 变粗 8px + 拖动/同步）。
    */
   scroll?: { x?: true | number | string; y?: true; scrollToFirstRowOnChange?: boolean }
   /**
@@ -191,16 +181,13 @@ export interface TableProps<RecordType = any> {
    *
    * 行高两条路径：**非虚拟**走约定 `rowHeight`，不测量（缺省 `'auto'`）；
    * **虚拟**采用动态行高测量，未测量行以约定 `rowHeight` 兜底（`gridOptions.rowHeight` 默认 56）。
-   * data-grid **不实现 antd `measureRowRender` 兼容 API**（隐藏测量行重渲染）。
-   *
-   * 详见 `docs/features/scrolling/virtualization.md`。
    *
    * @internal 虚拟路径采用 virtuoso 式 ResizeObserver 动态测量（measured-first），
    *   与 antd `measureRowRender` 是两回事。虚拟窗口按"收起状态"行高算 offset/padding；
    *   展开内容直接渲染但不参与窗口大小；非虚拟走 CSS grid track。
    */
   virtual?: boolean
-  /** 预留：透传到底层布局，data-grid 仅接收不强制。 */
+  /** 预留布局选项，data-grid 仅接收不强制。 */
   tableLayout?: 'auto' | 'fixed'
   /**
    * data-grid 专属 grid 布局选项（有界行高模型 + 列宽拖拽 + 表头行高 + 行/列拖拽排序）。
@@ -214,14 +201,12 @@ export interface TableProps<RecordType = any> {
    * - `minRowHeight` / `maxRowHeight`：**同时设置**时启用「有界行高模型」——行高随内容
    *   在 [min, max] 区间自适应，固定列/合并单元格/多级表头仍跨可变高行保持对齐。
    *   仅设其一（缺 min 或 max）→ 退化为固定行高（等同不设）。
-   *   详见 `docs/features/layout/row-height.md`。
    * - `headerHeight`：表头行高约定（数字 px 或字符串 CSS 长度）。多级表头下所有表头行统一高度。
    * - `resizable`：列宽拖拽调整兼容开关。`true` 且未配置 `columnResizeMode` 时等同
    *   `columnResizeMode: 'ResizeLeft'`。默认 `false`（零回归）。
    * - `columnResizeMode`：列宽拖拽模式。`Disabled` 禁用；`ResizeLeft` 只改变分隔线左侧列宽，
    *   表格宽度总和随之变化；`ResizeSibling` 同时改变左右相邻列宽，保持总宽不变。
    *   最后一个可见叶子列右侧不渲染 resizer。
-   *   详见 `docs/features/columns/column-width.md`。
    * - `resizableMinWidth` / `resizableMaxWidth`：列宽拖拽 min/max 约束（px）。number → 统一；
    *   函数 → 按列 key 逐列定制。默认 min 30 / max Infinity。
    * - `rowDragSort` / `columnDragSort`：公开拖拽排序入口。业务方通过回调提交新的 dataSource / columns。
@@ -266,7 +251,7 @@ export interface TableProps<RecordType = any> {
      * 与 antd `rowSelection` 的关系：
      * - `gridOptions.selection` 是 data-grid 原生能力命名空间，优先级高于兼容 API。
      * - `rowSelection` 仍保留 antd 兼容 API（renderCell/getCheckboxProps/selections/onChange...）。
-     * - 选中真理源优先级：`selectedValues` > `defaultSelectedValues` >
+     * - 受控优先级：`selectedValues` > `defaultSelectedValues` >
      *   `rowSelection.selectedRowKeys` > `rowSelection.defaultSelectedRowKeys`。
      * - 同时传 `selectedValues` 与 `selectedRowKeys`：UI 以 `selectedValues` 为准；触发时仍尽量同时
      *   调 `onSelectedValuesChange` 与 `rowSelection.onChange`。
@@ -332,7 +317,6 @@ export interface TableProps<RecordType = any> {
    *
    * 不传则不渲染选择列（零回归：basic/grouping/fixed/colspan/virtual 行为不变）。
    *
-   * 详见 `docs/features/interaction/selection.md`。
    */
   rowSelection?: import('./compatTypes').TableRowSelection
   /**
@@ -352,7 +336,6 @@ export interface TableProps<RecordType = any> {
    *
    * 不传则不渲染展开列、不插入展开内容区（零回归）。
    *
-   * 详见 `docs/features/interaction/expand.md`。
    *
    * @internal 展开内容区由 CSS grid track `0fr↔1fr` 过渡实现。
    */
@@ -373,7 +356,6 @@ export interface TableProps<RecordType = any> {
    *
    * 分页器用 antd `<Pagination>`。
    *
-   * 详见 `docs/features/interaction/pagination-and-data.md`。
    */
   pagination?: false | TablePaginationConfig
   /**
@@ -389,7 +371,7 @@ export interface TableProps<RecordType = any> {
    *
    * 不传（默认）→ 不包 Spin，保持现有 demo 行为不变（零回归）。
    *
-   * 同名同义于 antd `TableProps.loading`。详见 `docs/features/layout/layout.md`。
+   * 同名同义于 antd `TableProps.loading`。
    */
   loading?: boolean | SpinProps
   /** 自定义根 className。 */
@@ -491,7 +473,7 @@ export interface TableProps<RecordType = any> {
    */
   childrenColumnName?: string
   /**
-   * 自定义组件：替换表格内部默认渲染的元素（`body.cell` / `body.row` / `header.cell`）。
+   * 自定义组件：替换表格默认渲染的元素（`body.cell` / `body.row` / `header.cell`）。
    * 详见 `TableComponents` 类型注释。
    *
    * **data-grid div 渲染适配**（与 antd `<table>` 实现不同）：
@@ -528,7 +510,7 @@ export interface TableProps<RecordType = any> {
    *   共用同一表体 emptyText，并按上述优先级解析。
    *
    *   ★ `'Table.filter'` 是**另一个**独立语义（对齐 antd FilterDropdown 的 renderEmpty 语义）：仅用于
-   *   **filter 下拉面板内部**当 `column.filters` 为空数组时的占位（默认 Empty SIMPLE +
+   *   **filter 下拉面板中**当 `column.filters` 为空数组时的占位（默认 Empty SIMPLE +
    *   locale.filterEmptyText），**不是**表体筛选无结果。data-grid 由 FilterDropdown 消费此语义。
    *
    * === antd custom-empty demo 要素 ===
@@ -587,7 +569,7 @@ export interface TableProps<RecordType = any> {
   /**
    * JSX 风格 API：`<Table>` 的 JSX 子元素声明列。
    *
-   * **语义**：当**未传 `columns` prop** 时，Table 内部用 React.Children 遍历 JSX 子元素，
+   * **语义**：当**未传 `columns` prop** 时，Table 用 React.Children 遍历 JSX 子元素，
    * 识别 `<Table.Column>`（→ ColumnType）与 `<Table.ColumnGroup>`（→ `{ title, children: [...] }`
    * 嵌套，复用多级表头），生成 columns 数组（等价于传 `columns` prop）。
    *
@@ -616,7 +598,7 @@ export interface TableProps<RecordType = any> {
    *
    * 未提供（undefined）时不启用，零回归。
    *
-   * 同名同义于 antd v6 `TableProps.sticky`。详见 `docs/features/layout/sticky.md`。
+   * 同名同义于 antd v6 `TableProps.sticky`。
    */
   sticky?: boolean | StickyConfig
   /**
@@ -702,7 +684,7 @@ export interface TableProps<RecordType = any> {
    * **典型用法**（antd edit-cell demo）：`rowClassName={() => 'editable-row'}`——编辑态行视觉。
    *
    * **与内置选中态视觉关系**：内置选中态视觉在命中 `selectedRowKeys` 的行自动注入
-   *   （详见 `docs/features/interaction/selection.md`），rowClassName 是用户自定义层，与之正交。
+   *   rowClassName 是用户自定义层，与之正交。
    *
    * 未提供（undefined）时不注入（零回归）。
    *
@@ -782,10 +764,7 @@ export interface TableRef {
    * - `behavior`：'auto'（默认，瞬时）| 'smooth'（平滑动画到位）。**data-grid 专属**
    *   （antd 无此字段）。
    *
-   * 详见 `docs/features/scrolling/virtualization.md`。
-   *
-   * @internal 'nearest' 语义对齐 react-virtuoso `scrollIntoViewSystem`；
-   *   smooth 下内部启用到达检测（scrollTop≈target/触边界/1000ms fallback）。
+   * smooth 下会在到达目标位置或触达边界后结束动画。
    */
   scrollTo: (config: {
     index?: number

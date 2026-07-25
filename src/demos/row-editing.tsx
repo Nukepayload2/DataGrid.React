@@ -33,8 +33,7 @@ export default function EditRowDemo() {
                   <strong> 内容 ReactNode（不包 td）</strong>，引擎渲染在 <code>.dg-cell-inner</code>；
                   antd 返回原生 <code>&lt;td &#123;...props&#125;&gt;</code>。</li>
                 <li><strong>触发条件</strong>：编辑态整行（name/age/address 三列进入 Input/InputNumber）。</li>
-                <li><strong>差异原因</strong>：data-grid 用 div 渲染（无 td），cell 组件只产出单元格内容；
-                  antd 是原生 <code>&lt;table&gt;</code>，cell 组件产出整个 <code>&lt;td&gt;</code>。</li>
+                <li><strong>说明</strong>：data-grid 的 cell 组件只需要返回单元格内容；antd 侧保持官方示例写法。</li>
               </ul>
             </li>
             <li>
@@ -45,9 +44,7 @@ export default function EditRowDemo() {
                   data-grid 的 div 渲染层级<em>不</em>阻断 Form context 透传到 Form.Item。</li>
                 <li><strong>触发条件</strong>：点击 Edit 后整表共享一个 Form（<code>Form.useForm</code>），
                   靠 <code>editingKey</code> 区分当前编辑行。</li>
-                <li><strong>差异原因</strong>：React FormContext 是 React context（跨组件树传递），
-                  不依赖 DOM 层级；data-grid 的 dg-row/dg-cell 只改变 DOM 不改变 React 组件树，
-                  故 context 正常透传（<code>validateFields</code> 可成功）。</li>
+                <li><strong>说明</strong>：两侧都能通过同一个 Form 管理当前编辑行，并正常保存。</li>
               </ul>
             </li>
           </ul>
@@ -56,4 +53,3 @@ export default function EditRowDemo() {
     </div>
   )
 }
-

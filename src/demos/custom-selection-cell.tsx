@@ -21,15 +21,10 @@ export default function RowSelectionCustomDebugDemo() {
             <li>
               <strong>rowSpan 接入机制</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：左栏 data-grid 引擎在 <code>onCell</code> 提取
-                  <code>props.rowSpan</code> 交给 cellMerge（被覆盖格 hidden 不渲染），
-                  <code>render</code> 提取 <code>children</code> 替代默认勾选 UI；右栏 antd 由
-                  rc-table 原生 <code>onCell</code>/<code>render</code> 链路处理。</li>
+                <li><strong>差异行为</strong>：两侧都通过 <code>onCell</code> 提供 <code>rowSpan</code>，并通过 <code>renderCell</code> 自定义勾选单元格内容。</li>
                 <li><strong>触发条件</strong>：<code>renderCell</code> 返回
                   <code>{'{ props: { rowSpan }, children }'}</code>。</li>
-                <li><strong>差异原因</strong>：data-grid 用 CSS Grid，需经 cellMerge 在引擎层
-                  把 rowSpan&gt;0 的被覆盖格隐藏（保持 grid track 布局），antd 原生 table 直接靠
-                  <code>&lt;td rowSpan&gt;</code> 跨行。详见 <code>docs/design-notes/selection.md</code>。</li>
+                <li><strong>说明</strong>：本页重点验证选择列自定义内容和跨行合并能同时生效。</li>
               </ul>
             </li>
             <li>
@@ -38,8 +33,7 @@ export default function RowSelectionCustomDebugDemo() {
                 <li><strong>差异行为</strong>：左栏 <code>TableRowSelection</code> 来自 data-grid
                   引擎；右栏 antd <code>TableProps['rowSelection']</code> 来自 antd 本体。</li>
                 <li><strong>触发条件</strong>：声明 rowSelection 类型时。</li>
-                <li><strong>差异原因</strong>：两侧各自维护等价类型声明，签名等价（renderCell 回调
-                  形态、props 返回结构一致）。</li>
+                <li><strong>说明</strong>：两侧 <code>renderCell</code> 回调形态和返回结构等价。</li>
               </ul>
             </li>
           </ul>

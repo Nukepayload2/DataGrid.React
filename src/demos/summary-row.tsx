@@ -73,30 +73,9 @@ export default function SummaryDemo() {
           summary 固定底部。
         </p>
         <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-          <li>
-            <strong>DOM 结构</strong>
-            <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-              <li><strong>差异行为</strong>：antd summary 是 <code>&lt;tfoot&gt;&lt;tr&gt;&lt;td colspan&gt;</code>；data-grid 是 div + CSS Grid（无 tfoot），Cell 按 <code>index</code>（0-based）+ <code>colSpan</code> 定位。</li>
-              <li><strong>触发条件</strong>：渲染任意 summary。</li>
-              <li><strong>差异原因</strong>：data-grid 用 CSS Grid，summary Cell 作为 grid item（<code>gridColumn</code> 由 index+colSpan 推导），与表体同处一个 grid；antd 原生 <code>&lt;table&gt;</code> 用 tfoot/colspan。视觉等价（summary 在表体底部，fixed sticky bottom）。详见 <code>docs/design-notes/summary.md</code>。</li>
-            </ul>
-          </li>
-          <li>
-            <strong>scroll.y 取值</strong>
-            <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-              <li><strong>差异行为</strong>：示例 2 左栏 data-grid <code>scroll.y:true</code>（父容器 height:550）；右栏 antd 数字 <code>scroll.y:500</code>。</li>
-              <li><strong>触发条件</strong>：示例 2 表体纵向滚动。</li>
-              <li><strong>差异原因</strong>：data-grid 用 CSS 自适应高度（容器 clientHeight 实时测量），antd 需数字像素高度。</li>
-            </ul>
-          </li>
-          <li>
-            <strong>滚动条外观</strong>
-            <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-              <li><strong>差异行为</strong>：data-grid 侧用悬浮滚动条；antd 侧用浏览器默认滚动条。</li>
-              <li><strong>触发条件</strong>：任意滚动。</li>
-              <li><strong>差异原因</strong>：antd 官方 demo 用 antd-style 自定义细滚动条，data-grid 项目未装 antd-style，两侧均不引入；data-grid 侧走引擎悬浮滚动条。详见 <code>docs/design-notes/scrollbar.md</code>。</li>
-            </ul>
-          </li>
+          <li>示例 1 展示 <code>summary</code> 函数如何根据当前页数据计算多行汇总。</li>
+          <li>示例 2 展示 <code>&lt;Table.Summary fixed&gt;</code> 在表体滚动时固定在底部。</li>
+          <li>左栏 data-grid 使用 <code>scroll.y: true</code>，高度由父容器决定；右栏 antd 保持数字高度写法。</li>
         </ul>
       </div>
     </div>

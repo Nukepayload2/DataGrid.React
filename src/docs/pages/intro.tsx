@@ -18,13 +18,13 @@ export function renderIntro({ onOpen }: DocsPageContext) {
         id="what-is"
         eyebrow="data-grid 是什么"
         title="用 CSS Grid 重做的 React 表格组件"
-        description="data-grid 把表格布局交给 CSS Grid——不再输出原生 table / thead / tbody / tr 结构，让多级表头、合并单元格、固定列、动态行高这些原本要互相迁就的能力可以在同一套布局下共存，并原生支持大数据量虚拟滚动、列宽拖拽、行/列拖拽排序。"
+        description="data-grid 面向复杂业务表格：保留接近 antd Table 的 React API，同时补齐大数据量虚拟滚动、列宽拖拽、行/列拖拽排序、多级表头、合并单元格和固定列等常用组合能力。"
       >
         <p>
-          <Text strong>适合</Text>：多级表头 + 合并 + 固定列组合、超大数据量（万行级）、动态行高、列宽拖拽、行/列拖拽排序等真实业务常见但原 React 表格库难处理的场景。
+          <Text strong>适合</Text>：多级表头 + 合并 + 固定列组合、万行级数据、动态行高、列宽拖拽、行/列拖拽排序等业务表格场景。
         </p>
         <p>
-          <Text strong>不追求</Text>：完整复刻 antd Table 全量历史 API；输出原生 <Text code>{'<table>'}</Text> / <Text code>{'<thead>'}</Text> / <Text code>{'<tbody>'}</Text> / <Text code>{'<tr>'}</Text> DOM（爬虫、第三方表格插件按 <Text code>tbody tr td</Text> 写的样式选择器会失效）；伪造完整 ARIA table / row / rowgroup role 树；RTL 系统支持。
+          <Text strong>不追求</Text>：完整复刻 antd Table 全量历史 API；兼容依赖原生 table 结构的第三方插件或样式选择器；系统性 RTL 支持。
         </p>
         <p>
           如果你已熟悉 antd Table，多数顶层 props 和 Column 字段可以平滑迁移（详见 <a href="#/docs/migrate-from-antd">从 antd 迁移</a>）；如果你是新接入，从下面的最小例子开始即可。
@@ -78,13 +78,7 @@ export function renderIntro({ onOpen }: DocsPageContext) {
             <Text strong>{GLOSSARY.deprecatedMember.canonical}</Text>：{GLOSSARY.deprecatedMember.summary}
           </li>
           <li>
-            <Text strong>{GLOSSARY.escapeHatch.canonical}</Text>：{GLOSSARY.escapeHatch.summary}
-          </li>
-          <li>
             <Text strong>{GLOSSARY.compatApi.canonical}</Text>：{GLOSSARY.compatApi.summary}
-          </li>
-          <li>
-            <Text strong>{GLOSSARY.rcTable.canonical}</Text>：{GLOSSARY.rcTable.summary}
           </li>
           <li>
             <Text strong>{GLOSSARY.sentinelColumn.canonical}</Text>：{GLOSSARY.sentinelColumn.summary}

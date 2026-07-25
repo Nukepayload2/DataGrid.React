@@ -51,8 +51,7 @@ export default function PaginationDemo() {
                   本 demo 传单元素数组（如 <code>['topStart']</code>）→ 该位置渲染唯一翻页器。
                   <code>'none'</code> → 该侧不渲染。</li>
                 <li><strong>触发条件</strong>：切换顶部 <code>Radio.Group</code> 任一位置选项。</li>
-                <li><strong>差异原因</strong>：antd v6 把 placement 从单值扩成数组（支持双翻页器），data-grid
-                  <code>pagination</code> 签名对齐 v6 <code>TablePaginationConfig</code>，单元素数组即等价「单翻页器在该位置」。</li>
+                <li><strong>说明</strong>：<code>placement</code> 使用数组写法；单元素数组表示只在一个位置渲染分页器。</li>
               </ul>
             </li>
             <li>

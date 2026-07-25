@@ -154,7 +154,7 @@ export function renderMigration({ onOpen }: DocsPageContext) {
         id="deprecated-members"
         eyebrow="迁移前检查"
         title="核对过时 antd Table 成员"
-        description="迁移前先检查业务代码是否依赖 antd/rc-table 已标记过时的成员。data-grid 对这类入口只保留迁移兼容，不作为新代码推荐写法。"
+        description="迁移前先检查业务代码是否依赖 antd 已标记过时的成员。data-grid 对这类入口只保留迁移兼容，不作为新代码推荐写法。"
       >
         <DocsNote title="重点">
           <Text code>render</Text> 返回 <Text code>{'{ children, props }'}</Text> 时，data-grid 只消费

@@ -36,7 +36,7 @@ export const GLOSSARY = {
   deprecatedMember: {
     canonical: '过时成员（deprecated）',
     summary:
-      'antd 或 rc-table 已标记 deprecated、data-grid 仅保留迁移兼容的成员；不作为新代码推荐写法。',
+      'antd 已标记 deprecated、data-grid 仅保留迁移兼容的成员；不作为新代码推荐写法。',
     avoid: ['废弃成员', '过时 API', 'deprecated 成员（无括注）'],
   },
 

@@ -7,14 +7,10 @@ import {
 } from './_compare/stable-empty-width.shared'
 
 /**
- * 6 列全部声明数字 px width。demo 期间动态 slice(0, columnCount) 增删。
+ * 6 列都声明了数字 px width。demo 里动态增删列，用来观察已声明列宽在空数据、
+ * 滚动和增删列时是否保持稳定。
  *
- * `grid-template-columns` 是列宽单点真理源（源码 `useGridLayout` 算出、`GridTable` inline 注入），
- * 与 dataSource 是否为空**正交**——空/非空、增删列时 track 列表都是声明式，
- * 无中间测量态，故列宽稳定不跳。
- *
- * data-grid 的 `scroll.y` 仅接受 `true`（与 antd 数字 max-height 不同）：父容器需明确高度，
- * 故外层包固定高度 div（与 fixed-header.dg.tsx 一致）。
+ * 左栏外层包固定高度容器，便于和右栏在同一组操作下直接对照。
  */
 const allColumns: ColumnType<RecordType>[] = [
   { title: 'ID', dataIndex: 'id', key: 'id', width: 80 },

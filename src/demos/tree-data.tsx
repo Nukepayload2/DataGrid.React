@@ -45,8 +45,7 @@ export default function TreeDataDemo() {
                 <li><strong>差异行为</strong>：data-grid <code>rowSelection.checkStrictly</code> 默认
                   <strong> true</strong>（父子独立）；antd 默认 <strong>false</strong>（父子联动）。</li>
                 <li><strong>触发条件</strong>：未显式传 <code>checkStrictly</code> 时两侧默认值不同。</li>
-                <li><strong>差异原因</strong>：data-grid 引擎层默认偏向父子独立（避免隐式联动），
-                  antd 原生默认父子联动。本 demo 两侧均显式传共享 state（初值 false），规避差异。</li>
+                <li><strong>说明</strong>：本 demo 两侧均显式传共享 <code>checkStrictly</code> state，保证父子选择关系同步。</li>
               </ul>
             </li>
             <li>
@@ -59,8 +58,7 @@ export default function TreeDataDemo() {
                 <li><strong>差异行为</strong>：antd demo 含 <code>onSelect</code>（单行勾选回调）console.log；
                   data-grid <code>TableRowSelection</code> 仅声明 <code>onChange</code>。</li>
                 <li><strong>触发条件</strong>：勾选任意一行时。</li>
-                <li><strong>差异原因</strong>：data-grid 尚未声明 onSelect 类型；左栏用 <code>onChange</code>
-                  观察勾选变化（功能等价，<code>onChange</code> 在每次勾选时触发）。</li>
+                <li><strong>说明</strong>：左栏用 <code>onChange</code> 观察勾选变化；每次勾选都会触发。</li>
               </ul>
             </li>
             <li>

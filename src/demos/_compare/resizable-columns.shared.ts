@@ -1,12 +1,7 @@
 /**
  * resizable 左右对比 demo 的共享配置（列宽拖拽）。
  *
- * **特例**：antd Table **无原生列宽拖拽（resizable）能力**，右栏不渲染 antd 同名 demo；
- * 右栏仅显示说明区 + 一张静态 antd `<Table>` 作基线参照（同数据/同列，无拖拽）。
- * 本文件共享 `RecordType` + `data` + `Tag` 配色，供左栏 data-grid 与右栏静态基线
- * antd Table 复用，对照基准一致。
- *
- * antd 侧无额外依赖（仅用 antd `<Table>`/`<Tag>`/`<Space>` 渲染静态基线）。
+ * 左右两栏共享同一组数据和列定义；右栏只作静态基线，不提供拖拽手柄。
  */
 
 /** 记录类型。两侧共用。 */

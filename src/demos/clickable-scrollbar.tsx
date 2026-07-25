@@ -37,7 +37,7 @@ function Item({
 }
 
 export default function ClickableScrollbarDemo() {
-  // data-grid 专属：scrollBarFoldMode（组件级滚动条 visibility / fold 真理源）。
+  // data-grid 专属：scrollBarFoldMode 控制滚动条显示策略。
   const [showOnTableHover, setShowOnTableHover] = useState(false)
   const [expandOnHover, setExpandOnHover] = useState(true)
 
@@ -117,32 +117,20 @@ export default function ClickableScrollbarDemo() {
                 <strong>触发条件</strong>：右栏表体任意纵向 / 横向滚动条轨道空白处点击。
               </li>
               <li>
-                <strong>差异原因</strong>：<code>rc-virtual-list</code> 未实现 track click /
-                page jump / 箭头按钮；issue 维护者回复"已记录建议，待未来版本评估"，
-                无 linked PR、无实现计划。详见 <IssueLink />。
+                <strong>说明</strong>：该交互缺口记录在 <IssueLink />；本页用于对照轨道点击和拖拽行为。
               </li>
             </Item>
-            <Item title="② data-grid 解药（FloatingScrollBar）">
+            <Item title="② data-grid 对照">
               <li>
-                <strong>差异行为</strong>：左栏 data-grid 用自研
-                {' '}
-                <code>FloatingScrollBar</code>（<code>src/table/engine/FloatingScrollBar.tsx</code>）
-                替代原生条——视觉默认 2px 半透明细线，<strong>8px hit 区</strong>命中范围
-                （hover / 拖动时 thumb 展开为 8px 实色）；在整个 8px hit 区内
-                {' '}
-                <code>pointerdown</code> 命中 thumb 即<strong>起拖</strong>，无需精确瞄准 2px thumb。
-                拖动过程中容器 <code>scrollTop/scrollLeft</code> 平滑跟随；原生滚轮 /
-                程序 scroll 完整保留。
+                <strong>差异行为</strong>：左栏滚动条提供更大的可点击区域；hover / 拖动时滑块变粗，更容易拖动。
+                拖动过程中表体滚动平滑跟随；滚轮和程序滚动仍正常工作。
               </li>
               <li>
                 <strong>轨道点击按页跳转</strong>：点在 thumb 之外的轨道空白处
                 {' '}
                 <code>pointerdown</code> 不再进入增量拖动——改为向点击方向<strong>按页跳一视口</strong>
                 （垂直：点 thumb 上方→向上一页 / 下方→向下一页；水平：点 thumb 左方→向左一页 /
-                右方→向右一页），与浏览器原生滚动条轨道点击行为一致。命中检测算法是纯函数
-                {' '}
-                <code>computeTrackJump</code>（<code>src/table/engine/floatingScrollBarUtils.ts</code>），
-                单测覆盖各分支与边界。
+                右方→向右一页），与浏览器原生滚动条轨道点击行为一致。
               </li>
               <li>
                 <strong>触发条件</strong>：左栏滚动条 hit 区（右侧 8px 纵 / 底部 8px 横）任意
@@ -152,18 +140,10 @@ export default function ClickableScrollbarDemo() {
                 <code>pointerdown</code>（命中轨道空白时即按页跳）；或滚轮 / 顶栏「Scroll To」按钮。
               </li>
               <li>
-                <strong>差异原因</strong>：原生滚动容器 <code>overflow:auto</code> 保留滚轮 / 程序
-                {' '}
-                <code>scroll</code>；悬浮条仅替代视觉与交互入口——<code>pointerdown</code> 绑在 hit 容器，
-                先做命中检测（clientY/X vs thumb 屏幕坐标）：thumb 上 → <code>setPointerCapture</code>
-                {' '}
-                + window <code>pointermove</code> 换算 delta → 更新容器 scroll（增量拖动）；thumb 外 →
-                {' '}
-                <code>computeTrackJump</code> 算出 ±viewportSize 的目标位置直接赋给容器 scroll（按页跳）。
-                详见 <code>docs/features/scrolling/scrollbar.md</code>。
+                <strong>说明</strong>：滚轮、键盘和 scrollTo 仍按表格滚动容器工作；滚动条只提供更易用的视觉和点击入口。
               </li>
             </Item>
-            <Item title="③ 组件级 scrollBarFoldMode（visibility 真理源）">
+            <Item title="③ scrollBarFoldMode 显示策略">
               <li>
                 <strong>差异行为</strong>：左栏支持组件级配置
                 {' '}
@@ -190,8 +170,7 @@ export default function ClickableScrollbarDemo() {
                 <code>expandOnHover</code> 开关；hover 左栏滚动条 hit 区。
               </li>
               <li>
-                <strong>差异原因</strong>：data-grid 把"滚动条折叠 / 显示"做成组件级配置
-                （<code>ScrollBarFoldMode</code> 导出自 <code>../table</code>）；antd 侧无对等项。
+                <strong>说明</strong>：左栏可通过配置控制滚动条何时显示；右栏没有对应开关。
               </li>
             </Item>
             <Item title="如何观察">

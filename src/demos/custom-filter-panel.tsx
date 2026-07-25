@@ -46,8 +46,7 @@ export default function CustomFilterPanelDemo() {
                   右栏 antd 用 <code>InputRef</code> ref、同款类型从 <code>antd</code> 主入口导入。
                   两侧 <code>filterDropdownProps</code> 签名等价，<code>select()</code> 调用一致。</li>
                 <li><strong>触发条件</strong>：始终（类型层面，无运行时可见差异）。</li>
-                <li><strong>差异原因</strong>：data-grid 从自身包导出与 antd 同签名的类型；
-                  antd 段按官方 demo 用 <code>antd</code> 包类型。两侧 ref 均最终透传到内部 input。</li>
+                <li><strong>说明</strong>：两侧筛选面板签名等价，输入框聚焦和确认行为一致。</li>
               </ul>
             </li>
             <li>
@@ -56,8 +55,7 @@ export default function CustomFilterPanelDemo() {
                 <li><strong>差异行为</strong>：两侧均用同一份内联 SVG（共用 <code>SearchOutlined</code> 组件），
                   而非 <code>@ant-design/icons</code> 直接 import。视觉零差异（与 antd 官方 SearchOutlined 同一 SVG path）。</li>
                 <li><strong>触发条件</strong>：始终。</li>
-                <li><strong>差异原因</strong>：<code>@ant-design/icons</code> 未在本项目 package.json 直接声明
-                  （仅 antd 间接依赖），为避免引入未声明依赖，两侧统一内联 SVG。</li>
+                <li><strong>说明</strong>：两侧使用同一搜索图标，视觉一致。</li>
               </ul>
             </li>
           </ul>

@@ -37,8 +37,7 @@ export default function JsxDemo() {
                 <li><strong>差异行为</strong>：两侧都把 <code>&lt;Table.Column&gt;</code>/
                   <code>&lt;Table.ColumnGroup&gt;</code> 子元素解析为列定义（含 ColumnGroup 多级表头）。</li>
                 <li><strong>触发条件</strong>：未传 <code>columns</code> prop 而传 JSX children。</li>
-                <li><strong>差异原因</strong>：data-grid 对齐 antd 的 <code>convertChildrenToColumns</code>
-                  语法糖，把 Column props 转 ColumnType、ColumnGroup 转 <code>{'{ title, children }'}</code>。</li>
+                <li><strong>说明</strong>：JSX 子组件会按与 columns 等价的方式声明普通列和分组列。</li>
               </ul>
             </li>
             <li>
@@ -47,8 +46,7 @@ export default function JsxDemo() {
                 <li><strong>差异行为</strong>：左栏 Action 列 <code>&lt;Space&gt;</code> 用
                   <code> size="middle"</code>；右栏用 <code>size="medium"</code>。</li>
                 <li><strong>触发条件</strong>：始终（demo 写死）。</li>
-                <li><strong>差异原因</strong>：data-grid 用 antd v6 规范值 <code>'middle'</code>，
-                  antd demo 原样保留 <code>'medium'</code>（v6 别名兼容，两者等价）。</li>
+                <li><strong>说明</strong>：<code>middle</code> 与 <code>medium</code> 在这里视觉等价。</li>
               </ul>
             </li>
           </ul>

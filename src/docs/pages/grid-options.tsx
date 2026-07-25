@@ -43,7 +43,7 @@ export function renderGridOptions({ onOpen }: DocsPageContext) {
         id="namespace"
         eyebrow="命名空间"
         title="data-grid 专属能力进入 gridOptions"
-        description="这些能力不是 antd Table 顶层兼容面的一部分，放入 gridOptions 可以避免和兼容 API 混淆。下面所有清单由 src/docs/generated/api.json 自动生成。"
+        description="这些能力不是 antd Table 顶层兼容面的一部分，放入 gridOptions 可以避免和兼容 API 混淆。"
       >
         <DocsCode code={GRID_OPTIONS_CODE} height={260} ariaLabel="gridOptions 示例代码" />
       </DocSection>
@@ -76,7 +76,7 @@ export function renderGridOptions({ onOpen }: DocsPageContext) {
           members={getApiMembers('gridColumnOptions')}
           anchorPrefix="grid-column-options"
           onOpenDoc={(slug) => onOpen({ kind: 'doc', value: slug, label: slug })}
-          description="data-grid 列级专属能力（dragColumnLock 与 recycling 逃逸舱回调）。"
+          description="data-grid 列级专属能力（拖拽锁定与 recycling 自定义渲染回调）。"
         />
         <DocsCode code={GRID_COLUMN_OPTIONS_CODE} height={300} ariaLabel="gridColumnOptions 示例代码" />
       </DocSection>

@@ -22,7 +22,7 @@ export interface SplitDemoProps {
    */
   minPaneWidth?: number
   /**
-   * 可选：全宽说明区，渲染在两栏下方（`.dg-compare` 容器之外，横竖排恒居底部）。
+   * 兼容旧 demo 的补充说明区。
    */
   children?: ReactNode
   /**
@@ -65,7 +65,6 @@ export function SplitDemo({
   minPaneWidth = 480,
   stickyMode = false,
   virtualizable = true,
-  children,
 }: SplitDemoProps) {
   const { token } = antdTheme.useToken()
   const { virtual } = useVirtualization()
@@ -100,11 +99,6 @@ export function SplitDemo({
           <div className="dg-compare__body">{right}</div>
         </section>
       </div>
-      {children ? (
-        <div className="dg-compare__note">
-          {children}
-        </div>
-      ) : null}
     </>
   )
 }

@@ -63,34 +63,9 @@ export default function ResizableAntd({
           lineHeight: 1.7,
         }}
       >
-        <strong>antd 6.4.4 Table 无原生列宽拖拽（resizable）能力。</strong>
+        <strong>右栏仅作静态基线参照。</strong>
         <br />
-        本演示不在右栏造假手柄。社区曾用{' '}
-        <a
-          href="https://github.com/react-grid-layout/react-resizable"
-          target="_blank"
-          rel="noreferrer"
-        >
-          react-resizable
-        </a>{' '}
-        等第三方 wrapper 凑出可拖拽效果，但{' '}
-        <a
-          href="https://github.com/ant-design/ant-design/issues/56356"
-          target="_blank"
-          rel="noreferrer"
-        >
-          #56356
-        </a>{' '}
-        记录了它的三连故障（卡顿 / 位置漂移 / 松开后卡在拖拽态），维护者确认「这个库已经多年不维护」
-        并<strong>下掉了官网可伸缩列 demo</strong>；RFC{' '}
-        <a
-          href="https://github.com/ant-design/ant-design/discussions/48152"
-          target="_blank"
-          rel="noreferrer"
-        >
-          #48152
-        </a>{' '}
-        2024-03 提出至今未落地。右栏仅放一张静态 antd Table 作基线参照（同数据 / 同列，无任何手柄）。
+        它和左栏使用同一组数据与列定义，但不提供列宽拖拽，便于直接观察拖动前后的差异。
       </div>
       <AntdTable<RecordType>
         columns={antdColumns}

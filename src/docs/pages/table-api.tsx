@@ -16,7 +16,7 @@ export function renderTableApi({ onOpen }: DocsPageContext) {
         id="table-props"
         eyebrow="表格"
         title="Table props"
-        description="属性清单由 src/docs/generated/api.json 自动生成（extract-api.mjs 提取 TableProps 公开成员）。每条属性都带稳定锚点，可在页面内或外链深指。"
+        description="本页列出 Table 可用 props。每条属性都带稳定锚点，可在页面内或外链深指。"
       >
         <ApiRefTable
           members={getApiMembers('table')}
@@ -29,7 +29,7 @@ export function renderTableApi({ onOpen }: DocsPageContext) {
         id="table-ref"
         eyebrow="ref"
         title="TableRef"
-        description="ref 句柄成员（由 api.json 自动生成）。与 antd Table ref.scrollTo 接口对齐，并额外暴露最外层根 DOM 节点。"
+        description="ref 句柄成员。与 antd Table ref.scrollTo 接口对齐，并额外暴露根节点。"
       >
         <ApiRefTable
           members={getApiMembers('tableRef')}

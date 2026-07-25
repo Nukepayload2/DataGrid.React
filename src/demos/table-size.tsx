@@ -46,8 +46,7 @@ export default function SizeDemo() {
                 <li><strong>差异行为</strong>：中等档 data-grid 用 <code>medium</code>、antd demo
                   用 <code>middle</code>。两侧行高/padding 视觉等价（medium = middle = 12/8）。</li>
                 <li><strong>触发条件</strong>：size 切到中间档。</li>
-                <li><strong>差异原因</strong>：data-grid 的 <code>SizeType</code> 接受 <code>medium</code>
-                  作为 <code>middle</code> 的别名；antd v6 也兼容 <code>medium</code> 别名。</li>
+                <li><strong>说明</strong>：<code>medium</code> 和 <code>middle</code> 在这里视觉等价。</li>
               </ul>
             </li>
             <li>
@@ -56,8 +55,7 @@ export default function SizeDemo() {
                 <li><strong>差异行为</strong>：本 demo 为单表 + Segmented 切换 size；antd 原始 demo
                   是 Divider 分隔的双表静态展示（medium + small）。</li>
                 <li><strong>触发条件</strong>：始终（双栏对照结构）。</li>
-                <li><strong>差异原因</strong>：双栏对照下双表结构会变成 4 张表，对照不便，故改为单表 +
-                  size 切换以对照同一档 size 两侧差异。</li>
+                <li><strong>说明</strong>：本 demo 使用单表 + size 切换，便于对照同一档 size。</li>
               </ul>
             </li>
           </ul>

@@ -432,7 +432,7 @@ export const demos: DemoMeta[] = [
     name: 'clickable-scrollbar',
     title: '可点击滚动条',
     subtitle: 'scrollBarFoldMode',
-    description: '对照 antd #53813：data-grid 用 FloatingScrollBar 提供 8px hit 区与组件级滚动条折叠策略。',
+    description: '对照 antd #53813：在横向滚动场景中提供更容易点击和控制的滚动条。',
     element: () => import('./clickable-scrollbar'),
     compare: true,
     category: '虚拟与汇总',
@@ -608,9 +608,8 @@ export const demos: DemoMeta[] = [
   {
     name: 'stable-empty-width',
     title: '空数据列宽稳定',
-    subtitle: 'grid-template-columns',
-    description:
-      '对照 antd #56151 / #56713 / #55717：data-grid 用 grid-template-columns 单点真理源，空数据与增删列时列宽稳定不跳。',
+    subtitle: 'column.width',
+    description: '观察空数据、滚动切换和增删列时的列宽表现差异。',
     element: () => import('./stable-empty-width'),
     compare: true,
     category: '细节兼容性',

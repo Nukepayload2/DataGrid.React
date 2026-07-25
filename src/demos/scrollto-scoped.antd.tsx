@@ -63,8 +63,7 @@ export default function ScrolltoScopedAntd({
     <div style={outerStyle}>
       <Marker style={markerStyle}>
         ↑ 外层滚动条由这个容器承担。点「Scroll To row N」后，外层会被一起滚
-        （<strong>#46467</strong>：rc-table 用原生 <code>scrollIntoView</code>，
-        沿 DOM 树逐层滚所有可滚动祖先）。
+        （<strong>#46467</strong>：目标行进入视野时影响了外层滚动容器）。
       </Marker>
       <div style={{ marginTop: 12 }}>
         {/*

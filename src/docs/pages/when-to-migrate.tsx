@@ -82,18 +82,18 @@ const MIGRATION_PROMPT = `# 任务
 const painToCureRows: PainToCureRow[] = [
   {
     key: 'column-width-source',
-    category: '1. 列宽真理源散落',
+    category: '1. 列宽不稳定',
     painQuestion: '列宽对不齐，空数据时还会跳动',
     humanSummary: '表头和表体的列对不齐；表格没数据时，列宽会突然缩小或来回跳。',
     antdPain: (
       <>
-        两个 table + colgroup + 占位 th 拼，表头 / 表体错位、空数据列宽缩减跳动、跨 DPI 滚动条占位不一致。证据：{issueLink(45524)}{' '}
+        表头 / 表体容易错位，空数据或滚动状态变化时列宽可能缩减或跳动。证据：{issueLink(45524)}{' '}
         {issueLink(56151)} {issueLink(56713)} {discLink(56477)} {discLink(56602)}
       </>
     ),
     dataGridCure: (
       <>
-        列宽唯一真理源 = <Text code>grid-template-columns</Text>，表头 / 表体共享同一 grid；空数据与动态列无中间态，永不回退 <Text code>table-layout: auto</Text>。
+        表头和表体共享同一套列宽计算；空数据、动态列和滚动条变化时仍保持声明列宽稳定。
       </>
     ),
     demo: (
@@ -102,18 +102,18 @@ const painToCureRows: PainToCureRow[] = [
   },
   {
     key: 'scrollbar-fragmentation',
-    category: '2. 自绘滚动条 + wheel 监听',
+    category: '2. 滚动条和滚轮手感不一致',
     painQuestion: '虚拟滚动条点不动，滚轮手感也怪',
     humanSummary: '打开虚拟滚动后，滚动条不能点击拖动，滚轮的速度和手感也跟普通页面不一样。',
     antdPain: (
       <>
-        rc-virtual-list 自监听 wheel，步长 / 手感与原生不一致；自绘滚动条不可点击；虚拟 / 非虚拟两套机制形态分裂。证据：{issueLink(44972)}{' '}
+        虚拟滚动下滚轮步长和普通页面不一致；部分横向滚动条不易点击或拖动。证据：{issueLink(44972)}{' '}
         {issueLink(45637)} {issueLink(53813)} {issueLink(56956)} {discLink(50583)}
       </>
     ),
     dataGridCure: (
       <>
-        优先浏览器原生滚动容器，横向必须自绘时走 <Text code>FloatingScrollBar</Text>（8px hit 区 + 轨道点击 + 键盘箭头）；<Text code>scrollbar.visibility</Text> 做成 first-class。
+        纵向滚动保持接近浏览器原生体验；横向滚动条提供更大的可点击区域，并可通过 <Text code>scrollbar.visibility</Text> 控制显示策略。
       </>
     ),
     demo: (
@@ -127,13 +127,13 @@ const painToCureRows: PainToCureRow[] = [
     humanSummary: '中后台页面常要让表格占满剩余高度，但 antd 需要自己减 header、footer、分页条，再监听窗口变化更新 state。页面越复杂，越容易抖动、错位和多次重渲染。',
     antdPain: (
       <>
-        <Text code>scroll.y</Text> 是 number / string max-height 语义，没有真正的 fill / auto 模式；社区方案通常是监听 resize、读 <Text code>window.innerHeight</Text> 或容器尺寸、扣掉表头等固定区域后 <Text code>setState</Text>。本仓 antd 对照 demo 也只能用 <Text code>ResizeObserver</Text> 测容器后计算 <Text code>scrollY</Text>，再传给 <Text code>scroll.y</Text>。动态切换 y 还可能触发行高、滚动条占位、MeasureRow 反复重算。证据：{discLink(53395)}{' '}
+        <Text code>scroll.y</Text> 是 number / string max-height 语义，没有真正的 fill / auto 模式；业务常要监听容器或窗口尺寸，再把计算出的高度传回表格。证据：{discLink(53395)}{' '}
         {discLink(56465)} {issueLink(49445)}
       </>
     ),
     dataGridCure: (
       <>
-        <Text code>scroll.y</Text> 只做数据区域模式开关，真实高度交给父容器的 CSS flex / height 链；表格内部用同一个滚动容器和 grid track 消费可用空间，不要求业务在 resize 时把高度数字塞回 Table。
+        <Text code>scroll.y</Text> 只做数据区域模式开关，真实高度交给父容器的 CSS flex / height 链；业务不需要在 resize 时把高度数字塞回 Table。
       </>
     ),
     demo: (
@@ -149,13 +149,13 @@ const painToCureRows: PainToCureRow[] = [
     humanSummary: '每行高度不一样，或者往表格前面插新行时，你正在看的位置会突然跑到别处。',
     antdPain: (
       <>
-        rc-virtual-list 行高变化或头部 unshift 新行时未把增量累加回 scrollTop，视觉位置漂移；虚拟 + 树形 10w 行不兼容。证据：{issueLink(54769)}{' '}
+        行高变化或在列表前面插入新数据时，当前阅读位置可能漂移；虚拟滚动和树形大数据组合也更容易出问题。证据：{issueLink(54769)}{' '}
         {issueLink(53932)} {issueLink(48938)} {discLink(36153)}
       </>
     ),
     dataGridCure: (
       <>
-        对齐 react-virtuoso 的 AATree / offsetTree 增量高度索引 + ResizeObserver；<Text code>gridOptions</Text> 行高有界（<Text code>minRowHeight</Text> / <Text code>maxRowHeight</Text>，<Text code>rowSpan</Text> 豁免）。
+        支持动态行高测量，并可用 <Text code>gridOptions.minRowHeight</Text> / <Text code>maxRowHeight</Text> 给行高设置边界，减少虚拟滚动中的位置漂移。
       </>
     ),
     demo: (
@@ -166,18 +166,18 @@ const painToCureRows: PainToCureRow[] = [
   },
   {
     key: 'summary-in-virtual',
-    category: '5. summary / 分组行塞进虚拟容器',
+    category: '5. summary 与虚拟滚动难共存',
     painQuestion: '一开虚拟滚动，表尾汇总就没了',
     humanSummary: '表格底部那行合计 / 小计，打开虚拟滚动之后就不再正常停在表尾了。',
     antdPain: (
       <>
-        antd 把 summary 渲染在虚拟列表 scroll 容器内，维护者确认「虚拟下 summary 只能 fixed」；行分组 6 年未内置；嵌套子表头无吸顶。证据：{issueLink(47184)}{' '}
+        开启虚拟滚动后，summary 的位置和可见性容易受影响；行分组和嵌套子表头也需要额外处理。证据：{issueLink(47184)}{' '}
         {issueLink(15630)} {issueLink(36066)}
       </>
     ),
     dataGridCure: (
       <>
-        summary / 分组头 / 小计独立于虚拟窗口（独立 <Text code>tfoot</Text> 或 sticky 区，不进入虚拟行容器）。
+        summary 和虚拟行窗口分开处理；开启虚拟滚动后，汇总行仍能稳定显示在表格底部或固定位置。
       </>
     ),
     demo: (
@@ -197,7 +197,7 @@ const painToCureRows: PainToCureRow[] = [
     ),
     dataGridCure: (
       <>
-        <Text code>scrollTo(&#123; index?, key?, left?, top?, behavior? &#125;)</Text> 直接赋 scrollTop（基于 offsetTree 计算 targetTop），禁用 scrollIntoView；虚拟 / 非虚拟同实现。
+        <Text code>scrollTo(&#123; index?, key?, left?, top?, behavior? &#125;)</Text> 只作用于表格滚动区域，虚拟 / 非虚拟场景下行为一致。
       </>
     ),
     demo: (
@@ -217,7 +217,7 @@ const painToCureRows: PainToCureRow[] = [
     ),
     dataGridCure: (
       <>
-        fixed 边界用 1px border + 渐变 mask 替代 box-shadow；表头粘性用 grid item 的 <Text code>position: sticky</Text>，单一 grid 共享 track。
+        固定列、固定表头和横向滚动使用同一套列宽和位置计算，减少组合场景中的错位与重绘压力。
       </>
     ),
     demo: (
@@ -233,13 +233,13 @@ const painToCureRows: PainToCureRow[] = [
     humanSummary: '想用鼠标拖拽改变列宽，antd 自己不带这个能力，得额外接第三方库。',
     antdPain: (
       <>
-        react-resizable 多年不维护，mouseup / pointerup 丢失导致拖拽卡死、每帧 setColumns 引发整表重渲染；colgroup 假宽度（设 100 实渲染 400）。证据：{issueLink(56356)}{' '}
+        依赖第三方拖拽方案时，可能出现拖拽卡顿、手柄和鼠标不同步、松开后仍停留在拖拽态等问题。证据：{issueLink(56356)}{' '}
         {discLink(48152)}
       </>
     ),
     dataGridCure: (
       <>
-        <Text code>gridOptions.resizable</Text> + <Text code>columnResizeMode</Text> 拖拽用 ref + RAF，结束 commit 到 <Text code>grid-template-columns</Text>，浏览器原生处理列宽无需 React 重渲染。
+        <Text code>gridOptions.resizable</Text> + <Text code>columnResizeMode</Text> 直接启用列宽拖拽，并支持最小 / 最大宽度约束和相邻列联动模式。
       </>
     ),
     demo: (
@@ -259,7 +259,7 @@ const painToCureRows: PainToCureRow[] = [
     ),
     dataGridCure: (
       <>
-        用「实际渲染行」坐标系，rowSpan 用 <Text code>grid-row: span N</Text> 表达；计算 fixed 偏移跳过 <Text code>colSpan: 0</Text> 的隐藏单元格。
+        合并单元格、展开行、树形数据和固定列按同一套可见行列关系计算，减少复杂组合下的错位。
       </>
     ),
     demo: (
@@ -270,18 +270,18 @@ const painToCureRows: PainToCureRow[] = [
   },
   {
     key: 'measure-row-oscillation',
-    category: '10. 空数据 / 动态列 MeasureRow 震荡',
+    category: '10. 空数据 / 动态列布局抖动',
     painQuestion: '增删列或空数据时表格高度抖动',
     humanSummary: '增加或删除列、表格没数据时，表格的宽度高度会反复跳动，肉眼可见的不稳定。',
     antdPain: (
       <>
-        MeasureRow + FixedHeader「全或无」策略：任一列 width 为 undefined 整缓存作废，回退 <Text code>table-layout: auto</Text>；裸 <Text code>scroll.x: 'max-content'</Text> 在嵌套布局发散到 1e6px。证据：{discLink(55717)}{' '}
+        空数据、增删列或横向滚动配置变化时，表格可能重新分配宽度并出现可见抖动。证据：{discLink(55717)}{' '}
         {issueLink(48715)} {discLink(56115)} {issueLink(56357)}
       </>
     ),
     dataGridCure: (
       <>
-        <Text code>grid-template-columns</Text> 声明式无中间态；<Text code>auto</Text> 列用 <Text code>minmax(min-content, 1fr)</Text> 而非裸 max-content；scrollbar 走独立 grid track 而非占位 th。
+        声明过宽度的列保持稳定；自动列在可用空间内伸缩，滚动条出现或消失时不挤压已有列宽。
       </>
     ),
     demo: (
@@ -342,7 +342,7 @@ export function renderWhenToMigrate({ onOpen }: DocsPageContext) {
             <Text code>onSort</Text> 内提交新顺序，无需拼装 DnD 库。
           </li>
           <li>
-            <Text strong>多级表头 + 合并 + 固定列组合</Text>：CSS Grid 渲染模型让三者能在同一套布局下共存，避免传统 React 表格底层库（如 rc-table）在复杂组合下的对齐漂移。
+            <Text strong>多级表头 + 合并 + 固定列组合</Text>：三者能在同一套布局下共存，减少复杂组合下的对齐漂移。
           </li>
           <li>
             <Text strong>antd v6 兼容 API + grid 渲染</Text>：希望继续用
@@ -373,7 +373,7 @@ export function renderWhenToMigrate({ onOpen }: DocsPageContext) {
           }))}
         />
         <DocsNote title="为什么这些问题都同源">
-          这些问题大多不是孤立小 bug，而是表格布局和滚动模型叠出来的副作用：antd Table 用多个 table、colgroup、滚动条占位和 JS 测量拼出最终布局，列宽、高度和滚动状态分散在不同层里。data-grid 用一张 CSS Grid 同时承载表头和表体，列宽只在一处声明（<Text code>grid-template-columns</Text>），高度交给父容器 CSS 链路，减少对 resize 监听、占位列和异步测量的依赖。
+          这些问题大多不是孤立小 bug，而是表格布局、滚动区域和动态测量叠加后的副作用。data-grid 把列宽、高度和滚动状态收敛到更明确的配置与容器约束里，让业务侧少写测量、同步和补丁代码。
         </DocsNote>
       </DocSection>
 
