@@ -556,6 +556,15 @@ export const demos: DemoMeta[] = [
     category: '细节兼容性',
   },
   {
+    name: 'column-width-constraints',
+    title: '列宽约束',
+    subtitle: '最小 / 理想 / 最大',
+    description: '对比同一组内容在不同布局下的收缩、保底和上限表现。',
+    element: () => import('./column-width-constraints'),
+    compare: true,
+    category: '列',
+  },
+  {
     name: 'table-column-defaults',
     aliases: ['column-defaults'],
     title: '表格级列默认值',

@@ -55,6 +55,8 @@ export interface SplitDemoProps {
    * 与 `.dg-compare--sticky` / `.dg-compare--dark` 正交独立，可同时存在。
    */
   virtualizable?: boolean
+  /** 面板最小高度（px），默认 460；设为 0 可让对照区按内容收缩。 */
+  minPaneHeight?: number
 }
 
 export function SplitDemo({
@@ -65,6 +67,7 @@ export function SplitDemo({
   minPaneWidth = 480,
   stickyMode = false,
   virtualizable = true,
+  minPaneHeight = 460,
 }: SplitDemoProps) {
   const { token } = antdTheme.useToken()
   const { virtual } = useVirtualization()
@@ -77,6 +80,7 @@ export function SplitDemo({
     '--compare-text-secondary': token.colorTextSecondary,
     '--compare-primary': token.colorPrimary,
     '--compare-primary-text': token.colorTextLightSolid,
+    '--compare-pane-min-height': `${minPaneHeight}px`,
   } as CSSProperties
 
   const containerClassName = [

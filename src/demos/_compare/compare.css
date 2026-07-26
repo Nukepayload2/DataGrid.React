@@ -14,7 +14,7 @@
   border-radius: 8px;
   background: var(--compare-bg);
   overflow: hidden;
-  min-height: 460px;
+  min-height: var(--compare-pane-min-height, 460px);
 }
 
 .dg-compare__title {

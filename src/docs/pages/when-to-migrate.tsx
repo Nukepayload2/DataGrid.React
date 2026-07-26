@@ -2,9 +2,6 @@ import { Collapse, Typography } from 'antd'
 import type { ReactNode } from 'react'
 import {
   DocSection,
-  DocsActionList,
-  DocsCode,
-  DocsNote,
 } from '../components'
 import type { DocsPageContext } from '../types'
 
@@ -36,46 +33,6 @@ interface PainToCureRow {
   demo: ReactNode
 }
 
-// 复用模板：把迁移规约和已知限制一次性交给 AI 助手，由它按文件上下文逐项改写。
-// 该模板不替代 codemod，也不承诺覆盖所有历史 antd Table 行为。
-const MIGRATION_PROMPT = `# 任务
-请将当前文件中的 antd Table 用法迁移到 @nukepayload2/data-grid，并尽量保持现有业务行为、变量命名和组件结构不变。
-
-我会在同一轮对话中提供待迁移的 TSX/TS 文件内容。请先识别其中与 antd Table 相关的 import、类型、columns、rowSelection、expandable、pagination、scroll、components、render、onCell 等用法，再按下面规则改写。
-
-# 迁移规则
-1. 顶层 import 与类型 import 改为 @nukepayload2/data-grid：
-   - \`import { Table } from '@nukepayload2/data-grid'\`
-   - \`import type { TableProps, ColumnsType, ColumnType } from '@nukepayload2/data-grid'\`
-2. \`scroll={{ y: <number|string> }}\` 改为 \`scroll={{ y: true }}\`。data-grid 的 \`scroll.y\` 表示数据区域模式，不再接收高度数字。
-   表格高度应由父容器提供，例如 \`flex: 1; min-height: 0\` 或固定 \`height\`。如果原代码通过 resize 监听手算 \`scroll.y\`，请删除这条计算链路，并把高度约束移到容器样式中。
-3. 如果 \`column.render\` 返回 \`{ children, props }\` 旧对象形态，请改为直接返回 ReactNode；单元格属性、合并单元格等逻辑改用 \`column.onCell\`。
-4. 如果样式依赖 \`<table>\` / \`<thead>\` / \`<tbody>\` / \`<tr>\` / \`<td>\` 选择器，请改用 \`classNames\` / \`styles\` 的 Semantic DOM 槽位，或通过 \`components.body.cell\` / \`components.body.row\` 注入。
-5. data-grid 专属能力应放入命名空间，不要混入 antd 顶层 props：
-   - 列宽拖拽：\`gridOptions.resizable\` + \`gridOptions.columnResizeMode\`
-   - 行高模型：\`gridOptions.rowHeight\` / \`minRowHeight\` / \`maxRowHeight\` / \`headerHeight\`
-   - 行 / 列拖拽排序：\`gridOptions.rowDragSort\` / \`columnDragSort\`
-   - recycling 虚拟化：\`gridOptions.virtualizationMode: 'recycling'\`
-   - 悬浮滚动条策略：\`gridOptions.scrollBarFoldMode\` / \`scrollbar.visibility\`
-
-# 兼容边界
-- data-grid 不复刻原生 \`<table>\` / \`<thead>\` / \`<tbody>\` / \`<tr>\` DOM，也不伪造完整 ARIA table / row / rowgroup role 树。
-- \`scroll.y\` 不支持 antd 的 number / string max-height 语义。
-- \`components\` 目前仅暴露 \`body.cell\` / \`body.row\`，不提供 \`header.cell\` / \`wrapper\` / \`table\`。
-- RTL 尚未系统支持。
-- 已 deprecated 的 antd 字段不必保留，例如 \`column.filterDropdownOpen\` / \`column.onFilterDropdownOpenChange\`。
-
-# 工作方式
-1. 先阅读待迁移文件，列出当前 antd Table 的使用点：import、类型、columns、rowSelection、expandable、pagination、scroll、components、render、onCell、相关样式选择器等。
-2. 先给出迁移计划，不要立即改文件。计划需要说明：
-   - 哪些代码可以直接替换；
-   - 哪些地方需要调整写法；
-   - 哪些地方可能受 data-grid 兼容边界影响；
-   - 预计会修改哪些文件。
-3. 等我明确同意计划后，再实际修改文件。
-4. 修改时保持业务行为、变量命名和组件结构稳定；不新增业务功能，不做与 Table 迁移无关的重构。
-5. 修改完成后，输出变更摘要，并说明是否还有需要业务方确认的事项。`
-
 // 高频场景浓缩表（源自 feedbacks/README.md 与用户迁移反馈）。
 // 每行：antd 病灶类别 + GitHub issue 链接 + data-grid 一句话解药 + 对照 demo（5 个 drop-in demo 全挂）。
 // 没有现成 demo 的类别留 "—" 并在解药列里指引到对应 docs / 相关 demo。
@@ -98,6 +55,25 @@ const painToCureRows: PainToCureRow[] = [
     ),
     demo: (
       <a href="#/demos/stable-empty-width">空数据列宽稳定 demo</a>
+    ),
+  },
+  {
+    key: 'column-width-bounds',
+    category: '列宽约束',
+    painQuestion: '最小列宽不是绝对下限',
+    humanSummary: 'antd 的 `Column.minWidth` 只在 `tableLayout="auto"` 生效；即便如此，浏览器的表格布局也可能给极窄列留出看不见的下限。',
+    antdPain: (
+      <>
+        官方文档写得很明确：<Text code>minWidth</Text> 只在 <Text code>tableLayout="auto"</Text> 时有效；讨论 {discLink(56602)} 里也说明了，即使把 <Text code>width</Text> / <Text code>minWidth</Text> 设到 10，并把 padding 清零，浏览器的表格布局仍会给单元格留出看不见的下限。
+      </>
+    ),
+    dataGridCure: (
+      <>
+        data-grid 用 CSS Grid 直接表达列宽范围，<Text code>min-width</Text> / <Text code>width</Text> / <Text code>max-width</Text> 可以按同一套布局规则生效。
+      </>
+    ),
+    demo: (
+      <a href="#/demos/column-width-constraints">列宽约束 demo</a>
     ),
   },
   {
@@ -288,7 +264,7 @@ function MigrationCostBlock({ title, children }: { title: string; children: Reac
   )
 }
 
-export function renderWhenToMigrate({ onOpen }: DocsPageContext) {
+export function renderWhenToMigrate(_ctx: DocsPageContext) {
   return (
     <>
       <DocSection
@@ -355,7 +331,7 @@ export function renderWhenToMigrate({ onOpen }: DocsPageContext) {
       <DocSection
         id="cost"
         eyebrow="迁移成本"
-        title="迁移成本总体可控，兼容边界需要提前确认"
+        title="迁移前先看成本"
         description="在常见表格场景中，data-grid 延续了 antd Table 的主要 props 与类型形态；但它不是对 antd 历史行为的逐字复刻。迁移前应先确认以下差异，避免把架构取舍误判为实现缺口。"
       >
         <div style={{ display: 'grid', gap: 18 }}>
@@ -363,53 +339,31 @@ export function renderWhenToMigrate({ onOpen }: DocsPageContext) {
             顶层 import 与类型 import 切到 <Text code>@nukepayload2/data-grid</Text> 后，基础表格、列定义、选择、展开、分页、排序、筛选、sticky、多级表头、合并单元格的 API 形态都保持兼容。详见{' '}
             <a href="#/docs/compat-matrix">兼容矩阵</a>。
           </MigrationCostBlock>
-          <MigrationCostBlock title="需要同步调整的部分">
-            <ul className="docs-bullet-list">
-              <li>
-                <Text code>scroll.&#123;y: number|string&#125;</Text> 改成 <Text code>scroll=&#123;&#123; y: true &#125;&#125;</Text>，父容器必须给 <Text code>flex: 1; min-height: 0</Text> 或固定 height；原先用 resize 监听手算高度的代码应删掉（详见 <a href="#/docs/scroll-y">scroll.y 语义</a>）。
-              </li>
-              <li>
-                <Text code>render</Text> 返回 <Text code>&#123; children, props &#125;</Text> 旧对象只消费 <Text code>children</Text>；合并格 / cell props 改用 <Text code>column.onCell</Text>（详见 <a href="#/docs/deprecated-antd-members">过时成员</a>）。
-              </li>
-              <li>
-                依赖 <Text code>tbody &gt; tr &gt; td</Text> 选择器的样式要改用 <Text code>classNames</Text> / <Text code>styles</Text> 的 Semantic DOM 槽位（详见 <a href="#/docs/semantic-dom">Semantic DOM</a>）。
-              </li>
-            </ul>
-          </MigrationCostBlock>
-          <MigrationCostBlock title="不纳入兼容承诺的部分">
-            <ul className="docs-bullet-list">
-              <li>不复刻原生 <Text code>{'<table>'}</Text> / <Text code>{'<thead>'}</Text> / <Text code>{'<tbody>'}</Text> / <Text code>{'<tr>'}</Text> DOM；不伪造完整 ARIA table / row / rowgroup role 树。</li>
-              <li><Text code>scroll.y</Text> 不接受 antd 的 number / string max-height 语义。</li>
-              <li><Text code>components</Text> 仅暴露 <Text code>body.cell</Text> / <Text code>body.row</Text>（无 <Text code>header.cell</Text> / <Text code>wrapper</Text> / <Text code>table</Text>）。</li>
-              <li>RTL 未系统支持；详见 <a href="#/docs/known-limitations">已知限制</a>。</li>
-            </ul>
-          </MigrationCostBlock>
         </div>
       </DocSection>
 
       <DocSection
-        id="prompt"
-        eyebrow="AI 辅助"
-        title="使用提示词辅助完成 antd Table 迁移"
-        description="对于单个业务文件，可以先用提示词统一迁移规则，再把待迁移的 TSX / TS 内容作为同一轮上下文提供给 Claude Code、GitHub Copilot Chat 或 Cursor。coding agent 应先给出迁移计划，确认后再改文件。"
+        id="adjust"
+        eyebrow="迁移成本"
+        title="需要同步调整的部分"
+        description="下面这些写法需要一起改，才能把 antd Table 的旧语义完整换成 data-grid 的写法。"
       >
-        <DocsCode code={MIGRATION_PROMPT} height={420} ariaLabel="迁移提示词模板" />
-        <DocsNote title="用法">
-          1) 复制上方整段提示词；2) 在同一轮对话中附上待迁移文件内容或文件路径；3) 先审查 agent 给出的迁移计划；4) 同意计划后再让 agent 修改文件并检查变更摘要。
-        </DocsNote>
-        <DocsActionList
-          actions={[
-            { label: '从 antd 迁移', kind: 'doc', value: 'migrate-from-antd' },
-            { label: '兼容矩阵', kind: 'doc', value: 'compat-matrix' },
-            { label: '已知限制', kind: 'doc', value: 'known-limitations' },
-          ]}
-          onOpen={onOpen}
-        />
+        <ul className="docs-bullet-list">
+          <li>
+            <Text code>scroll.&#123;y: number|string&#125;</Text> 改成 <Text code>scroll=&#123;&#123; y: true &#125;&#125;</Text>，父容器只要通过布局或尺寸约束提供稳定的可用高度即可，不要让内容把容器撑开；原先用 resize 监听手算高度的代码应删掉（详见 <a href="#/docs/scroll-y">scroll.y 语义</a>）。
+          </li>
+          <li>
+            <Text code>render</Text> 返回 <Text code>&#123; children, props &#125;</Text> 旧对象只消费 <Text code>children</Text>；合并格 / cell props 改用 <Text code>column.onCell</Text>（详见 <a href="#/docs/deprecated-antd-members">过时成员</a>）。
+          </li>
+          <li>
+            依赖 <Text code>tbody &gt; tr &gt; td</Text> 选择器的样式要改用 <Text code>classNames</Text> / <Text code>styles</Text> 的 Semantic DOM 槽位（详见 <a href="#/docs/semantic-dom">Semantic DOM</a>）。
+          </li>
+        </ul>
       </DocSection>
 
       <DocSection
         id="avoid"
-        eyebrow="先别迁"
+        eyebrow="不支持的场景"
         title="这些场景 data-grid 明确不做或未系统支持"
         description="data-grid 有清晰的边界。下面这些场景迁过来会撞墙——要么改业务方预期，要么留到 backlog 解决。"
       >
@@ -432,17 +386,15 @@ export function renderWhenToMigrate({ onOpen }: DocsPageContext) {
       </DocSection>
 
       <DocSection id="next" eyebrow="继续" title="相关参考">
-        <DocsActionList
-          actions={[
-            { label: '从 antd 迁移', kind: 'doc', value: 'migrate-from-antd' },
-            { label: '已知限制', kind: 'doc', value: 'known-limitations' },
-            { label: '兼容矩阵', kind: 'doc', value: 'compat-matrix' },
-            { label: '过时成员', kind: 'doc', value: 'deprecated-antd-members' },
-            { label: 'Semantic DOM', kind: 'doc', value: 'semantic-dom' },
-            { label: 'gridOptions 能力清单', kind: 'doc', value: 'grid-options' },
-          ]}
-          onOpen={onOpen}
-        />
+        <ul className="docs-bullet-list">
+          <li>
+            如果你已经决定开始迁移，先看 <a href="#/docs/migrate-from-antd">如何从 antd Table 迁移</a>。
+          </li>
+          <li>
+            如果你还想确认兼容边界，先看 <a href="#/docs/compat-matrix">兼容矩阵</a> 和{' '}
+            <a href="#/docs/known-limitations">已知限制</a>。
+          </li>
+        </ul>
       </DocSection>
     </>
   )

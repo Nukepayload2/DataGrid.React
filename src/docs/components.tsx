@@ -160,12 +160,14 @@ export function DocsDataGrid<T extends object>({
 export function DocsCode({
   code,
   height = 220,
+  maxHeight,
   ariaLabel,
   editable = false,
   scope,
 }: {
   code: string
   height?: number | string
+  maxHeight?: number | string
   ariaLabel: string
   /** 开启后渲染 LiveEditor + 活预览，替代只读 CodeView。需要 scope 配合。 */
   editable?: boolean
@@ -174,7 +176,7 @@ export function DocsCode({
 }) {
   // 默认行为不变：只读 CodeView + 复制按钮。
   if (!editable || !scope) {
-    return <CodeView code={code} height={height} maxHeight={360} ariaLabel={ariaLabel} />
+    return <CodeView code={code} height={height} maxHeight={maxHeight ?? 360} ariaLabel={ariaLabel} />
   }
   return <EditableDocsCode code={code} scope={scope} ariaLabel={ariaLabel} />
 }

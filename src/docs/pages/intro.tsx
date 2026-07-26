@@ -27,7 +27,7 @@ export function renderIntro({ onOpen }: DocsPageContext) {
           <Text strong>不追求</Text>：完整复刻 antd Table 全量历史 API；兼容依赖原生 table 结构的第三方插件或样式选择器；系统性 RTL 支持。
         </p>
         <p>
-          如果你已熟悉 antd Table，多数顶层 props 和 Column 字段可以平滑迁移（详见 <a href="#/docs/migrate-from-antd">从 antd 迁移</a>）；如果你是新接入，从下面的最小例子开始即可。
+          如果你已熟悉 antd Table，多数顶层 props 和 Column 字段可以平滑迁移（详见 <a href="#/docs/migrate-from-antd">如何从 antd Table 迁移</a>）；如果你是新接入，从下面的最小例子开始即可。
         </p>
       </DocSection>
 
@@ -55,7 +55,7 @@ export function renderIntro({ onOpen }: DocsPageContext) {
         <DocsActionList
           actions={[
             { label: '快速用（5 分钟跑通基础）', kind: 'doc', value: 'quick-start' },
-            { label: '从 antd Table 迁移', kind: 'doc', value: 'migrate-from-antd' },
+            { label: '如何从 antd Table 迁移', kind: 'doc', value: 'migrate-from-antd' },
           ]}
           onOpen={onOpen}
         />
