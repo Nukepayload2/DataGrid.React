@@ -50,6 +50,7 @@ const data: Row[] = [
 
 const ACTION_MIN_WIDTH = 36
 const ACTION_MAX_WIDTH = 56
+const SCROLL_X = 420
 
 function ConstraintCell({
   value,
@@ -294,7 +295,6 @@ function buildAntdColumns(): AntdColumn[] {
 
 export default function ColumnWidthConstraintsDemo() {
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('auto')
-  const [scrollX, setScrollX] = useState(420)
   const [minWidth, setMinWidth] = useState(ACTION_MIN_WIDTH)
   const [maxWidth, setMaxWidth] = useState(ACTION_MAX_WIDTH)
 
@@ -315,15 +315,7 @@ export default function ColumnWidthConstraintsDemo() {
           </Space>
           <Space>
             <span>scroll.x:</span>
-            <Segmented
-              value={scrollX}
-              onChange={(value) => setScrollX(value as number)}
-              options={[
-                { label: '360', value: 360 },
-                { label: '420', value: 420 },
-                { label: '520', value: 520 },
-              ]}
-            />
+            <code>{SCROLL_X}</code>
           </Space>
           <Space>
             <span>data-grid 最小:</span>
@@ -367,12 +359,12 @@ export default function ColumnWidthConstraintsDemo() {
         left={
           <LeftPane
             layoutMode={layoutMode}
-            scrollX={scrollX}
+            scrollX={SCROLL_X}
             minWidth={minWidth}
             maxWidth={maxWidth}
           />
         }
-        right={<RightPane layoutMode={layoutMode} scrollX={scrollX} />}
+        right={<RightPane layoutMode={layoutMode} scrollX={SCROLL_X} />}
       >
         <div>
           <strong>{modeLabel(layoutMode)}观察重点：</strong>
@@ -384,7 +376,8 @@ export default function ColumnWidthConstraintsDemo() {
             </li>
             <li>
               操作列如果遵循这个极小宽度，列宽应贴近单元格内的虚线框；实际右栏会被图标按钮自身尺寸、
-              表头内容和单元格内边距撑开。把 <code>scroll.x</code> 切到 360 / 420 时，这个差值更明显。
+              表头内容和单元格内边距撑开。复现点不是切换不同 <code>scroll.x</code>，
+              而是在给定 <code>scroll.x={SCROLL_X}</code> 后直接观察右栏实际列宽。
             </li>
             <li>
               data-grid 自动布局在未写列级下限时使用 <code>min-content</code> 作为默认下限；
