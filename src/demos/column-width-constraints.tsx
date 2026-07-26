@@ -314,11 +314,7 @@ export default function ColumnWidthConstraintsDemo() {
             />
           </Space>
           <Space>
-            <span>scroll.x:</span>
-            <code>{SCROLL_X}</code>
-          </Space>
-          <Space>
-            <span>data-grid 最小:</span>
+            <span>操作列最小宽度:</span>
             <InputNumber
               id="column-width-constraints-min"
               value={minWidth}
@@ -335,7 +331,7 @@ export default function ColumnWidthConstraintsDemo() {
             <span>px</span>
           </Space>
           <Space>
-            <span>data-grid 最大:</span>
+            <span>操作列最大宽度:</span>
             <InputNumber
               id="column-width-constraints-max"
               value={maxWidth}
@@ -369,6 +365,10 @@ export default function ColumnWidthConstraintsDemo() {
         <div>
           <strong>{modeLabel(layoutMode)}观察重点：</strong>
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
+            <li>
+              左栏上方的「操作列最小宽度 / 最大宽度」只作用于 data-grid 的「操作」列，
+              对应列定义里的 <code>gridColumnOptions.minWidth/maxWidth</code>。
+            </li>
             <li>
               复现 antd discussion 56602：保持「自动」布局，右栏 antd 的「操作」列声明{' '}
               <code>minWidth: {ACTION_MIN_WIDTH}</code>，单元格内容只有一个图标按钮。
