@@ -69,6 +69,17 @@ body {
   margin: 24px 0;
 }
 
+.demo-page__intro {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border: 1px solid rgba(5, 5, 5, 0.08);
+  border-radius: 6px;
+  background: rgba(5, 5, 5, 0.02);
+  color: rgba(0, 0, 0, 0.65);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 /* dom-recycled-virtual-list：让 demo 页自身不滚动，表格占满剩余高度、由表格内部滚动。
    - 仅此 demo：data-demo-name 在 App.tsx 针对 view.name 注入，其它 demo/docs 不受影响。
    - height:100% + margin:0 + padding-block:24：用 padding（box-sizing:border-box 内含于 height）

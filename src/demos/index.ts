@@ -559,7 +559,7 @@ export const demos: DemoMeta[] = [
     name: 'column-width-constraints',
     title: '列宽约束',
     subtitle: '最小 / 理想 / 最大',
-    description: '对比同一组内容在不同布局下的收缩、保底和上限表现。',
+    description: '对照 antd discussion #56602：给定 scroll.x 时自动布局不可靠遵循极小列宽，并展示 data-grid 的列宽拖拽 min/max 约束。',
     element: () => import('./column-width-constraints'),
     compare: true,
     category: '列',

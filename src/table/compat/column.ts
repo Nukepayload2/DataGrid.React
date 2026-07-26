@@ -75,9 +75,10 @@ export interface ColumnType<RecordType = any> {
   /**
    * data-grid 列级专属选项命名空间。
    *
-   * **与 antd 不兼容**：antd `ColumnType` 没有 dragColumnLock / cell 渲染钩子 等概念，
+   * **与 antd 不兼容**：antd `ColumnType` 没有 min/max 列宽约束、dragColumnLock / cell 渲染钩子 等概念，
    * 故 dg 列级专属字段一律归入此命名空间（顶层 `ColumnType` 只保留与 antd 同名同义字段）。
    *
+   *   - `minWidth` / `maxWidth`：列宽约束，布局与列宽拖拽共同遵循。
    *   - `dragColumnLock`：列拖拽锁定模式（列拖拽排序）。
    */
   gridColumnOptions?: GridColumnOptions<RecordType>

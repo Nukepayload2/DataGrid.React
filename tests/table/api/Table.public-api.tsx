@@ -1,9 +1,23 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ConfigProvider } from 'antd'
 import { describe, expect, it, vi } from 'vitest'
 import type { Key } from 'react'
 import { Table, type ColumnType, type TableProps, type TableRowSelection } from '../../../src/table/index'
+
+if (typeof window !== 'undefined' && typeof window.PointerEvent === 'undefined') {
+  class PointerEventPolyfill extends MouseEvent {
+    readonly pointerId: number
+
+    constructor(type: string, params: PointerEventInit = {}) {
+      super(type, params)
+      this.pointerId = params.pointerId ?? 1
+    }
+  }
+
+  ;(window as unknown as { PointerEvent: typeof PointerEventPolyfill }).PointerEvent = PointerEventPolyfill
+  ;(globalThis as unknown as { PointerEvent: typeof PointerEventPolyfill }).PointerEvent = PointerEventPolyfill
+}
 
 interface Person {
   key: string
@@ -29,7 +43,72 @@ function expectVisibleTextOrder(labels: Array<string>): void {
   expect(positions).toEqual([...positions].sort((a, b) => a - b))
 }
 
+function setElementWidth(element: Element, width: number): void {
+  vi.spyOn(element, 'getBoundingClientRect').mockReturnValue({
+    width,
+    height: 20,
+    left: 0,
+    right: width,
+    top: 0,
+    bottom: 20,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  } as DOMRect)
+}
+
+function pointer(type: string, clientX: number, pointerId = 7): PointerEvent {
+  return new PointerEvent(type, {
+    pointerId,
+    clientX,
+    bubbles: true,
+    cancelable: true,
+    button: 0,
+  })
+}
+
 describe('Table public API behavior', () => {
+  it('uses column gridColumnOptions minWidth/maxWidth for layout and resize clamps', async () => {
+    const columns: Array<ColumnType<Person>> = [
+      {
+        title: 'Name',
+        dataIndex: 'name',
+        key: 'name',
+        gridColumnOptions: { minWidth: 80, maxWidth: 120 },
+      },
+      { title: 'Age', dataIndex: 'age', key: 'age', width: 96 },
+    ]
+
+    const { container } = render(
+      <Table<Person>
+        columns={columns}
+        dataSource={data}
+        pagination={false}
+        tableLayout="auto"
+        gridOptions={{ columnResizeMode: 'ResizeLeft' }}
+      />,
+    )
+
+    const grid = container.querySelector('.dg-grid') as HTMLElement
+    expect(grid.style.gridTemplateColumns).toBe('minmax(80px, 120px) minmax(96px, max-content)')
+
+    const nameHeader = container.querySelector(
+      '.dg-cell-header[data-column-key="name"]',
+    ) as HTMLElement
+    setElementWidth(nameHeader, 100)
+    const resizer = screen.getAllByRole('separator', { name: 'Resize column' })[0]!
+
+    act(() => {
+      fireEvent(resizer, pointer('pointerdown', 100))
+      resizer.dispatchEvent(pointer('pointermove', 240))
+      resizer.dispatchEvent(pointer('pointerup', 240))
+    })
+
+    await waitFor(() => {
+      expect(grid.style.gridTemplateColumns).toBe('120px minmax(96px, max-content)')
+    })
+  })
+
   it('sorts visible rows and reports sort change data', async () => {
     type OnChange = NonNullable<TableProps<Person>['onChange']>
     const changes: Array<Parameters<OnChange>> = []

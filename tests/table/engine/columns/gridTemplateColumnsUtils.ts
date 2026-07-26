@@ -5,7 +5,10 @@ import {
 } from '../../../../src/table/engine/gridTemplateColumnsUtils'
 import type { EngineLeafColumn } from '../../../../src/table/engine/types'
 
-type TestLeafColumn = Pick<EngineLeafColumn, 'fixed' | 'hidden' | 'key' | 'width'>
+type TestLeafColumn = Pick<
+  EngineLeafColumn,
+  'fixed' | 'gridColumnOptions' | 'hidden' | 'key' | 'width'
+>
 
 function column(columnDef: TestLeafColumn): TestLeafColumn {
   return columnDef
@@ -106,5 +109,68 @@ describe('gridTemplateColumnsUtils', () => {
         tableLayout: 'fixed',
       }),
     ).toBe('96px minmax(112px, 1fr)')
+  })
+
+  it('uses column gridColumnOptions minWidth and maxWidth in auto layout', () => {
+    expect(
+      computeGridTemplateColumns({
+        leafColumns: [
+          column({
+            key: 'title',
+            gridColumnOptions: { minWidth: 160, maxWidth: 360 },
+          }),
+          column({ key: 'fill' }),
+        ],
+        resizedWidths: new Map(),
+        tableLayout: 'auto',
+      }),
+    ).toBe('minmax(160px, 360px) minmax(min-content, 1fr)')
+  })
+
+  it('uses only maxWidth with the auto-layout min-content default', () => {
+    expect(
+      computeGridTemplateColumns({
+        leafColumns: [
+          column({
+            key: 'title',
+            gridColumnOptions: { maxWidth: 420 },
+          }),
+        ],
+        resizedWidths: new Map(),
+        tableLayout: 'auto',
+      }),
+    ).toBe('minmax(min-content, 420px)')
+  })
+
+  it('uses only minWidth with the fixed-layout fill default', () => {
+    expect(
+      computeGridTemplateColumns({
+        leafColumns: [
+          column({
+            key: 'title',
+            gridColumnOptions: { minWidth: '12rem' },
+          }),
+        ],
+        resizedWidths: new Map(),
+        tableLayout: 'fixed',
+      }),
+    ).toBe('minmax(12rem, 1fr)')
+  })
+
+  it('does not use proportional fixed-layout tracks when a column has min/max constraints', () => {
+    expect(
+      computeGridTemplateColumns({
+        leafColumns: [
+          column({
+            key: 'title',
+            width: 180,
+            gridColumnOptions: { minWidth: 120, maxWidth: 320 },
+          }),
+          column({ key: 'owner', width: 96 }),
+        ],
+        resizedWidths: new Map(),
+        tableLayout: 'fixed',
+      }),
+    ).toBe('minmax(120px, 320px) minmax(96px, 1fr)')
   })
 })

@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { theme } from 'antd'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
@@ -88,9 +89,22 @@ export default function ResizableDg({
   maxWidth: number
   virtual: boolean
 }) {
+  const columns = useMemo(
+    () =>
+      dgColumns.map((column) => ({
+        ...column,
+        gridColumnOptions: {
+          ...column.gridColumnOptions,
+          minWidth,
+          maxWidth,
+        },
+      })),
+    [maxWidth, minWidth],
+  )
+
   return (
     <Table<RecordType>
-      columns={dgColumns}
+      columns={columns}
       dataSource={data}
       virtual={virtual}
       /* `scroll.x:'max-content'` 让表格横可滚，使 Name(fixed:'start') 可见地钉在左缘。
@@ -100,8 +114,6 @@ export default function ResizableDg({
       pagination={false}
       gridOptions={{
         columnResizeMode,
-        resizableMinWidth: minWidth,
-        resizableMaxWidth: maxWidth,
       }}
     />
   )

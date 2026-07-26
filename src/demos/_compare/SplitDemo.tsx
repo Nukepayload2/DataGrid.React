@@ -65,6 +65,7 @@ export function SplitDemo({
   leftTitle = 'data-grid',
   rightTitle = 'antd 6.4.4',
   minPaneWidth = 480,
+  children,
   stickyMode = false,
   virtualizable = true,
   minPaneHeight = 460,
@@ -93,6 +94,7 @@ export function SplitDemo({
 
   return (
     <>
+      {children ? <div className="dg-compare__note">{children}</div> : null}
       <div className={containerClassName} style={containerStyle}>
         <section className="dg-compare__pane">
           <div className="dg-compare__title">{leftTitle}</div>

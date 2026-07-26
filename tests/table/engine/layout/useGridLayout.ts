@@ -83,6 +83,18 @@ describe('useGridLayout', () => {
       expect(r.gridTemplateColumns).toBe('minmax(100px, max-content)')
     })
 
+    it('透传 gridColumnOptions.minWidth/maxWidth 到列轨道计算', () => {
+      const bounded = {
+        ...leafColumn('bounded'),
+        gridColumnOptions: { minWidth: 120, maxWidth: 320 },
+      }
+      const r = render({
+        leafColumns: [bounded],
+        tableLayout: 'auto',
+      })
+      expect(r.gridTemplateColumns).toBe('minmax(120px, 320px)')
+    })
+
     it('resizedWidths 覆盖原 width', () => {
       const resized = new Map<string, number>([['a', 250]])
       const r = render({

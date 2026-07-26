@@ -57,6 +57,22 @@ export type DisposeCellElementReason =
  */
 export interface GridColumnOptions<RecordType> {
   /**
+   * 列宽下限。
+   *
+   * 未定义时，布局根据 tableLayout 选择默认下限：
+   * - auto：内容下限（min-content）。
+   * - fixed：可填充（0 / 1fr）。
+   */
+  minWidth?: number | string
+  /**
+   * 列宽上限。
+   *
+   * 未定义时，布局根据 tableLayout 选择默认上限：
+   * - auto：内容上限（max-content）或可填充。
+   * - fixed：可填充（1fr）。
+   */
+  maxWidth?: number | string
+  /**
    * 列拖拽锁定。
    *
    * - `undefined`：该列可发起拖拽，也可被其它列重排影响。

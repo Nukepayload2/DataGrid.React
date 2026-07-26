@@ -194,8 +194,9 @@ export interface TableProps<RecordType = any> {
    *
    * **与 antd 不兼容**：antd `Table` 没有 `rowHeight` / `minRowHeight` / `maxRowHeight` /
    * `headerHeight` / `resizable` 等概念（antd 行高随内容、无原生列宽拖拽），此命名空间仅
-   * data-grid 消费。原顶层 `rowHeight`/`headerHeight`/`resizable`/`resizableMinWidth`/
-   * `resizableMaxWidth` 全部迁入 `gridOptions`（删顶层、无 alias、无向后兼容）。
+   * data-grid 消费。原顶层 `rowHeight`/`headerHeight`/`resizable` 全部迁入 `gridOptions`
+   * （删顶层、无 alias、无向后兼容）。列宽 min/max 约束属于列级能力，使用
+   * `column.gridColumnOptions.minWidth/maxWidth`。
    *
    * - `rowHeight`：行高约定（数字 → 固定 px；函数 → 按行返回 px）。默认 56（虚拟）。
    * - `minRowHeight` / `maxRowHeight`：**同时设置**时启用「有界行高模型」——行高随内容
@@ -207,8 +208,7 @@ export interface TableProps<RecordType = any> {
    * - `columnResizeMode`：列宽拖拽模式。`Disabled` 禁用；`ResizeLeft` 只改变分隔线左侧列宽，
    *   表格宽度总和随之变化；`ResizeSibling` 同时改变左右相邻列宽，保持总宽不变。
    *   最后一个可见叶子列右侧不渲染 resizer。
-   * - `resizableMinWidth` / `resizableMaxWidth`：列宽拖拽 min/max 约束（px）。number → 统一；
-   *   函数 → 按列 key 逐列定制。默认 min 30 / max Infinity。
+   * - 列宽约束：使用 `column.gridColumnOptions.minWidth/maxWidth`，布局和拖拽共用同一套列级约束。
    * - `rowDragSort` / `columnDragSort`：公开拖拽排序入口。业务方通过回调提交新的 dataSource / columns。
    */
   gridOptions?: {
@@ -234,10 +234,6 @@ export interface TableProps<RecordType = any> {
     resizable?: boolean
     /** 列宽拖拽模式：禁用、只改左侧列、或左右兄弟列联动。 */
     columnResizeMode?: 'Disabled' | 'ResizeLeft' | 'ResizeSibling'
-    /** 列宽拖拽最小宽度。函数形态按列 key 返回约束。 */
-    resizableMinWidth?: number | ((key: string) => number)
-    /** 列宽拖拽最大宽度。函数形态按列 key 返回约束。 */
-    resizableMaxWidth?: number | ((key: string) => number)
     /**
      * 悬浮滚动条折叠/显示策略。
      *

@@ -626,8 +626,9 @@ export interface EngineTableProps<RecordType = any> {
   /**
    * data-grid 专属 grid 布局选项（有界行高模型 + 列宽拖拽 + 表头行高）。
    *
-   * 引擎从此命名空间读取 `rowHeight`/`headerHeight`/`resizable`/`columnResizeMode`/
-   * `resizableMinWidth`/`resizableMaxWidth`（无顶层 alias）。详见对外 types.ts `TableProps.gridOptions` 注释
+   * 引擎从此命名空间读取 `rowHeight`/`headerHeight`/`resizable`/`columnResizeMode`。
+   * 列宽 min/max 约束读取 `column.gridColumnOptions.minWidth/maxWidth`。
+   * 详见对外 types.ts `TableProps.gridOptions` 注释
    * （data-grid 专属，与 antd 不兼容）。
    */
   gridOptions?: {
@@ -643,10 +644,6 @@ export interface EngineTableProps<RecordType = any> {
     resizable?: boolean
     /** 列宽拖拽模式。Disabled 禁用；ResizeLeft 只改左列；ResizeSibling 改左右相邻列并保持总宽。 */
     columnResizeMode?: 'Disabled' | 'ResizeLeft' | 'ResizeSibling'
-    /** 列宽拖拽最小宽度（px）。默认 30。 */
-    resizableMinWidth?: number | ((key: string) => number)
-    /** 列宽拖拽最大宽度（px）。默认 Infinity。 */
-    resizableMaxWidth?: number | ((key: string) => number)
     /** 悬浮滚动条折叠/显示策略。 */
     scrollBarFoldMode?: ScrollBarFoldMode
   }

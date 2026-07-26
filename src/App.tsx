@@ -206,6 +206,7 @@ function App() {
     view.kind === 'demo'
       ? lazyDemos.find((d) => d.meta.name === view.name)?.Comp
       : undefined
+  const currentDemoMeta = view.kind === 'demo' ? demoByName.get(view.name) : undefined
 
   // 当前选中菜单项 key。
   const selectedKey =
@@ -541,6 +542,18 @@ function App() {
                   },
                 ]}
               />
+              {currentDemoMeta?.description ? (
+                <div
+                  className="demo-page__intro"
+                  style={{
+                    background: token.colorFillAlter,
+                    borderColor: token.colorBorderSecondary,
+                    color: token.colorTextSecondary,
+                  }}
+                >
+                  {currentDemoMeta.description}
+                </div>
+              ) : null}
               {/*
                 预览区（上方）：
                 - 可编辑 demo：SplitDemoPreview 承载默认/编辑双模式。默认模式

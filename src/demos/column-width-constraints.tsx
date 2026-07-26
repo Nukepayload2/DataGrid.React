@@ -1,160 +1,403 @@
-import { useState, type ReactNode } from 'react'
-import { Segmented, Space, Table as AntdTable, type TableProps } from 'antd'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import {
+  Button,
+  InputNumber,
+  Segmented,
+  Space,
+  Table as AntdTable,
+  type TableProps,
+  theme,
+} from 'antd'
+import { EditOutlined } from '@ant-design/icons'
 import { Table } from '../table'
 import type { ColumnType } from '../table'
 import { SplitDemo } from './_compare/SplitDemo'
 import { DemoToolbar } from './_compare/DemoToolbar'
 
+type LayoutMode = 'auto' | 'fixed'
+
 type Row = {
   key: string
-  ticket: string
-  title: string
+  orderNo: string
+  customer: string
+  status: string
   owner: string
-  note: string
 }
 
 const data: Row[] = [
   {
     key: '1',
-    ticket: 'REQ-2048',
-    title: '结算页要支持一条很长的产品说明，窄屏时不能一下子压到看不懂',
+    orderNo: 'ORD-2048',
+    customer: 'North Region Settlement Team',
+    status: '待复核',
     owner: 'Ada',
-    note: '最小宽度要保住，内容才能先看清，再谈是否继续扩展。',
   },
   {
     key: '2',
-    ticket: 'REQ-2091',
-    title: '审批列表里的备注列希望可伸缩，但不要无限长到一眼看不完重点',
+    orderNo: 'ORD-2091',
+    customer: 'Payment Channel Operations',
+    status: '处理中',
     owner: 'Ben',
-    note: '理想宽度可以变，最大宽度也要有边界。',
   },
   {
     key: '3',
-    ticket: 'REQ-2156',
-    title: '字段名很长的时候，表格最好先把最重要的信息保住',
+    orderNo: 'ORD-2156',
+    customer: 'Inventory Allocation Desk',
+    status: '已锁定',
     owner: 'Chen',
-    note: '把内容当成一段有范围的区块，而不是一个死宽度。',
   },
 ]
 
-function ConstraintText({ children }: { children: ReactNode }) {
+const ACTION_MIN_WIDTH = 36
+const ACTION_MAX_WIDTH = 56
+
+function ConstraintCell({
+  value,
+  tone = 'default',
+}: {
+  value: string
+  tone?: 'default' | 'muted'
+}) {
+  const { token } = theme.useToken()
+
   return (
     <span
       style={{
         display: 'inline-block',
-        minWidth: 220,
-        maxWidth: 320,
-        width: '100%',
-        padding: '2px 0',
+        maxWidth: '100%',
         whiteSpace: 'normal',
-        lineHeight: 1.6,
+        overflowWrap: 'anywhere',
         wordBreak: 'break-word',
+        lineHeight: 1.5,
+        color: tone === 'muted' ? token.colorTextSecondary : token.colorText,
+        fontFamily:
+          tone === 'muted'
+            ? 'ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace'
+            : undefined,
       }}
+      title={value}
     >
-      {children}
+      {value}
     </span>
   )
 }
 
-const dgColumns: ColumnType<Row>[] = [
-  {
-    title: '工单',
-    dataIndex: 'ticket',
-    key: 'ticket',
-    width: 120,
-  },
-  {
-    title: '标题',
-    dataIndex: 'title',
-    key: 'title',
-    render: (text) => <ConstraintText>{text}</ConstraintText>,
-  },
-  {
-    title: '负责人',
-    dataIndex: 'owner',
-    key: 'owner',
-    width: 96,
-  },
-  {
-    title: '备注',
-    dataIndex: 'note',
-    key: 'note',
-    render: (text) => <ConstraintText>{text}</ConstraintText>,
-  },
-]
+function ActionCell({ referenceWidth }: { referenceWidth: number }) {
+  const { token } = theme.useToken()
 
-const antdColumns: NonNullable<TableProps<Row>['columns']> = [
-  {
-    title: '工单',
-    dataIndex: 'ticket',
-    key: 'ticket',
-    width: 120,
-    render: (text) => <span>{text}</span>,
-  },
-  {
-    title: '标题',
-    dataIndex: 'title',
-    key: 'title',
-    render: (text) => <ConstraintText>{text}</ConstraintText>,
-  },
-  {
-    title: '负责人',
-    dataIndex: 'owner',
-    key: 'owner',
-    width: 96,
-  },
-  {
-    title: '备注',
-    dataIndex: 'note',
-    key: 'note',
-    render: (text) => <ConstraintText>{text}</ConstraintText>,
-  },
-]
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        width: referenceWidth,
+        minHeight: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+        border: `1px dashed ${token.colorWarning}`,
+        borderRadius: 4,
+      }}
+      title={`${referenceWidth}px reference`}
+    >
+      <Button
+        type="text"
+        size="small"
+        aria-label="编辑"
+        icon={<EditOutlined />}
+      />
+    </span>
+  )
+}
+
+function useMeasuredColumnWidth(
+  selector: string,
+  layoutMode: LayoutMode,
+  scrollX: number,
+  minWidth?: number,
+  maxWidth?: number,
+) {
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState<number>()
+
+  useLayoutEffect(() => {
+    const root = rootRef.current
+    if (!root) return undefined
+
+    let frame = 0
+    const measure = () => {
+      if (frame) cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        const columnCell = root.querySelector<HTMLElement>(selector)
+        setWidth(
+          columnCell
+            ? Math.round(columnCell.getBoundingClientRect().width)
+            : undefined,
+        )
+      })
+    }
+
+    const resizeObserver =
+      typeof ResizeObserver === 'undefined' ? undefined : new ResizeObserver(measure)
+    const initialColumnCell = root.querySelector<HTMLElement>(selector)
+    resizeObserver?.observe(root)
+    if (initialColumnCell) resizeObserver?.observe(initialColumnCell)
+    window.addEventListener('resize', measure)
+    measure()
+
+    return () => {
+      if (frame) cancelAnimationFrame(frame)
+      resizeObserver?.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [layoutMode, maxWidth, minWidth, scrollX, selector])
+
+  return [rootRef, width] as const
+}
+
+function WidthStatus({
+  actualWidth,
+  declaredLabel,
+  expectedMaxWidth,
+  issueLabel,
+}: {
+  actualWidth: number | undefined
+  declaredLabel: string
+  expectedMaxWidth?: number
+  issueLabel?: string
+}) {
+  const { token } = theme.useToken()
+  const overflow =
+    actualWidth !== undefined && expectedMaxWidth !== undefined
+      ? actualWidth - expectedMaxWidth
+      : 0
+  const hasOverflow = overflow > 1
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 8,
+        fontSize: 12,
+        lineHeight: 1.5,
+      }}
+    >
+      <span style={{ color: token.colorTextSecondary }}>操作列</span>
+      <code>{declaredLabel}</code>
+      <strong style={{ color: hasOverflow ? token.colorError : token.colorSuccess }}>
+        实际 {actualWidth ?? '--'}px
+      </strong>
+      {hasOverflow && issueLabel ? (
+        <span style={{ color: token.colorError }}>
+          {issueLabel} +{overflow}px
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
+function modeLabel(mode: LayoutMode): string {
+  if (mode === 'auto') return '自动布局'
+  return '固定布局'
+}
+
+function layoutForTable(mode: LayoutMode): 'auto' | 'fixed' {
+  return mode === 'auto' ? 'auto' : 'fixed'
+}
+
+function buildDgColumns(
+  mode: LayoutMode,
+  minWidth: number,
+  maxWidth: number,
+): ColumnType<Row>[] {
+  const fixedActionWidth = mode === 'fixed' ? minWidth : undefined
+
+  return [
+    {
+      title: '订单',
+      dataIndex: 'orderNo',
+      key: 'orderNo',
+      width: 120,
+      render: (value) => <ConstraintCell value={value} tone="muted" />,
+    },
+    {
+      title: '客户',
+      dataIndex: 'customer',
+      key: 'customer',
+      render: (value) => <ConstraintCell value={value} />,
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 96,
+    },
+    {
+      title: '负责人',
+      dataIndex: 'owner',
+      key: 'owner',
+      width: 96,
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: fixedActionWidth,
+      gridColumnOptions: {
+        minWidth,
+        maxWidth,
+      },
+      render: () => <ActionCell referenceWidth={minWidth} />,
+    },
+  ]
+}
+
+type AntdColumn = NonNullable<TableProps<Row>['columns']>[number] & {
+  minWidth?: number
+}
+
+function buildAntdColumns(): AntdColumn[] {
+  return [
+    {
+      title: '订单',
+      dataIndex: 'orderNo',
+      key: 'orderNo',
+      width: 120,
+      render: (value) => <ConstraintCell value={value} tone="muted" />,
+    },
+    {
+      title: '客户',
+      dataIndex: 'customer',
+      key: 'customer',
+      render: (value) => <ConstraintCell value={value} />,
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 96,
+    },
+    {
+      title: '负责人',
+      dataIndex: 'owner',
+      key: 'owner',
+      width: 96,
+    },
+    {
+      title: '操作',
+      key: 'action',
+      minWidth: ACTION_MIN_WIDTH,
+      render: () => <ActionCell referenceWidth={ACTION_MIN_WIDTH} />,
+    },
+  ]
+}
 
 export default function ColumnWidthConstraintsDemo() {
-  const [layoutMode, setLayoutMode] = useState<'auto' | 'fixed'>('auto')
-  const [paneWidth, setPaneWidth] = useState(760)
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>('auto')
+  const [scrollX, setScrollX] = useState(420)
+  const [minWidth, setMinWidth] = useState(ACTION_MIN_WIDTH)
+  const [maxWidth, setMaxWidth] = useState(ACTION_MAX_WIDTH)
 
   return (
     <div style={{ padding: 24 }}>
       <DemoToolbar>
-        <Space wrap>
-          <Segmented
-            value={layoutMode}
-            onChange={(value) => setLayoutMode(value as 'auto' | 'fixed')}
-            options={[
-              { label: '自动布局', value: 'auto' },
-              { label: '固定布局', value: 'fixed' },
-            ]}
-          />
-          <Segmented
-            value={paneWidth}
-            onChange={(value) => setPaneWidth(value as number)}
-            options={[
-              { label: '窄', value: 560 },
-              { label: '中', value: 760 },
-              { label: '宽', value: 960 },
-            ]}
-          />
+        <Space wrap size={[16, 8]}>
+          <Space>
+            <span>布局:</span>
+            <Segmented
+              value={layoutMode}
+              onChange={(value) => setLayoutMode(value as LayoutMode)}
+              options={[
+                { label: '自动', value: 'auto' },
+                { label: '固定', value: 'fixed' },
+              ]}
+            />
+          </Space>
+          <Space>
+            <span>scroll.x:</span>
+            <Segmented
+              value={scrollX}
+              onChange={(value) => setScrollX(value as number)}
+              options={[
+                { label: '360', value: 360 },
+                { label: '420', value: 420 },
+                { label: '520', value: 520 },
+              ]}
+            />
+          </Space>
+          <Space>
+            <span>data-grid 最小:</span>
+            <InputNumber
+              id="column-width-constraints-min"
+              value={minWidth}
+              min={24}
+              max={80}
+              step={4}
+              onChange={(value) => {
+                const next = Number(value) || ACTION_MIN_WIDTH
+                setMinWidth(next)
+                setMaxWidth((current) => Math.max(current, next))
+              }}
+              style={{ width: 84 }}
+            />
+            <span>px</span>
+          </Space>
+          <Space>
+            <span>data-grid 最大:</span>
+            <InputNumber
+              id="column-width-constraints-max"
+              value={maxWidth}
+              min={36}
+              max={120}
+              step={4}
+              onChange={(value) => {
+                const next = Number(value) || ACTION_MAX_WIDTH
+                setMaxWidth(next)
+                setMinWidth((current) => Math.min(current, next))
+              }}
+              style={{ width: 84 }}
+            />
+            <span>px</span>
+          </Space>
         </Space>
       </DemoToolbar>
 
       <SplitDemo
         minPaneWidth={520}
-        left={<LeftPane layoutMode={layoutMode} paneWidth={paneWidth} />}
-        right={<RightPane layoutMode={layoutMode} paneWidth={paneWidth} />}
+        left={
+          <LeftPane
+            layoutMode={layoutMode}
+            scrollX={scrollX}
+            minWidth={minWidth}
+            maxWidth={maxWidth}
+          />
+        }
+        right={<RightPane layoutMode={layoutMode} scrollX={scrollX} />}
       >
         <div>
-          <strong>观察重点：</strong>把标题和备注列当成有范围的内容块来看，先切窄容器，再切固定布局。
+          <strong>{modeLabel(layoutMode)}观察重点：</strong>
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>左栏</strong>：内容块可以保住最小宽度，容器变宽后也不会无限放大。
+              复现 antd discussion 56602：保持「自动」布局，右栏 antd 的「操作」列声明{' '}
+              <code>minWidth: {ACTION_MIN_WIDTH}</code>，单元格内容只有一个图标按钮。
+              右栏表格上方的读数会显示声明值和实际列宽。
             </li>
             <li>
-              <strong>右栏</strong>：切到固定布局后，这类约束更容易被压扁，读起来会更累。
+              操作列如果遵循这个极小宽度，列宽应贴近单元格内的虚线框；实际右栏会被图标按钮自身尺寸、
+              表头内容和单元格内边距撑开。把 <code>scroll.x</code> 切到 360 / 420 时，这个差值更明显。
             </li>
             <li>
-              <strong>怎么看</strong>：先选「窄」，再切「固定布局」；随后改成「宽」，看两侧是否还能保持同一套可读性。
+              data-grid 自动布局在未写列级下限时使用 <code>min-content</code> 作为默认下限；
+              本页左栏「操作」列显式设置列级边界，固定布局则按列定义和约束分配，不再按内容撑宽。
+            </li>
+            <li>
+              左栏「操作」列通过 <code>gridColumnOptions.minWidth/maxWidth</code> 声明列级边界；
+              右栏 antd 在自动布局 + 给定 <code>scroll.x</code> 时不能稳定遵循这种极小列宽意图，
+              固定布局也不支持最小宽度语义。
+            </li>
+            <li>
+              左栏表头分隔线启用 <code>ResizeSibling</code>，拖动时会同时改变左右相邻列，
+              并受上方列级最小 / 最大约束限制；右栏 antd 没有这层列宽边界能力。
             </li>
           </ul>
         </div>
@@ -165,19 +408,45 @@ export default function ColumnWidthConstraintsDemo() {
 
 function LeftPane({
   layoutMode,
-  paneWidth,
+  scrollX,
+  minWidth,
+  maxWidth,
 }: {
-    layoutMode: 'auto' | 'fixed'
-    paneWidth: number
-  }) {
+  layoutMode: LayoutMode
+  scrollX: number
+  minWidth: number
+  maxWidth: number
+}) {
+  const columns = useMemo(
+    () => buildDgColumns(layoutMode, minWidth, maxWidth),
+    [layoutMode, maxWidth, minWidth],
+  )
+  const [rootRef, actionWidth] = useMeasuredColumnWidth(
+    '.dg-cell-header[data-column-key="action"]',
+    layoutMode,
+    scrollX,
+    minWidth,
+    maxWidth,
+  )
+
   return (
-    <div style={{ width: '100%', maxWidth: paneWidth }}>
+    <div ref={rootRef}>
+      <WidthStatus
+        actualWidth={actionWidth}
+        declaredLabel={`gridColumnOptions ${minWidth}-${maxWidth}px`}
+        expectedMaxWidth={maxWidth}
+        issueLabel="超过列级最大值"
+      />
       <Table<Row>
-        columns={dgColumns}
+        columns={columns}
         dataSource={data}
         pagination={false}
         size="small"
-        tableLayout={layoutMode}
+        tableLayout={layoutForTable(layoutMode)}
+        scroll={{ x: scrollX }}
+        gridOptions={{
+          columnResizeMode: 'ResizeSibling',
+        }}
       />
     </div>
   )
@@ -185,19 +454,41 @@ function LeftPane({
 
 function RightPane({
   layoutMode,
-  paneWidth,
+  scrollX,
 }: {
-    layoutMode: 'auto' | 'fixed'
-    paneWidth: number
-  }) {
+  layoutMode: LayoutMode
+  scrollX: number
+}) {
+  const columns = useMemo(() => buildAntdColumns(), [])
+  const [rootRef, actionWidth] = useMeasuredColumnWidth(
+    '.ant-table-thead > tr > th:last-child',
+    layoutMode,
+    scrollX,
+  )
+
   return (
-    <div style={{ width: '100%', maxWidth: paneWidth }}>
+    <div ref={rootRef}>
+      <WidthStatus
+        actualWidth={actionWidth}
+        declaredLabel={
+          layoutMode === 'auto'
+            ? `minWidth ${ACTION_MIN_WIDTH}px`
+            : `minWidth ${ACTION_MIN_WIDTH}px（固定布局未采用）`
+        }
+        expectedMaxWidth={ACTION_MIN_WIDTH}
+        issueLabel={
+          layoutMode === 'auto'
+            ? '被内容和 padding 撑开'
+            : '固定布局未使用 minWidth 语义'
+        }
+      />
       <AntdTable<Row>
-        columns={antdColumns}
+        columns={columns as NonNullable<TableProps<Row>['columns']>}
         dataSource={data}
         pagination={false}
         size="small"
-        tableLayout={layoutMode}
+        tableLayout={layoutForTable(layoutMode)}
+        scroll={{ x: scrollX }}
       />
     </div>
   )

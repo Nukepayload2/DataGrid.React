@@ -86,6 +86,15 @@ import { RecyclingBodyGrid } from './RecyclingBodyGrid'
 import { ColumnCells } from './FlatColumnCells'
 import { buildResizeSiblingByKey } from './resizeColumnUtils'
 
+function toResizablePixelWidth(value: number | string | undefined): number | undefined {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : undefined
+  if (typeof value !== 'string') return undefined
+  const match = value.trim().toLowerCase().match(/^(\d+(?:\.\d+)?)px$/)
+  if (!match) return undefined
+  const parsed = Number(match[1])
+  return Number.isFinite(parsed) ? parsed : undefined
+}
+
 /**
  * 自定义组件渲染（components.body.cell / components.body.row）— 详见 docs/design-notes/header.md 与 selection.md。
  *
@@ -181,8 +190,6 @@ function GridTableInner<RecordType = any>(
     rowHeight,
     headerHeight,
     resizable,
-    resizableMinWidth,
-    resizableMaxWidth,
     columnResizeMode,
     virtualizationMode,
   } = gridOptions ?? {}
@@ -339,6 +346,38 @@ function GridTableInner<RecordType = any>(
     () => buildResizeSiblingByKey(leafColumns),
     [leafColumns],
   )
+  const columnResizeMinByKey = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const column of leafColumns) {
+      const minWidth = toResizablePixelWidth(column.gridColumnOptions?.minWidth)
+      if (minWidth !== undefined) map.set(column.key, minWidth)
+    }
+    return map
+  }, [leafColumns])
+  const columnResizeMaxByKey = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const column of leafColumns) {
+      const maxWidth = toResizablePixelWidth(column.gridColumnOptions?.maxWidth)
+      if (maxWidth !== undefined) map.set(column.key, maxWidth)
+    }
+    return map
+  }, [leafColumns])
+  const resolveResizeMinWidth = useCallback(
+    (key: string) => {
+      const columnMinWidth = columnResizeMinByKey.get(key)
+      if (columnMinWidth !== undefined) return columnMinWidth
+      return 30
+    },
+    [columnResizeMinByKey],
+  )
+  const resolveResizeMaxWidth = useCallback(
+    (key: string) => {
+      const columnMaxWidth = columnResizeMaxByKey.get(key)
+      if (columnMaxWidth !== undefined) return columnMaxWidth
+      return Infinity
+    },
+    [columnResizeMaxByKey],
+  )
 
   // === 列宽拖拽调整 — 详见 docs/design-notes/column-width.md ===
   // columnResizeMode 显式配置时优先；未配置时保留 resizable=true 的旧行为（ResizeLeft）。
@@ -350,8 +389,8 @@ function GridTableInner<RecordType = any>(
     useColumnResize({
       enabled: resizeEnabled,
       mode: effectiveColumnResizeMode,
-      minWidth: resizableMinWidth,
-      maxWidth: resizableMaxWidth,
+      minWidth: resolveResizeMinWidth,
+      maxWidth: resolveResizeMaxWidth,
     })
 
   // === 固定列 sticky 偏移 — 详见 docs/design-notes/fixed-column.md ===
