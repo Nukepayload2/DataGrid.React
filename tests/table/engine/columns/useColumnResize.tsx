@@ -135,7 +135,7 @@ describe('useColumnResize', () => {
     expect(addListener).not.toHaveBeenCalledWith('pointermove', expect.any(Function))
   })
 
-  it('updates only the left column in ResizeLeft and clamps through min/max options', () => {
+  it('freezes current columns in ResizeLeft and clamps the left column through min/max options', () => {
     const onResize = vi.fn()
     const onResizeEnd = vi.fn()
     const { resizer } = renderHarness({
@@ -155,7 +155,7 @@ describe('useColumnResize', () => {
       resizer.dispatchEvent(pointer('pointermove', 200))
     })
     expect(screen.getByTestId('name-width')).toHaveTextContent('130')
-    expect(screen.getByTestId('age-width')).toHaveTextContent('')
+    expect(screen.getByTestId('age-width')).toHaveTextContent('120')
     expect(onResize).toHaveBeenLastCalledWith({
       key: 'name',
       width: 130,
@@ -167,6 +167,7 @@ describe('useColumnResize', () => {
       resizer.dispatchEvent(pointer('pointermove', 0))
     })
     expect(screen.getByTestId('name-width')).toHaveTextContent('80')
+    expect(screen.getByTestId('age-width')).toHaveTextContent('120')
     expect(onResize).toHaveBeenLastCalledWith({
       key: 'name',
       width: 80,

@@ -6,7 +6,8 @@
  *
  * 核心机制：调用方在叶子表头格右侧渲染 `dg-resizer` div 绑定 `onPointerDown(key)`；
  * pointerdown 读列实际宽（getBoundingClientRect，因列可能是 max-content 无 px props）+
- * setPointerCapture 锁定事件；pointermove 按 columnResizeMode 写入映射：
+ * setPointerCapture 锁定事件；pointermove 先把当前可见列实际宽冻结为 px 基线，
+ * 再按 columnResizeMode 写入映射：
  * - ResizeLeft：只改左侧列宽，表格宽度总和随之变化。
  * - ResizeSibling：左侧列增减、右侧相邻列反向增减，表格总宽保持不变。
  * pointerup 释放 capture。默认 min=30（防拖到 0），max=Infinity。
@@ -110,6 +111,7 @@ export function useColumnResize(
     siblingKey?: string
     startClientX: number
     startWidth: number
+    baselineWidths: Map<string, number>
     siblingStartWidth?: number
     currentWidth: number
     siblingCurrentWidth?: number
@@ -174,9 +176,19 @@ export function useColumnResize(
       const startWidth = headerCell
         ? headerCell.getBoundingClientRect().width
         : 0
+      const grid = el.closest('.dg-grid') as HTMLElement | null
+      const baselineWidths = new Map<string, number>()
+      if (grid) {
+        grid.querySelectorAll<HTMLElement>('.dg-cell-header[data-column-key]').forEach((node) => {
+          const columnKey = node.dataset.columnKey
+          const width = node.getBoundingClientRect().width
+          if (columnKey && Number.isFinite(width) && width > 0) {
+            baselineWidths.set(columnKey, width)
+          }
+        })
+      }
       let siblingStartWidth: number | undefined
       if (mode === 'ResizeSibling' && siblingKey) {
-        const grid = el.closest('.dg-grid') as HTMLElement | null
         const siblingHeaderCell = grid
           ? Array.from(
             grid.querySelectorAll<HTMLElement>('.dg-cell-header[data-column-key]'),
@@ -198,6 +210,7 @@ export function useColumnResize(
         siblingKey,
         startClientX: event.clientX,
         startWidth,
+        baselineWidths,
         siblingStartWidth,
         currentWidth: startWidth,
         siblingCurrentWidth: siblingStartWidth,
@@ -230,6 +243,9 @@ export function useColumnResize(
         drag.siblingCurrentWidth = siblingNext
         setResizedWidths((prev) => {
           const m = new Map(prev)
+          drag.baselineWidths.forEach((width, baselineKey) => {
+            m.set(baselineKey, width)
+          })
           m.set(drag.key, next)
           if (drag.siblingKey && siblingNext !== undefined) {
             m.set(drag.siblingKey, siblingNext)

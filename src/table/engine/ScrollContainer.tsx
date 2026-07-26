@@ -242,6 +242,7 @@ export function ScrollContainer(props: ScrollContainerProps): ReactNode {
       scrollContainerClassName={containerClasses}
       scrollContainerStyle={containerStyle}
       scrollContainerRef={virtualEnabled ? virtualScrollRef : undefined}
+      measurementKey={gridTemplateColumns}
       // 非 sticky 模式横向悬浮滚动条始终启用；不溢出时 thumb 自动隐藏（无视觉副作用）。
       horizontal={true}
     >

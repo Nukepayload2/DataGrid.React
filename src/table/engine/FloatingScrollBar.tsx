@@ -167,6 +167,8 @@ export interface FloatingScrollBarProps {
    * 默认 false（仅纵向悬浮条）。
    */
   horizontal?: boolean
+  /** 外部布局测量信号；变化时强制重算 thumb 几何。 */
+  measurementKey?: unknown
 }
 
 /**
@@ -208,6 +210,7 @@ export function FloatingScrollBar({
   wrapClassName,
   wrapStyle,
   horizontal = false,
+  measurementKey,
 }: FloatingScrollBarProps) {
   // 本组件内部 ref（始终绑定到包装层内的滚动容器 div）。
   const innerScrollRef = useRef<HTMLDivElement | null>(null)
@@ -526,9 +529,10 @@ export function FloatingScrollBar({
 
   // 首次挂载 useLayoutEffect：确保 thumb 几何在首屏绘制前到位（避免首帧 0 高度 thumb 闪烁）。
   // recompute 自身会读 DOM（clientHeight/scrollHeight）+ 写 DOM，必须在 layout 阶段同步跑一次。
+  // measurementKey 覆盖 CSS Grid track 改变但 border-box 不变的场景（scrollWidth 变了，RO 不一定触发）。
   useLayoutEffect(() => {
     recompute()
-  }, [recompute])
+  }, [recompute, measurementKey])
 
   // 表头高度独立 RO（Stage 5 残余优化）：仅观察表头格，捕获表头尺寸变化（列宽拖拽致换行、
   // 分组列展开/收起、locale/主题切换、数据驱动标题变化、sticky 表头场景）。表头变化 → 重测一次

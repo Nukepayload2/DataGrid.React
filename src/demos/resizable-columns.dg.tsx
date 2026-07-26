@@ -34,7 +34,6 @@ const dgColumns: ColumnType<RecordType>[] = [
     title: 'Name',
     dataIndex: 'name',
     key: 'name',
-    width: 150,
     // fixed:'start' 演示「固定列 + 可拖拽」组合——Name 钉左缘不动，
     // 拖其他列边界时 Name 的固定偏移由 useStickyColumns 的 ResizeObserver 自动重算。
     // 依据：docs/features/columns/column-width.md「与各能力组合 → 固定列」。
@@ -45,7 +44,6 @@ const dgColumns: ColumnType<RecordType>[] = [
     title: 'Age',
     dataIndex: 'age',
     key: 'age',
-    width: 80,
   },
   {
     title: 'Address',
@@ -107,10 +105,10 @@ export default function ResizableDg({
       columns={columns}
       dataSource={data}
       virtual={virtual}
-      /* `scroll.x:'max-content'` 让表格横可滚，使 Name(fixed:'start') 可见地钉在左缘。
-         虚拟开关接入：ON 时叠加 scroll.y:true（CSS 自适应 SplitDemo 400px 限高，
-         虚拟窗口才有滚动区）。 */
-      scroll={virtual ? { x: 'max-content', y: true } : { x: 'max-content' }}
+      tableLayout="fixed"
+      /* 固定布局下未声明 width 的列默认均分容器；虚拟开关 ON 时仅叠加 y:true
+         让虚拟窗口适配 SplitDemo 400px 限高。横向滚动由 ResizeLeft 拖宽后自然出现。 */
+      scroll={virtual ? { y: true } : undefined}
       pagination={false}
       gridOptions={{
         columnResizeMode,

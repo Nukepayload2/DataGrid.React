@@ -113,20 +113,20 @@ export default function ResizableDemo() {
                 手势继续移动但列宽不动，观察边界约束下的拖拽手感。
               </li>
               <li>
-                切 <code>ResizeLeft</code> → 表格总宽随手势变化（可能触发横向滚动）；
+                切 <code>ResizeLeft</code> → 表格总宽随手势变化（拖宽后可能触发横向滚动）；
                 切 <code>ResizeSibling</code> → 总宽不变，相邻列反向收缩/拉伸。
               </li>
               <li>
                 切 <code>Disabled</code> → 左栏手柄消失，视觉等同右栏 antd 静态基线，直接对照落差。
               </li>
               <li>
-                Name / Age 给了固定 <code>width</code>；Address / Tags / Description 未给 width，
-                首次拖拽后该列进入受控宽度。
+                所有列都未给 <code>width</code>；固定布局下初始列宽均分容器，
+                首次拖拽后被拖拽的列进入受控宽度。
               </li>
               <li>
                 <strong>组合观察（固定列 × 拖拽）</strong>：Name 列已设{' '}
-                <code>fixed: 'start'</code>，表格设 <code>scroll.x: 'max-content'</code>{' '}
-                横向可滚。横向滚动表体 → Name 钉在左缘不动；同时拖 Address / Tags / Description
+                <code>fixed: 'start'</code>。在 <code>ResizeLeft</code> 下拖宽列直到出现横向滚动后，
+                横向滚动表体 → Name 钉在左缘不动；同时拖 Address / Tags / Description
                 任意列边界改变宽度，固定列仍保持在左侧。
               </li>
             </ul>

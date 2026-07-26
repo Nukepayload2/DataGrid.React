@@ -209,6 +209,47 @@ describe('FloatingScrollBar', () => {
     expect(hit.releasePointerCapture).toHaveBeenCalledWith(8)
   })
 
+  it('recomputes horizontal visibility when measurementKey changes', () => {
+    vi.stubGlobal('ResizeObserver', CapturingResizeObserver)
+
+    const { rerender } = render(
+      <FloatingScrollBar horizontal scrollContainerClassName="dg-scroll" measurementKey="fit">
+        <div className="dg-grid" />
+      </FloatingScrollBar>,
+    )
+
+    const container = document.querySelector<HTMLElement>('.dg-scroll')!
+    setScrollMetrics(container, {
+      clientHeight: 100,
+      scrollHeight: 100,
+      clientWidth: 100,
+      scrollWidth: 100,
+      scrollLeft: 0,
+    })
+
+    act(() => {
+      CapturingResizeObserver.callbacks.forEach((callback) => callback([]))
+    })
+
+    const thumb = document.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb-h')!
+    expect(thumb.style.display).toBe('none')
+
+    setScrollMetrics(container, {
+      clientWidth: 100,
+      scrollWidth: 300,
+      scrollLeft: 0,
+    })
+
+    rerender(
+      <FloatingScrollBar horizontal scrollContainerClassName="dg-scroll" measurementKey="overflow">
+        <div className="dg-grid" />
+      </FloatingScrollBar>,
+    )
+
+    expect(thumb.style.display).toBe('block')
+    expect(thumb.style.width).toBe('33.33333333333333px')
+  })
+
   it('syncs visible thumbs on scroll events through requestAnimationFrame', () => {
     vi.stubGlobal('ResizeObserver', CapturingResizeObserver)
     const rafCallbacks: FrameRequestCallback[] = []
