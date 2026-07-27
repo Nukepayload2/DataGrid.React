@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Drop-in antd Table replacement. CSS Grid under the hood. Fixes the bugs antd can't — resizable columns, virtual + summary coexistence, stable empty-data widths, scoped scrollTo. Same API, same look, same tokens as antd v6.",
+  "license": "Apache-2.0",
   "keywords": [
     "antd",
     "antd-table",
