@@ -130,7 +130,7 @@ pnpm dev
 | Ant Design | Table API、设计令牌、组件视觉与生态集成方式。 | [LICENSE](https://github.com/ant-design/ant-design/blob/master/LICENSE) |
 | AG Grid Community | 数据表格交互、拖拽行为与复杂表格能力边界；仅参考 Community 版许可范围内的实现。 | [LICENSE](https://github.com/ag-grid/ag-grid/blob/latest/LICENSE.txt) |
 | React Virtuoso | 动态行高测量、虚拟窗口与滚动定位思路。 | [LICENSE](https://github.com/petyosi/react-virtuoso/blob/master/LICENSE) |
-| Lun | Web Components 表格实现与 sticky 列偏移思路。 | [LICENSE](https://github.com/lejunyang/lun/blob/main/LICENSE) |
+| Lun | 基础 CSS Grid 表格实现与 sticky 列偏移思路。 | [LICENSE](https://github.com/lejunyang/lun/blob/main/LICENSE) |
 
 ## 许可协议
 
