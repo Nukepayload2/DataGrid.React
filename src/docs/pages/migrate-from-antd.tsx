@@ -51,11 +51,11 @@ const MIGRATION_PROMPT = `# 任务
    - 悬浮滚动条策略：\`gridOptions.scrollBarFoldMode\` / \`scrollbar.visibility\`
 
 # 兼容边界
-- data-grid 不复刻原生 \`<table>\` / \`<thead>\` / \`<tbody>\` / \`<tr>\` DOM，也不伪造完整 ARIA table / row / rowgroup role 树。
+- data-grid 不复刻原生 \`<table>\` / \`<thead>\` / \`<tbody>\` / \`<tr>\` DOM，也不提供完整 ARIA table / row / rowgroup role 树。
 - \`scroll.y\` 不支持 antd 的 number / string 滚动高度语义。
 - \`components\` 目前仅暴露 \`body.cell\` / \`body.row\`，不提供 \`header.cell\` / \`wrapper\` / \`table\`。
 - RTL 尚未系统支持。
-- 已 deprecated 的 antd 字段不必保留，例如 \`column.filterDropdownOpen\` / \`column.onFilterDropdownOpenChange\`。
+- 已过时（deprecated）的 antd 字段不必保留，例如 \`column.filterDropdownOpen\` / \`column.onFilterDropdownOpenChange\`。
 
 # 工作方式
 1. 先阅读待迁移文件，列出当前 antd Table 的使用点：import、类型、columns、rowSelection、expandable、pagination、scroll、components、render、onCell、相关样式选择器等。
@@ -154,7 +154,6 @@ export function renderMigration(_ctx: DocsPageContext) {
     <>
       <DocSection
         id="step-1"
-        eyebrow="步骤 1"
         title="先接入 data-grid"
         description="把 antd Table 的 import 和类型 import 切到 data-grid；多数 ColumnsType、Table.Column 和 Table.ColumnGroup 写法可直接保留，列对齐值按 data-grid 类型调整。"
       >
@@ -163,7 +162,6 @@ export function renderMigration(_ctx: DocsPageContext) {
 
       <DocSection
         id="step-2"
-        eyebrow="步骤 2"
         title="改滚动高度"
         description="把 antd 的 scroll.y 数字或字符串改成 data-grid 的 y:true；表格会占满父容器提供的可用空间，不再传高度值。"
       >
@@ -182,7 +180,6 @@ export function renderMigration(_ctx: DocsPageContext) {
 
       <DocSection
         id="prompt"
-        eyebrow="迁移提示词"
         title="复制给 AI 的迁移提示词"
         description="这段提示词可以直接复制给 AI，用来批量处理同类文件。"
       >
@@ -197,7 +194,6 @@ export function renderMigration(_ctx: DocsPageContext) {
 
       <DocSection
         id="deprecated-members"
-        eyebrow="迁移前检查"
         title="核对过时 antd Table 成员"
         description="迁移前先检查业务代码是否依赖 antd 已标记过时的成员。data-grid 对这类入口只保留迁移兼容，不作为新代码推荐写法。"
       >

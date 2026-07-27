@@ -150,7 +150,7 @@ export const docs: DocEntry[] = [
     slug: 'styling-and-theme',
     group: '功能指南',
     title: '样式和主题',
-    description: '本页讲清如何用 antd token 做全局主题、用语义槽位做局部覆盖，并指向主题编辑器 demo。',
+    description: '本页讲清如何用 antd 令牌 做全局主题、用语义槽位做局部覆盖，并指向主题编辑器 demo。',
     sections: [
       { id: 'overview', title: '样式入口' },
       { id: 'theme-code', title: 'ConfigProvider token' },
@@ -163,7 +163,7 @@ export const docs: DocEntry[] = [
     slug: 'semantic-dom',
     group: '功能指南',
     title: 'Semantic DOM',
-    description: '本页列出 classNames / styles 的 13 个语义槽位、对应的 DOM 落点，以及 a11y 属性的兼容状态。',
+    description: '本页列出 classNames / styles 的 13 个语义槽位、对应的 DOM 位置，以及 a11y 属性的兼容状态。',
     sections: [
       { id: 'slots', title: 'Semantic DOM 槽位矩阵' },
       { id: 'a11y', title: 'a11y 属性兼容矩阵' },
@@ -218,7 +218,7 @@ export const docs: DocEntry[] = [
     slug: 'deprecated-antd-members',
     group: '参考',
     title: '过时 antd Table 成员',
-    description: '本页逐条说明 antd Table 已标记 deprecated 的成员、旧写法，以及 data-grid 对它们的迁移兼容处理。',
+    description: '本页逐条说明 antd Table 已标记过时（deprecated）的成员、旧写法，以及 data-grid 对它们的迁移兼容处理。',
     sections: [
       { id: 'policy', title: '迁移策略' },
       { id: 'members', title: '过时成员支持状态' },

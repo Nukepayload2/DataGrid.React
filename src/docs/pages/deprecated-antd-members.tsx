@@ -81,12 +81,11 @@ export function renderDeprecatedAntdMembers({ onOpen }: DocsPageContext) {
     <>
       <DocSection
         id="policy"
-        eyebrow="迁移策略"
         title="只为迁移保留，不作为新代码入口"
         description="data-grid 优先兼容 antd v6 当前公共 API。对 antd 已标记为 deprecated 的成员，data-grid 会根据迁移价值分别处理：能继续承接的保留兼容，语义对不上的降级或忽略，并在下方逐条说明。"
       >
         <DocsNote title="本页与兼容矩阵的分工">
-          本页逐条列出具体 deprecated 成员的支持状态、data-grid 行为和迁移动作——回答「用了 X 该改成什么」。如果想看某个 API 领域整体是「完全 / 部分 / 未暴露」，去兼容矩阵；同一主题不在两页重复展开。
+          本页逐条列出具体过时成员的支持状态、data-grid 行为和迁移动作——回答「用了 X 该改成什么」。如果想看某个 API 领域整体是「完全 / 部分 / 未暴露」，去兼容矩阵；同一主题不在两页重复展开。
         </DocsNote>
         <DocsNote title="判定方式">
           旧成员如果依赖原生 <Text code>table/tr/td</Text> DOM，data-grid 只保留可表达的语义；
@@ -96,7 +95,6 @@ export function renderDeprecatedAntdMembers({ onOpen }: DocsPageContext) {
 
       <DocSection
         id="members"
-        eyebrow="成员"
         title="过时成员支持状态"
         description="这里列的是源码当前实际暴露或消费的旧入口。未暴露项不会被业务代码当作 data-grid API 使用。"
       >
@@ -115,7 +113,6 @@ export function renderDeprecatedAntdMembers({ onOpen }: DocsPageContext) {
 
       <DocSection
         id="dom"
-        eyebrow="DOM 差异"
         title="旧写法常和原生表格 DOM 绑定"
         description="data-grid 的主体是 CSS Grid div 结构，不存在完整 table/tr/td 层级。"
       >
@@ -127,7 +124,7 @@ export function renderDeprecatedAntdMembers({ onOpen }: DocsPageContext) {
         </ul>
       </DocSection>
 
-      <DocSection id="related" eyebrow="关联" title="继续核对">
+      <DocSection id="related" title="继续核对">
         <DocsActionList
           actions={[
             { label: '领域级兼容状态（兼容矩阵）', kind: 'doc', value: 'compat-matrix' },

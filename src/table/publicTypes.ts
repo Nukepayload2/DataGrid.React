@@ -220,7 +220,7 @@ export interface TableProps<RecordType = any> {
      * - `standard`（默认）：普通虚拟滚动，React 正常渲染当前窗口。
      * - `recycling`：启用 DOM/slot 复用路径，适合超大数据量和高频滚动。
      *
-     * 仅在 `virtual` 且 `scroll={{ y: true }}` 时生效。启用 recycling 后，自定义 cell 的逃逸舱（escape-hatch）渲染
+     * 仅在 `virtual` 且 `scroll={{ y: true }}` 时生效。启用 recycling 后，自定义 cell 的底层渲染
      * 应通过 `column.gridColumnOptions.renderCellElement/renderCellReact/disposeCellElement` 配置。
      */
     virtualizationMode?: VirtualizationMode

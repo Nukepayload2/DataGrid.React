@@ -25,7 +25,7 @@ const limitationRows: GapRow[] = [
 export function renderKnownLimitations({ onOpen }: DocsPageContext) {
   return (
     <>
-      <DocSection id="boundaries" eyebrow="边界" title="架构边界和兼容缺口">
+      <DocSection id="boundaries" title="架构边界和兼容缺口">
         <DocsDataGrid<GapRow>
           columns={[
             { title: '主题', dataIndex: 'topic', key: 'topic', width: '22%' },
@@ -36,10 +36,10 @@ export function renderKnownLimitations({ onOpen }: DocsPageContext) {
           rowKey="key"
         />
         <DocsNote title="本页与兼容矩阵 / 过时成员页的分工">
-          本页回答「data-grid 在架构层有哪些边界与 backlog」——DOM 形态、ARIA、RTL、scroll.y 数字语义、components 替换范围等。想看某个 API 领域整体兼容到什么程度，去兼容矩阵；想看具体某个 deprecated 成员怎么改，去过时成员页。
+          本页回答「data-grid 在架构层有哪些边界与 backlog」——DOM 形态、ARIA、RTL、scroll.y 数字语义、components 替换范围等。想看某个 API 领域整体兼容到什么程度，去兼容矩阵；想看具体某个过时成员怎么改，去过时成员页。
         </DocsNote>
       </DocSection>
-      <DocSection id="backlog" eyebrow="Backlog" title="可实施兼容项">
+      <DocSection id="backlog" title="可实施兼容项">
         <ul className="docs-bullet-list">
           <li><Text code>expandable.columnTitle</Text>、<Text code>expandable.fixed</Text></li>
           <li><Text code>column.filtered</Text>、<Text code>column.sortIcon</Text>、<Text code>column.filterResetToDefaultFilteredValue</Text></li>
@@ -48,7 +48,7 @@ export function renderKnownLimitations({ onOpen }: DocsPageContext) {
           <li><Text code>sticky.offsetSummary</Text></li>
         </ul>
       </DocSection>
-      <DocSection id="related" eyebrow="相关" title="相关边界细节页">
+      <DocSection id="related" title="相关边界细节页">
         <DocsActionList
           actions={[
             { label: 'scroll.y 语义', kind: 'doc', value: 'scroll-y' },

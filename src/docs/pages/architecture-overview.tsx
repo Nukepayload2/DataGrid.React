@@ -9,7 +9,6 @@ export function renderArchitecture() {
     <>
       <DocSection
         id="layers"
-        eyebrow="系统分层"
         title="四层职责"
         description="data-grid 的目标是用 CSS Grid 重做 antd Table，并保持 antd v6 的 React API 和 token 生态尽量可迁移。"
       >
@@ -29,7 +28,7 @@ export function renderArchitecture() {
         />
       </DocSection>
 
-      <DocSection id="boundaries" eyebrow="产品边界" title="什么自研，什么复用">
+      <DocSection id="boundaries" title="什么自研，什么复用">
         <ul className="docs-bullet-list">
           <li>表格核心自研：多级表头、固定列、合并、虚拟滚动、排序、筛选、选择、展开。</li>
           <li>非表格核心复用 antd：Pagination、Spin、Tooltip、Dropdown、Empty 及其它通用控件。</li>

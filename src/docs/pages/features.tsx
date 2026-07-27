@@ -14,7 +14,7 @@ const featureRows: OverviewRow[] = [
     key: 'columns',
     area: '列',
     purpose:
-      '列宽、固定列、隐藏列、响应式列与列默认值都收敛到 ColumnType 同一个列定义上配置，不需要切换 API 面；data-grid 专属列级能力（拖拽锁定、recycling 虚拟化逃逸舱回调）归 gridColumnOptions。',
+      '列宽、固定列、隐藏列、响应式列与列默认值都集中在 ColumnType 这一份列定义上，不需要换 API；data-grid 专属列级能力（拖拽锁定、recycling 虚拟化自定义渲染回调）归 gridColumnOptions。',
     entry: 'Column API · gridOptions',
   },
   {
@@ -45,7 +45,6 @@ export function renderFeatures({ onOpen }: DocsPageContext) {
     <>
       <DocSection
         id="overview"
-        eyebrow="能力总览"
         title="data-grid 能力清单"
         description="data-grid 的能力按 4 个域组织：列、布局、交互、API 扩展点。下表是每个域的一句话说明与主要入口；具体 demo 与参考页在下方按域分组列出。"
       >
@@ -60,7 +59,7 @@ export function renderFeatures({ onOpen }: DocsPageContext) {
         />
       </DocSection>
 
-      <DocSection id="demos" eyebrow="demo" title="按能力域分类的 demo 入口">
+      <DocSection id="demos" title="按能力域分类的 demo 入口">
         <p>
           <Text strong>列</Text>：列宽、固定列、隐藏列与列默认值等列级能力。
         </p>
@@ -108,7 +107,7 @@ export function renderFeatures({ onOpen }: DocsPageContext) {
         />
       </DocSection>
 
-      <DocSection id="references" eyebrow="交叉参考" title="相关文档">
+      <DocSection id="references" title="相关文档">
         <DocsActionList
           actions={[
             { label: 'Table API', kind: 'doc', value: 'table-api' },

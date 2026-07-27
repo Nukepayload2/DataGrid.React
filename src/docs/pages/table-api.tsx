@@ -14,9 +14,8 @@ export function renderTableApi({ onOpen }: DocsPageContext) {
     <>
       <DocSection
         id="table-props"
-        eyebrow="表格"
         title="Table props"
-        description="本页列出 Table 可用 props。每条属性都带稳定锚点，可在页面内或外链深指。"
+        description="本页列出 Table 可用 props。每条属性都带稳定锚点，可在页内定位、也可从外部深链过来。"
       >
         <ApiRefTable
           members={getApiMembers('table')}
@@ -27,7 +26,6 @@ export function renderTableApi({ onOpen }: DocsPageContext) {
       </DocSection>
       <DocSection
         id="table-ref"
-        eyebrow="ref"
         title="TableRef"
         description="ref 句柄成员。与 antd Table ref.scrollTo 接口对齐，并额外暴露根节点。"
       >
@@ -39,7 +37,7 @@ export function renderTableApi({ onOpen }: DocsPageContext) {
         />
       </DocSection>
 
-      <DocSection id="static" eyebrow="静态属性" title="Table 静态入口">
+      <DocSection id="static" title="Table 静态入口">
         <ul className="docs-bullet-list">
           <li><Text code>Table.Column</Text> / <Text code>Table.ColumnGroup</Text></li>
           <li><Text code>Table.EXPAND_COLUMN</Text> / <Text code>Table.SELECTION_COLUMN</Text></li>

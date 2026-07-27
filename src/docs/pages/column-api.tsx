@@ -9,7 +9,6 @@ export function renderColumnApi({ onOpen }: DocsPageContext) {
   return (
     <DocSection
       id="column-props"
-      eyebrow="列"
       title="Column props"
       description="本页列出 ColumnType 可用字段。data-grid 专属列级能力归入 gridColumnOptions，参考 gridOptions 页。"
     >

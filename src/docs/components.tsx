@@ -37,7 +37,6 @@ interface DocArticleProps {
 
 interface DocSectionProps {
   id: string
-  eyebrow?: string
   title: string
   description?: ReactNode
   children: ReactNode

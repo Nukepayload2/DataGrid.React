@@ -98,7 +98,6 @@ export function renderPublicApi({ onOpen }: DocsPageContext) {
     <>
       <DocSection
         id="exports"
-        eyebrow="入口"
         title="主入口导出"
         description="本页列出从包主入口可以导入的组件、工具和类型。"
       >
@@ -122,9 +121,8 @@ export function renderPublicApi({ onOpen }: DocsPageContext) {
 
       <DocSection
         id="native"
-        eyebrow="命名空间"
         title="data-grid 专属 API 入口"
-        description="antd 没有的能力统一进入 gridOptions 或 gridColumnOptions；下面是两个公开入口，完整字段见 gridOptions 参考页。"
+        description="antd 没有的能力统一收进 gridOptions / gridColumnOptions；下面是两个公开入口，完整字段见 gridOptions 参考页。"
       >
         <DocsNote title="行 / 列拖拽排序">
           拖拽排序通过 <Text code>gridOptions.rowDragSort</Text> 和

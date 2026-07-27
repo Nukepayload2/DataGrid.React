@@ -76,16 +76,6 @@ export const GLOSSARY = {
   },
 
   /**
-   * gridColumnOptions 中的低层渲染回调（renderCellElement / renderCellReact /
-   * disposeCellElement）。统一叫「逃逸舱（escape-hatch）」，不再裸用「低层 hook」。
-   */
-  escapeHatch: {
-    canonical: '逃逸舱（escape-hatch）',
-    summary: '面向特定渲染路径开放的低层回调；常规业务无需触碰。',
-    avoid: ['低层 hook（裸用）', '内部 hook', '低层渲染 hook（裸用）'],
-  },
-
-  /**
    * data-grid 与 antd v6 同名同义字段所在的 API 面（TableProps / ColumnType 顶层）。
    * 统一叫「兼容 API」，避免「适配层」（适配层暗示内部桥接，不是用户该感知的概念）。
    */

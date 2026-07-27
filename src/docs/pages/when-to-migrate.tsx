@@ -269,7 +269,6 @@ export function renderWhenToMigrate(_ctx: DocsPageContext) {
     <>
       <DocSection
         id="fit"
-        eyebrow="适合迁移"
         title="data-grid 能明显赢过 antd Table 的场景"
         description="data-grid 不是 antd Table 的全量替代，而是在特定场景下做了取舍的继任者。下面这些场景是 data-grid 的强项，迁移收益最直接。"
       >
@@ -308,7 +307,6 @@ export function renderWhenToMigrate(_ctx: DocsPageContext) {
 
       <DocSection
         id="pain-to-cure"
-        eyebrow="痛点 → 解药"
         title="antd Table 常见痛点，data-grid 怎么解"
         description="这里整理的是迁移收益更直接、业务方更容易感知的 antd Table 痛点。展开后可以看到 antd 的具体表现、data-grid 的做法，以及可以直接打开的对照 demo。"
       >
@@ -330,7 +328,6 @@ export function renderWhenToMigrate(_ctx: DocsPageContext) {
 
       <DocSection
         id="cost"
-        eyebrow="迁移成本"
         title="迁移前先看成本"
         description="在常见表格场景中，data-grid 延续了 antd Table 的主要 props 与类型形态；但它不是对 antd 历史行为的逐字复刻。迁移前应先确认以下差异，避免把架构取舍误判为实现缺口。"
       >
@@ -344,7 +341,6 @@ export function renderWhenToMigrate(_ctx: DocsPageContext) {
 
       <DocSection
         id="adjust"
-        eyebrow="迁移成本"
         title="需要同步调整的部分"
         description="下面这些写法需要一起改，才能把 antd Table 的旧语义完整换成 data-grid 的写法。"
       >
@@ -363,20 +359,19 @@ export function renderWhenToMigrate(_ctx: DocsPageContext) {
 
       <DocSection
         id="avoid"
-        eyebrow="不支持的场景"
         title="这些场景 data-grid 明确不做或未系统支持"
         description="data-grid 有清晰的边界。下面这些场景迁过来会撞墙——要么改业务方预期，要么留到 backlog 解决。"
       >
         <ul className="docs-bullet-list">
           <li>
-            <Text strong>架构边界 / 兼容缺口</Text>：data-grid 不复刻原生 table / thead / tbody / tr DOM、不伪造完整 ARIA table / row / rowgroup role 树、
+            <Text strong>架构边界 / 兼容缺口</Text>：data-grid 不复刻原生 table / thead / tbody / tr DOM、不提供完整 ARIA table / row / rowgroup role 树、
             <Text code>scroll.y</Text> 不接受数字 / 字符串 max-height、RTL 未系统支持、
             <Text code>components</Text> 仅暴露 <Text code>body.cell</Text> / <Text code>body.row</Text>（无 header.cell / wrapper / table）。详见{' '}
             <a href="#/docs/known-limitations">已知限制页</a>。
           </li>
           <li>
-            <Text strong>依赖大量 deprecated antd 成员</Text>：例如
-            <Text code>column.filterDropdownOpen</Text> / <Text code>column.onFilterDropdownOpenChange</Text> 等已 deprecated 字段未暴露；旧
+            <Text strong>依赖大量过时成员</Text>：例如
+            <Text code>column.filterDropdownOpen</Text> / <Text code>column.onFilterDropdownOpenChange</Text> 等已过时字段未暴露；旧
             <Text code>render</Text> 返回的 <Text code>props</Text> 字段会被忽略。
           </li>
           <li>
@@ -385,7 +380,7 @@ export function renderWhenToMigrate(_ctx: DocsPageContext) {
         </ul>
       </DocSection>
 
-      <DocSection id="next" eyebrow="继续" title="相关参考">
+      <DocSection id="next" title="相关参考">
         <ul className="docs-bullet-list">
           <li>
             如果你已经决定开始迁移，先看 <a href="#/docs/migrate-from-antd">如何从 antd Table 迁移</a>。

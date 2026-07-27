@@ -16,7 +16,6 @@ export function renderIntro({ onOpen }: DocsPageContext) {
     <>
       <DocSection
         id="what-is"
-        eyebrow="data-grid 是什么"
         title="用 CSS Grid 重做的 React 表格组件"
         description="data-grid 面向复杂业务表格：保留接近 antd Table 的 React API，同时补齐大数据量虚拟滚动、列宽拖拽、行/列拖拽排序、多级表头、合并单元格和固定列等常用组合能力。"
       >
@@ -33,7 +32,6 @@ export function renderIntro({ onOpen }: DocsPageContext) {
 
       <DocSection
         id="minimal"
-        eyebrow="最小例子"
         title="一段代码跑通最小表格"
         description="columns + dataSource + 稳定 rowKey 三件套就能跑通；下方代码可直接编辑，活预览实时反映修改。"
       >
@@ -48,7 +46,6 @@ export function renderIntro({ onOpen }: DocsPageContext) {
 
       <DocSection
         id="paths"
-        eyebrow="下一步"
         title="选一条主路径继续"
         description="两条路径覆盖最常见的两种使用场景；按当前需要选一条即可。"
       >
@@ -63,7 +60,6 @@ export function renderIntro({ onOpen }: DocsPageContext) {
 
       <DocSection
         id="glossary"
-        eyebrow="术语"
         title="术语速查"
         description="本站用到的关键术语统一写法；遇到同物异名时以这里为准。"
       >
