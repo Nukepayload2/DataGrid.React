@@ -202,18 +202,19 @@ export function useGridScrollSync({
   const onStickyViewportWheel = useCallback(
     (event: React.WheelEvent<HTMLDivElement>) => {
       if (!stickyEnabled) return
-      const maxScroll = getStickyMaxScroll(stickyViewportRef.current, gridRef.current)
-      if (maxScroll <= 1) return
       const rawDelta = Math.abs(event.deltaX) > 0
         ? event.deltaX
         : event.shiftKey
           ? event.deltaY
           : 0
       if (Math.abs(rawDelta) <= 0.5) return
+      event.preventDefault()
+
+      const maxScroll = getStickyMaxScroll(stickyViewportRef.current, gridRef.current)
+      if (maxScroll <= 1) return
       const current = clampScrollLeft(stickyScrollLeft, maxScroll)
       const next = clampScrollLeft(current + rawDelta, maxScroll)
       if (next === current) return
-      event.preventDefault()
       cancelStickyTouchInertia()
       setStickyScrollLeftValue(next)
     },

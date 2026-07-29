@@ -2,9 +2,24 @@ import { defineConfig, configDefaults } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { viteSingleFile } from 'vite-plugin-singlefile'
 
+const ignoredWatchPaths = [
+  '**/.git/**',
+  '**/.vs/**',
+  '**/coverage/**',
+  '**/dist/**',
+  '**/dist-docs/**',
+  '**/node_modules/**',
+  '**/tmp/**',
+]
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), viteSingleFile()],
+  server: {
+    watch: {
+      ignored: ignoredWatchPaths,
+    },
+  },
   test: {
     environment: 'jsdom',
     setupFiles: './tests/setup.ts',

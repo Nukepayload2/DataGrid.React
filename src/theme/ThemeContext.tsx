@@ -83,6 +83,14 @@ export interface ThemeContextValue {
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
+const SYSTEM_DARK_QUERY = '(prefers-color-scheme: dark)'
+
+function getSystemThemeMode(): ThemeMode {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+    return 'light'
+  }
+  return window.matchMedia(SYSTEM_DARK_QUERY).matches ? 'dark' : 'light'
+}
 
 /**
  * 消费全局主题 store。
@@ -102,13 +110,31 @@ export interface ThemeProviderProps {
 
 /** 提供主题模式与 token overrides，并同步配置到 antd ConfigProvider。 */
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  const [themeMode, setThemeModeState] = useState<ThemeMode>('light')
+  const [themeMode, setThemeModeState] = useState<ThemeMode>(getSystemThemeMode)
+  const [explicitThemeMode, setExplicitThemeMode] = useState(false)
   const [globalOverrides, setGlobalOverrides] = useState<GlobalOverrides>({})
   const [tableOverrides, setTableOverrides] = useState<TableOverrides>({})
 
   const setThemeMode = useCallback((mode: ThemeMode) => {
+    setExplicitThemeMode(true)
     setThemeModeState(mode)
   }, [])
+
+  useEffect(() => {
+    if (explicitThemeMode) return
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return
+
+    const media = window.matchMedia(SYSTEM_DARK_QUERY)
+    const syncSystemTheme = (event: MediaQueryListEvent) => {
+      setThemeModeState(event.matches ? 'dark' : 'light')
+    }
+
+    setThemeModeState(media.matches ? 'dark' : 'light')
+    media.addEventListener('change', syncSystemTheme)
+    return () => {
+      media.removeEventListener('change', syncSystemTheme)
+    }
+  }, [explicitThemeMode])
 
   const setGlobalToken = useCallback(
     <K extends GlobalTokenKey>(

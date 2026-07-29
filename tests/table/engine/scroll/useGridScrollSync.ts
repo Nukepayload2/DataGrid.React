@@ -193,7 +193,7 @@ describe('useGridScrollSync', () => {
       expect(ev.preventDefault).not.toHaveBeenCalled()
     })
 
-    it('maxScroll ≤ 1（grid 不溢出）→ no-op', () => {
+    it('maxScroll ≤ 1（grid 不溢出）→ 阻断横向默认手势但不更新 state', () => {
       // viewport=200, grid scrollWidth=200 → maxScroll=0
       const { result } = render({
         stickyViewportRef: makeRef<HTMLDivElement>({ clientWidth: 200 } as HTMLDivElement),
@@ -202,7 +202,7 @@ describe('useGridScrollSync', () => {
       const ev = makeWheel({ deltaX: 100 })
       act(() => result.current.onStickyViewportWheel(ev))
       expect(result.current.stickyScrollLeft).toBe(0)
-      expect(ev.preventDefault).not.toHaveBeenCalled()
+      expect(ev.preventDefault).toHaveBeenCalledTimes(1)
     })
 
     it('|rawDelta| ≤ 0.5 → no-op（噪声 wheel）', () => {
@@ -222,7 +222,7 @@ describe('useGridScrollSync', () => {
       expect(ev.preventDefault).not.toHaveBeenCalled()
     })
 
-    it('next === current（已到边界，clamp 后无增量）→ no-op', () => {
+    it('next === current（已到边界，clamp 后无增量）→ 阻断横向默认手势但不更新 state', () => {
       // maxScroll=300，stickyScrollLeft 已经=300，wheel 右滚 +50 → clamp 仍是 300 → no-op
       const { result } = render({
         stickyViewportRef: makeRef<HTMLDivElement>({ clientWidth: 200 } as HTMLDivElement),
@@ -232,7 +232,7 @@ describe('useGridScrollSync', () => {
       const ev = makeWheel({ deltaX: 50 })
       act(() => result.current.onStickyViewportWheel(ev))
       expect(result.current.stickyScrollLeft).toBe(300)
-      expect(ev.preventDefault).not.toHaveBeenCalled()
+      expect(ev.preventDefault).toHaveBeenCalledTimes(1)
     })
   })
 
@@ -301,7 +301,7 @@ describe('useGridScrollSync', () => {
       expect(result.current.stickyScrollLeft).toBe(300)
     })
 
-    it('refs.current=null → getStickyMaxScroll 返回 0 → maxScroll≤1 短路', () => {
+    it('refs.current=null → 阻断横向默认手势但不更新 state', () => {
       const { result } = render({
         stickyViewportRef: makeRef<HTMLDivElement>(null),
         gridRef: makeRef<HTMLDivElement>(null),
@@ -309,7 +309,7 @@ describe('useGridScrollSync', () => {
       const ev = makeWheel({ deltaX: 50 })
       act(() => result.current.onStickyViewportWheel(ev))
       expect(result.current.stickyScrollLeft).toBe(0)
-      expect(ev.preventDefault).not.toHaveBeenCalled()
+      expect(ev.preventDefault).toHaveBeenCalledTimes(1)
     })
 
     it('累积滚动：多次小 wheel 累加（每次增量生效）', () => {
