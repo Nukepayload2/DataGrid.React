@@ -88,7 +88,7 @@
       "type": "{ x?: true | number | string; y?: true; scrollToFirstRowOnChange?: boolean }",
       "required": false,
       "advanced": false,
-      "summary": "滚动配置。\n\n- `x`：横向滚动配置。`true` 仅开启横向滚动；number→px、string→原样作 min-width。\n  启用横向滚动时额外渲染**横向悬浮滚动条**，定位在数据区域底部（summary 上方），\n  替换原生横向滚动条。\n- `y`：纵向滚动语义（**仅 `true | undefined`，不支持数字**）。\n    - `true`：**数据区域模式**——表头固定 + 表体滚动 + 纵向悬浮滚动条；\n      表体高度 CSS 自动适应，填满表格可用高度。\n        * 调用方需确保 Table 父容器有明确高度（固定 height / flex / 100vh 等），\n          否则表体高度退化为内容自然高（视觉等价 undefined，但表头仍按 sticky 定位）。\n    - `undefined`（缺省）：表格整体（无固定表头，内容全展开，无表体滚动区，零回归）。\n    - **不支持数字**：旧 demo 用 `scroll={{ y: <number> }}` 的语义（max-height=number）已废弃，\n      迁移到 `true`（CSS 自动适应高度）。\n- `scrollToFirstRowOnChange`：分页、排序、筛选变化后是否滚回首行。默认 `true`（对齐 antd），\n  可设 `false` 保持当前滚动位置。"
+      "summary": "滚动配置。\n\n- `x`：横向滚动配置。`true` 仅开启横向滚动；number→px、string→原样作 min-width。\n  启用横向滚动时额外渲染**横向悬浮滚动条**，定位在数据区域底部（summary 上方），\n  替换原生横向滚动条。\n- `y`：纵向滚动语义（**仅 `true | undefined`，不支持数字**）。\n    - `true`：**数据区域模式**——表头固定 + 表体滚动 + 纵向悬浮滚动条；\n      表体高度 CSS 自动适应，填满表格可用高度。\n        * 调用方需确保 Table 父容器有明确高度（固定 height / flex / 100vh 等），\n          否则表体高度退化为内容自然高（视觉等价 undefined，但表头仍按 sticky 定位）。\n    - `undefined`（缺省）：表格整体（无固定表头，内容全展开，无表体滚动区，零回归）。\n    - **不支持数字**：旧 demo 用 `scroll={{ y: <number> }}` 指定滚动区域高度的写法已废弃，\n      迁移到 `true`（CSS 自动适应高度）。\n- `scrollToFirstRowOnChange`：分页、排序、筛选变化后是否滚回首行。默认 `true`（对齐 antd），\n  可设 `false` 保持当前滚动位置。"
     },
     {
       "name": "virtual",
@@ -111,8 +111,8 @@
     {
       "name": "gridOptions",
       "kind": "prop",
-      "signature": "gridOptions?: {\n    /** 行高约定。虚拟模式下未测量行以该值作为兜底；非虚拟固定行高场景用作行高的取值。 */\n    rowHeight?: number | ((record: RecordType, index: number) => number)\n    /**\n     * 虚拟渲染模式。\n     *\n     * - `standard`（默认）：普通虚拟滚动，React 正常渲染当前窗口。\n     * - `recycling`：启用 DOM/slot 复用路径，适合超大数据量和高频滚动。\n     *\n     * 仅在 `virtual` 且 `scroll={{ y: true }}` 时生效。启用 recycling 后，自定义 cell 的底层渲染\n     * 应通过 `column.gridColumnOptions.renderCellElement/renderCellReact/disposeCellElement` 配置。\n     */\n    virtualizationMode?: VirtualizationMode\n    /** 有界行高下限；需与 `maxRowHeight` 同时设置才启用有界模型。 */\n    minRowHeight?: number\n    /** 有界行高上限；需与 `minRowHeight` 同时设置才启用有界模型。 */\n    maxRowHeight?: number\n    /** 表头行高约定。多级表头下每一层表头使用同一高度。 */\n    headerHeight?: number | string\n    /** 是否启用列宽拖拽。`true` 且未设置 `columnResizeMode` 时等同 `ResizeLeft`。 */\n    resizable?: boolean\n    /** 列宽拖拽模式：禁用、只改左侧列、或左右兄弟列联动。 */\n    columnResizeMode?: 'Disabled' | 'ResizeLeft' | 'ResizeSibling'\n    /**\n     * 悬浮滚动条折叠/显示策略。\n     *\n     * 默认保持滚动条指示器可见，并在 hover hit 区时展开；打开 `showOnTableHover` 后，\n     * 仅 hover 表格、hover 滚动条 hit 区或触摸表格后显示滚动条/指示器。\n     */\n    scrollBarFoldMode?: ScrollBarFoldMode\n    /**\n     * data-grid 原生行选择配置。\n     *\n     * 与 antd `rowSelection` 的关系：\n     * - `gridOptions.selection` 是 data-grid 原生能力命名空间，优先级高于兼容 API。\n     * - `rowSelection` 仍保留 antd 兼容 API（renderCell/getCheckboxProps/selections/onChange...）。\n     * - 受控优先级：`selectedValues` > `defaultSelectedValues` >\n     *   `rowSelection.selectedRowKeys` > `rowSelection.defaultSelectedRowKeys`。\n     * - 同时传 `selectedValues` 与 `selectedRowKeys`：UI 以 `selectedValues` 为准；触发时仍尽量同时\n     *   调 `onSelectedValuesChange` 与 `rowSelection.onChange`。\n     */\n    selection?: GridSelectionOptions<RecordType>\n    /**\n     * 行拖拽排序。\n     *\n     * 传入对象并提供 `onSort` 后启用。拖拽结束时回调当前渲染数据的新顺序，调用方通常在回调内\n     * `setDataSource(next)`。`handleSelector` 可把拖拽限定到手柄元素；不传则整行可拖。\n     */\n    rowDragSort?: {\n      enabled?: boolean\n      handleSelector?: string\n      selectedRowKeys?: Array<import('react').Key>\n      multiRowReorder?: boolean\n      autoScroll?: boolean\n      onSort: (nextDataSource: Array<RecordType>) => void\n    }\n    /**\n     * 列拖拽排序。\n     *\n     * 传入对象并提供 `onSort` 后启用。拖拽结束时回调当前列数组的新顺序，调用方通常在回调内\n     * `setColumns(next)`。全局开关可用 `columnReorder=false`，单列锁定用\n     * `column.gridColumnOptions.dragColumnLock`。\n     */\n    columnDragSort?: {\n      enabled?: boolean\n      autoScroll?: boolean\n      onSort: (nextColumns: Array<ColumnOrSentinel<RecordType>>) => void\n    }\n    /**\n     * 拖拽行/列到容器边缘时自动滚动容器。\n     *\n     * `rowDragSort.autoScroll` / `columnDragSort.autoScroll` 未设置时使用本表级默认值。\n     */\n    autoScrollOnDrag?: boolean\n    /**\n     * 列拖拽换位（列重排）全局开关。\n     *\n     * `false` 时禁用列拖拽；默认允许。仅在 `columnDragSort` 启用时有意义。\n     */\n    columnReorder?: boolean\n    /**\n     * 多行成块重排开关。\n     *\n     * `rowDragSort.multiRowReorder` 未设置时使用本表级默认值。默认开启。\n     */\n    multiRowReorder?: boolean\n  }",
-      "type": "{\n    /** 行高约定。虚拟模式下未测量行以该值作为兜底；非虚拟固定行高场景用作行高的取值。 */\n    rowHeight?: number | ((record: RecordType, index: number) => number)\n    /**\n     * 虚拟渲染模式。\n     *\n     * - `standard`（默认）：普通虚拟滚动，React 正常渲染当前窗口。\n     * - `recycling`：启用 DOM/slot 复用路径，适合超大数据量和高频滚动。\n     *\n     * 仅在 `virtual` 且 `scroll={{ y: true }}` 时生效。启用 recycling 后，自定义 cell 的底层渲染\n     * 应通过 `column.gridColumnOptions.renderCellElement/renderCellReact/disposeCellElement` 配置。\n     */\n    virtualizationMode?: VirtualizationMode\n    /** 有界行高下限；需与 `maxRowHeight` 同时设置才启用有界模型。 */\n    minRowHeight?: number\n    /** 有界行高上限；需与 `minRowHeight` 同时设置才启用有界模型。 */\n    maxRowHeight?: number\n    /** 表头行高约定。多级表头下每一层表头使用同一高度。 */\n    headerHeight?: number | string\n    /** 是否启用列宽拖拽。`true` 且未设置 `columnResizeMode` 时等同 `ResizeLeft`。 */\n    resizable?: boolean\n    /** 列宽拖拽模式：禁用、只改左侧列、或左右兄弟列联动。 */\n    columnResizeMode?: 'Disabled' | 'ResizeLeft' | 'ResizeSibling'\n    /**\n     * 悬浮滚动条折叠/显示策略。\n     *\n     * 默认保持滚动条指示器可见，并在 hover hit 区时展开；打开 `showOnTableHover` 后，\n     * 仅 hover 表格、hover 滚动条 hit 区或触摸表格后显示滚动条/指示器。\n     */\n    scrollBarFoldMode?: ScrollBarFoldMode\n    /**\n     * data-grid 原生行选择配置。\n     *\n     * 与 antd `rowSelection` 的关系：\n     * - `gridOptions.selection` 是 data-grid 原生能力命名空间，优先级高于兼容 API。\n     * - `rowSelection` 仍保留 antd 兼容 API（renderCell/getCheckboxProps/selections/onChange...）。\n     * - 受控优先级：`selectedValues` > `defaultSelectedValues` >\n     *   `rowSelection.selectedRowKeys` > `rowSelection.defaultSelectedRowKeys`。\n     * - 同时传 `selectedValues` 与 `selectedRowKeys`：UI 以 `selectedValues` 为准；触发时仍尽量同时\n     *   调 `onSelectedValuesChange` 与 `rowSelection.onChange`。\n     */\n    selection?: GridSelectionOptions<RecordType>\n    /**\n     * 行拖拽排序。\n     *\n     * 传入对象并提供 `onSort` 后启用。拖拽结束时回调当前渲染数据的新顺序，调用方通常在回调内\n     * `setDataSource(next)`。`handleSelector` 可把拖拽限定到手柄元素；不传则整行可拖。\n     */\n    rowDragSort?: {\n      enabled?: boolean\n      handleSelector?: string\n      selectedRowKeys?: Array<Key>\n      multiRowReorder?: boolean\n      autoScroll?: boolean\n      onSort: (nextDataSource: Array<RecordType>) => void\n    }\n    /**\n     * 列拖拽排序。\n     *\n     * 传入对象并提供 `onSort` 后启用。拖拽结束时回调当前列数组的新顺序，调用方通常在回调内\n     * `setColumns(next)`。全局开关可用 `columnReorder=false`，单列锁定用\n     * `column.gridColumnOptions.dragColumnLock`。\n     */\n    columnDragSort?: {\n      enabled?: boolean\n      autoScroll?: boolean\n      onSort: (nextColumns: Array<ColumnOrSentinel<RecordType>>) => void\n    }\n    /**\n     * 拖拽行/列到容器边缘时自动滚动容器。\n     *\n     * `rowDragSort.autoScroll` / `columnDragSort.autoScroll` 未设置时使用本表级默认值。\n     */\n    autoScrollOnDrag?: boolean\n    /**\n     * 列拖拽换位（列重排）全局开关。\n     *\n     * `false` 时禁用列拖拽；默认允许。仅在 `columnDragSort` 启用时有意义。\n     */\n    columnReorder?: boolean\n    /**\n     * 多行成块重排开关。\n     *\n     * `rowDragSort.multiRowReorder` 未设置时使用本表级默认值。默认开启。\n     */\n    multiRowReorder?: boolean\n  }",
+      "signature": "gridOptions?: {\r\n    /** 行高约定。虚拟模式下未测量行以该值作为兜底；非虚拟固定行高场景用作行高的取值。 */\r\n    rowHeight?: number | ((record: RecordType, index: number) => number)\r\n    /**\r\n     * 虚拟渲染模式。\r\n     *\r\n     * - `standard`（默认）：普通虚拟滚动，React 正常渲染当前窗口。\r\n     * - `recycling`：启用 DOM/slot 复用路径，适合超大数据量和高频滚动。\r\n     *\r\n     * 仅在 `virtual` 且 `scroll={{ y: true }}` 时生效。启用 recycling 后，自定义 cell 的底层渲染\r\n     * 应通过 `column.gridColumnOptions.renderCellElement/renderCellReact/disposeCellElement` 配置。\r\n     */\r\n    virtualizationMode?: VirtualizationMode\r\n    /** 有界行高下限；需与 `maxRowHeight` 同时设置才启用有界模型。 */\r\n    minRowHeight?: number\r\n    /** 有界行高上限；需与 `minRowHeight` 同时设置才启用有界模型。 */\r\n    maxRowHeight?: number\r\n    /** 表头行高约定。多级表头下每一层表头使用同一高度。 */\r\n    headerHeight?: number | string\r\n    /** 是否启用列宽拖拽。`true` 且未设置 `columnResizeMode` 时等同 `ResizeLeft`。 */\r\n    resizable?: boolean\r\n    /** 列宽拖拽模式：禁用、只改左侧列、或左右兄弟列联动。 */\r\n    columnResizeMode?: 'Disabled' | 'ResizeLeft' | 'ResizeSibling'\r\n    /**\r\n     * 悬浮滚动条折叠/显示策略。\r\n     *\r\n     * 默认保持滚动条指示器可见，并在 hover hit 区时展开；打开 `showOnTableHover` 后，\r\n     * 仅 hover 表格、hover 滚动条 hit 区或触摸表格后显示滚动条/指示器。\r\n     */\r\n    scrollBarFoldMode?: ScrollBarFoldMode\r\n    /**\r\n     * data-grid 原生行选择配置。\r\n     *\r\n     * 与 antd `rowSelection` 的关系：\r\n     * - `gridOptions.selection` 是 data-grid 原生能力命名空间，优先级高于兼容 API。\r\n     * - `rowSelection` 仍保留 antd 兼容 API（renderCell/getCheckboxProps/selections/onChange...）。\r\n     * - 受控优先级：`selectedValues` > `defaultSelectedValues` >\r\n     *   `rowSelection.selectedRowKeys` > `rowSelection.defaultSelectedRowKeys`。\r\n     * - 同时传 `selectedValues` 与 `selectedRowKeys`：UI 以 `selectedValues` 为准；触发时仍尽量同时\r\n     *   调 `onSelectedValuesChange` 与 `rowSelection.onChange`。\r\n     */\r\n    selection?: GridSelectionOptions<RecordType>\r\n    /**\r\n     * 行拖拽排序。\r\n     *\r\n     * 传入对象并提供 `onSort` 后启用。拖拽结束时回调当前渲染数据的新顺序，调用方通常在回调内\r\n     * `setDataSource(next)`。`handleSelector` 可把拖拽限定到手柄元素；不传则整行可拖。\r\n     */\r\n    rowDragSort?: {\r\n      enabled?: boolean\r\n      handleSelector?: string\r\n      selectedRowKeys?: Array<import('react').Key>\r\n      multiRowReorder?: boolean\r\n      autoScroll?: boolean\r\n      onSort: (nextDataSource: Array<RecordType>) => void\r\n    }\r\n    /**\r\n     * 列拖拽排序。\r\n     *\r\n     * 传入对象并提供 `onSort` 后启用。拖拽结束时回调当前列数组的新顺序，调用方通常在回调内\r\n     * `setColumns(next)`。全局开关可用 `columnReorder=false`，单列锁定用\r\n     * `column.gridColumnOptions.dragColumnLock`。\r\n     */\r\n    columnDragSort?: {\r\n      enabled?: boolean\r\n      autoScroll?: boolean\r\n      onSort: (nextColumns: Array<ColumnOrSentinel<RecordType>>) => void\r\n    }\r\n    /**\r\n     * 拖拽行/列到容器边缘时自动滚动容器。\r\n     *\r\n     * `rowDragSort.autoScroll` / `columnDragSort.autoScroll` 未设置时使用本表级默认值。\r\n     */\r\n    autoScrollOnDrag?: boolean\r\n    /**\r\n     * 列拖拽换位（列重排）全局开关。\r\n     *\r\n     * `false` 时禁用列拖拽；默认允许。仅在 `columnDragSort` 启用时有意义。\r\n     */\r\n    columnReorder?: boolean\r\n    /**\r\n     * 多行成块重排开关。\r\n     *\r\n     * `rowDragSort.multiRowReorder` 未设置时使用本表级默认值。默认开启。\r\n     */\r\n    multiRowReorder?: boolean\r\n  }",
+      "type": "{\r\n    /** 行高约定。虚拟模式下未测量行以该值作为兜底；非虚拟固定行高场景用作行高的取值。 */\r\n    rowHeight?: number | ((record: RecordType, index: number) => number)\r\n    /**\r\n     * 虚拟渲染模式。\r\n     *\r\n     * - `standard`（默认）：普通虚拟滚动，React 正常渲染当前窗口。\r\n     * - `recycling`：启用 DOM/slot 复用路径，适合超大数据量和高频滚动。\r\n     *\r\n     * 仅在 `virtual` 且 `scroll={{ y: true }}` 时生效。启用 recycling 后，自定义 cell 的底层渲染\r\n     * 应通过 `column.gridColumnOptions.renderCellElement/renderCellReact/disposeCellElement` 配置。\r\n     */\r\n    virtualizationMode?: VirtualizationMode\r\n    /** 有界行高下限；需与 `maxRowHeight` 同时设置才启用有界模型。 */\r\n    minRowHeight?: number\r\n    /** 有界行高上限；需与 `minRowHeight` 同时设置才启用有界模型。 */\r\n    maxRowHeight?: number\r\n    /** 表头行高约定。多级表头下每一层表头使用同一高度。 */\r\n    headerHeight?: number | string\r\n    /** 是否启用列宽拖拽。`true` 且未设置 `columnResizeMode` 时等同 `ResizeLeft`。 */\r\n    resizable?: boolean\r\n    /** 列宽拖拽模式：禁用、只改左侧列、或左右兄弟列联动。 */\r\n    columnResizeMode?: 'Disabled' | 'ResizeLeft' | 'ResizeSibling'\r\n    /**\r\n     * 悬浮滚动条折叠/显示策略。\r\n     *\r\n     * 默认保持滚动条指示器可见，并在 hover hit 区时展开；打开 `showOnTableHover` 后，\r\n     * 仅 hover 表格、hover 滚动条 hit 区或触摸表格后显示滚动条/指示器。\r\n     */\r\n    scrollBarFoldMode?: ScrollBarFoldMode\r\n    /**\r\n     * data-grid 原生行选择配置。\r\n     *\r\n     * 与 antd `rowSelection` 的关系：\r\n     * - `gridOptions.selection` 是 data-grid 原生能力命名空间，优先级高于兼容 API。\r\n     * - `rowSelection` 仍保留 antd 兼容 API（renderCell/getCheckboxProps/selections/onChange...）。\r\n     * - 受控优先级：`selectedValues` > `defaultSelectedValues` >\r\n     *   `rowSelection.selectedRowKeys` > `rowSelection.defaultSelectedRowKeys`。\r\n     * - 同时传 `selectedValues` 与 `selectedRowKeys`：UI 以 `selectedValues` 为准；触发时仍尽量同时\r\n     *   调 `onSelectedValuesChange` 与 `rowSelection.onChange`。\r\n     */\r\n    selection?: GridSelectionOptions<RecordType>\r\n    /**\r\n     * 行拖拽排序。\r\n     *\r\n     * 传入对象并提供 `onSort` 后启用。拖拽结束时回调当前渲染数据的新顺序，调用方通常在回调内\r\n     * `setDataSource(next)`。`handleSelector` 可把拖拽限定到手柄元素；不传则整行可拖。\r\n     */\r\n    rowDragSort?: {\r\n      enabled?: boolean\r\n      handleSelector?: string\r\n      selectedRowKeys?: Array<Key>\r\n      multiRowReorder?: boolean\r\n      autoScroll?: boolean\r\n      onSort: (nextDataSource: Array<RecordType>) => void\r\n    }\r\n    /**\r\n     * 列拖拽排序。\r\n     *\r\n     * 传入对象并提供 `onSort` 后启用。拖拽结束时回调当前列数组的新顺序，调用方通常在回调内\r\n     * `setColumns(next)`。全局开关可用 `columnReorder=false`，单列锁定用\r\n     * `column.gridColumnOptions.dragColumnLock`。\r\n     */\r\n    columnDragSort?: {\r\n      enabled?: boolean\r\n      autoScroll?: boolean\r\n      onSort: (nextColumns: Array<ColumnOrSentinel<RecordType>>) => void\r\n    }\r\n    /**\r\n     * 拖拽行/列到容器边缘时自动滚动容器。\r\n     *\r\n     * `rowDragSort.autoScroll` / `columnDragSort.autoScroll` 未设置时使用本表级默认值。\r\n     */\r\n    autoScrollOnDrag?: boolean\r\n    /**\r\n     * 列拖拽换位（列重排）全局开关。\r\n     *\r\n     * `false` 时禁用列拖拽；默认允许。仅在 `columnDragSort` 启用时有意义。\r\n     */\r\n    columnReorder?: boolean\r\n    /**\r\n     * 多行成块重排开关。\r\n     *\r\n     * `rowDragSort.multiRowReorder` 未设置时使用本表级默认值。默认开启。\r\n     */\r\n    multiRowReorder?: boolean\r\n  }",
       "required": false,
       "advanced": false,
       "summary": "data-grid 专属 grid 布局选项（有界行高模型 + 列宽拖拽 + 表头行高 + 行/列拖拽排序）。\n\n**与 antd 不兼容**：antd `Table` 没有 `rowHeight` / `minRowHeight` / `maxRowHeight` /\n`headerHeight` / `resizable` 等概念（antd 行高随内容、无原生列宽拖拽），此命名空间仅\ndata-grid 消费。原顶层 `rowHeight`/`headerHeight`/`resizable` 全部迁入 `gridOptions`\n（删顶层、无 alias、无向后兼容）。列宽 min/max 约束属于列级能力，使用\n`column.gridColumnOptions.minWidth/maxWidth`。\n\n- `rowHeight`：行高约定（数字 → 固定 px；函数 → 按行返回 px）。默认 56（虚拟）。\n- `minRowHeight` / `maxRowHeight`：**同时设置**时启用「有界行高模型」——行高随内容\n  在 [min, max] 区间自适应，固定列/合并单元格/多级表头仍跨可变高行保持对齐。\n  仅设其一（缺 min 或 max）→ 退化为固定行高（等同不设）。\n- `headerHeight`：表头行高约定（数字 px 或字符串 CSS 长度）。多级表头下所有表头行统一高度。\n- `resizable`：列宽拖拽调整兼容开关。`true` 且未配置 `columnResizeMode` 时等同\n  `columnResizeMode: 'ResizeLeft'`。默认 `false`（零回归）。\n- `columnResizeMode`：列宽拖拽模式。`Disabled` 禁用；`ResizeLeft` 只改变分隔线左侧列宽，\n  表格宽度总和随之变化；`ResizeSibling` 同时改变左右相邻列宽，保持总宽不变。\n  最后一个可见叶子列右侧不渲染 resizer。\n- 列宽约束：使用 `column.gridColumnOptions.minWidth/maxWidth`，布局和拖拽共用同一套列级约束。\n- `rowDragSort` / `columnDragSort`：公开拖拽排序入口。业务方通过回调提交新的 dataSource / columns。"
@@ -192,8 +192,8 @@
     {
       "name": "onChange",
       "kind": "method",
-      "signature": "onChange?: (\n    pagination: TablePaginationState,\n    filters: Record<string, Array<FilterValue> | null>,\n    sorter: SorterResult<RecordType> | Array<SorterResult<RecordType>>,\n    extra: TableCurrentDataSource<RecordType>,\n  ) => void",
-      "type": "(\n    pagination: TablePaginationState,\n    filters: Record<string, Array<FilterValue> | null>,\n    sorter: SorterResult<RecordType> | Array<SorterResult<RecordType>>,\n    extra: TableCurrentDataSource<RecordType>,\n  ) => void",
+      "signature": "onChange?: (\r\n    pagination: TablePaginationState,\r\n    filters: Record<string, Array<FilterValue> | null>,\r\n    sorter: SorterResult<RecordType> | Array<SorterResult<RecordType>>,\r\n    extra: TableCurrentDataSource<RecordType>,\r\n  ) => void",
+      "type": "(\r\n    pagination: TablePaginationState,\r\n    filters: Record<string, Array<FilterValue> | null>,\r\n    sorter: SorterResult<RecordType> | Array<SorterResult<RecordType>>,\r\n    extra: TableCurrentDataSource<RecordType>,\r\n  ) => void",
       "required": false,
       "advanced": false,
       "summary": "排序/筛选/分页变化的统一回调。\n\n对齐 antd `TableProps.onChange(pagination, filters, sorter, extra)`：\n  - `pagination`：当前实际分页状态 `{ current, pageSize, total }`（注入实际值；\n    对齐 antd：onChange 的 pagination 始终反映当前分页，无论触发源是 sort/filter/paginate）。\n    未启用分页（`pagination={false}`）时传 `{ current: 1, pageSize: <全量>, total: <长度> }`。\n  - `filters`：筛选状态。形态 `{ [columnKey/dataIndex]: filteredValue[] | null }`：\n    * **可筛选列**（有 `filters` + `onFilter`）出现为 key；值为当前激活的筛选值数组（命中任一保留）。\n    * 无激活筛选的列值为 `null`（对齐 antd：未筛选列在 filters 对象里值为 null）。\n    * 不可筛选列不出现为 key。\n  - `sorter`：排序结果。对齐 antd 的\"对象/数组\"二分语义：\n    - **0 个激活排序列**：单个对象 `{ column, order: null, field, columnKey }`\n      （调用方可判 `order == null` 视为\"无排序\"）。\n    - **1 个激活排序列**：单个 `SorterResult` 对象 `{ column, order, field, columnKey }`。\n    - **>=2 个激活排序列（多列排序）**：`SorterResult[]` 数组，按 `sorter.multiple` 升序\n      （multiple 最小 = 最高优先级在前）。仅含 `order != null` 的列。\n  - `extra`：`{ currentDataSource, action }`。`action` 取值 `'sort'`（排序）/`'filter'`/\n    `'paginate'`。`currentDataSource`：\n    * sort：排序后（受控为传入）数据源。\n    * filter：**排序+筛选后**数据源（raw → sort → filter；受控为传入）。\n    * paginate：分页**前**的当前页数据源（即排序+筛选后的全量，不含分页切片——与 antd 一致：\n      antd onChange 的 currentDataSource 是分页前的全量渲染数据）。\n\n点击排序列表头 / 应用筛选 / 翻页/改 pageSize 时触发。"
@@ -264,8 +264,8 @@
     {
       "name": "onHeaderRow",
       "kind": "method",
-      "signature": "onHeaderRow?: (\n    columns: Array<ColumnType<RecordType>>,\n    index: number,\n  ) => import('react').HTMLAttributes<HTMLElement> | undefined",
-      "type": "(\n    columns: Array<ColumnType<RecordType>>,\n    index: number,\n  ) => HTMLAttributes<HTMLElement> | undefined",
+      "signature": "onHeaderRow?: (\r\n    columns: Array<ColumnType<RecordType>>,\r\n    index: number,\r\n  ) => import('react').HTMLAttributes<HTMLElement> | undefined",
+      "type": "(\r\n    columns: Array<ColumnType<RecordType>>,\r\n    index: number,\r\n  ) => HTMLAttributes<HTMLElement> | undefined",
       "required": false,
       "advanced": false,
       "summary": "表头**行** props 注入。\n\n签名 `(columns, index) => React.HTMLAttributes`：\n  - `columns`：该表头行涉及的列（单层表头 = 全部 columns；多级表头 = 该层的分组列集合）。\n  - `index`：表头行号（单层表头恒 0；多级表头 0=顶层分组, maxDepth-1=叶子层）。\n  - 返回值整体作为该表头**行**的 HTML 属性（onClick/onDoubleClick/.../className/style）。\n\n**data-grid 行为**：onHeaderRow 返回值应用到该表头行的所有表头格：\n  - 事件类（onClick/onMouseEnter/...）：点击该表头行任一表头格即触发（行为等价\"点击表头行\"）。\n  - className / style：合并到该表头行每个表头格。\n\n典型用法（对齐 antd 文档 onRow 用法）：\n```tsx\n<Table onHeaderRow={(columns, index) => ({ onClick: () => {...} })} />\n```\n\n未提供（undefined）时不注入（零回归）。\n\n同名同义于 antd v6 `TableProps.onHeaderRow`。"
@@ -273,8 +273,8 @@
     {
       "name": "onRow",
       "kind": "method",
-      "signature": "onRow?: (\n    record: RecordType,\n    index: number,\n  ) => import('react').HTMLAttributes<HTMLElement> | undefined",
-      "type": "(\n    record: RecordType,\n    index: number,\n  ) => HTMLAttributes<HTMLElement> | undefined",
+      "signature": "onRow?: (\r\n    record: RecordType,\r\n    index: number,\r\n  ) => import('react').HTMLAttributes<HTMLElement> | undefined",
+      "type": "(\r\n    record: RecordType,\r\n    index: number,\r\n  ) => HTMLAttributes<HTMLElement> | undefined",
       "required": false,
       "advanced": false,
       "summary": "表体**行** props 注入。\n\n签名 `(record, index) => React.HTMLAttributes`：\n  - `record`：该行数据。\n  - `index`：该行在 dataSource 中的索引。\n  - 返回值整体作为该表体**行**的 HTML 属性（onClick/onDoubleClick/onContextMenu/onMouseEnter/onMouseLeave/...）。\n\n**data-grid 行为**：onRow 返回值应用到该行的所有数据单元格：\n  - 事件类（onClick/onMouseEnter/...）：点击该行任一单元格即触发（行为等价\"点击该行\"）。\n    * ★ 与内置 hover 区分：onRow.onMouseEnter/onMouseLeave 会**覆盖**内置 hover 高亮；\n      若需同时保留 hover，请在自定义 handler 内自行处理视觉，或用 `rowHoverable=false`\n      关闭内置 hover 避免冲突。\n  - className / style：合并到该行每个单元格。\n\n典型用法（对齐 antd 文档 onRow 用法）：\n```tsx\n<Table onRow={(record, rowIndex) => ({\n  onClick: (event) => {},\n  onDoubleClick: (event) => {},\n  onContextMenu: (event) => {},\n  onMouseEnter: (event) => {},\n  onMouseLeave: (event) => {},\n})} />\n```\n\n**与 components.body.row 关系**：两者正交——components.body.row 提供包裹层组件\n（Form/Context），onRow 提供事件 props。可同时使用：onRow props 在无 body.row 时透传到单元格；\n有 body.row 时 onRow 不自动透传到 body.row 组件（body.row 是用户自定义组件，应由用户自行\n处理事件）。\n\n未提供（undefined）时不注入（零回归）。\n\n同名同义于 antd v6 `TableProps.onRow`。"
@@ -320,8 +320,8 @@
     {
       "name": "scrollTo",
       "kind": "method",
-      "signature": "scrollTo: (config: {\n    index?: number\n    key?: import('react').Key\n    scrollTop?: number\n    /** antd 同名字段（与 `scrollTop` 等价别名）。 */\n    top?: number\n    offset?: number\n    align?: 'start' | 'center' | 'end' | 'nearest'\n    /** data-grid 专属：平滑滚动行为。 */\n    behavior?: 'auto' | 'smooth'\n  }) => void",
-      "type": "(config: {\n    index?: number\n    key?: Key\n    scrollTop?: number\n    /** antd 同名字段（与 `scrollTop` 等价别名）。 */\n    top?: number\n    offset?: number\n    align?: 'start' | 'center' | 'end' | 'nearest'\n    /** data-grid 专属：平滑滚动行为。 */\n    behavior?: 'auto' | 'smooth'\n  }) => void",
+      "signature": "scrollTo: (config: {\r\n    index?: number\r\n    key?: import('react').Key\r\n    scrollTop?: number\r\n    /** antd 同名字段（与 `scrollTop` 等价别名）。 */\r\n    top?: number\r\n    offset?: number\r\n    align?: 'start' | 'center' | 'end' | 'nearest'\r\n    /** data-grid 专属：平滑滚动行为。 */\r\n    behavior?: 'auto' | 'smooth'\r\n  }) => void",
+      "type": "(config: {\r\n    index?: number\r\n    key?: Key\r\n    scrollTop?: number\r\n    /** antd 同名字段（与 `scrollTop` 等价别名）。 */\r\n    top?: number\r\n    offset?: number\r\n    align?: 'start' | 'center' | 'end' | 'nearest'\r\n    /** data-grid 专属：平滑滚动行为。 */\r\n    behavior?: 'auto' | 'smooth'\r\n  }) => void",
       "required": true,
       "advanced": false,
       "summary": "滚动到目标位置。与 antd `Table ref.scrollTo` 兼容，额外支持 `scrollTop` 别名。\n\n- `index` / `key` / `scrollTop`（或 antd 同名 `top`）三选一：\n    - `index: number`：滚到第 index 行。\n    - `key: React.Key`：滚到 rowKey === key 的行（自动解析为 index）。\n    - `scrollTop: number` / `top: number`：直接滚到指定 scrollTop。\n- `offset`：目标行顶部对齐后再额外偏移（向下为正）。\n- `align`：'start'（默认）| 'center' | 'end' | 'nearest'。虚拟模式下不支持 'center' 时\n  退化为 'start'（与 antd 行为一致）。'nearest'：目标行已完全在可视区时**不滚动**（不跳），\n  仅当上方不可见→按 start、下方不可见→按 end。\n- `behavior`：'auto'（默认，瞬时）| 'smooth'（平滑动画到位）。**data-grid 专属**\n  （antd 无此字段）。\n\nsmooth 下会在到达目标位置或触达边界后结束动画。"
@@ -421,8 +421,8 @@
     {
       "name": "rowDragSort",
       "kind": "prop",
-      "signature": "rowDragSort?: {\n      enabled?: boolean\n      handleSelector?: string\n      selectedRowKeys?: Array<import('react').Key>\n      multiRowReorder?: boolean\n      autoScroll?: boolean\n      onSort: (nextDataSource: Array<RecordType>) => void\n    }",
-      "type": "{\n      enabled?: boolean\n      handleSelector?: string\n      selectedRowKeys?: Array<Key>\n      multiRowReorder?: boolean\n      autoScroll?: boolean\n      onSort: (nextDataSource: Array<RecordType>) => void\n    }",
+      "signature": "rowDragSort?: {\r\n      enabled?: boolean\r\n      handleSelector?: string\r\n      selectedRowKeys?: Array<import('react').Key>\r\n      multiRowReorder?: boolean\r\n      autoScroll?: boolean\r\n      onSort: (nextDataSource: Array<RecordType>) => void\r\n    }",
+      "type": "{\r\n      enabled?: boolean\r\n      handleSelector?: string\r\n      selectedRowKeys?: Array<Key>\r\n      multiRowReorder?: boolean\r\n      autoScroll?: boolean\r\n      onSort: (nextDataSource: Array<RecordType>) => void\r\n    }",
       "required": false,
       "advanced": false,
       "summary": "行拖拽排序。\n\n传入对象并提供 `onSort` 后启用。拖拽结束时回调当前渲染数据的新顺序，调用方通常在回调内\n`setDataSource(next)`。`handleSelector` 可把拖拽限定到手柄元素；不传则整行可拖。"
@@ -430,8 +430,8 @@
     {
       "name": "columnDragSort",
       "kind": "prop",
-      "signature": "columnDragSort?: {\n      enabled?: boolean\n      autoScroll?: boolean\n      onSort: (nextColumns: Array<ColumnOrSentinel<RecordType>>) => void\n    }",
-      "type": "{\n      enabled?: boolean\n      autoScroll?: boolean\n      onSort: (nextColumns: Array<ColumnOrSentinel<RecordType>>) => void\n    }",
+      "signature": "columnDragSort?: {\r\n      enabled?: boolean\r\n      autoScroll?: boolean\r\n      onSort: (nextColumns: Array<ColumnOrSentinel<RecordType>>) => void\r\n    }",
+      "type": "{\r\n      enabled?: boolean\r\n      autoScroll?: boolean\r\n      onSort: (nextColumns: Array<ColumnOrSentinel<RecordType>>) => void\r\n    }",
       "required": false,
       "advanced": false,
       "summary": "列拖拽排序。\n\n传入对象并提供 `onSort` 后启用。拖拽结束时回调当前列数组的新顺序，调用方通常在回调内\n`setColumns(next)`。全局开关可用 `columnReorder=false`，单列锁定用\n`column.gridColumnOptions.dragColumnLock`。"
@@ -549,8 +549,8 @@
     {
       "name": "onHeaderCell",
       "kind": "method",
-      "signature": "onHeaderCell?: (\n    column: ColumnType<RecordType>,\n    index: number,\n  ) => import('react').HTMLAttributes<HTMLElement> | undefined",
-      "type": "(\n    column: ColumnType<RecordType>,\n    index: number,\n  ) => HTMLAttributes<HTMLElement> | undefined",
+      "signature": "onHeaderCell?: (\r\n    column: ColumnType<RecordType>,\r\n    index: number,\r\n  ) => import('react').HTMLAttributes<HTMLElement> | undefined",
+      "type": "(\r\n    column: ColumnType<RecordType>,\r\n    index: number,\r\n  ) => HTMLAttributes<HTMLElement> | undefined",
       "required": false,
       "advanced": false,
       "summary": "表头格 props 注入。\n\n签名 `(column, index) => React.HTMLAttributes`：\n  - `column`：该列表头格对应的原始 antd 列定义（调用方一般不读，直接返回固定 props）。\n  - `index`：表头行号（单层表头恒 0；多级表头按行号）。\n  - 返回值整体合并到表头格 div 的 props（className/style/onClick/... 与 onCell 同款透传）。\n\n**与 antd 一致**：返回值合并到 `<th>`（data-grid 是表头格 div）；典型用法为列拖拽（drag-column-sorting demo\n  `onHeaderCell: () => ({ id: ... })` 注入 dnd 标识）、表头点击交互等。\n\n**与 onCell 对称**：onCell 注入数据格，onHeaderCell 注入表头格。\n\n未提供（undefined）时不注入（零回归）。\n\n同名同义于 antd v6 `column.onHeaderCell`。"
@@ -720,8 +720,8 @@
     {
       "name": "filterDropdown",
       "kind": "prop",
-      "signature": "filterDropdown?:\n    | React.ReactNode\n    | ((props: FilterDropdownProps) => React.ReactNode)",
-      "type": "| React.ReactNode\n    | ((props: FilterDropdownProps) => React.ReactNode)",
+      "signature": "filterDropdown?:\r\n    | React.ReactNode\r\n    | ((props: FilterDropdownProps) => React.ReactNode)",
+      "type": "| React.ReactNode\r\n    | ((props: FilterDropdownProps) => React.ReactNode)",
       "required": false,
       "advanced": false,
       "summary": "自定义筛选下拉面板。\n\n**语义**：传入即**取代**内置 Checkbox/Radio 下拉。data-grid 把它渲染进 antd Dropdown 的\npopupRender，并按 antd 兼容签名注入 props（`selectedKeys`/`setSelectedKeys`/`confirm`/\n`clearFilters`/`visible`/`close`/`prefixCls`/`filters`）。调用方在面板内自绘搜索框、\n自定义勾选 UI 等，通过 `confirm`/`clearFilters` 与 data-grid 交互（onFilter 仍按选中 keys 过滤）。\n\n也可传 ReactNode（非函数）——此时直接渲染为下拉内容，无法获得 confirm 等 props（与 antd 一致）。\n一般用法是函数。\n\n与 `onFilter` 关系：自定义面板只是替换**下拉 UI**；实际过滤仍由 `onFilter` 完成\n（filterDropdown 的 selectedKeys 经 confirm 应用为 filteredValue）。\n故即使使用 filterDropdown，仍须提供 `onFilter`。\n\n与内置 `filters` 关系：filterDropdown 存在时不渲染内置 Checkbox/Radio（即使同时配置了\n`filters` 也忽略其 UI——但 filters 仍可用于 onChange 的 filters 形态来源等）。\n同名同义于 antd `column.filterDropdown`。"
@@ -756,8 +756,8 @@
     {
       "name": "filterSearch",
       "kind": "prop",
-      "signature": "filterSearch?:\n    | true\n    | ((input: string, record: ColumnFilterItem) => boolean)",
-      "type": "| true\n    | ((input: string, record: ColumnFilterItem) => boolean)",
+      "signature": "filterSearch?:\r\n    | true\r\n    | ((input: string, record: ColumnFilterItem) => boolean)",
+      "type": "| true\r\n    | ((input: string, record: ColumnFilterItem) => boolean)",
       "required": false,
       "advanced": false,
       "summary": "筛选项搜索。\n\n对**内置下拉面板**生效（menu 模式：Checkbox.Group/Radio.Group 顶部渲染搜索框过滤扁平项；\ntree 模式：antd `<Tree filterTreeNode>` 过滤树节点）；自定义面板（`filterDropdown`）不消费此字段。\n\n取值：\n  - `true`：默认匹配。item.text 转字符串后 **trim + toLowerCase**，**包含**输入（trim+toLowerCase）即命中\n    （对齐 antd FilterSearch 默认 `searchValueMatched`）。\n  - `(input, record) => boolean`：自定义匹配。`input` 为已 normalize 的输入（trim+toLowerCase，\n    与 antd 一致——antd 在 menu 模式传 `normalizedSearchValue`），`record` 为筛选项\n    `{ text, value, children? }`（与 `ColumnFilterItem` 同构）。返回 true 表示该项保留显示。\n  - `false` / undefined：不渲染搜索框（默认）。\n\n输入为空时显示全部筛选项（不过滤）。\n关闭下拉时清空搜索值（对齐 antd `useEffect[visible]` 清空；下次打开为空）。\n\nmenu 模式（默认）与 tree 模式（`filterMode='tree'`）均消费 filterSearch：\n  - menu：过滤扁平筛选项列表（命中保留）。\n  - tree：过滤树节点（命中保留 + 保留祖先链维持结构，对齐 antd `Tree.filterTreeNode`）。\n同名同义于 antd `column.filterSearch`。"
@@ -812,8 +812,8 @@
     {
       "name": "renderCellElement",
       "kind": "method",
-      "signature": "renderCellElement?: (\n    params: GridCellElementRenderParams<RecordType>,\n    oldElement: HTMLElement | undefined,\n  ) => HTMLElement",
-      "type": "(\n    params: GridCellElementRenderParams<RecordType>,\n    oldElement: HTMLElement | undefined,\n  ) => HTMLElement",
+      "signature": "renderCellElement?: (\r\n    params: GridCellElementRenderParams<RecordType>,\r\n    oldElement: HTMLElement | undefined,\r\n  ) => HTMLElement",
+      "type": "(\r\n    params: GridCellElementRenderParams<RecordType>,\r\n    oldElement: HTMLElement | undefined,\r\n  ) => HTMLElement",
       "required": false,
       "advanced": true,
       "summary": "HTMLElement 渲染回调，仅在 recycling 模式下使用。\n\n`oldElement` 是上一轮可复用的元素；可返回它并自行更新 DOM，也可返回新元素。返回的元素由\ndata-grid 接管定位和生命周期。不要在这里读取 React state 闭包后长期缓存，滚动复用会让同一\nelement 对应不同 record。"
@@ -821,8 +821,8 @@
     {
       "name": "renderCellReact",
       "kind": "method",
-      "signature": "renderCellReact?: (\n    params: GridCellRenderParams<RecordType>,\n    slot: GridCellReactSlotProps,\n  ) => ReactElement | null",
-      "type": "(\n    params: GridCellRenderParams<RecordType>,\n    slot: GridCellReactSlotProps,\n  ) => ReactElement | null",
+      "signature": "renderCellReact?: (\r\n    params: GridCellRenderParams<RecordType>,\r\n    slot: GridCellReactSlotProps,\r\n  ) => ReactElement | null",
+      "type": "(\r\n    params: GridCellRenderParams<RecordType>,\r\n    slot: GridCellReactSlotProps,\r\n  ) => ReactElement | null",
       "required": false,
       "advanced": true,
       "summary": "recycling cell 的 React slot 渲染回调。\n\n返回的 ReactElement 必须使用 `slot.key` 作为 key；返回 null 表示该格无 React 内容。\n适合仍想写 React 内容、但希望由 recycling 路径控制外层 cell 复用的场景。"
@@ -830,8 +830,8 @@
     {
       "name": "disposeCellElement",
       "kind": "method",
-      "signature": "disposeCellElement?: (\n    element: HTMLElement,\n    reason: DisposeCellElementReason,\n    params: GridCellElementRenderParams<RecordType> | undefined,\n  ) => void",
-      "type": "(\n    element: HTMLElement,\n    reason: DisposeCellElementReason,\n    params: GridCellElementRenderParams<RecordType> | undefined,\n  ) => void",
+      "signature": "disposeCellElement?: (\r\n    element: HTMLElement,\r\n    reason: DisposeCellElementReason,\r\n    params: GridCellElementRenderParams<RecordType> | undefined,\r\n  ) => void",
+      "type": "(\r\n    element: HTMLElement,\r\n    reason: DisposeCellElementReason,\r\n    params: GridCellElementRenderParams<RecordType> | undefined,\r\n  ) => void",
       "required": false,
       "advanced": true,
       "summary": "`renderCellElement` 创建的 HTMLElement 被释放时调用。\n\n用于清理事件监听、第三方 widget 或外部资源。只清理自己创建的副作用，不要修改表格其它 DOM。"
@@ -886,8 +886,8 @@
     {
       "name": "onSelectedValuesChange",
       "kind": "method",
-      "signature": "onSelectedValuesChange?: (\n    selectedValues: Array<GridSelectionValue>,\n    selectedRows: Array<RecordType>,\n    info: { type: RowSelectMethod },\n  ) => void",
-      "type": "(\n    selectedValues: Array<GridSelectionValue>,\n    selectedRows: Array<RecordType>,\n    info: { type: RowSelectMethod },\n  ) => void",
+      "signature": "onSelectedValuesChange?: (\r\n    selectedValues: Array<GridSelectionValue>,\r\n    selectedRows: Array<RecordType>,\r\n    info: { type: RowSelectMethod },\r\n  ) => void",
+      "type": "(\r\n    selectedValues: Array<GridSelectionValue>,\r\n    selectedRows: Array<RecordType>,\r\n    info: { type: RowSelectMethod },\r\n  ) => void",
       "required": false,
       "advanced": false,
       "summary": "业务选中值变化回调。\n@param selectedValues 新的业务选中值数组。\n@param selectedRows 新的选中 record 数组（按当前渲染顺序）。\n@param info 操作类型（'all'/'none'/'invert'/'single'/'multiple'）。"

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import {
   useGridScrollSync,
@@ -34,6 +34,84 @@ function makeWheel(
   }
 }
 
+function makePointer(
+  opts: Partial<{
+    pointerType: string
+    pointerId: number
+    clientX: number
+    clientY: number
+    isPrimary: boolean
+    timeStamp: number
+    type: string
+  }> = {},
+): React.PointerEvent<HTMLDivElement> & {
+  preventDefault: ReturnType<typeof vi.fn>
+  currentTarget: HTMLDivElement & {
+    setPointerCapture: ReturnType<typeof vi.fn>
+    releasePointerCapture: ReturnType<typeof vi.fn>
+  }
+} {
+  const {
+    pointerType = 'touch',
+    pointerId = 1,
+    clientX = 0,
+    clientY = 0,
+    isPrimary = true,
+    timeStamp = 0,
+    type = 'pointermove',
+  } = opts
+  const currentTarget = document.createElement('div') as HTMLDivElement & {
+    setPointerCapture: ReturnType<typeof vi.fn>
+    releasePointerCapture: ReturnType<typeof vi.fn>
+  }
+  currentTarget.setPointerCapture = vi.fn()
+  currentTarget.releasePointerCapture = vi.fn()
+  return {
+    pointerType,
+    pointerId,
+    clientX,
+    clientY,
+    isPrimary,
+    timeStamp,
+    type,
+    currentTarget,
+    preventDefault: vi.fn(),
+  } as unknown as React.PointerEvent<HTMLDivElement> & {
+    preventDefault: ReturnType<typeof vi.fn>
+    currentTarget: HTMLDivElement & {
+      setPointerCapture: ReturnType<typeof vi.fn>
+      releasePointerCapture: ReturnType<typeof vi.fn>
+    }
+  }
+}
+
+function makeElementWithSize(clientWidth: number): HTMLDivElement {
+  const element = document.createElement('div')
+  Object.defineProperty(element, 'clientWidth', {
+    configurable: true,
+    value: clientWidth,
+  })
+  return element
+}
+
+function makeTouchEvent(
+  type: string,
+  clientX: number,
+  clientY: number,
+): TouchEvent {
+  const event = new Event(type, {
+    bubbles: true,
+    cancelable: true,
+  }) as TouchEvent
+  Object.defineProperty(event, 'touches', {
+    configurable: true,
+    value: type === 'touchend' || type === 'touchcancel'
+      ? []
+      : [{ clientX, clientY }],
+  })
+  return event
+}
+
 const render = (overrides: Partial<Options> = {}) => {
   const opts: Options = {
     stickyEnabled: true,
@@ -48,6 +126,11 @@ const render = (overrides: Partial<Options> = {}) => {
 }
 
 describe('useGridScrollSync', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.useRealTimers()
+  })
+
   describe('初始状态', () => {
     it('stickyScrollLeft 初始为 0', () => {
       const { result } = render()
@@ -237,6 +320,190 @@ describe('useGridScrollSync', () => {
         act(() => result.current.onStickyViewportWheel(ev))
       }
       expect(result.current.stickyScrollLeft).toBe(50)
+    })
+  })
+
+  describe('sticky viewport touch drag', () => {
+    it('横向触摸拖动数据区域 → 更新 stickyScrollLeft（手指左滑等价向右滚）', () => {
+      const { result } = render({
+        stickyViewportRef: makeRef<HTMLDivElement>({ clientWidth: 200 } as HTMLDivElement),
+        gridRef: makeRef<HTMLDivElement>({ scrollWidth: 500, clientWidth: 500 } as HTMLDivElement),
+      })
+      const down = makePointer({ clientX: 100, clientY: 20 })
+      act(() => result.current.onStickyViewportPointerDown(down))
+      const move = makePointer({ pointerId: 1, clientX: 40, clientY: 23 })
+      act(() => result.current.onStickyViewportPointerMove(move))
+      expect(result.current.stickyScrollLeft).toBe(60)
+      expect(move.preventDefault).toHaveBeenCalledTimes(1)
+      expect(move.currentTarget.setPointerCapture).toHaveBeenCalledWith(1)
+    })
+
+    it('横向触摸拖动按 maxScroll clamp', () => {
+      const { result } = render({
+        stickyViewportRef: makeRef<HTMLDivElement>({ clientWidth: 200 } as HTMLDivElement),
+        gridRef: makeRef<HTMLDivElement>({ scrollWidth: 500, clientWidth: 500 } as HTMLDivElement),
+      })
+      act(() => result.current.setStickyScrollLeft(280))
+      act(() => result.current.onStickyViewportPointerDown(makePointer({ clientX: 100, clientY: 20 })))
+      act(() => result.current.onStickyViewportPointerMove(makePointer({ clientX: -100, clientY: 20 })))
+      expect(result.current.stickyScrollLeft).toBe(300)
+    })
+
+    it('纵向触摸意图 → 不接管，保留页面纵向滚动', () => {
+      const { result } = render()
+      act(() => result.current.onStickyViewportPointerDown(makePointer({ clientX: 100, clientY: 100 })))
+      const move = makePointer({ clientX: 103, clientY: 130 })
+      act(() => result.current.onStickyViewportPointerMove(move))
+      expect(result.current.stickyScrollLeft).toBe(0)
+      expect(move.preventDefault).not.toHaveBeenCalled()
+      expect(move.currentTarget.setPointerCapture).not.toHaveBeenCalled()
+    })
+
+    it('mouse pointer 不启动内容拖动，避免影响桌面文本选择', () => {
+      const { result } = render()
+      act(() => result.current.onStickyViewportPointerDown(makePointer({
+        pointerType: 'mouse',
+        clientX: 100,
+        clientY: 20,
+      })))
+      const move = makePointer({ pointerType: 'mouse', clientX: 40, clientY: 20 })
+      act(() => result.current.onStickyViewportPointerMove(move))
+      expect(result.current.stickyScrollLeft).toBe(0)
+      expect(move.preventDefault).not.toHaveBeenCalled()
+    })
+
+    it('pointerup 清理当前触摸拖动，后续 move 不再更新', () => {
+      const { result } = render()
+      act(() => result.current.onStickyViewportPointerDown(makePointer({ clientX: 100, clientY: 20 })))
+      const up = makePointer({ pointerId: 1, clientX: 100, clientY: 20 })
+      act(() => result.current.onStickyViewportPointerUp(up))
+      act(() => result.current.onStickyViewportPointerMove(makePointer({ pointerId: 1, clientX: 40, clientY: 20 })))
+      expect(result.current.stickyScrollLeft).toBe(0)
+      expect(up.currentTarget.releasePointerCapture).toHaveBeenCalledWith(1)
+    })
+
+    it('pointerup 后一次性更新到惯性目标，并用 1000ms transform transition 做 easing', () => {
+      vi.useFakeTimers()
+      const { result } = render({
+        stickyViewportRef: makeRef<HTMLDivElement>({ clientWidth: 200 } as HTMLDivElement),
+        gridRef: makeRef<HTMLDivElement>({ scrollWidth: 1200, clientWidth: 1200 } as HTMLDivElement),
+      })
+
+      act(() => result.current.onStickyViewportPointerDown(makePointer({
+        clientX: 200,
+        clientY: 20,
+        timeStamp: 0,
+        type: 'pointerdown',
+      })))
+      act(() => result.current.onStickyViewportPointerMove(makePointer({
+        clientX: 100,
+        clientY: 20,
+        timeStamp: 100,
+      })))
+      expect(result.current.stickyScrollLeft).toBe(100)
+
+      act(() => result.current.onStickyViewportPointerUp(makePointer({
+        clientX: 100,
+        clientY: 20,
+        timeStamp: 100,
+        type: 'pointerup',
+      })))
+
+      expect(result.current.stickyScrollLeft).toBe(600)
+      expect(result.current.stickyScrollInertiaActive).toBe(true)
+      expect(result.current.stickyTranslateStyle).toEqual({
+        transform: 'translateX(-600px)',
+        willChange: 'transform',
+        transition: 'transform 1000ms cubic-bezier(0.22, 1, 0.36, 1)',
+      })
+
+      act(() => vi.advanceTimersByTime(999))
+      expect(result.current.stickyScrollInertiaActive).toBe(true)
+      act(() => vi.advanceTimersByTime(1))
+      expect(result.current.stickyScrollLeft).toBe(600)
+      expect(result.current.stickyScrollInertiaActive).toBe(false)
+      expect(result.current.stickyTranslateStyle).toEqual({
+        transform: 'translateX(-600px)',
+        willChange: 'transform',
+      })
+    })
+
+    it('触摸惯性按 maxScroll clamp', () => {
+      const { result } = render({
+        stickyViewportRef: makeRef<HTMLDivElement>({ clientWidth: 200 } as HTMLDivElement),
+        gridRef: makeRef<HTMLDivElement>({ scrollWidth: 500, clientWidth: 500 } as HTMLDivElement),
+      })
+
+      act(() => result.current.onStickyViewportPointerDown(makePointer({
+        clientX: 200,
+        clientY: 20,
+        timeStamp: 0,
+        type: 'pointerdown',
+      })))
+      act(() => result.current.onStickyViewportPointerMove(makePointer({
+        clientX: 100,
+        clientY: 20,
+        timeStamp: 50,
+      })))
+      act(() => result.current.onStickyViewportPointerUp(makePointer({
+        clientX: 100,
+        clientY: 20,
+        timeStamp: 50,
+        type: 'pointerup',
+      })))
+
+      expect(result.current.stickyScrollLeft).toBe(300)
+    })
+
+    it('pointercancel 只清理拖动，不启动触摸惯性', () => {
+      const { result } = render()
+
+      act(() => result.current.onStickyViewportPointerDown(makePointer({
+        clientX: 200,
+        clientY: 20,
+        timeStamp: 0,
+        type: 'pointerdown',
+      })))
+      act(() => result.current.onStickyViewportPointerMove(makePointer({
+        clientX: 100,
+        clientY: 20,
+        timeStamp: 100,
+      })))
+      act(() => result.current.onStickyViewportPointerUp(makePointer({
+        pointerId: 1,
+        type: 'pointercancel',
+      })))
+
+      expect(result.current.stickyScrollLeft).toBe(100)
+      expect(result.current.stickyScrollInertiaActive).toBe(false)
+    })
+
+    it('原生 touchmove 兜底：横向意图 preventDefault，阻断 body 横向导航手势', () => {
+      const viewport = makeElementWithSize(200)
+      render({
+        stickyViewportRef: makeRef<HTMLDivElement>(viewport),
+        gridRef: makeRef<HTMLDivElement>({ scrollWidth: 500, clientWidth: 500 } as HTMLDivElement),
+      })
+
+      viewport.dispatchEvent(makeTouchEvent('touchstart', 100, 20))
+      const move = makeTouchEvent('touchmove', 40, 22)
+      viewport.dispatchEvent(move)
+
+      expect(move.defaultPrevented).toBe(true)
+    })
+
+    it('原生 touchmove 兜底：纵向意图不 preventDefault，保留页面纵向滚动', () => {
+      const viewport = makeElementWithSize(200)
+      render({
+        stickyViewportRef: makeRef<HTMLDivElement>(viewport),
+        gridRef: makeRef<HTMLDivElement>({ scrollWidth: 500, clientWidth: 500 } as HTMLDivElement),
+      })
+
+      viewport.dispatchEvent(makeTouchEvent('touchstart', 100, 20))
+      const move = makeTouchEvent('touchmove', 102, 80)
+      viewport.dispatchEvent(move)
+
+      expect(move.defaultPrevented).toBe(false)
     })
   })
 

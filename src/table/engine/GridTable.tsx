@@ -222,6 +222,10 @@ function GridTableInner<RecordType = any>(
     stickyScrollLeft,
     setStickyScrollLeft,
     onStickyViewportWheel,
+    onStickyViewportPointerDown,
+    onStickyViewportPointerMove,
+    onStickyViewportPointerUp,
+    stickyScrollInertiaActive,
     stickyTranslateStyle,
   } = useGridScrollSync({ stickyEnabled, stickyViewportRef, gridRef })
 
@@ -890,8 +894,12 @@ function GridTableInner<RecordType = any>(
       stickyEnabled={stickyEnabled}
       stickyViewportRef={stickyViewportRef}
       onStickyViewportWheel={onStickyViewportWheel}
+      onStickyViewportPointerDown={onStickyViewportPointerDown}
+      onStickyViewportPointerMove={onStickyViewportPointerMove}
+      onStickyViewportPointerUp={onStickyViewportPointerUp}
       stickyScrollLeft={stickyScrollLeft}
       setStickyScrollLeft={setStickyScrollLeft}
+      stickyScrollInertiaActive={stickyScrollInertiaActive}
       stickyOffsetScroll={stickyOffsetScroll}
       stickyGetContainer={stickyGetContainer}
       gridRef={gridRef}

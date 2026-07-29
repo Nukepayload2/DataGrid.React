@@ -91,7 +91,7 @@ columns={[
 
 | 写法 | 当前状态 | 说明 |
 |---|---|---|
-| `scroll={{ y: number }}` / `scroll={{ y: string }}` | 不支持 | antd/rc-table 支持 `scroll.y` max-height 语义；data-grid 的 `scroll.y` 类型只接受 `true`，表示启用容器内纵向滚动和 sticky 表头。需要限高时由外层容器控制。 |
+| `scroll={{ y: number }}` / `scroll={{ y: string }}` | 不支持 | antd/rc-table 支持 `scroll.y` number/string 滚动区域高度语义；data-grid 的 `scroll.y` 类型只接受 `true`，表示启用容器内纵向滚动和 sticky 表头。需要限高时由外层容器控制。 |
 | `size="compact"` | 兼容 data-grid 旧入口 | antd Table 本身没有 `compact` size。data-grid 保留该值用于全局 size 兜底，并映射为 `small` 视觉。 |
 
 ## 源码与测试落点

@@ -15,7 +15,7 @@ export function renderScrolling({ onOpen }: DocsPageContext) {
           滚动能力分两层：常规 <Text code>{'scroll={{ x, y }}'}</Text> 覆盖大部分场景；超大数据量时再启用 <Text code>virtual</Text>，需要 DOM 复用再切到 <Text code>recycling</Text> 虚拟化。所有路径都要求父容器有明确高度。
         </p>
         <p>
-          <Text code>scroll.y</Text> 只接受 <Text code>true</Text>（数据区域模式，高度由父容器驱动，不接受 antd 的 number/string max-height）。详见{' '}
+          <Text code>scroll.y</Text> 只接受 <Text code>true</Text>（数据区域模式，高度由父容器驱动，不接受 antd 的 number/string 滚动区域高度）。详见{' '}
           <a href="#/docs/scroll-y">scroll.y 语义页</a>。
         </p>
       </DocSection>

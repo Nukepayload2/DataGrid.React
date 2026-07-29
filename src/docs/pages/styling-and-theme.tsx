@@ -51,7 +51,7 @@ export function renderStyling({ onOpen }: DocsPageContext) {
             { label: 'Semantic DOM 文档', kind: 'doc', value: 'semantic-dom' },
             { label: '组件主题令牌 demo', kind: 'path', value: '/demos/component-theme-tokens' },
             { label: '语义化样式 demo', kind: 'path', value: '/demos/semantic-styling' },
-            { label: '语义化 DOM 插槽 demo', kind: 'path', value: '/demos/semantic-dom-slots' },
+            { label: 'Semantic DOM 槽位 demo', kind: 'path', value: '/demos/semantic-dom-slots' },
           ]}
           onOpen={onOpen}
         />

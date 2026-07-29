@@ -4,7 +4,6 @@ import {
   DocsActionList,
   DocsCode,
 } from '../components'
-import { GLOSSARY } from '../glossary'
 import { docsScope } from '../liveScope'
 import type { DocsPageContext } from '../types'
 import { QUICK_START_MINIMAL } from './shared'
@@ -56,39 +55,6 @@ export function renderIntro({ onOpen }: DocsPageContext) {
           ]}
           onOpen={onOpen}
         />
-      </DocSection>
-
-      <DocSection
-        id="glossary"
-        title="术语速查"
-        description="本站用到的关键术语统一写法；遇到同物异名时以这里为准。"
-      >
-        <ul className="docs-bullet-list">
-          <li>
-            <Text strong>{GLOSSARY.dataAreaMode.canonical}</Text>：{GLOSSARY.dataAreaMode.summary}
-          </li>
-          <li>
-            <Text strong>{GLOSSARY.slot.canonical}</Text>：{GLOSSARY.slot.summary}
-          </li>
-          <li>
-            <Text strong>{GLOSSARY.deprecatedMember.canonical}</Text>：{GLOSSARY.deprecatedMember.summary}
-          </li>
-          <li>
-            <Text strong>{GLOSSARY.compatApi.canonical}</Text>：{GLOSSARY.compatApi.summary}
-          </li>
-          <li>
-            <Text strong>{GLOSSARY.sentinelColumn.canonical}</Text>：{GLOSSARY.sentinelColumn.summary}
-          </li>
-          <li>
-            <Text strong>{GLOSSARY.configProviderToken.canonical}</Text>：{GLOSSARY.configProviderToken.summary}
-          </li>
-          <li>
-            <Text strong>{GLOSSARY.renderedCell.canonical}</Text>：{GLOSSARY.renderedCell.summary}
-          </li>
-          <li>
-            <Text strong>{GLOSSARY.summaryThreePart.canonical}</Text>：{GLOSSARY.summaryThreePart.summary}
-          </li>
-        </ul>
       </DocSection>
     </>
   )

@@ -10,7 +10,7 @@ Accepted
 
 ## Context
 
-CSS Grid 表格需要同时处理固定表头、数据区滚动、summary 和 sticky。把 `scroll.y` 继续解释成 antd 那种数字 `max-height` 会让布局链和滚动条承载点变得混乱。
+CSS Grid 表格需要同时处理固定表头、数据区域滚动、summary 和 sticky。把 `scroll.y` 继续解释成 antd 那种 number/string 滚动区域高度会让布局链和滚动条承载点变得混乱。
 
 ## Decision
 

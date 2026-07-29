@@ -752,27 +752,6 @@ function RefTable({ members, anchorPrefix, variant, onOpenDoc }: RefTableProps) 
             ),
           },
           {
-            title: '类型',
-            dataIndex: 'kind',
-            key: 'kind',
-            width: 110,
-            render: (value, record) => (
-              <span style={{ display: 'inline-flex', gap: 4 }}>
-                <Tag color={record.isTypeOnly ? 'geekblue' : 'green'}>{value}</Tag>
-              </span>
-            ),
-          },
-          {
-            title: '来源',
-            dataIndex: 'from',
-            key: 'from',
-            width: 200,
-            render: (value) =>
-              value ? (
-                <Text code>{value}</Text>
-              ) : null,
-          },
-          {
             title: '描述',
             dataIndex: 'summary',
             key: 'summary',
@@ -783,7 +762,6 @@ function RefTable({ members, anchorPrefix, variant, onOpenDoc }: RefTableProps) 
         ]}
         dataSource={members}
         rowKey="name"
-        scrollX={1180}
       />
     )
   }

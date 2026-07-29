@@ -33,7 +33,6 @@ export const docs: DocEntry[] = [
       { id: 'what-is', title: 'data-grid 是什么' },
       { id: 'minimal', title: '最小例子' },
       { id: 'paths', title: '下一步' },
-      { id: 'glossary', title: '术语速查' },
     ],
     render: renderIntro,
   },

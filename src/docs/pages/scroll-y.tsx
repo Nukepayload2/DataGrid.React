@@ -24,7 +24,7 @@ export function renderScrollY() {
       <DocSection
         id="meaning"
         title="scroll.y 只接受 true"
-        description="data-grid 把 scroll.y 定义为数据区域模式，而不是 antd 的 max-height 数字语义。"
+        description="data-grid 把 scroll.y 定义为数据区域模式，而不是 antd 的 number/string 滚动区域高度语义。"
       >
         <DocsCode code={VIRTUAL_SCROLLING_CODE} height={220} ariaLabel="scroll.y 示例代码" />
       </DocSection>

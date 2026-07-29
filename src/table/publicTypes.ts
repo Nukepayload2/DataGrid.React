@@ -166,7 +166,7 @@ export interface TableProps<RecordType = any> {
    *         * 调用方需确保 Table 父容器有明确高度（固定 height / flex / 100vh 等），
    *           否则表体高度退化为内容自然高（视觉等价 undefined，但表头仍按 sticky 定位）。
    *     - `undefined`（缺省）：表格整体（无固定表头，内容全展开，无表体滚动区，零回归）。
-   *     - **不支持数字**：旧 demo 用 `scroll={{ y: <number> }}` 的语义（max-height=number）已废弃，
+   *     - **不支持数字**：旧 demo 用 `scroll={{ y: <number> }}` 指定滚动区域高度的写法已废弃，
    *       迁移到 `true`（CSS 自动适应高度）。
    * - `scrollToFirstRowOnChange`：分页、排序、筛选变化后是否滚回首行。默认 `true`（对齐 antd），
    *   可设 `false` 保持当前滚动位置。

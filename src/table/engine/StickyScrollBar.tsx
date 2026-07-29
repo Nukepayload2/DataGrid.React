@@ -42,6 +42,7 @@ export function StickyScrollBar({
   viewportRef,
   scrollLeft,
   onScrollLeftChange,
+  scrollInertiaActive,
 }: {
   offsetScroll: number
   getContainer?: () => HTMLElement | Window | undefined
@@ -49,6 +50,7 @@ export function StickyScrollBar({
   viewportRef?: React.RefObject<HTMLDivElement | null>
   scrollLeft?: number
   onScrollLeftChange?: (next: number) => void
+  scrollInertiaActive?: boolean
 }) {
   const barRef = useRef<HTMLDivElement | null>(null)
   const thumbRef = useRef<HTMLDivElement | null>(null)
@@ -217,7 +219,10 @@ export function StickyScrollBar({
   return (
     <div
       ref={barRef}
-      className="dg-sticky-scroll-bar"
+      className={[
+        'dg-sticky-scroll-bar',
+        scrollInertiaActive ? 'dg-sticky-scroll-bar-inertia' : undefined,
+      ].filter(Boolean).join(' ')}
       style={{
         position: 'sticky',
         bottom: `${offsetScroll}px`,

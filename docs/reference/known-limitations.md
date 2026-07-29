@@ -6,7 +6,7 @@
 ## 架构边界
 
 - semantic DOM 不能完整复刻原生 `thead` / `tbody` / `tr` 层级；`header.wrapper`、`body.wrapper` 和完整 row role 结构没有对应 DOM。能映射到稳定节点的 `.ant-table-*` class alias 已兼容，不属于架构限制。
-- `scroll.y` 只支持 data-grid 的“数据区模式”语义，不支持 antd 的 `number|string` `max-height` 语义。
+- `scroll.y` 只支持 data-grid 的“数据区域模式”语义，不支持 antd 的 `number|string` 滚动区域高度语义。
 
 ## 兼容缺口
 
@@ -30,7 +30,7 @@
 
 明确不做的迁移项：
 
-- `scroll.y = number|string` 的 antd max-height 语义。data-grid 保持 `true | undefined`，避免继续要求调用方手算高度或在数字/字符串语义之间承担不可控后果。
+- `scroll.y = number|string` 的 antd 滚动区域高度语义。data-grid 保持 `true | undefined`，避免继续要求调用方手算高度或在数字/字符串语义之间承担不可控后果。
 
 ## 已实现，不再作为限制
 

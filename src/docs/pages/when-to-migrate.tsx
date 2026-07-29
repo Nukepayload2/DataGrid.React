@@ -103,7 +103,7 @@ const painToCureRows: PainToCureRow[] = [
     humanSummary: '中后台页面常要让表格占满剩余高度，但 antd 需要自己减 header、footer、分页条，再监听窗口变化更新 state。页面越复杂，越容易抖动、错位和多次重渲染。',
     antdPain: (
       <>
-        <Text code>scroll.y</Text> 是 number / string max-height 语义，没有真正的 fill / auto 模式；业务常要监听容器或窗口尺寸，再把计算出的高度传回表格。证据：{discLink(53395)}{' '}
+        <Text code>scroll.y</Text> 是 number / string 滚动区域高度语义，没有真正的 fill / auto 模式；业务常要监听容器或窗口尺寸，再把计算出的高度传回表格。证据：{discLink(53395)}{' '}
         {discLink(56465)}
       </>
     ),
@@ -365,7 +365,7 @@ export function renderWhenToMigrate(_ctx: DocsPageContext) {
         <ul className="docs-bullet-list">
           <li>
             <Text strong>架构边界 / 兼容缺口</Text>：data-grid 不复刻原生 table / thead / tbody / tr DOM、不提供完整 ARIA table / row / rowgroup role 树、
-            <Text code>scroll.y</Text> 不接受数字 / 字符串 max-height、RTL 未系统支持、
+            <Text code>scroll.y</Text> 不接受数字 / 字符串滚动区域高度、RTL 未系统支持、
             <Text code>components</Text> 仅暴露 <Text code>body.cell</Text> / <Text code>body.row</Text>（无 header.cell / wrapper / table）。详见{' '}
             <a href="#/docs/known-limitations">已知限制页</a>。
           </li>

@@ -15,12 +15,17 @@
 /* 页面级 sticky 需要放开 wrapper 的 overflow/width 约束。 */
 .dg-wrapper.dg-sticky {
   overflow: clip;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-inline: contain;
   width: auto;
 }
 
 .dg-sticky-scroll-viewport {
   width: 100%;
   overflow: clip;
+  overscroll-behavior-x: contain;
+  overscroll-behavior-inline: contain;
+  touch-action: pan-y pinch-zoom;
 }
 
 /* `.dg-wrapper` 不是 antd 组件根，这里补一层链接色 reset。 */
@@ -1181,6 +1186,15 @@ body.dg-scrollbar-pointer-capturing * {
   background: var(--dg-scrollbar-thumb-active-bg);
   opacity: var(--dg-scrollbar-thumb-expanded-opacity, 0.25);
   cursor: grabbing;
+}
+
+.dg-sticky-scroll-bar.dg-sticky-scroll-bar-inertia .dg-sticky-scroll-bar-thumb {
+  transition:
+    height 0.2s ease,
+    background-color 0.2s ease,
+    opacity 0.2s ease,
+    transform 1000ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
 }
 
 /* 页面级 StickyScrollBar 也消费 showOnTableHover。 */

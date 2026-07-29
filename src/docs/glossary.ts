@@ -57,7 +57,7 @@ export const GLOSSARY = {
   dataAreaMode: {
     canonical: '数据区域模式',
     summary:
-      'scroll.y === true 时启用：表头固定、表体滚动、高度由父容器决定，不接受 antd 的 number / string max-height 语义。',
+      'scroll.y === true 时启用：表头固定、表体滚动、高度由父容器决定，不接受 antd 的 number / string 滚动区域高度语义。',
     avoid: ['数据区滚动模式', '数据区模式', '纵向滚动模式'],
   },
 
