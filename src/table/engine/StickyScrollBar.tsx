@@ -49,7 +49,9 @@ export function StickyScrollBar({
   gridRef,
   viewportRef,
   scrollLeft,
+  scrollLeftRef,
   onScrollLeftChange,
+  updateThumbRef,
   scrollInertiaActive,
 }: {
   offsetScroll: number
@@ -57,7 +59,11 @@ export function StickyScrollBar({
   gridRef: React.RefObject<HTMLDivElement | null>
   viewportRef?: React.RefObject<HTMLDivElement | null>
   scrollLeft?: number
+  scrollLeftRef?: React.RefObject<number>
   onScrollLeftChange?: (next: number) => void
+  updateThumbRef?: {
+    current: (() => void) | null
+  }
   scrollInertiaActive?: boolean
 }) {
   const barRef = useRef<HTMLDivElement | null>(null)
@@ -95,6 +101,11 @@ export function StickyScrollBar({
     return typeof window !== 'undefined' ? window : (null as unknown as Window)
   }, [getContainer])
 
+  const readVirtualScrollLeft = useCallback(
+    () => scrollLeftRef?.current ?? scrollLeftValue(scrollLeft),
+    [scrollLeftRef, scrollLeft],
+  )
+
   const readScrollGeometry = useCallback(() => {
     const container = resolveContainer()
     const bar = barRef.current
@@ -104,7 +115,7 @@ export function StickyScrollBar({
     let clientWidth: number
     let scrollWidth: number
     if (viewportRef?.current && gridRef.current) {
-      currentScrollLeft = scrollLeftValue(scrollLeft)
+      currentScrollLeft = readVirtualScrollLeft()
       clientWidth = viewportRef.current.clientWidth || 0
       scrollWidth = gridRef.current.scrollWidth || gridRef.current.clientWidth || 0
     } else if (container instanceof Window) {
@@ -136,7 +147,7 @@ export function StickyScrollBar({
       thumbMaxLeft,
       maxScroll,
     }
-  }, [resolveContainer, gridRef, viewportRef, scrollLeft])
+  }, [resolveContainer, gridRef, viewportRef, readVirtualScrollLeft])
 
   const applyScrollLeft = useCallback(
     (container: Window | HTMLElement, next: number, maxScroll: number): number => {
@@ -163,13 +174,14 @@ export function StickyScrollBar({
     const { currentScrollLeft, maxScroll } = geometry
     if (maxScroll <= 1) {
       bar.style.display = 'none'
-      if (scrollLeftValue(scrollLeft) !== 0) onScrollLeftChange?.(0)
+      if (readVirtualScrollLeft() !== 0) onScrollLeftChange?.(0)
       return
     }
     bar.style.display = 'block'
     if (viewportRef?.current && onScrollLeftChange) {
-      const clamped = clampScrollLeft(scrollLeftValue(scrollLeft), maxScroll)
-      if (clamped !== scrollLeftValue(scrollLeft)) {
+      const current = readVirtualScrollLeft()
+      const clamped = clampScrollLeft(current, maxScroll)
+      if (clamped !== current) {
         onScrollLeftChange(clamped)
         return
       }
@@ -178,7 +190,17 @@ export function StickyScrollBar({
     // thumb 宽度 = bar 宽度 × (clientWidth / scrollWidth)（至少 20px，避免太窄）。
     thumb.style.width = `${geometry.thumbWidth}px`
     thumb.style.transform = `translateX(${ratio * geometry.thumbMaxLeft}px)`
-  }, [readScrollGeometry, viewportRef, scrollLeft, onScrollLeftChange])
+  }, [readScrollGeometry, viewportRef, readVirtualScrollLeft, onScrollLeftChange])
+
+  useEffect(() => {
+    if (!updateThumbRef) return
+    updateThumbRef.current = updateThumb
+    return () => {
+      if (updateThumbRef.current === updateThumb) {
+        updateThumbRef.current = null
+      }
+    }
+  }, [updateThumbRef, updateThumb])
 
   const deactivateTouchThumb = useCallback(() => {
     const bar = barRef.current

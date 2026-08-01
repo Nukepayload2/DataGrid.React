@@ -21,6 +21,7 @@ describe('style system contract', () => {
       '--dg-row-min-h',
       '--dg-scrollbar-thumb-active-bg',
       '--dg-scrollbar-thumb-expanded-opacity',
+      '--dg-sticky-scroll-left',
     ])
   })
 

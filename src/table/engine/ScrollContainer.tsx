@@ -20,8 +20,8 @@
 import {
   useEffect,
   useRef,
-  type CSSProperties,
   type ReactNode,
+  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { FloatingScrollBar } from './FloatingScrollBar'
@@ -47,10 +47,14 @@ export interface ScrollContainerProps {
   onStickyViewportPointerMove: (event: ReactPointerEvent<HTMLDivElement>) => void
   /** sticky 视口触摸拖动结束/取消。 */
   onStickyViewportPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void
-  /** sticky 当前虚拟横向 scrollLeft（驱动 StickyScrollBar thumb + grid transform）。 */
-  stickyScrollLeft: number
+  /** sticky 当前虚拟横向 scrollLeft 真值；wheel/touch 热路径只更新 ref + DOM。 */
+  stickyScrollLeftRef: React.RefObject<number>
   /** sticky scrollLeft setter（StickyScrollBar 拖动/同步回写）。 */
   setStickyScrollLeft: (next: number) => void
+  /** StickyScrollBar 暴露的 thumb 刷新函数；wheel 热路径通过它脱离 React state。 */
+  stickyScrollBarUpdateThumbRef: {
+    current: (() => void) | null
+  }
   /** sticky 触摸释放后的 compositor transition 惯性状态。 */
   stickyScrollInertiaActive: boolean
   /** StickyScrollBar bottom 偏移（避开页面底部内容）。 */
@@ -59,6 +63,8 @@ export interface ScrollContainerProps {
   stickyGetContainer?: () => HTMLElement | Window | undefined
   /** 主 grid ref（StickyScrollBar 读 scrollWidth/clientWidth 算 thumb）。 */
   gridRef: React.RefObject<HTMLDivElement | null>
+  /** sticky 模式下提取出来的 summary grid ref（与主 grid 同步横向位移）。 */
+  stickySummaryGridRef: React.RefObject<HTMLDivElement | null>
   /** sticky 模式且 summary 存在时，summary 提取为独立兄弟 grid。 */
   extractSummary: boolean
   /** 解析后的 summary（rows + fixed + count）。 */
@@ -71,8 +77,6 @@ export interface ScrollContainerProps {
   gridTemplateColumns: string | undefined
   /** scroll.x 解析的 min-width（透传给提取出的 summary grid 横向同宽）。 */
   scrollMinWidth: number | string | undefined
-  /** sticky transform style（translateX 驱动 grid + summary 同步位移）。 */
-  stickyTranslateStyle: CSSProperties | null
   /** 数据区域模式（scroll.y）— 决定 wrap/container 是否 flex 填满。 */
   scrollYEnabled: boolean
   /** scroll.x 启用（用于决定附加 `dg-x-scroll` 修饰类）。 */
@@ -119,19 +123,20 @@ export function ScrollContainer(props: ScrollContainerProps): ReactNode {
     onStickyViewportPointerDown,
     onStickyViewportPointerMove,
     onStickyViewportPointerUp,
-    stickyScrollLeft,
+    stickyScrollLeftRef,
     setStickyScrollLeft,
+    stickyScrollBarUpdateThumbRef,
     stickyScrollInertiaActive,
     stickyOffsetScroll,
     stickyGetContainer,
     gridRef,
+    stickySummaryGridRef,
     extractSummary,
     summaryParsed,
     leafSticky,
     gridClassName,
     gridTemplateColumns,
     scrollMinWidth,
-    stickyTranslateStyle,
     scrollYEnabled,
     scrollXEnabled,
     virtualEnabled,
@@ -197,8 +202,9 @@ export function ScrollContainer(props: ScrollContainerProps): ReactNode {
           getContainer={stickyGetContainer}
           gridRef={gridRef}
           viewportRef={stickyViewportRef}
-          scrollLeft={stickyScrollLeft}
+          scrollLeftRef={stickyScrollLeftRef}
           onScrollLeftChange={setStickyScrollLeft}
+          updateThumbRef={stickyScrollBarUpdateThumbRef}
           scrollInertiaActive={stickyScrollInertiaActive}
         />
         {/* summary 提取到 StickyScrollBar 之后 → 横向滚动条落在 summary 上方。 */}
@@ -217,9 +223,9 @@ export function ScrollContainer(props: ScrollContainerProps): ReactNode {
               leafSticky={leafSticky}
               extracted
               gridClassName={gridClassName}
+              extractedGridRef={stickySummaryGridRef}
               gridTemplateColumns={gridTemplateColumns}
               scrollMinWidth={scrollMinWidth}
-              stickyTranslateStyle={stickyTranslateStyle}
             />
           </div>
         ) : null}

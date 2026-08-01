@@ -2,17 +2,17 @@
  * sticky 横向滚动同步 hook（从 GridTable 抽出，行为字节级保持）。
  *
  * 职责：维护 sticky 模式下"虚拟横向 scrollLeft"的状态与事件处理——
- *   wheel 事件 → 更新 `stickyScrollLeft` → 派生 `stickyTranslateStyle`（translateX 驱动 grid 位移），
+ *   wheel 事件 → 更新 `stickyScrollLeftRef` → RAF 写 CSS var 驱动 grid 位移，
  *   并与 `StickyScrollBar.getStickyMaxScroll` 协同（用 maxScroll clamp 防止越界）。
  *
  * 背景：sticky 模式下 grid 只包一层 `overflow: clip` 视口，无横向滚动容器；
- *   横向位移由虚拟 `stickyScrollLeft` + `transform: translateX(...)` 模拟。
+ *   横向位移由虚拟 `stickyScrollLeftRef` + CSS var 驱动的 transform 模拟。
  *   用户的横向 wheel（shift+wheel 或触控板 deltaX）在本 hook 处理为虚拟 scrollLeft 增量；
- *   `StickyScrollBar` 拖动则通过 `setStickyScrollLeft` 回写同一份 state（路径在 ScrollContainer）。
+ *   `StickyScrollBar` 拖动则通过 `setStickyScrollLeft` 回写同一份 ref（路径在 ScrollContainer）。
  *
  * 抽取边界：
- *   - state（`stickyScrollLeft`）+ setter（`setStickyScrollLeft`）+ wheel/touch handlers
- *     + 派生 transform style（`stickyTranslateStyle`）全部返回。
+ *   - ref（`stickyScrollLeftRef`）+ setter（`setStickyScrollLeft`）+ wheel/touch handlers
+ *     + RAF DOM 同步全部返回。
  *   - `getStickyMaxScroll` 仍由 `StickyScrollBar.tsx` 提供，本 hook 只调用不改。
  *
  * 详见 docs/design-notes/sticky.md（页面级 sticky 的虚拟横向滚动）。
@@ -22,7 +22,6 @@ import {
   useEffect,
   useRef,
   useState,
-  type CSSProperties,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
 import { clampScrollLeft } from './gridScrollUtils'
@@ -31,7 +30,7 @@ import { getStickyMaxScroll } from './StickyScrollBar'
 const STICKY_TOUCH_DRAG_THRESHOLD = 6
 const STICKY_TOUCH_INERTIA_DURATION = 1000
 const STICKY_TOUCH_INERTIA_MIN_VELOCITY = 0.02
-const STICKY_TOUCH_INERTIA_EASING = 'cubic-bezier(0.22, 1, 0.36, 1)'
+const STICKY_SCROLL_LEFT_VAR = '--dg-sticky-scroll-left'
 
 interface StickyTouchDragState {
   pointerId: number
@@ -62,11 +61,19 @@ export interface UseGridScrollSyncOptions {
   stickyViewportRef: React.RefObject<HTMLDivElement | null>
   /** 主 grid ref（getStickyMaxScroll 读 scrollWidth/clientWidth）。 */
   gridRef: React.RefObject<HTMLDivElement | null>
+  /** sticky 模式下提取出来的 summary grid ref（与主 grid 同步横向位移）。 */
+  stickySummaryGridRef?: React.RefObject<HTMLDivElement | null>
+  /** StickyScrollBar 暴露的 thumb 刷新函数；wheel 热路径通过它脱离 React state。 */
+  stickyScrollBarUpdateThumbRef?: {
+    current: (() => void) | null
+  }
 }
 
 export interface UseGridScrollSyncResult {
-  /** sticky 当前虚拟横向 scrollLeft（驱动 StickyScrollBar thumb + grid transform）。 */
+  /** sticky 最近一次提交到 React 的虚拟横向 scrollLeft（高频滚动以 stickyScrollLeftRef 为准）。 */
   stickyScrollLeft: number
+  /** sticky 当前虚拟横向 scrollLeft 真值；wheel/touch 热路径只更新 ref + DOM。 */
+  stickyScrollLeftRef: React.RefObject<number>
   /** sticky scrollLeft setter（StickyScrollBar 拖动/同步回写）。 */
   setStickyScrollLeft: (next: number) => void
   /** sticky 视口 wheel 处理（更新虚拟 stickyScrollLeft）。 */
@@ -79,44 +86,76 @@ export interface UseGridScrollSyncResult {
   onStickyViewportPointerUp: (event: ReactPointerEvent<HTMLDivElement>) => void
   /** sticky 触摸释放后的 compositor transition 惯性状态。 */
   stickyScrollInertiaActive: boolean
-  /** sticky transform style（translateX 驱动 grid + summary 同步位移）。 */
-  stickyTranslateStyle: CSSProperties | null
 }
 
 /**
  * sticky 模式横向滚动同步（先移动不重写，字节级对齐原 GridTable 内联实现）。
  *
  * 行为保持：
- * - `stickyScrollLeft` 初始值 0；wheel / StickyScrollBar 拖动均通过 `setStickyScrollLeft` 更新。
+ * - `stickyScrollLeftRef` 初始值 0；wheel / StickyScrollBar 拖动均通过 `setStickyScrollLeft` 更新。
  * - `onStickyViewportWheel`：sticky 未启用短路；maxScroll≤1 短路；delta≤0.5 短路；
- *   clamp 边界（不超 maxScroll）；next===current 短路；preventDefault + setState。
- * - `stickyTranslateStyle`：sticky 启用且 stickyScrollLeft>0 时构造 `translateX(-x)px` + willChange:transform；
- *   否则 null（无 transform）。
+ *   clamp 边界（不超 maxScroll）；next===current 短路；preventDefault + RAF 写 DOM。
  */
 export function useGridScrollSync({
   stickyEnabled,
   stickyViewportRef,
   gridRef,
+  stickySummaryGridRef,
+  stickyScrollBarUpdateThumbRef,
 }: UseGridScrollSyncOptions): UseGridScrollSyncResult {
   const [stickyScrollLeft, setStickyScrollLeftState] = useState(0)
   const [stickyScrollInertiaActive, setStickyScrollInertiaActive] = useState(false)
   const stickyScrollLeftRef = useRef(0)
+  const stickyScrollFrameRef = useRef<number | null>(null)
   const touchDragRef = useRef<StickyTouchDragState | null>(null)
   const touchInertiaTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const nativeTouchIntentRef = useRef<StickyNativeTouchIntentState | null>(null)
+
+  const writeStickyScrollLeftToDom = useCallback(() => {
+    const cssValue = `${stickyScrollLeftRef.current}px`
+    const targets = [gridRef.current, stickySummaryGridRef?.current]
+    for (const target of targets) {
+      if (!target) continue
+      if (!target.style) continue
+      if (target.style.getPropertyValue(STICKY_SCROLL_LEFT_VAR) !== cssValue) {
+        target.style.setProperty(STICKY_SCROLL_LEFT_VAR, cssValue)
+      }
+    }
+    stickyScrollBarUpdateThumbRef?.current?.()
+    // Ref objects are intentionally treated as stable, matching the native wheel listener path.
+  }, [])
+
+  const flushStickyScrollLeftToDom = useCallback(() => {
+    stickyScrollFrameRef.current = null
+    writeStickyScrollLeftToDom()
+  }, [writeStickyScrollLeftToDom])
+
+  const scheduleStickyScrollLeftDomWrite = useCallback(() => {
+    if (stickyScrollFrameRef.current !== null) return
+    stickyScrollFrameRef.current = window.requestAnimationFrame(flushStickyScrollLeftToDom)
+  }, [flushStickyScrollLeftToDom])
+
+  const cancelStickyScrollLeftDomWrite = useCallback(() => {
+    if (stickyScrollFrameRef.current === null) return
+    window.cancelAnimationFrame(stickyScrollFrameRef.current)
+    stickyScrollFrameRef.current = null
+  }, [])
 
   const cancelStickyTouchInertia = useCallback(() => {
     if (touchInertiaTimerRef.current !== null) {
       clearTimeout(touchInertiaTimerRef.current)
       touchInertiaTimerRef.current = null
     }
-    setStickyScrollInertiaActive(false)
+    setStickyScrollInertiaActive((active) => active ? false : active)
   }, [])
 
-  const setStickyScrollLeftValue = useCallback((next: number) => {
+  const setStickyScrollLeftValue = useCallback((next: number, syncReactState = false) => {
     stickyScrollLeftRef.current = next
-    setStickyScrollLeftState(next)
-  }, [])
+    scheduleStickyScrollLeftDomWrite()
+    if (syncReactState) {
+      setStickyScrollLeftState((current) => current === next ? current : next)
+    }
+  }, [scheduleStickyScrollLeftDomWrite])
 
   const setStickyScrollLeft = useCallback(
     (next: number) => {
@@ -126,11 +165,17 @@ export function useGridScrollSync({
     [cancelStickyTouchInertia, setStickyScrollLeftValue],
   )
 
+  useEffect(() => () => cancelStickyScrollLeftDomWrite(), [cancelStickyScrollLeftDomWrite])
   useEffect(() => cancelStickyTouchInertia, [cancelStickyTouchInertia])
 
   useEffect(() => {
     if (!stickyEnabled) cancelStickyTouchInertia()
   }, [stickyEnabled, cancelStickyTouchInertia])
+
+  useEffect(() => {
+    if (!stickyEnabled) return
+    writeStickyScrollLeftToDom()
+  }, [stickyEnabled, writeStickyScrollLeftToDom])
 
   useEffect(() => {
     if (!stickyEnabled) return
@@ -192,10 +237,10 @@ export function useGridScrollSync({
 
       cancelStickyTouchInertia()
       setStickyScrollInertiaActive(true)
-      setStickyScrollLeftValue(targetScrollLeft)
+      setStickyScrollLeftValue(targetScrollLeft, true)
       touchInertiaTimerRef.current = setTimeout(() => {
         touchInertiaTimerRef.current = null
-        setStickyScrollInertiaActive(false)
+        setStickyScrollInertiaActive((active) => active ? false : active)
       }, STICKY_TOUCH_INERTIA_DURATION)
     },
     [cancelStickyTouchInertia, setStickyScrollLeftValue],
@@ -232,7 +277,7 @@ export function useGridScrollSync({
       const maxScroll = getStickyMaxScroll(stickyViewportRef.current, gridRef.current)
       if (maxScroll <= 1) return
       cancelStickyTouchInertia()
-      const startScrollLeft = clampScrollLeft(stickyScrollLeft, maxScroll)
+      const startScrollLeft = clampScrollLeft(stickyScrollLeftRef.current, maxScroll)
       touchDragRef.current = {
         pointerId: event.pointerId,
         startX: event.clientX,
@@ -245,7 +290,7 @@ export function useGridScrollSync({
         mode: 'pending',
       }
     },
-    [stickyEnabled, stickyScrollLeft, cancelStickyTouchInertia],
+    [stickyEnabled, cancelStickyTouchInertia],
   )
 
   const onStickyViewportPointerMove = useCallback(
@@ -298,27 +343,14 @@ export function useGridScrollSync({
     [startStickyTouchInertia],
   )
 
-  const stickyTranslateStyle: CSSProperties | null =
-    stickyEnabled && (stickyScrollLeft > 0 || stickyScrollInertiaActive)
-      ? {
-          transform: `translateX(${-stickyScrollLeft}px)`,
-          willChange: 'transform',
-          ...(stickyScrollInertiaActive
-            ? {
-                transition: `transform ${STICKY_TOUCH_INERTIA_DURATION}ms ${STICKY_TOUCH_INERTIA_EASING}`,
-              }
-            : null),
-        }
-      : null
-
   return {
     stickyScrollLeft,
+    stickyScrollLeftRef,
     setStickyScrollLeft,
     onStickyViewportWheel,
     onStickyViewportPointerDown,
     onStickyViewportPointerMove,
     onStickyViewportPointerUp,
     stickyScrollInertiaActive,
-    stickyTranslateStyle,
   }
 }

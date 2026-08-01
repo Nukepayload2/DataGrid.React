@@ -1,4 +1,4 @@
-import { cloneElement, type CSSProperties, type ReactElement, type ReactNode } from 'react'
+import { cloneElement, type ReactElement, type ReactNode, type Ref } from 'react'
 import type { SummaryRowProps } from './Summary'
 import type { LeafStickyInfo } from './useStickyColumns'
 
@@ -39,10 +39,10 @@ export interface SummaryLayerProps {
   startLine: number
   leafSticky: Array<LeafStickyInfo | undefined>
   extracted?: boolean
+  extractedGridRef?: Ref<HTMLDivElement>
   gridClassName?: string
   gridTemplateColumns?: string
   scrollMinWidth?: number | string
-  stickyTranslateStyle?: CSSProperties | null
 }
 
 export function SummaryLayer({
@@ -50,10 +50,10 @@ export function SummaryLayer({
   startLine,
   leafSticky,
   extracted = false,
+  extractedGridRef,
   gridClassName,
   gridTemplateColumns,
   scrollMinWidth,
-  stickyTranslateStyle,
 }: SummaryLayerProps): ReactNode {
   if (!summary) return null
 
@@ -64,13 +64,13 @@ export function SummaryLayer({
 
   return (
     <div
+      ref={extractedGridRef}
       className={gridClassName}
       style={{
         display: 'grid',
         gridTemplateRows: summaryRowsTrack(summary.count) || 'none',
         gridTemplateColumns,
         ...(scrollMinWidth ? { minWidth: scrollMinWidth } : null),
-        ...(stickyTranslateStyle ?? null),
       }}
     >
       {renderSummaryRows({ summary, startLine: 1, leafSticky })}

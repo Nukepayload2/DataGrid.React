@@ -201,6 +201,8 @@ function GridTableInner<RecordType = any>(
     setGridElement(node)
   }, [])
   const stickyViewportRef = useRef<HTMLDivElement | null>(null)
+  const stickySummaryGridRef = useRef<HTMLDivElement | null>(null)
+  const stickyScrollBarUpdateThumbRef = useRef<(() => void) | null>(null)
 
   // === 滚动模式互斥判定（sticky / virtual / 容器内固定表头）— 详见 useScrollMode.ts ===
   const {
@@ -214,20 +216,25 @@ function GridTableInner<RecordType = any>(
     stickyHeaderOffset,
   } = useScrollMode({ sticky, scroll, virtual })
 
-  // === sticky 横向滚动同步（stickyScrollLeft + onStickyViewportWheel + stickyTranslateStyle）
+  // === sticky 横向滚动同步（stickyScrollLeftRef + onStickyViewportWheel + CSS var）
   //   已抽出到 useGridScrollSync.ts（task43）；依赖 stickyEnabled 故在 useScrollMode 之后调用。
   //   行为字节级保持：wheel 处理 / clamp 边界 / getStickyMaxScroll 协同 / translateX 派生全部
   //   在 hook 内，本组件只透传 props 给 ScrollContainer。
   const {
-    stickyScrollLeft,
+    stickyScrollLeftRef,
     setStickyScrollLeft,
     onStickyViewportWheel,
     onStickyViewportPointerDown,
     onStickyViewportPointerMove,
     onStickyViewportPointerUp,
     stickyScrollInertiaActive,
-    stickyTranslateStyle,
-  } = useGridScrollSync({ stickyEnabled, stickyViewportRef, gridRef })
+  } = useGridScrollSync({
+    stickyEnabled,
+    stickyViewportRef,
+    gridRef,
+    stickySummaryGridRef,
+    stickyScrollBarUpdateThumbRef,
+  })
 
   // 是否启用展开（expandState.expandEnabled）。展开启用时强制 multi 路径——
   // 展开内容 track 需要精确 grid-row 定位，flat 路径（grid-auto-flow:column）无法插入。
@@ -566,10 +573,9 @@ function GridTableInner<RecordType = any>(
         ? `${scrollX}px`
         : scrollX
       : undefined
-  // stickyTranslateStyle 来自 useGridScrollSync（task43 抽出，上方派生）。
   const gridFinalStyle: CSSProperties = scrollMinWidth
-    ? { ...gridStyle, minWidth: scrollMinWidth, ...(stickyTranslateStyle ?? null) }
-    : { ...gridStyle, ...(stickyTranslateStyle ?? null) }
+    ? { ...gridStyle, minWidth: scrollMinWidth }
+    : gridStyle
   // 语义化 content 部位 style（合并到 grid 根容器 style）。
   const semanticContentStyle = semantic?.content?.style
   // semantic content style 合并到 grid 根 style（gridFinalStyle 之后覆盖）。
@@ -587,6 +593,8 @@ function GridTableInner<RecordType = any>(
     resizingKey !== null ? 'dg-grid-resizing' : undefined,
     // 有界行高模型：加标记类，CSS 据此给 .dg-cell-body 加 min/max-height（约束 auto track）。
     boundedRowHeight ? 'dg-grid-bounded' : undefined,
+    stickyEnabled ? 'dg-sticky-scroll-translated' : undefined,
+    stickyScrollInertiaActive ? 'dg-sticky-scroll-inertia' : undefined,
     className,
   ]
     .filter(Boolean)
@@ -887,7 +895,7 @@ function GridTableInner<RecordType = any>(
 
   // === 滚动容器路由 — 由 ScrollContainer 组件负责三路 return（sticky / 兜底 / FloatingScrollBar）===
   //   详见 docs/design-notes/sticky.md（sticky 分支）与 docs/design-notes/scrollbar.md（FloatingScrollBar 分支）。
-  //   stickyScrollLeft state + onStickyViewportWheel + stickyTranslateStyle 由 useGridScrollSync（task43）派生，
+  //   stickyScrollLeftRef + onStickyViewportWheel 由 useGridScrollSync（task43）派生，
   //   作 props 传入 ScrollContainer。
   return (
     <ScrollContainer
@@ -897,19 +905,20 @@ function GridTableInner<RecordType = any>(
       onStickyViewportPointerDown={onStickyViewportPointerDown}
       onStickyViewportPointerMove={onStickyViewportPointerMove}
       onStickyViewportPointerUp={onStickyViewportPointerUp}
-      stickyScrollLeft={stickyScrollLeft}
+      stickyScrollLeftRef={stickyScrollLeftRef}
       setStickyScrollLeft={setStickyScrollLeft}
+      stickyScrollBarUpdateThumbRef={stickyScrollBarUpdateThumbRef}
       stickyScrollInertiaActive={stickyScrollInertiaActive}
       stickyOffsetScroll={stickyOffsetScroll}
       stickyGetContainer={stickyGetContainer}
       gridRef={gridRef}
+      stickySummaryGridRef={stickySummaryGridRef}
       extractSummary={extractSummary}
       summaryParsed={summaryParsed}
       leafSticky={leafSticky}
       gridClassName={gridClassName}
       gridTemplateColumns={gridTemplateColumns}
       scrollMinWidth={scrollMinWidth}
-      stickyTranslateStyle={stickyTranslateStyle}
       scrollYEnabled={scrollYEnabled}
       scrollXEnabled={scrollX !== undefined}
       virtualEnabled={virtualEnabled}

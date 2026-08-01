@@ -143,50 +143,12 @@ describe('useGridScrollSync', () => {
       expect(result.current.stickyScrollLeft).toBe(0)
     })
 
-    it('setStickyScrollLeft 直接调用可更新 stickyScrollLeft（StickyScrollBar 拖动回写路径）', () => {
+    it('setStickyScrollLeft 直接调用可更新 stickyScrollLeftRef（StickyScrollBar 拖动回写路径）', () => {
       const { result } = render()
       act(() => result.current.setStickyScrollLeft(42))
-      expect(result.current.stickyScrollLeft).toBe(42)
-    })
-
-    it('stickyTranslateStyle 初始为 null（stickyScrollLeft=0 不构造 transform）', () => {
-      const { result } = render()
-      expect(result.current.stickyTranslateStyle).toBeNull()
-    })
-
-    it('sticky 未启用 → stickyTranslateStyle 恒 null（即便 stickyScrollLeft>0）', () => {
-      const { result } = render({ stickyEnabled: false })
-      act(() => result.current.setStickyScrollLeft(100))
-      // re-read after act
-      expect(result.current.stickyTranslateStyle).toBeNull()
-    })
-  })
-
-  describe('stickyTranslateStyle 派生', () => {
-    it('stickyEnabled=true 且 stickyScrollLeft>0 → translateX + willChange', () => {
-      const { result } = render({ stickyEnabled: true })
-      act(() => result.current.setStickyScrollLeft(80))
-      expect(result.current.stickyTranslateStyle).toEqual({
-        transform: 'translateX(-80px)',
-        willChange: 'transform',
-      })
-    })
-
-    it('translateX 数值 = -stickyScrollLeft（字节级对齐原内联块）', () => {
-      const { result } = render()
-      act(() => result.current.setStickyScrollLeft(123))
-      expect(result.current.stickyTranslateStyle).toEqual({
-        transform: 'translateX(-123px)',
-        willChange: 'transform',
-      })
-    })
-
-    it('setStickyScrollLeft(0) 后 → null（stickyScrollLeft>0 失败，无 transform）', () => {
-      const { result } = render()
-      act(() => result.current.setStickyScrollLeft(50))
-      expect(result.current.stickyTranslateStyle).not.toBeNull()
-      act(() => result.current.setStickyScrollLeft(0))
-      expect(result.current.stickyTranslateStyle).toBeNull()
+      expect(result.current.stickyScrollLeftRef.current).toBe(42)
+      // 高频 setter 不同步 React state，避免拖动/滚轮路径重渲染整张表。
+      expect(result.current.stickyScrollLeft).toBe(0)
     })
   })
 
@@ -241,7 +203,7 @@ describe('useGridScrollSync', () => {
       act(() => result.current.setStickyScrollLeft(300))
       const ev = makeWheel({ deltaX: 50 })
       act(() => result.current.onStickyViewportWheel(ev))
-      expect(result.current.stickyScrollLeft).toBe(300)
+      expect(result.current.stickyScrollLeftRef.current).toBe(300)
       expect(ev.preventDefault).toHaveBeenCalledTimes(1)
       expect(ev.stopPropagation).toHaveBeenCalledTimes(1)
     })
@@ -252,7 +214,7 @@ describe('useGridScrollSync', () => {
       const { result } = render()
       const ev = makeWheel({ deltaX: 30, deltaY: 999, shiftKey: true })
       act(() => result.current.onStickyViewportWheel(ev))
-      expect(result.current.stickyScrollLeft).toBe(30)
+      expect(result.current.stickyScrollLeftRef.current).toBe(30)
       expect(ev.preventDefault).toHaveBeenCalledTimes(1)
       expect(ev.stopPropagation).toHaveBeenCalledTimes(1)
     })
@@ -261,7 +223,7 @@ describe('useGridScrollSync', () => {
       const { result } = render()
       const ev = makeWheel({ deltaX: 0, deltaY: 40, shiftKey: true })
       act(() => result.current.onStickyViewportWheel(ev))
-      expect(result.current.stickyScrollLeft).toBe(40)
+      expect(result.current.stickyScrollLeftRef.current).toBe(40)
     })
 
     it('无 deltaX + shiftKey=false → rawDelta=0 → no-op', () => {
@@ -288,7 +250,7 @@ describe('useGridScrollSync', () => {
       act(() => result.current.setStickyScrollLeft(280))
       const ev = makeWheel({ deltaX: 50 })
       act(() => result.current.onStickyViewportWheel(ev))
-      expect(result.current.stickyScrollLeft).toBe(300)
+      expect(result.current.stickyScrollLeftRef.current).toBe(300)
       expect(ev.preventDefault).toHaveBeenCalledTimes(1)
       expect(ev.stopPropagation).toHaveBeenCalledTimes(1)
     })
@@ -312,7 +274,7 @@ describe('useGridScrollSync', () => {
       act(() => result.current.setStickyScrollLeft(290))
       const ev = makeWheel({ deltaX: 50 })
       act(() => result.current.onStickyViewportWheel(ev))
-      expect(result.current.stickyScrollLeft).toBe(300)
+      expect(result.current.stickyScrollLeftRef.current).toBe(300)
     })
 
     it('refs.current=null → 阻断横向默认手势但不更新 state', () => {
@@ -322,7 +284,7 @@ describe('useGridScrollSync', () => {
       })
       const ev = makeWheel({ deltaX: 50 })
       act(() => result.current.onStickyViewportWheel(ev))
-      expect(result.current.stickyScrollLeft).toBe(0)
+      expect(result.current.stickyScrollLeftRef.current).toBe(0)
       expect(ev.preventDefault).toHaveBeenCalledTimes(1)
       expect(ev.stopPropagation).toHaveBeenCalledTimes(1)
     })
@@ -334,7 +296,7 @@ describe('useGridScrollSync', () => {
         const ev = makeWheel({ deltaX: 10 })
         act(() => result.current.onStickyViewportWheel(ev))
       }
-      expect(result.current.stickyScrollLeft).toBe(50)
+      expect(result.current.stickyScrollLeftRef.current).toBe(50)
     })
 
     it('同一个原生 wheel listener 收到连续事件时也累加（大表渲染期间不读陈旧闭包）', () => {
@@ -345,7 +307,7 @@ describe('useGridScrollSync', () => {
           nativeListener(makeWheel({ deltaX: 10 }))
         }
       })
-      expect(result.current.stickyScrollLeft).toBe(50)
+      expect(result.current.stickyScrollLeftRef.current).toBe(50)
       expect(result.current.onStickyViewportWheel).toBe(nativeListener)
     })
   })
@@ -360,7 +322,7 @@ describe('useGridScrollSync', () => {
       act(() => result.current.onStickyViewportPointerDown(down))
       const move = makePointer({ pointerId: 1, clientX: 40, clientY: 23 })
       act(() => result.current.onStickyViewportPointerMove(move))
-      expect(result.current.stickyScrollLeft).toBe(60)
+      expect(result.current.stickyScrollLeftRef.current).toBe(60)
       expect(move.preventDefault).toHaveBeenCalledTimes(1)
       expect(move.currentTarget.setPointerCapture).toHaveBeenCalledWith(1)
     })
@@ -373,7 +335,7 @@ describe('useGridScrollSync', () => {
       act(() => result.current.setStickyScrollLeft(280))
       act(() => result.current.onStickyViewportPointerDown(makePointer({ clientX: 100, clientY: 20 })))
       act(() => result.current.onStickyViewportPointerMove(makePointer({ clientX: -100, clientY: 20 })))
-      expect(result.current.stickyScrollLeft).toBe(300)
+      expect(result.current.stickyScrollLeftRef.current).toBe(300)
     })
 
     it('纵向触摸意图 → 不接管，保留页面纵向滚动', () => {
@@ -427,7 +389,7 @@ describe('useGridScrollSync', () => {
         clientY: 20,
         timeStamp: 100,
       })))
-      expect(result.current.stickyScrollLeft).toBe(100)
+      expect(result.current.stickyScrollLeftRef.current).toBe(100)
 
       act(() => result.current.onStickyViewportPointerUp(makePointer({
         clientX: 100,
@@ -438,21 +400,12 @@ describe('useGridScrollSync', () => {
 
       expect(result.current.stickyScrollLeft).toBe(600)
       expect(result.current.stickyScrollInertiaActive).toBe(true)
-      expect(result.current.stickyTranslateStyle).toEqual({
-        transform: 'translateX(-600px)',
-        willChange: 'transform',
-        transition: 'transform 1000ms cubic-bezier(0.22, 1, 0.36, 1)',
-      })
 
       act(() => vi.advanceTimersByTime(999))
       expect(result.current.stickyScrollInertiaActive).toBe(true)
       act(() => vi.advanceTimersByTime(1))
       expect(result.current.stickyScrollLeft).toBe(600)
       expect(result.current.stickyScrollInertiaActive).toBe(false)
-      expect(result.current.stickyTranslateStyle).toEqual({
-        transform: 'translateX(-600px)',
-        willChange: 'transform',
-      })
     })
 
     it('触摸惯性按 maxScroll clamp', () => {
@@ -479,7 +432,7 @@ describe('useGridScrollSync', () => {
         type: 'pointerup',
       })))
 
-      expect(result.current.stickyScrollLeft).toBe(300)
+      expect(result.current.stickyScrollLeftRef.current).toBe(300)
     })
 
     it('pointercancel 只清理拖动，不启动触摸惯性', () => {
@@ -501,7 +454,7 @@ describe('useGridScrollSync', () => {
         type: 'pointercancel',
       })))
 
-      expect(result.current.stickyScrollLeft).toBe(100)
+      expect(result.current.stickyScrollLeftRef.current).toBe(100)
       expect(result.current.stickyScrollInertiaActive).toBe(false)
     })
 
@@ -584,22 +537,46 @@ describe('useGridScrollSync', () => {
     })
   })
 
-  describe('集成：wheel → state → translate 派生链路', () => {
-    it('wheel 触发后 stickyTranslateStyle 同步派生（整链路）', () => {
+  describe('集成：wheel → ref → RAF DOM 写入链路', () => {
+    it('连续 wheel 只排一个 RAF，并在 flush 时同步 grid/summary CSS var 与 thumb', () => {
+      const rafCallbacks: FrameRequestCallback[] = []
+      const requestAnimationFrameSpy = vi
+        .spyOn(window, 'requestAnimationFrame')
+        .mockImplementation((cb) => {
+          rafCallbacks.push(cb)
+          return rafCallbacks.length
+        })
+      vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {})
+
+      const grid = document.createElement('div')
+      Object.defineProperty(grid, 'clientWidth', { configurable: true, value: 500 })
+      Object.defineProperty(grid, 'scrollWidth', { configurable: true, value: 500 })
+      const summaryGrid = document.createElement('div')
+      const updateThumb = vi.fn()
       const { result } = render({
         stickyEnabled: true,
         stickyViewportRef: makeRef<HTMLDivElement>({ clientWidth: 200 } as HTMLDivElement),
-        gridRef: makeRef<HTMLDivElement>({ scrollWidth: 500, clientWidth: 500 } as HTMLDivElement),
+        gridRef: makeRef<HTMLDivElement>(grid),
+        stickySummaryGridRef: makeRef<HTMLDivElement>(summaryGrid),
+        stickyScrollBarUpdateThumbRef: { current: updateThumb },
       })
-      // 初始：stickyScrollLeft=0 → null
-      expect(result.current.stickyTranslateStyle).toBeNull()
-      const ev = makeWheel({ deltaX: 75 })
-      act(() => result.current.onStickyViewportWheel(ev))
-      expect(result.current.stickyScrollLeft).toBe(75)
-      expect(result.current.stickyTranslateStyle).toEqual({
-        transform: 'translateX(-75px)',
-        willChange: 'transform',
+
+      requestAnimationFrameSpy.mockClear()
+      updateThumb.mockClear()
+      act(() => {
+        result.current.onStickyViewportWheel(makeWheel({ deltaX: 25 }))
+        result.current.onStickyViewportWheel(makeWheel({ deltaX: 25 }))
       })
+      expect(result.current.stickyScrollLeftRef.current).toBe(50)
+      expect(requestAnimationFrameSpy).toHaveBeenCalledTimes(1)
+      expect(grid.style.getPropertyValue('--dg-sticky-scroll-left')).toBe('0px')
+      expect(summaryGrid.style.getPropertyValue('--dg-sticky-scroll-left')).toBe('0px')
+      expect(updateThumb).not.toHaveBeenCalled()
+
+      act(() => rafCallbacks[0](0))
+      expect(grid.style.getPropertyValue('--dg-sticky-scroll-left')).toBe('50px')
+      expect(summaryGrid.style.getPropertyValue('--dg-sticky-scroll-left')).toBe('50px')
+      expect(updateThumb).toHaveBeenCalledTimes(1)
     })
   })
 })

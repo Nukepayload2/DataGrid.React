@@ -36,19 +36,20 @@ function baseProps(overrides: Partial<ScrollContainerProps> = {}): ScrollContain
     onStickyViewportPointerDown: () => {},
     onStickyViewportPointerMove: () => {},
     onStickyViewportPointerUp: () => {},
-    stickyScrollLeft: 0,
+    stickyScrollLeftRef: { current: 0 },
     setStickyScrollLeft: () => {},
+    stickyScrollBarUpdateThumbRef: { current: null },
     stickyScrollInertiaActive: false,
     stickyOffsetScroll: 0,
     stickyGetContainer: undefined,
     gridRef: { current: null },
+    stickySummaryGridRef: { current: null },
     extractSummary: false,
     summaryParsed: null,
     leafSticky: [],
     gridClassName: 'dg-grid',
     gridTemplateColumns: undefined,
     scrollMinWidth: undefined,
-    stickyTranslateStyle: null,
     scrollYEnabled: false,
     scrollXEnabled: false,
     virtualEnabled: false,
@@ -75,7 +76,6 @@ describe('ScrollContainer', () => {
           stickyEnabled: true,
           stickyViewportRef: viewportRef,
           onStickyViewportWheel: onWheel,
-          stickyScrollLeft: 42,
         })}
       />,
     )
@@ -105,7 +105,6 @@ describe('ScrollContainer', () => {
           gridClassName: 'dg-grid',
           gridTemplateColumns: '10px 20px',
           scrollMinWidth: 120,
-          stickyTranslateStyle: { transform: 'translateX(-8px)' },
         })}
       />,
     )

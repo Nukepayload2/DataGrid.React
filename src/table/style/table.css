@@ -28,6 +28,15 @@
   touch-action: pan-y pinch-zoom;
 }
 
+.dg-sticky-scroll-translated {
+  transform: translate3d(calc(var(--dg-sticky-scroll-left, 0px) * -1), 0, 0);
+  will-change: transform;
+}
+
+.dg-sticky-scroll-translated.dg-sticky-scroll-inertia {
+  transition: transform 1000ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 /* `.dg-wrapper` 不是 antd 组件根，这里补一层链接色 reset。 */
 .dg-wrapper a {
   color: var(--ant-color-link);

@@ -76,7 +76,6 @@ describe('SummaryLayer', () => {
       gridClassName: 'dg-grid',
       gridTemplateColumns: '10px 20px',
       scrollMinWidth: 120,
-      stickyTranslateStyle: { transform: 'translateX(-8px)' },
     })
 
     expect(isValidElement(layer)).toBe(true)
@@ -91,7 +90,6 @@ describe('SummaryLayer', () => {
       gridTemplateRows: 'auto auto',
       gridTemplateColumns: '10px 20px',
       minWidth: 120,
-      transform: 'translateX(-8px)',
     })
     expect(element.props.children[0].props.__rowLine).toBe(1)
     expect(element.props.children[1].props.__rowLine).toBe(2)
