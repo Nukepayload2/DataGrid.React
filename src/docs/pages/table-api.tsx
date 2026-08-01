@@ -20,6 +20,7 @@ export function renderTableApi({ onOpen }: DocsPageContext) {
         <ApiRefTable
           members={getApiMembers('table')}
           anchorPrefix="table-prop"
+          compact
           onOpenDoc={(slug) => onOpen({ kind: 'doc', value: slug, label: slug })}
           description="data-grid 顶层 Table props（兼容 antd v6 TableProps 子集 + data-grid 专属 gridOptions 命名空间）。"
         />
@@ -32,6 +33,7 @@ export function renderTableApi({ onOpen }: DocsPageContext) {
         <ApiRefTable
           members={getApiMembers('tableRef')}
           anchorPrefix="table-ref"
+          compact
           onOpenDoc={(slug) => onOpen({ kind: 'doc', value: slug, label: slug })}
           description="Table 实例 ref 暴露的方法与属性。scrollTo 仅在 virtual 模式下生效；非虚拟模式调用为 no-op。"
         />

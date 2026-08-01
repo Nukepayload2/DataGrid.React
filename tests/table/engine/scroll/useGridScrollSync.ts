@@ -336,6 +336,18 @@ describe('useGridScrollSync', () => {
       }
       expect(result.current.stickyScrollLeft).toBe(50)
     })
+
+    it('同一个原生 wheel listener 收到连续事件时也累加（大表渲染期间不读陈旧闭包）', () => {
+      const { result } = setup()
+      const nativeListener = result.current.onStickyViewportWheel
+      act(() => {
+        for (let i = 0; i < 5; i++) {
+          nativeListener(makeWheel({ deltaX: 10 }))
+        }
+      })
+      expect(result.current.stickyScrollLeft).toBe(50)
+      expect(result.current.onStickyViewportWheel).toBe(nativeListener)
+    })
   })
 
   describe('sticky viewport touch drag', () => {
@@ -549,12 +561,11 @@ describe('useGridScrollSync', () => {
       expect(result.current.setStickyScrollLeft).toBe(first)
     })
 
-    it('stickyScrollLeft 变化 → onStickyViewportWheel 引用变化（依赖数组包含 stickyScrollLeft）', () => {
+    it('stickyScrollLeft 变化 → onStickyViewportWheel 引用保持稳定（通过 ref 读取最新值）', () => {
       const { result } = render()
       const first = result.current.onStickyViewportWheel
       act(() => result.current.setStickyScrollLeft(10))
-      // stickyScrollLeft 变化 → callback 重建（deps: [stickyEnabled, stickyScrollLeft]）
-      expect(result.current.onStickyViewportWheel).not.toBe(first)
+      expect(result.current.onStickyViewportWheel).toBe(first)
     })
 
     it('stickyEnabled 变化 → onStickyViewportWheel 引用变化', () => {

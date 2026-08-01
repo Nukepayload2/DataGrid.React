@@ -100,6 +100,7 @@ export function useGridScrollSync({
 }: UseGridScrollSyncOptions): UseGridScrollSyncResult {
   const [stickyScrollLeft, setStickyScrollLeftState] = useState(0)
   const [stickyScrollInertiaActive, setStickyScrollInertiaActive] = useState(false)
+  const stickyScrollLeftRef = useRef(0)
   const touchDragRef = useRef<StickyTouchDragState | null>(null)
   const touchInertiaTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const nativeTouchIntentRef = useRef<StickyNativeTouchIntentState | null>(null)
@@ -113,6 +114,7 @@ export function useGridScrollSync({
   }, [])
 
   const setStickyScrollLeftValue = useCallback((next: number) => {
+    stickyScrollLeftRef.current = next
     setStickyScrollLeftState(next)
   }, [])
 
@@ -213,14 +215,14 @@ export function useGridScrollSync({
 
       const maxScroll = getStickyMaxScroll(stickyViewportRef.current, gridRef.current)
       if (maxScroll <= 1) return
-      const current = clampScrollLeft(stickyScrollLeft, maxScroll)
+      const current = clampScrollLeft(stickyScrollLeftRef.current, maxScroll)
       const next = clampScrollLeft(current + rawDelta, maxScroll)
       if (next === current) return
       cancelStickyTouchInertia()
       setStickyScrollLeftValue(next)
     },
     // refs 不进 deps（与原 GridTable 内联块一致；ref 对象稳定恒等）。
-    [stickyEnabled, stickyScrollLeft, cancelStickyTouchInertia, setStickyScrollLeftValue],
+    [stickyEnabled, cancelStickyTouchInertia, setStickyScrollLeftValue],
   )
 
   const onStickyViewportPointerDown = useCallback(

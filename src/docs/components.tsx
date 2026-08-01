@@ -681,6 +681,14 @@ function TypeSignature({ type }: { type: string }) {
   )
 }
 
+function getCompactTypeDisplay(record: ApiMember): string {
+  const type = record.type || record.signature
+  const namePattern = record.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return type
+    .replace(new RegExp(`^${namePattern}\\??:\\s*`), '')
+    .replace(new RegExp(`^${namePattern}:\\s*`), '')
+}
+
 // --- Main component ---------------------------------------------------------
 
 type ApiRefVariant = 'props' | 'exports'
@@ -690,6 +698,8 @@ export interface ApiRefTableProps {
   /** Prefix for stable anchor ids (e.g. `table-prop`, `grid-options`, `export`). */
   anchorPrefix: string
   variant?: ApiRefVariant
+  /** Compact layout merges name/type into one column so the summary column can breathe. */
+  compact?: boolean
   /** Resolves in-app doc links inside summaries. */
   onOpenDoc?: (slug: string) => void
   /** Optional lede above the table. */
@@ -703,6 +713,7 @@ export function ApiRefTable({
   members,
   anchorPrefix,
   variant = 'props',
+  compact = false,
   onOpenDoc,
   description,
   summaryOverrides,
@@ -723,6 +734,7 @@ export function ApiRefTable({
           members={withOverrides}
           anchorPrefix={anchorPrefix}
           variant={variant}
+          compact={compact}
           onOpenDoc={onOpenDoc}
         />
       ) : null}
@@ -734,10 +746,11 @@ interface RefTableProps {
   members: ApiMember[]
   anchorPrefix: string
   variant: ApiRefVariant
+  compact: boolean
   onOpenDoc?: (slug: string) => void
 }
 
-function RefTable({ members, anchorPrefix, variant, onOpenDoc }: RefTableProps) {
+function RefTable({ members, anchorPrefix, variant, compact, onOpenDoc }: RefTableProps) {
   if (variant === 'exports') {
     return (
       <DocsDataGrid<ApiMember>
@@ -762,6 +775,40 @@ function RefTable({ members, anchorPrefix, variant, onOpenDoc }: RefTableProps) 
         ]}
         dataSource={members}
         rowKey="name"
+      />
+    )
+  }
+  if (compact) {
+    return (
+      <DocsDataGrid<ApiMember>
+        columns={[
+          {
+            title: '属性 / 类型',
+            dataIndex: 'name',
+            key: 'name',
+            width: 260,
+            render: (_value, record) => (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
+                <PropertyName
+                  anchorId={`${anchorPrefix}-${record.name}`}
+                  name={record.name}
+                />
+                <TypeSignature type={getCompactTypeDisplay(record)} />
+              </div>
+            ),
+          },
+          {
+            title: '描述',
+            dataIndex: 'summary',
+            key: 'summary',
+            render: (_value, record) => (
+              <MarkdownSummary summary={record.summary} onOpenDoc={onOpenDoc} />
+            ),
+          },
+        ]}
+        dataSource={members}
+        rowKey="name"
+        scrollX={1180}
       />
     )
   }
