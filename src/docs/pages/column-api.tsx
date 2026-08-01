@@ -15,6 +15,7 @@ export function renderColumnApi({ onOpen }: DocsPageContext) {
       <ApiRefTable
         members={getApiMembers('column')}
         anchorPrefix="column-prop"
+        compact
         onOpenDoc={(slug) => onOpen({ kind: 'doc', value: slug, label: slug })}
         description="data-grid ColumnType（兼容 antd v6 列定义）。"
       />
