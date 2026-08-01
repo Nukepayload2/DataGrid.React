@@ -20,14 +20,25 @@ class CapturingResizeObserver {
   disconnect(): void {}
 }
 
-function pointer(type: string, init: { pointerId?: number; clientX?: number; clientY?: number }): PointerEvent {
+function pointer(
+  type: string,
+  init: { pointerId?: number; clientX?: number; clientY?: number; pointerType?: string },
+): PointerEvent {
   return new PointerEvent(type, {
     bubbles: true,
     cancelable: true,
     pointerId: init.pointerId ?? 1,
     clientX: init.clientX ?? 0,
     clientY: init.clientY ?? 0,
+    pointerType: init.pointerType ?? 'mouse',
   })
+}
+
+function touchMove(): TouchEvent {
+  return new Event('touchmove', {
+    bubbles: true,
+    cancelable: true,
+  }) as TouchEvent
 }
 
 function setScrollMetrics(
@@ -207,6 +218,122 @@ describe('FloatingScrollBar', () => {
 
     expect(document.body).not.toHaveClass('dg-scrollbar-pointer-capturing')
     expect(hit.releasePointerCapture).toHaveBeenCalledWith(8)
+  })
+
+  it('uses a 32px touch-active hit width and non-passive touchmove for vertical thumb dragging', () => {
+    vi.stubGlobal('ResizeObserver', CapturingResizeObserver)
+
+    render(
+      <FloatingScrollBar scrollContainerClassName="dg-scroll">
+        <div className="dg-grid" />
+      </FloatingScrollBar>,
+    )
+
+    const container = document.querySelector<HTMLElement>('.dg-scroll')!
+    setScrollMetrics(container, { clientHeight: 100, scrollHeight: 10000, scrollTop: 0 })
+
+    act(() => {
+      CapturingResizeObserver.callbacks.forEach((callback) => callback([]))
+    })
+
+    const hit = document.querySelector<HTMLElement>('.dg-floating-scrollbar-v')!
+    const thumb = hit.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb')!
+    hit.setPointerCapture = vi.fn()
+    hit.releasePointerCapture = vi.fn()
+    const addSpy = vi.spyOn(hit, 'addEventListener')
+    const removeSpy = vi.spyOn(hit, 'removeEventListener')
+    vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+      domRect({ top: 0, height: 32 }),
+    )
+
+    act(() => {
+      hit.dispatchEvent(pointer('pointerdown', {
+        pointerId: 40,
+        pointerType: 'touch',
+        clientY: 10,
+      }))
+    })
+
+    expect(hit).toHaveClass('dg-floating-scrollbar-touch-active')
+    expect(addSpy).toHaveBeenCalledWith('touchmove', expect.any(Function), {
+      passive: false,
+    })
+
+    const move = touchMove()
+    hit.dispatchEvent(move)
+    expect(move.defaultPrevented).toBe(true)
+
+    act(() => {
+      window.dispatchEvent(pointer('pointerup', {
+        pointerId: 40,
+        pointerType: 'touch',
+        clientY: 10,
+      }))
+    })
+
+    expect(hit).not.toHaveClass('dg-floating-scrollbar-touch-active')
+    expect(removeSpy).toHaveBeenCalledWith('touchmove', expect.any(Function))
+  })
+
+  it('uses a 32px touch-active hit height and non-passive touchmove for horizontal thumb dragging', () => {
+    vi.stubGlobal('ResizeObserver', CapturingResizeObserver)
+
+    render(
+      <FloatingScrollBar horizontal scrollContainerClassName="dg-scroll">
+        <div className="dg-grid" />
+      </FloatingScrollBar>,
+    )
+
+    const container = document.querySelector<HTMLElement>('.dg-scroll')!
+    setScrollMetrics(container, {
+      clientHeight: 100,
+      scrollHeight: 100,
+      clientWidth: 100,
+      scrollWidth: 10000,
+      scrollLeft: 0,
+    })
+
+    act(() => {
+      CapturingResizeObserver.callbacks.forEach((callback) => callback([]))
+    })
+
+    const hit = document.querySelector<HTMLElement>('.dg-floating-scrollbar-h')!
+    const thumb = hit.querySelector<HTMLElement>('.dg-floating-scrollbar-thumb-h')!
+    hit.setPointerCapture = vi.fn()
+    hit.releasePointerCapture = vi.fn()
+    const addSpy = vi.spyOn(hit, 'addEventListener')
+    const removeSpy = vi.spyOn(hit, 'removeEventListener')
+    vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+      domRect({ left: 0, width: 32 }),
+    )
+
+    act(() => {
+      hit.dispatchEvent(pointer('pointerdown', {
+        pointerId: 41,
+        pointerType: 'touch',
+        clientX: 10,
+      }))
+    })
+
+    expect(hit).toHaveClass('dg-floating-scrollbar-touch-active')
+    expect(addSpy).toHaveBeenCalledWith('touchmove', expect.any(Function), {
+      passive: false,
+    })
+
+    const move = touchMove()
+    hit.dispatchEvent(move)
+    expect(move.defaultPrevented).toBe(true)
+
+    act(() => {
+      window.dispatchEvent(pointer('pointerup', {
+        pointerId: 41,
+        pointerType: 'touch',
+        clientX: 10,
+      }))
+    })
+
+    expect(hit).not.toHaveClass('dg-floating-scrollbar-touch-active')
+    expect(removeSpy).toHaveBeenCalledWith('touchmove', expect.any(Function))
   })
 
   it('recomputes horizontal visibility when measurementKey changes', () => {

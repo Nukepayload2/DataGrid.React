@@ -996,6 +996,11 @@ body.dg-scrollbar-pointer-capturing * {
   z-index: 11;
 }
 
+.dg-floating-scrollbar-v.dg-floating-scrollbar-touch-active {
+  width: 32px;
+  touch-action: none;
+}
+
 /* 纵向 thumb。 */
 .dg-floating-scrollbar-thumb {
   position: absolute;
@@ -1008,6 +1013,7 @@ body.dg-scrollbar-pointer-capturing * {
   cursor: pointer;
   opacity: 1;
   pointer-events: auto;
+  touch-action: none;
   transition:
     width 0.2s ease,
     background-color 0.2s ease,
@@ -1023,7 +1029,8 @@ body.dg-scrollbar-pointer-capturing * {
 .dg-wrapper.dg-scrollbar-table-hover:hover .dg-floating-scrollbar-thumb,
 .dg-wrapper.dg-scrollbar-table-hover.dg-scrollbar-touched .dg-floating-scrollbar-thumb,
 .dg-floating-scrollbar-v:hover .dg-floating-scrollbar-thumb,
-.dg-floating-scrollbar-v.dg-floating-scrollbar-dragging .dg-floating-scrollbar-thumb {
+.dg-floating-scrollbar-v.dg-floating-scrollbar-dragging .dg-floating-scrollbar-thumb,
+.dg-floating-scrollbar-v.dg-floating-scrollbar-touch-active .dg-floating-scrollbar-thumb {
   opacity: 1;
 }
 
@@ -1042,11 +1049,16 @@ body.dg-scrollbar-pointer-capturing * {
 
 /* 纵向 hit 容器 hover。 */
 .dg-floating-scrollbar-v:hover .dg-floating-scrollbar-thumb,
-.dg-floating-scrollbar-v.dg-floating-scrollbar-dragging .dg-floating-scrollbar-thumb {
+.dg-floating-scrollbar-v.dg-floating-scrollbar-dragging .dg-floating-scrollbar-thumb,
+.dg-floating-scrollbar-v.dg-floating-scrollbar-touch-active .dg-floating-scrollbar-thumb {
   width: var(--ant-table-scroll-thumb-size, 8px);
   background: var(--dg-scrollbar-thumb-active-bg);
   opacity: var(--dg-scrollbar-thumb-expanded-opacity, 0.25);
   cursor: grabbing;
+}
+
+.dg-floating-scrollbar-v.dg-floating-scrollbar-touch-active .dg-floating-scrollbar-thumb {
+  width: 32px;
 }
 
 /* expandOnHover=false：不折叠成 2px 指示器，始终保持展开尺寸。 */
@@ -1079,6 +1091,11 @@ body.dg-scrollbar-pointer-capturing * {
   height: var(--ant-table-scroll-thumb-size, 8px);
 }
 
+.dg-floating-scrollbar-h.dg-floating-scrollbar-touch-active {
+  height: 32px;
+  touch-action: none;
+}
+
 /* 横向 thumb。 */
 .dg-floating-scrollbar-thumb-h {
   position: absolute;
@@ -1091,6 +1108,7 @@ body.dg-scrollbar-pointer-capturing * {
   cursor: pointer;
   opacity: 1;
   pointer-events: auto;
+  touch-action: none;
   transition:
     height 0.2s ease,
     background-color 0.2s ease,
@@ -1106,7 +1124,8 @@ body.dg-scrollbar-pointer-capturing * {
 .dg-wrapper.dg-scrollbar-table-hover:hover .dg-floating-scrollbar-thumb-h,
 .dg-wrapper.dg-scrollbar-table-hover.dg-scrollbar-touched .dg-floating-scrollbar-thumb-h,
 .dg-floating-scrollbar-h:hover .dg-floating-scrollbar-thumb-h,
-.dg-floating-scrollbar-h.dg-floating-scrollbar-dragging .dg-floating-scrollbar-thumb-h {
+.dg-floating-scrollbar-h.dg-floating-scrollbar-dragging .dg-floating-scrollbar-thumb-h,
+.dg-floating-scrollbar-h.dg-floating-scrollbar-touch-active .dg-floating-scrollbar-thumb-h {
   opacity: 1;
 }
 
@@ -1125,11 +1144,16 @@ body.dg-scrollbar-pointer-capturing * {
 
 /* 横向 hit 容器 hover。 */
 .dg-floating-scrollbar-h:hover .dg-floating-scrollbar-thumb-h,
-.dg-floating-scrollbar-h.dg-floating-scrollbar-dragging .dg-floating-scrollbar-thumb-h {
+.dg-floating-scrollbar-h.dg-floating-scrollbar-dragging .dg-floating-scrollbar-thumb-h,
+.dg-floating-scrollbar-h.dg-floating-scrollbar-touch-active .dg-floating-scrollbar-thumb-h {
   height: var(--ant-table-scroll-thumb-size, 8px);
   background: var(--dg-scrollbar-thumb-active-bg);
   opacity: var(--dg-scrollbar-thumb-expanded-opacity, 0.25);
   cursor: grabbing;
+}
+
+.dg-floating-scrollbar-h.dg-floating-scrollbar-touch-active .dg-floating-scrollbar-thumb-h {
+  height: 32px;
 }
 
 /* expandOnHover=false：不折叠成 2px 指示器，始终保持展开尺寸。 */

@@ -53,6 +53,7 @@ import {
   useLayoutEffect,
   useRef,
   type CSSProperties,
+  type MutableRefObject,
   type ReactNode,
 } from 'react'
 import {
@@ -65,6 +66,8 @@ import {
   computeTrackJump,
   type FloatingScrollbarGeometry,
 } from './floatingScrollBarUtils'
+
+const FLOATING_SCROLLBAR_TOUCH_ACTIVE_CLASS = 'dg-floating-scrollbar-touch-active'
 
 /**
  * 测量"表头区高度"（表头 sticky 区相对滚动容器顶部的距离）。
@@ -257,6 +260,7 @@ export function FloatingScrollBar({
   const vRepeatTimeoutRef = useRef<number | null>(null)
   const vRepeatIntervalRef = useRef<number | null>(null)
   const vRepeatStopRef = useRef<(() => void) | null>(null)
+  const vTouchMoveStopRef = useRef<(() => void) | null>(null)
 
   // === 横向悬浮条 ===
   const hThumbRef = useRef<HTMLDivElement | null>(null)
@@ -283,6 +287,7 @@ export function FloatingScrollBar({
   const hRepeatTimeoutRef = useRef<number | null>(null)
   const hRepeatIntervalRef = useRef<number | null>(null)
   const hRepeatStopRef = useRef<(() => void) | null>(null)
+  const hTouchMoveStopRef = useRef<(() => void) | null>(null)
 
   // === onScroll RAF 节流句柄 ===
   // -1 表示未调度；多次 scroll 事件合并到每帧一次 doSync。
@@ -301,6 +306,8 @@ export function FloatingScrollBar({
     return () => {
       vHitRef.current?.classList.remove('dg-floating-scrollbar-dragging')
       hHitRef.current?.classList.remove('dg-floating-scrollbar-dragging')
+      vHitRef.current?.classList.remove(FLOATING_SCROLLBAR_TOUCH_ACTIVE_CLASS)
+      hHitRef.current?.classList.remove(FLOATING_SCROLLBAR_TOUCH_ACTIVE_CLASS)
       document.body.classList.remove('dg-scrollbar-pointer-capturing')
       // 卸载时取消未完成的 RAF，防止卸载后写 null DOM。
       if (scrollRafRef.current !== -1) {
@@ -310,8 +317,33 @@ export function FloatingScrollBar({
       // 卸载时也清轨道 repeat 定时器（防止卸载后仍触发跳页）。
       vRepeatStopRef.current?.()
       hRepeatStopRef.current?.()
+      vTouchMoveStopRef.current?.()
+      hTouchMoveStopRef.current?.()
+      vTouchMoveStopRef.current = null
+      hTouchMoveStopRef.current = null
     }
   }, [])
+
+  const startTouchDragSession = (
+    hitEl: HTMLDivElement,
+    stopRef: MutableRefObject<(() => void) | null>,
+  ) => {
+    hitEl.classList.add(FLOATING_SCROLLBAR_TOUCH_ACTIVE_CLASS)
+    const onNativeTouchMove = (ev: TouchEvent) => {
+      ev.preventDefault()
+      ev.stopPropagation()
+    }
+    hitEl.addEventListener('touchmove', onNativeTouchMove, { passive: false })
+    const stop = () => {
+      hitEl.removeEventListener('touchmove', onNativeTouchMove)
+      hitEl.classList.remove(FLOATING_SCROLLBAR_TOUCH_ACTIVE_CLASS)
+      if (stopRef.current === stop) {
+        stopRef.current = null
+      }
+    }
+    stopRef.current = stop
+    return stop
+  }
 
   // 核心：重算纵向 thumb 几何 + track inset。
   // 直接写 DOM（thumb.style.height/display + hit.style.top/bottom + thumb.style.transform），
@@ -699,9 +731,14 @@ export function FloatingScrollBar({
     hitEl.classList.add('dg-floating-scrollbar-dragging')
     document.body.classList.add('dg-scrollbar-pointer-capturing')
     hitEl.setPointerCapture(e.pointerId)
+    const stopTouchDrag = e.pointerType === 'touch'
+      ? startTouchDragSession(hitEl, vTouchMoveStopRef)
+      : null
     const onMove = (ev: PointerEvent) => {
       const ds = vDragStateRef.current
       if (!ds || ds.pointerId !== ev.pointerId) return
+      ev.preventDefault()
+      ev.stopPropagation()
       const dy = ev.clientY - ds.startY
       container.scrollTop = computeFloatingDragScrollOffset(ds.startScrollTop, dy, g)
     }
@@ -712,6 +749,7 @@ export function FloatingScrollBar({
       hitEl.classList.remove('dg-floating-scrollbar-dragging')
       document.body.classList.remove('dg-scrollbar-pointer-capturing')
       hitEl.releasePointerCapture(ds.pointerId)
+      stopTouchDrag?.()
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onUp)
@@ -829,9 +867,14 @@ export function FloatingScrollBar({
     hitEl.classList.add('dg-floating-scrollbar-dragging')
     document.body.classList.add('dg-scrollbar-pointer-capturing')
     hitEl.setPointerCapture(e.pointerId)
+    const stopTouchDrag = e.pointerType === 'touch'
+      ? startTouchDragSession(hitEl, hTouchMoveStopRef)
+      : null
     const onMove = (ev: PointerEvent) => {
       const ds = hDragStateRef.current
       if (!ds || ds.pointerId !== ev.pointerId) return
+      ev.preventDefault()
+      ev.stopPropagation()
       const dx = ev.clientX - ds.startX
       container.scrollLeft = computeFloatingDragScrollOffset(ds.startScrollLeft, dx, g)
     }
@@ -842,6 +885,7 @@ export function FloatingScrollBar({
       hitEl.classList.remove('dg-floating-scrollbar-dragging')
       document.body.classList.remove('dg-scrollbar-pointer-capturing')
       hitEl.releasePointerCapture(ds.pointerId)
+      stopTouchDrag?.()
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onUp)
