@@ -18,6 +18,8 @@
  * 作 props 传入。
  */
 import {
+  useEffect,
+  useRef,
   type CSSProperties,
   type ReactNode,
   type PointerEvent as ReactPointerEvent,
@@ -38,7 +40,7 @@ export interface ScrollContainerProps {
   /** sticky 视口 ref（StickyScrollBar 同步 + onWheel 监听）。 */
   stickyViewportRef: React.RefObject<HTMLDivElement | null>
   /** sticky 视口 wheel 处理（更新虚拟 stickyScrollLeft）。 */
-  onStickyViewportWheel: (event: React.WheelEvent<HTMLDivElement>) => void
+  onStickyViewportWheel: (event: WheelEvent) => void
   /** sticky 视口触摸拖动开始。 */
   onStickyViewportPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
   /** sticky 视口触摸拖动移动。 */
@@ -138,6 +140,23 @@ export function ScrollContainer(props: ScrollContainerProps): ReactNode {
     sectionClassName,
     sectionStyle,
   } = props
+  const summaryStickyViewportRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    if (!stickyEnabled) return
+    const targets = [stickyViewportRef.current, summaryStickyViewportRef.current]
+      .filter((target): target is HTMLDivElement => !!target)
+    if (targets.length === 0) return
+    const options: AddEventListenerOptions = { passive: false }
+    targets.forEach((target) => {
+      target.addEventListener('wheel', onStickyViewportWheel, options)
+    })
+    return () => {
+      targets.forEach((target) => {
+        target.removeEventListener('wheel', onStickyViewportWheel)
+      })
+    }
+  }, [stickyEnabled, stickyViewportRef, onStickyViewportWheel, extractSummary])
 
   // === 页面级粘性表头（区别于容器内固定）— 详见 docs/design-notes/sticky.md ===
   // sticky 启用时：grid 只包一层 `overflow: clip` 视口，裁剪宽表但不创建滚动容器；
@@ -166,7 +185,6 @@ export function ScrollContainer(props: ScrollContainerProps): ReactNode {
         <div
           ref={stickyViewportRef}
           className="dg-sticky-scroll-viewport"
-          onWheel={onStickyViewportWheel}
           onPointerDown={onStickyViewportPointerDown}
           onPointerMove={onStickyViewportPointerMove}
           onPointerUp={onStickyViewportPointerUp}
@@ -186,8 +204,8 @@ export function ScrollContainer(props: ScrollContainerProps): ReactNode {
         {/* summary 提取到 StickyScrollBar 之后 → 横向滚动条落在 summary 上方。 */}
         {extractSummary ? (
           <div
+            ref={summaryStickyViewportRef}
             className="dg-sticky-scroll-viewport"
-            onWheel={onStickyViewportWheel}
             onPointerDown={onStickyViewportPointerDown}
             onPointerMove={onStickyViewportPointerMove}
             onPointerUp={onStickyViewportPointerUp}

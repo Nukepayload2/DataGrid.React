@@ -61,7 +61,10 @@ function baseProps(overrides: Partial<ScrollContainerProps> = {}): ScrollContain
 }
 
 describe('ScrollContainer', () => {
-  afterEach(cleanup)
+  afterEach(() => {
+    cleanup()
+    vi.restoreAllMocks()
+  })
 
   it('sticky 分支：渲染 dg-sticky-scroll-viewport + 底部 StickyScrollBar，children 包在视口内', () => {
     const onWheel = vi.fn()
@@ -109,6 +112,40 @@ describe('ScrollContainer', () => {
     // 两个 dg-sticky-scroll-viewport（主 grid + 提取出的 summary grid）。
     const viewports = container.querySelectorAll('.dg-sticky-scroll-viewport')
     expect(viewports.length).toBe(2)
+  })
+
+  it('sticky 分支：主视口和 summary 视口都用 passive:false 原生 wheel 监听', () => {
+    const addSpy = vi.spyOn(HTMLDivElement.prototype, 'addEventListener')
+    const removeSpy = vi.spyOn(HTMLDivElement.prototype, 'removeEventListener')
+    const onWheel = vi.fn()
+    const { container, unmount } = render(
+      <ScrollContainer
+        {...baseProps({
+          stickyEnabled: true,
+          extractSummary: true,
+          summaryParsed: { fixed: true, rows: [<div key="r1" />] as never, count: 1 },
+          onStickyViewportWheel: onWheel,
+        })}
+      />,
+    )
+
+    const wheelRegistrations = addSpy.mock.calls.filter(([type, listener, options]) => {
+      return type === 'wheel'
+        && listener === onWheel
+        && (options as AddEventListenerOptions | undefined)?.passive === false
+    })
+    expect(wheelRegistrations).toHaveLength(2)
+
+    const [viewport] = Array.from(container.querySelectorAll('.dg-sticky-scroll-viewport'))
+    const event = new WheelEvent('wheel', { deltaX: 40, bubbles: true, cancelable: true })
+    viewport.dispatchEvent(event)
+    expect(onWheel).toHaveBeenCalledWith(event)
+
+    unmount()
+    const wheelRemovals = removeSpy.mock.calls.filter(([type, listener]) => {
+      return type === 'wheel' && listener === onWheel
+    })
+    expect(wheelRemovals).toHaveLength(2)
   })
 
   it('非 sticky 分支：渲染 FloatingScrollBar 包装（.dg-scroll-wrap），children 在 .dg-scroll 容器内', () => {

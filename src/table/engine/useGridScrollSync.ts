@@ -70,7 +70,7 @@ export interface UseGridScrollSyncResult {
   /** sticky scrollLeft setter（StickyScrollBar 拖动/同步回写）。 */
   setStickyScrollLeft: (next: number) => void
   /** sticky 视口 wheel 处理（更新虚拟 stickyScrollLeft）。 */
-  onStickyViewportWheel: (event: React.WheelEvent<HTMLDivElement>) => void
+  onStickyViewportWheel: (event: WheelEvent) => void
   /** sticky 视口触摸拖动开始：横向拖动数据区域时更新虚拟 stickyScrollLeft。 */
   onStickyViewportPointerDown: (event: ReactPointerEvent<HTMLDivElement>) => void
   /** sticky 视口触摸拖动移动：横向意图接管，纵向意图交给页面滚动。 */
@@ -200,7 +200,7 @@ export function useGridScrollSync({
   )
 
   const onStickyViewportWheel = useCallback(
-    (event: React.WheelEvent<HTMLDivElement>) => {
+    (event: WheelEvent) => {
       if (!stickyEnabled) return
       const rawDelta = Math.abs(event.deltaX) > 0
         ? event.deltaX
@@ -209,6 +209,7 @@ export function useGridScrollSync({
           : 0
       if (Math.abs(rawDelta) <= 0.5) return
       event.preventDefault()
+      event.stopPropagation()
 
       const maxScroll = getStickyMaxScroll(stickyViewportRef.current, gridRef.current)
       if (maxScroll <= 1) return

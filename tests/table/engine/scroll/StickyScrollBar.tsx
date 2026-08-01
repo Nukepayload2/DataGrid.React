@@ -129,6 +129,24 @@ function makePointerEvent(
   })
 }
 
+function domRect(init: Partial<DOMRect>): DOMRect {
+  const left = init.left ?? 0
+  const top = init.top ?? 0
+  const width = init.width ?? 0
+  const height = init.height ?? 0
+  return {
+    left,
+    top,
+    width,
+    height,
+    right: init.right ?? left + width,
+    bottom: init.bottom ?? top + height,
+    x: left,
+    y: top,
+    toJSON: () => ({}),
+  } as DOMRect
+}
+
 // ---------------------------------------------------------------------------
 // 公共：每例后清理 + 还原 ResizeObserver（setup.ts 装的是空实现的 mock）。
 // ---------------------------------------------------------------------------
@@ -580,6 +598,73 @@ describe('StickyScrollBar pointer drag (viewport branch)', () => {
     firePointer(window, 'pointerup', { pointerId: 999, clientX: 0 })
     // 这里仍 dragging（只有匹配 id 才会清）—— 用以证明 pointerId 过滤生效。
     // 实际后续测试例的 afterEach 会清掉 body.classList。
+  })
+
+  it('jumps one page right when clicking the sticky track after the thumb', () => {
+    const { bar, thumb, onScrollLeftChange } = setupDrag({ startScrollLeft: 500 })
+    vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+      domRect({ left: 100, width: 200 }),
+    )
+
+    firePointer(bar, 'pointerdown', { pointerId: 2, clientX: 350 })
+
+    // viewport.clientWidth=500，所以轨道右侧点击滚动一页：500 + 500 = 1000。
+    expect(onScrollLeftChange).toHaveBeenCalledWith(1000)
+    expect(bar.classList.contains('dg-sticky-scroll-bar-dragging')).toBe(false)
+    expect(document.body.classList.contains('dg-scrollbar-pointer-capturing')).toBe(false)
+  })
+
+  it('jumps one page left and clamps when clicking the sticky track before the thumb', () => {
+    const { bar, thumb, onScrollLeftChange } = setupDrag({ startScrollLeft: 300 })
+    vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+      domRect({ left: 100, width: 200 }),
+    )
+
+    firePointer(bar, 'pointerdown', { pointerId: 3, clientX: 50 })
+
+    // 300 - viewportWidth(500) clamp 到 0。
+    expect(onScrollLeftChange).toHaveBeenCalledWith(0)
+    expect(bar.classList.contains('dg-sticky-scroll-bar-dragging')).toBe(false)
+  })
+
+  describe('track hold repeat', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('repeats page jumps while holding the sticky track after the thumb', () => {
+      const { bar, thumb, onScrollLeftChange } = setupDrag({ startScrollLeft: 0 })
+      vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+        domRect({ left: 100, width: 32 }),
+      )
+
+      firePointer(bar, 'pointerdown', { pointerId: 4, clientX: 200 })
+      expect(onScrollLeftChange).toHaveBeenLastCalledWith(500)
+
+      act(() => {
+        vi.advanceTimersByTime(499)
+      })
+      expect(onScrollLeftChange).toHaveBeenCalledTimes(1)
+
+      act(() => {
+        vi.advanceTimersByTime(1)
+      })
+      expect(onScrollLeftChange).toHaveBeenLastCalledWith(1000)
+
+      act(() => {
+        vi.advanceTimersByTime(50)
+      })
+      expect(onScrollLeftChange).toHaveBeenLastCalledWith(1500)
+
+      act(() => {
+        vi.advanceTimersByTime(500)
+      })
+      expect(onScrollLeftChange).toHaveBeenCalledTimes(3)
+    })
   })
 })
 

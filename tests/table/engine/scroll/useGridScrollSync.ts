@@ -17,20 +17,26 @@ function makeRef<T>(value: T | null): React.MutableRefObject<T | null> {
   return { current: value }
 }
 
-/** 构造一个 wheel 事件 mock（只需 deltaX/deltaY/shiftKey + preventDefault spy）。 */
+/** 构造一个 wheel 事件 mock（只需 deltaX/deltaY/shiftKey + preventDefault/stopPropagation spy）。 */
 function makeWheel(
   opts: Partial<{ deltaX: number; deltaY: number; shiftKey: boolean }> = {},
-): React.WheelEvent<HTMLDivElement> & { preventDefault: ReturnType<typeof vi.fn> } {
+): WheelEvent & {
+  preventDefault: ReturnType<typeof vi.fn>
+  stopPropagation: ReturnType<typeof vi.fn>
+} {
   const { deltaX = 0, deltaY = 0, shiftKey = false } = opts
   const preventDefault = vi.fn()
+  const stopPropagation = vi.fn()
   return {
     deltaX,
     deltaY,
     shiftKey,
     preventDefault,
+    stopPropagation,
     // WheelEvent 其他字段在 hook 内未被读取，省略。
-  } as unknown as React.WheelEvent<HTMLDivElement> & {
+  } as unknown as WheelEvent & {
     preventDefault: ReturnType<typeof vi.fn>
+    stopPropagation: ReturnType<typeof vi.fn>
   }
 }
 
@@ -191,6 +197,7 @@ describe('useGridScrollSync', () => {
       act(() => result.current.onStickyViewportWheel(ev))
       expect(result.current.stickyScrollLeft).toBe(0)
       expect(ev.preventDefault).not.toHaveBeenCalled()
+      expect(ev.stopPropagation).not.toHaveBeenCalled()
     })
 
     it('maxScroll ≤ 1（grid 不溢出）→ 阻断横向默认手势但不更新 state', () => {
@@ -203,6 +210,7 @@ describe('useGridScrollSync', () => {
       act(() => result.current.onStickyViewportWheel(ev))
       expect(result.current.stickyScrollLeft).toBe(0)
       expect(ev.preventDefault).toHaveBeenCalledTimes(1)
+      expect(ev.stopPropagation).toHaveBeenCalledTimes(1)
     })
 
     it('|rawDelta| ≤ 0.5 → no-op（噪声 wheel）', () => {
@@ -211,6 +219,7 @@ describe('useGridScrollSync', () => {
       act(() => result.current.onStickyViewportWheel(ev))
       expect(result.current.stickyScrollLeft).toBe(0)
       expect(ev.preventDefault).not.toHaveBeenCalled()
+      expect(ev.stopPropagation).not.toHaveBeenCalled()
     })
 
     it('deltaX=0 + shiftKey=false + deltaY 任意 → rawDelta=0 → no-op', () => {
@@ -220,6 +229,7 @@ describe('useGridScrollSync', () => {
       act(() => result.current.onStickyViewportWheel(ev))
       expect(result.current.stickyScrollLeft).toBe(0)
       expect(ev.preventDefault).not.toHaveBeenCalled()
+      expect(ev.stopPropagation).not.toHaveBeenCalled()
     })
 
     it('next === current（已到边界，clamp 后无增量）→ 阻断横向默认手势但不更新 state', () => {
@@ -233,6 +243,7 @@ describe('useGridScrollSync', () => {
       act(() => result.current.onStickyViewportWheel(ev))
       expect(result.current.stickyScrollLeft).toBe(300)
       expect(ev.preventDefault).toHaveBeenCalledTimes(1)
+      expect(ev.stopPropagation).toHaveBeenCalledTimes(1)
     })
   })
 
@@ -243,6 +254,7 @@ describe('useGridScrollSync', () => {
       act(() => result.current.onStickyViewportWheel(ev))
       expect(result.current.stickyScrollLeft).toBe(30)
       expect(ev.preventDefault).toHaveBeenCalledTimes(1)
+      expect(ev.stopPropagation).toHaveBeenCalledTimes(1)
     })
 
     it('无 deltaX + shiftKey=true → 取 deltaY', () => {
@@ -258,6 +270,7 @@ describe('useGridScrollSync', () => {
       act(() => result.current.onStickyViewportWheel(ev))
       expect(result.current.stickyScrollLeft).toBe(0)
       expect(ev.preventDefault).not.toHaveBeenCalled()
+      expect(ev.stopPropagation).not.toHaveBeenCalled()
     })
   })
 
@@ -277,6 +290,7 @@ describe('useGridScrollSync', () => {
       act(() => result.current.onStickyViewportWheel(ev))
       expect(result.current.stickyScrollLeft).toBe(300)
       expect(ev.preventDefault).toHaveBeenCalledTimes(1)
+      expect(ev.stopPropagation).toHaveBeenCalledTimes(1)
     })
 
     it('左滚到 < 0 → clamp 到 0', () => {
@@ -310,6 +324,7 @@ describe('useGridScrollSync', () => {
       act(() => result.current.onStickyViewportWheel(ev))
       expect(result.current.stickyScrollLeft).toBe(0)
       expect(ev.preventDefault).toHaveBeenCalledTimes(1)
+      expect(ev.stopPropagation).toHaveBeenCalledTimes(1)
     })
 
     it('累积滚动：多次小 wheel 累加（每次增量生效）', () => {

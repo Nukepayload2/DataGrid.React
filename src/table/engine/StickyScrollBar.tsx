@@ -8,6 +8,11 @@ import {
   computeStickyMaxScroll,
   scrollLeftValue,
 } from './gridScrollUtils'
+import {
+  TRACK_REPEAT_DELAY_MS,
+  TRACK_REPEAT_INTERVAL_MS,
+  computeTrackJump,
+} from './floatingScrollBarUtils'
 
 function getStickyMaxScroll(
   viewport: HTMLDivElement | null,
@@ -60,11 +65,15 @@ export function StickyScrollBar({
     startPointerX: number
     startScrollLeft: number
   } | null>(null)
+  const repeatTimeoutRef = useRef<number | null>(null)
+  const repeatIntervalRef = useRef<number | null>(null)
+  const repeatStopRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     return () => {
       barRef.current?.classList.remove('dg-sticky-scroll-bar-dragging')
       document.body.classList.remove('dg-scrollbar-pointer-capturing')
+      repeatStopRef.current?.()
     }
   }, [])
 
@@ -78,14 +87,11 @@ export function StickyScrollBar({
     return typeof window !== 'undefined' ? window : (null as unknown as Window)
   }, [getContainer])
 
-  // 更新 thumb 位置 + 宽度（按当前 scrollLeft / scrollWidth 比例）。
-  const updateThumb = useCallback(() => {
+  const readScrollGeometry = useCallback(() => {
     const container = resolveContainer()
     const bar = barRef.current
-    const thumb = thumbRef.current
-    if (!bar || !thumb) return
-    // 容器滚动几何：window 用 scrollX/innerWidth/document.scrollWidth；
-    // HTMLElement 用 scrollLeft/clientWidth/scrollWidth。
+    if (!bar) return null
+
     let currentScrollLeft: number
     let clientWidth: number
     let scrollWidth: number
@@ -102,7 +108,48 @@ export function StickyScrollBar({
       clientWidth = container.clientWidth || 0
       scrollWidth = container.scrollWidth || 0
     }
+
+    const barWidth = bar.clientWidth || clientWidth
+    const thumbRatio = scrollWidth > 0 ? clientWidth / scrollWidth : 1
+    const thumbWidth = Math.max(20, barWidth * thumbRatio)
+    const thumbMaxLeft = Math.max(0, barWidth - thumbWidth)
     const maxScroll = scrollWidth - clientWidth
+
+    return {
+      container,
+      currentScrollLeft,
+      clientWidth,
+      scrollWidth,
+      barWidth,
+      thumbWidth,
+      thumbMaxLeft,
+      maxScroll,
+    }
+  }, [resolveContainer, gridRef, viewportRef, scrollLeft])
+
+  const applyScrollLeft = useCallback(
+    (container: Window | HTMLElement, next: number, maxScroll: number): number => {
+      const clamped = clampScrollLeft(next, maxScroll)
+      if (viewportRef?.current && onScrollLeftChange) {
+        onScrollLeftChange(clamped)
+      } else if (container instanceof Window) {
+        container.scrollTo(clamped, container.scrollY || 0)
+      } else {
+        ;(container as HTMLElement).scrollLeft = clamped
+      }
+      return clamped
+    },
+    [viewportRef, onScrollLeftChange],
+  )
+
+  // 更新 thumb 位置 + 宽度（按当前 scrollLeft / scrollWidth 比例）。
+  const updateThumb = useCallback(() => {
+    const bar = barRef.current
+    const thumb = thumbRef.current
+    if (!bar || !thumb) return
+    const geometry = readScrollGeometry()
+    if (!geometry) return
+    const { currentScrollLeft, maxScroll } = geometry
     if (maxScroll <= 1) {
       bar.style.display = 'none'
       if (scrollLeftValue(scrollLeft) !== 0) onScrollLeftChange?.(0)
@@ -117,14 +164,10 @@ export function StickyScrollBar({
       }
     }
     const ratio = maxScroll > 0 ? currentScrollLeft / maxScroll : 0
-    const thumbRatio = scrollWidth > 0 ? clientWidth / scrollWidth : 1
     // thumb 宽度 = bar 宽度 × (clientWidth / scrollWidth)（至少 20px，避免太窄）。
-    const barWidth = bar.clientWidth || clientWidth
-    const thumbWidth = Math.max(20, barWidth * thumbRatio)
-    const thumbMaxLeft = Math.max(0, barWidth - thumbWidth)
-    thumb.style.width = `${thumbWidth}px`
-    thumb.style.transform = `translateX(${ratio * thumbMaxLeft}px)`
-  }, [resolveContainer, gridRef, viewportRef, scrollLeft, onScrollLeftChange])
+    thumb.style.width = `${geometry.thumbWidth}px`
+    thumb.style.transform = `translateX(${ratio * geometry.thumbMaxLeft}px)`
+  }, [readScrollGeometry, viewportRef, scrollLeft, onScrollLeftChange])
 
   // 监听 container scroll + resize 更新 thumb。
   useEffect(() => {
@@ -148,58 +191,123 @@ export function StickyScrollBar({
     }
   }, [resolveContainer, updateThumb, gridRef, viewportRef])
 
-  // thumb pointer 拖动：换算 pointer 移动量 → container scrollLeft。
-  const onThumbPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    const container = resolveContainer()
+  // bar pointer：命中 thumb 走拖动；命中轨道空白按页滚动，并按 floating scrollbar 语义支持按住 repeat。
+  const onBarPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const thumb = thumbRef.current
     const bar = barRef.current
     if (!thumb || !bar) return
     e.preventDefault()
     e.stopPropagation()
-    let clientWidth: number
-    let scrollWidth: number
-    let currentScrollLeft: number
-    if (viewportRef?.current && gridRef.current) {
-      clientWidth = viewportRef.current.clientWidth || 0
-      scrollWidth = gridRef.current.scrollWidth || gridRef.current.clientWidth || 0
-      currentScrollLeft = scrollLeftValue(scrollLeft)
-    } else if (container instanceof Window) {
-      clientWidth = container.innerWidth || 0
-      scrollWidth = container.document?.documentElement?.scrollWidth || 0
-      currentScrollLeft = container.scrollX || 0
-    } else {
-      clientWidth = container.clientWidth || 0
-      scrollWidth = container.scrollWidth || 0
-      currentScrollLeft = container.scrollLeft || 0
+
+    const geometry = readScrollGeometry()
+    if (!geometry || geometry.maxScroll <= 1) return
+
+    const targetNode = e.target instanceof Node ? e.target : null
+    const clickedThumb = targetNode ? thumb.contains(targetNode) : false
+    if (!clickedThumb) {
+      const thumbRect = thumb.getBoundingClientRect()
+      const jump = computeTrackJump({
+        currentScroll: geometry.currentScrollLeft,
+        viewportSize: geometry.clientWidth,
+        clientPos: e.clientX,
+        thumbStart: thumbRect.left,
+        thumbEnd: thumbRect.right,
+        maxScroll: geometry.maxScroll,
+      })
+      if (jump.zone !== 'thumb') {
+        const beforeJump = geometry.currentScrollLeft
+        let repeatScrollLeft = applyScrollLeft(
+          geometry.container,
+          jump.nextScroll,
+          geometry.maxScroll,
+        )
+        if (repeatScrollLeft !== beforeJump) {
+          const pointerId = e.pointerId
+          const clientPos = e.clientX
+          const stop = () => {
+            if (repeatTimeoutRef.current !== null) {
+              clearTimeout(repeatTimeoutRef.current)
+              repeatTimeoutRef.current = null
+            }
+            if (repeatIntervalRef.current !== null) {
+              clearInterval(repeatIntervalRef.current)
+              repeatIntervalRef.current = null
+            }
+            window.removeEventListener('pointerup', stop)
+            window.removeEventListener('pointercancel', stop)
+            window.removeEventListener('pointermove', onMoveCheck)
+            repeatStopRef.current = null
+          }
+          const onMoveCheck = (ev: PointerEvent) => {
+            if (ev.pointerId !== pointerId) return
+            const rect = thumb.getBoundingClientRect()
+            if (ev.clientX >= rect.left && ev.clientX <= rect.right) {
+              stop()
+            }
+          }
+          const tick = () => {
+            const rect = thumb.getBoundingClientRect()
+            const next = computeTrackJump({
+              currentScroll: repeatScrollLeft,
+              viewportSize: geometry.clientWidth,
+              clientPos,
+              thumbStart: rect.left,
+              thumbEnd: rect.right,
+              maxScroll: geometry.maxScroll,
+            })
+            if (next.nextScroll === repeatScrollLeft) {
+              stop()
+              return
+            }
+            repeatScrollLeft = applyScrollLeft(
+              geometry.container,
+              next.nextScroll,
+              geometry.maxScroll,
+            )
+          }
+          repeatStopRef.current = stop
+          window.addEventListener('pointerup', stop)
+          window.addEventListener('pointercancel', stop)
+          window.addEventListener('pointermove', onMoveCheck)
+          repeatTimeoutRef.current = window.setTimeout(() => {
+            repeatTimeoutRef.current = null
+            tick()
+            if (repeatStopRef.current === stop) {
+              repeatIntervalRef.current = window.setInterval(
+                tick,
+                TRACK_REPEAT_INTERVAL_MS,
+              )
+            }
+          }, TRACK_REPEAT_DELAY_MS)
+        }
+        return
+      }
     }
-    const barWidth = bar.clientWidth || 0
-    const thumbRatio = scrollWidth > 0 ? clientWidth / scrollWidth : 1
-    const thumbWidth = Math.max(20, barWidth * thumbRatio)
-    const thumbMaxLeft = Math.max(0, barWidth - thumbWidth)
-    const maxScroll = scrollWidth - clientWidth
-    if (maxScroll <= 1) return
+
     dragStateRef.current = {
       pointerId: e.pointerId,
       startPointerX: e.clientX,
-      startScrollLeft: currentScrollLeft,
+      startScrollLeft: geometry.currentScrollLeft,
     }
     bar.classList.add('dg-sticky-scroll-bar-dragging')
     document.body.classList.add('dg-scrollbar-pointer-capturing')
     // 用闭包捕获拖动几何（拖动期间 DOM 不变，无需重读）。
-    const geometry = { thumbMaxLeft, maxScroll }
+    const dragGeometry = {
+      thumbMaxLeft: geometry.thumbMaxLeft,
+      maxScroll: geometry.maxScroll,
+    }
     const onMove = (ev: PointerEvent) => {
       const ds = dragStateRef.current
       if (!ds || ds.pointerId !== ev.pointerId) return
       const dx = ev.clientX - ds.startPointerX
-      const scrollDelta = geometry.thumbMaxLeft > 0 ? (dx / geometry.thumbMaxLeft) * geometry.maxScroll : 0
-      const next = ds.startScrollLeft + scrollDelta
-      if (viewportRef?.current && onScrollLeftChange) {
-        onScrollLeftChange(clampScrollLeft(next, geometry.maxScroll))
-      } else if (container instanceof Window) {
-        container.scrollTo(next, container.scrollY || 0)
-      } else {
-        ;(container as HTMLElement).scrollLeft = next
-      }
+      const scrollDelta = dragGeometry.thumbMaxLeft > 0
+        ? (dx / dragGeometry.thumbMaxLeft) * dragGeometry.maxScroll
+        : 0
+      applyScrollLeft(
+        geometry.container,
+        ds.startScrollLeft + scrollDelta,
+        dragGeometry.maxScroll,
+      )
     }
     const onUp = (ev: PointerEvent) => {
       const ds = dragStateRef.current
@@ -223,6 +331,7 @@ export function StickyScrollBar({
         'dg-sticky-scroll-bar',
         scrollInertiaActive ? 'dg-sticky-scroll-bar-inertia' : undefined,
       ].filter(Boolean).join(' ')}
+      onPointerDown={onBarPointerDown}
       style={{
         position: 'sticky',
         bottom: `${offsetScroll}px`,
@@ -237,7 +346,6 @@ export function StickyScrollBar({
     >
       <div
         ref={thumbRef}
-        onPointerDown={onThumbPointerDown}
         className="dg-sticky-scroll-bar-thumb"
         style={{
           width: '20px',
