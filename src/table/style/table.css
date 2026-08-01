@@ -1165,10 +1165,12 @@ body.dg-scrollbar-pointer-capturing * {
   bottom: 0;
   left: 0;
   height: 2px;
+  touch-action: none;
   border-radius: var(--ant-table-sticky-scroll-bar-border-radius, 100px);
   background: var(--ant-table-scroll-thumb-bg, rgba(0, 0, 0, 0.25));
   cursor: pointer;
   transition:
+    width 0.2s ease,
     height 0.2s ease,
     background-color 0.2s ease,
     opacity 0.2s ease;
@@ -1176,20 +1178,31 @@ body.dg-scrollbar-pointer-capturing * {
 
 .dg-sticky-scroll-bar:hover .dg-sticky-scroll-bar-thumb,
 .dg-sticky-scroll-bar.dg-sticky-scroll-bar-dragging .dg-sticky-scroll-bar-thumb,
+.dg-sticky-scroll-bar.dg-sticky-scroll-bar-touch-active .dg-sticky-scroll-bar-thumb,
 .dg-wrapper.dg-scrollbar-no-expand .dg-sticky-scroll-bar-thumb {
   height: var(--ant-table-scroll-thumb-size, 8px);
   background: var(--dg-scrollbar-thumb-active-bg);
   opacity: var(--dg-scrollbar-thumb-expanded-opacity, 0.25);
 }
 
-.dg-sticky-scroll-bar.dg-sticky-scroll-bar-dragging .dg-sticky-scroll-bar-thumb {
+.dg-sticky-scroll-bar.dg-sticky-scroll-bar-dragging .dg-sticky-scroll-bar-thumb,
+.dg-sticky-scroll-bar.dg-sticky-scroll-bar-touch-active .dg-sticky-scroll-bar-thumb {
   background: var(--dg-scrollbar-thumb-active-bg);
   opacity: var(--dg-scrollbar-thumb-expanded-opacity, 0.25);
   cursor: grabbing;
 }
 
+.dg-sticky-scroll-bar.dg-sticky-scroll-bar-touch-active {
+  touch-action: none;
+}
+
+.dg-sticky-scroll-bar.dg-sticky-scroll-bar-touch-active .dg-sticky-scroll-bar-thumb {
+  min-width: 32px;
+}
+
 .dg-sticky-scroll-bar.dg-sticky-scroll-bar-inertia .dg-sticky-scroll-bar-thumb {
   transition:
+    width 0.2s ease,
     height 0.2s ease,
     background-color 0.2s ease,
     opacity 0.2s ease,
@@ -1222,7 +1235,8 @@ body.dg-scrollbar-pointer-capturing * {
  * onThumbPointerDown/up 增删 dg-sticky-scroll-bar-dragging 类触发。
  */
 .dg-sticky-scroll-bar:hover .dg-sticky-scroll-bar-thumb,
-.dg-sticky-scroll-bar.dg-sticky-scroll-bar-dragging .dg-sticky-scroll-bar-thumb {
+.dg-sticky-scroll-bar.dg-sticky-scroll-bar-dragging .dg-sticky-scroll-bar-thumb,
+.dg-sticky-scroll-bar.dg-sticky-scroll-bar-touch-active .dg-sticky-scroll-bar-thumb {
   will-change: transform;
 }
 

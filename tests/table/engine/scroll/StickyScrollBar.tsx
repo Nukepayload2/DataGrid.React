@@ -118,12 +118,13 @@ function installResizeObserverMock(): {
 // jsdom 的 PointerEvent 是真实存在的，构造时需要 pointerId/clientX。
 function makePointerEvent(
   type: string,
-  init: { pointerId?: number; clientX?: number; clientY?: number },
+  init: { pointerId?: number; clientX?: number; clientY?: number; pointerType?: string },
 ): PointerEvent {
   return new PointerEvent(type, {
     pointerId: init.pointerId ?? 1,
     clientX: init.clientX ?? 0,
     clientY: init.clientY ?? 0,
+    pointerType: init.pointerType ?? 'mouse',
     bubbles: true,
     cancelable: true,
   })
@@ -494,10 +495,19 @@ describe('StickyScrollBar pointer drag (viewport branch)', () => {
     installResizeObserverMock()
   })
 
-  function setupDrag(opts: { startScrollLeft?: number } = {}) {
+  function setupDrag(opts: {
+    startScrollLeft?: number
+    viewportClientWidth?: number
+    gridClientWidth?: number
+    gridScrollWidth?: number
+    barClientWidth?: number
+  } = {}) {
     const onScrollLeftChange = vi.fn()
-    const grid = makeElement({ clientWidth: 1000, scrollWidth: 2000 })
-    const viewport = makeElement({ clientWidth: 500 })
+    const grid = makeElement({
+      clientWidth: opts.gridClientWidth ?? 1000,
+      scrollWidth: opts.gridScrollWidth ?? 2000,
+    })
+    const viewport = makeElement({ clientWidth: opts.viewportClientWidth ?? 500 })
     const gridRef = { current: grid }
     const viewportRef = { current: viewport }
 
@@ -515,7 +525,10 @@ describe('StickyScrollBar pointer drag (viewport branch)', () => {
     // bar.clientWidth 必须有值，否则 onThumbPointerDown 早返回（barWidth=0
     // → thumbWidth=20 → thumbMaxLeft=-20 → max(0,-20)=0 → maxScroll=1500 OK，
     // 但 geometry.thumbMaxLeft=0 时拖动 multiplier=0，看不出 dx 效果）。
-    Object.defineProperty(bar, 'clientWidth', { configurable: true, value: 800 })
+    Object.defineProperty(bar, 'clientWidth', {
+      configurable: true,
+      value: opts.barClientWidth ?? 800,
+    })
 
     return { thumb, bar, onScrollLeftChange }
   }
@@ -523,7 +536,7 @@ describe('StickyScrollBar pointer drag (viewport branch)', () => {
   function firePointer(
     target: HTMLElement | Window,
     type: 'pointerdown' | 'pointermove' | 'pointerup' | 'pointercancel',
-    init: { pointerId?: number; clientX?: number },
+    init: { pointerId?: number; clientX?: number; pointerType?: string },
   ): void {
     const event = makePointerEvent(type, init)
     if (target === window) {
@@ -531,6 +544,13 @@ describe('StickyScrollBar pointer drag (viewport branch)', () => {
     } else {
       target.dispatchEvent(event)
     }
+  }
+
+  function makeTouchMoveEvent(): TouchEvent {
+    return new Event('touchmove', {
+      bubbles: true,
+      cancelable: true,
+    }) as TouchEvent
   }
 
   it('adds dragging classes on pointerdown and removes on pointerup', () => {
@@ -564,6 +584,57 @@ describe('StickyScrollBar pointer drag (viewport branch)', () => {
     firePointer(window, 'pointermove', { pointerId: 1, clientX: 10000 })
 
     expect(onScrollLeftChange).toHaveBeenCalledWith(1500)
+  })
+
+  it('touch expands the thumb hit width to 32px and blocks browser gestures with passive:false touchmove', () => {
+    const { bar, thumb, onScrollLeftChange } = setupDrag({
+      viewportClientWidth: 500,
+      gridClientWidth: 50000,
+      gridScrollWidth: 50000,
+      barClientWidth: 800,
+    })
+    const addSpy = vi.spyOn(bar, 'addEventListener')
+    const removeSpy = vi.spyOn(bar, 'removeEventListener')
+    vi.spyOn(thumb, 'getBoundingClientRect').mockReturnValue(
+      domRect({ left: 100, width: 20 }),
+    )
+
+    firePointer(bar, 'pointerdown', {
+      pointerId: 5,
+      pointerType: 'touch',
+      clientX: 95,
+    })
+
+    expect(bar.classList.contains('dg-sticky-scroll-bar-touch-active')).toBe(true)
+    expect(bar.classList.contains('dg-sticky-scroll-bar-dragging')).toBe(true)
+    expect(thumb.style.width).toBe('32px')
+    expect(addSpy).toHaveBeenCalledWith(
+      'touchmove',
+      expect.any(Function),
+      { passive: false },
+    )
+
+    const touchMove = makeTouchMoveEvent()
+    bar.dispatchEvent(touchMove)
+    expect(touchMove.defaultPrevented).toBe(true)
+
+    firePointer(window, 'pointermove', {
+      pointerId: 5,
+      pointerType: 'touch',
+      clientX: 195,
+    })
+    expect(onScrollLeftChange).toHaveBeenCalled()
+
+    firePointer(window, 'pointerup', {
+      pointerId: 5,
+      pointerType: 'touch',
+      clientX: 195,
+    })
+
+    expect(bar.classList.contains('dg-sticky-scroll-bar-touch-active')).toBe(false)
+    expect(bar.classList.contains('dg-sticky-scroll-bar-dragging')).toBe(false)
+    expect(thumb.style.width).toBe('20px')
+    expect(removeSpy).toHaveBeenCalledWith('touchmove', expect.any(Function))
   })
 
   it('does not start drag when maxScroll <= 1 (no-op pointerdown)', () => {

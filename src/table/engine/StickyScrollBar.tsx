@@ -14,6 +14,9 @@ import {
   computeTrackJump,
 } from './floatingScrollBarUtils'
 
+const STICKY_THUMB_MIN_WIDTH = 20
+const STICKY_TOUCH_THUMB_MIN_WIDTH = 32
+
 function getStickyMaxScroll(
   viewport: HTMLDivElement | null,
   grid: HTMLDivElement | null,
@@ -68,12 +71,17 @@ export function StickyScrollBar({
   const repeatTimeoutRef = useRef<number | null>(null)
   const repeatIntervalRef = useRef<number | null>(null)
   const repeatStopRef = useRef<(() => void) | null>(null)
+  const touchThumbActiveRef = useRef(false)
+  const touchMoveStopRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     return () => {
       barRef.current?.classList.remove('dg-sticky-scroll-bar-dragging')
+      barRef.current?.classList.remove('dg-sticky-scroll-bar-touch-active')
       document.body.classList.remove('dg-scrollbar-pointer-capturing')
       repeatStopRef.current?.()
+      touchMoveStopRef.current?.()
+      touchMoveStopRef.current = null
     }
   }, [])
 
@@ -111,7 +119,10 @@ export function StickyScrollBar({
 
     const barWidth = bar.clientWidth || clientWidth
     const thumbRatio = scrollWidth > 0 ? clientWidth / scrollWidth : 1
-    const thumbWidth = Math.max(20, barWidth * thumbRatio)
+    const minThumbWidth = touchThumbActiveRef.current
+      ? STICKY_TOUCH_THUMB_MIN_WIDTH
+      : STICKY_THUMB_MIN_WIDTH
+    const thumbWidth = Math.max(minThumbWidth, barWidth * thumbRatio)
     const thumbMaxLeft = Math.max(0, barWidth - thumbWidth)
     const maxScroll = scrollWidth - clientWidth
 
@@ -169,6 +180,14 @@ export function StickyScrollBar({
     thumb.style.transform = `translateX(${ratio * geometry.thumbMaxLeft}px)`
   }, [readScrollGeometry, viewportRef, scrollLeft, onScrollLeftChange])
 
+  const deactivateTouchThumb = useCallback(() => {
+    const bar = barRef.current
+    if (!touchThumbActiveRef.current) return
+    touchThumbActiveRef.current = false
+    bar?.classList.remove('dg-sticky-scroll-bar-touch-active')
+    updateThumb()
+  }, [updateThumb])
+
   // 监听 container scroll + resize 更新 thumb。
   useEffect(() => {
     const container = resolveContainer()
@@ -202,10 +221,18 @@ export function StickyScrollBar({
     const geometry = readScrollGeometry()
     if (!geometry || geometry.maxScroll <= 1) return
 
+    const isTouchPointer = e.pointerType === 'touch'
     const targetNode = e.target instanceof Node ? e.target : null
-    const clickedThumb = targetNode ? thumb.contains(targetNode) : false
+    const thumbRect = thumb.getBoundingClientRect()
+    const expandedThumbStart = isTouchPointer
+      ? thumbRect.left - Math.max(0, STICKY_TOUCH_THUMB_MIN_WIDTH - thumbRect.width) / 2
+      : thumbRect.left
+    const expandedThumbEnd = isTouchPointer
+      ? thumbRect.right + Math.max(0, STICKY_TOUCH_THUMB_MIN_WIDTH - thumbRect.width) / 2
+      : thumbRect.right
+    const clickedThumb = (targetNode ? thumb.contains(targetNode) : false)
+      || (isTouchPointer && e.clientX >= expandedThumbStart && e.clientX <= expandedThumbEnd)
     if (!clickedThumb) {
-      const thumbRect = thumb.getBoundingClientRect()
       const jump = computeTrackJump({
         currentScroll: geometry.currentScrollLeft,
         viewportSize: geometry.clientWidth,
@@ -284,29 +311,58 @@ export function StickyScrollBar({
       }
     }
 
+    let dragGeometry = geometry
+    if (isTouchPointer) {
+      touchThumbActiveRef.current = true
+      bar.classList.add('dg-sticky-scroll-bar-touch-active')
+      updateThumb()
+      dragGeometry = readScrollGeometry() ?? geometry
+    }
+
     dragStateRef.current = {
       pointerId: e.pointerId,
       startPointerX: e.clientX,
-      startScrollLeft: geometry.currentScrollLeft,
+      startScrollLeft: dragGeometry.currentScrollLeft,
     }
     bar.classList.add('dg-sticky-scroll-bar-dragging')
     document.body.classList.add('dg-scrollbar-pointer-capturing')
+    try {
+      bar.setPointerCapture(e.pointerId)
+    } catch {
+      // Some environments do not expose pointer capture on divs.
+    }
+    const onNativeTouchMove = (ev: TouchEvent) => {
+      ev.preventDefault()
+      ev.stopPropagation()
+    }
+    if (isTouchPointer) {
+      bar.addEventListener('touchmove', onNativeTouchMove, { passive: false })
+      const stopTouchMove = () => {
+        bar.removeEventListener('touchmove', onNativeTouchMove)
+        if (touchMoveStopRef.current === stopTouchMove) {
+          touchMoveStopRef.current = null
+        }
+      }
+      touchMoveStopRef.current = stopTouchMove
+    }
     // 用闭包捕获拖动几何（拖动期间 DOM 不变，无需重读）。
-    const dragGeometry = {
-      thumbMaxLeft: geometry.thumbMaxLeft,
-      maxScroll: geometry.maxScroll,
+    const capturedDragGeometry = {
+      thumbMaxLeft: dragGeometry.thumbMaxLeft,
+      maxScroll: dragGeometry.maxScroll,
     }
     const onMove = (ev: PointerEvent) => {
       const ds = dragStateRef.current
       if (!ds || ds.pointerId !== ev.pointerId) return
+      ev.preventDefault()
+      ev.stopPropagation()
       const dx = ev.clientX - ds.startPointerX
-      const scrollDelta = dragGeometry.thumbMaxLeft > 0
-        ? (dx / dragGeometry.thumbMaxLeft) * dragGeometry.maxScroll
+      const scrollDelta = capturedDragGeometry.thumbMaxLeft > 0
+        ? (dx / capturedDragGeometry.thumbMaxLeft) * capturedDragGeometry.maxScroll
         : 0
       applyScrollLeft(
-        geometry.container,
+        dragGeometry.container,
         ds.startScrollLeft + scrollDelta,
-        dragGeometry.maxScroll,
+        capturedDragGeometry.maxScroll,
       )
     }
     const onUp = (ev: PointerEvent) => {
@@ -315,6 +371,15 @@ export function StickyScrollBar({
       dragStateRef.current = null
       bar.classList.remove('dg-sticky-scroll-bar-dragging')
       document.body.classList.remove('dg-scrollbar-pointer-capturing')
+      try {
+        bar.releasePointerCapture(ds.pointerId)
+      } catch {
+        // Pointer capture may not have been acquired in this environment.
+      }
+      if (isTouchPointer) {
+        touchMoveStopRef.current?.()
+        deactivateTouchThumb()
+      }
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', onUp)
       window.removeEventListener('pointercancel', onUp)
