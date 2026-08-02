@@ -24,7 +24,7 @@ export interface GridCellRenderParams<RecordType> {
   /** 当前列的稳定 key。 */
   columnKey: string
   /** 当前列的 dataIndex，透传原始列配置。 */
-  dataIndex?: string | number | Array<string | number>
+  dataIndex?: string | number | ReadonlyArray<string | number>
   /** 当前行 key。 */
   rowKey: string | number | undefined
 }

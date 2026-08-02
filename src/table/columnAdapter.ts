@@ -150,14 +150,18 @@ export function toEngineColumns<RecordType>(
         // （buildColumnTree 阶段），这里先透传 sorter/sortDirections/showSorterTooltip（配置类字段）。
         node.sorter = col.sorter
         node.sortDirections = col.sortDirections
+        node.sortIcon = col.sortIcon
         // showSorterTooltip 列级优先，未指定时用 Table 级（默认 true 由引擎渲染层兜底）。
         node.showSorterTooltip = col.showSorterTooltip ?? tableShowSorterTooltip
         // 筛选相关透传（仅叶子列消费；分组列无筛选）。filters/onFilter/filterMultiple/filterOnClose
         // 是配置类字段直接透传；filteredValue 由适配层 useFilter 派生后回填（applyFilterToNode 阶段）。
         node.filters = col.filters as unknown as Array<EngineFilterItem> | undefined
         node.onFilter = col.onFilter as unknown as ((value: FilterValue, record: RecordType) => boolean) | undefined
+        node.filtered = col.filtered
         node.filterMultiple = col.filterMultiple
         node.filterOnClose = col.filterOnClose
+        node.defaultFilteredValue = col.defaultFilteredValue
+        node.filterResetToDefaultFilteredValue = col.filterResetToDefaultFilteredValue
         // 自定义筛选面板相关字段透传（filterDropdown/filterIcon/filterDropdownProps）。
         // filterDropdown 存在时渲染层（FilterDropdown）切换为自定义面板；filterIcon 覆盖漏斗图标；
         // filterDropdownProps 透传到 antd Dropdown（open 受控 / onOpenChange / triggerClassName 等）。

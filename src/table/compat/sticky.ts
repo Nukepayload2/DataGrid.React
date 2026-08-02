@@ -18,14 +18,14 @@
  *
  * **取值**：
  *   - `undefined` / `false`：不启用页面级 sticky（所有现有 demo 行为不变，零回归）。
- *   - `true`：启用，`offsetHeader=0`、`offsetScroll=0`、`getContainer=window`。
- *   - 对象 `{ offsetHeader?, offsetScroll?, getContainer? }`：自定义偏移与滚动容器。
+ *   - `true`：启用，`offsetHeader=0`、`offsetSummary=0`、`offsetScroll=0`、`getContainer=window`。
+ *   - 对象 `{ offsetHeader?, offsetSummary?, offsetScroll?, getContainer? }`：自定义偏移与滚动容器。
  *
  * **与各能力组合**：
  *   - 固定列：表头固定列格同时有横向 sticky（left/right）与纵向 sticky（top: offsetHeader）——
  *     单元素双 sticky 浏览器原生支持（与 corner cell 同款机制）。
- *   - summary fixed：summary cell 已 sticky 钉在底部（相对滚动容器）；
- *     sticky 下页面滚动时 summary 随 grid 滚动（summary fixed 在 grid 内的语义保持，不强行改为页面级）。
+ *   - summary fixed：页面级 sticky 且非数据区域滚动时，`offsetSummary` 作为 fixed summary 的
+ *     bottom 偏移；横向滚动条仍保持在 summary 上方。
  *   - 虚拟 / 容器内固定：与 sticky 互斥（sticky 是页面级，容器内是页面级优先；同时传时 sticky 优先，
  *     因为 sticky 不包 overflow 容器，容器内滚动不生效）。
  *
@@ -56,6 +56,13 @@ export interface StickyConfig {
    * 默认 0。
    */
   offsetScroll?: number
+  /**
+   * 固定 summary 相对视口底部的偏移（px）。
+   *
+   * 仅在页面级 sticky、存在 summary、`Table.Summary fixed` 且未启用 `scroll.y` 数据区域模式时生效。
+   * 默认 0。
+   */
+  offsetSummary?: number
   /**
    * 自定义滚动容器（用于悬浮滚动条同步监听）。默认 `() => window`。
    * 返回 `undefined`/`null` 时回退到 `window`。

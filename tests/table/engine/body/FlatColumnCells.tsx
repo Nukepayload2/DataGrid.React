@@ -313,6 +313,35 @@ describe('ColumnCells - onSorterClick 使用 column.key（防回归守护）', (
       expect(cell).toHaveClass('dg-column-sort')
     })
   })
+
+  it('uses column.sortIcon instead of the default sort indicator', () => {
+    const sortIcon = vi.fn(({ sortOrder }) => (
+      <span data-testid="custom-sort-icon">{sortOrder ?? 'none'}</span>
+    ))
+    const column: EngineLeafColumn<Row> = {
+      key: 'age',
+      dataIndex: 'age',
+      title: 'Age',
+      sorter: true,
+      sortOrder: 'descend',
+      sortIcon,
+    }
+    renderWithProvider(
+      <ColumnCells<Row>
+        column={column}
+        colIdx={0}
+        dataSource={ds}
+        rowKey="id"
+        showHeader
+        hoveredRowIndex={null}
+        onHoverRow={() => {}}
+      />,
+    )
+
+    expect(sortIcon).toHaveBeenCalledWith({ sortOrder: 'descend' })
+    expect(screen.getByTestId('custom-sort-icon')).toHaveTextContent('descend')
+    expect(document.querySelector('.dg-column-sorter')).toBeNull()
+  })
 })
 
 describe('ColumnCells - hover 内联', () => {

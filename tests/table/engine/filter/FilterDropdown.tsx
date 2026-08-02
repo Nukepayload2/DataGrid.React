@@ -65,6 +65,22 @@ describe('FilterDropdown trigger integration', () => {
     expect(customIcon).not.toHaveBeenCalled()
     expect(screen.getByTestId('trigger-render')).toHaveTextContent('true')
   })
+
+  it('forces active trigger state from column.filtered without filteredValue', () => {
+    const customIcon = vi.fn((filtered: boolean) => (
+      <span data-testid="custom-icon">{filtered ? 'on' : 'off'}</span>
+    ))
+
+    renderFilterDropdown({
+      filteredValue: [],
+      forceFiltered: true,
+      customIcon,
+    })
+
+    expect(document.querySelector('.dg-filter-trigger')).toHaveClass('dg-filter-trigger-active')
+    expect(customIcon).toHaveBeenCalledWith(true)
+    expect(screen.getByTestId('custom-icon')).toHaveTextContent('on')
+  })
 })
 
 describe('FilterDropdown builtin dropdown integration', () => {
@@ -96,6 +112,32 @@ describe('FilterDropdown builtin dropdown integration', () => {
     fireEvent.click(screen.getByRole('button', { name: 'OK' }))
 
     expect(onApply).toHaveBeenCalledWith([])
+  })
+
+  it('resets builtin menu values back to defaultFilteredValue when requested', async () => {
+    const { onApply } = renderFilterDropdown({
+      filteredValue: ['ny'],
+      defaultFilteredValue: ['london'],
+      filterResetToDefaultFilteredValue: true,
+      dropdownProps: { open: true },
+    })
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Reset' }))
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }))
+
+    expect(onApply).toHaveBeenCalledWith(['london'])
+  })
+
+  it('lets filterDropdownProps.dropdownRender wrap the builtin panel', async () => {
+    renderFilterDropdown({
+      dropdownProps: {
+        open: true,
+        dropdownRender: (node) => <section data-testid="wrapped-dropdown">{node}</section>,
+      },
+    })
+
+    expect(await screen.findByTestId('wrapped-dropdown')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'OK' })).toBeInTheDocument()
   })
 
   it('applies single-select radio menu values', async () => {

@@ -22,6 +22,8 @@ export interface UseScrollModeResult {
   stickyOffsetHeader: number
   /** sticky.offsetScroll（数值，缺省 0）。仅 sticky 启用时有效。 */
   stickyOffsetScroll: number
+  /** sticky.offsetSummary（数值，缺省 0）。实际生效条件由 summary 渲染层判断。 */
+  stickyOffsetSummary: number
   /** sticky.getContainer（函数 or undefined）。仅 sticky 启用且提供时为函数。 */
   stickyGetContainer: (() => HTMLElement | Window | undefined) | undefined
   /** scroll.y 原值（true / undefined；当前类型仅 true 启用纵向滚动）。 */
@@ -48,6 +50,7 @@ export function useScrollMode(options: {
     | {
         offsetHeader?: number
         offsetScroll?: number
+        offsetSummary?: number
         getContainer?: () => HTMLElement | Window | undefined
       }
     | null
@@ -68,6 +71,8 @@ export function useScrollMode(options: {
     (sticky && typeof sticky === 'object' ? sticky.offsetHeader : undefined) ?? 0
   const stickyOffsetScroll =
     (sticky && typeof sticky === 'object' ? sticky.offsetScroll : undefined) ?? 0
+  const stickyOffsetSummary =
+    (sticky && typeof sticky === 'object' ? sticky.offsetSummary : undefined) ?? 0
   const stickyGetContainer =
     sticky && typeof sticky === 'object' && sticky.getContainer ? sticky.getContainer : undefined
 
@@ -104,6 +109,7 @@ export function useScrollMode(options: {
     stickyEnabled,
     stickyOffsetHeader,
     stickyOffsetScroll,
+    stickyOffsetSummary,
     stickyGetContainer,
     scrollY,
     scrollYEnabled,

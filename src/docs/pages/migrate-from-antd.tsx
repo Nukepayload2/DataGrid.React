@@ -203,8 +203,8 @@ export function renderMigration(_ctx: DocsPageContext) {
           改用 <Text code>column.onCell</Text>。
         </DocsNote>
         <p style={{ margin: 0, lineHeight: 1.8 }}>
-          这里已经把迁移时最容易踩的地方说清了；需要核对实现边界时，再看{' '}
-          <a href="#/docs/deprecated-antd-members">过时成员说明</a> 和 <a href="#/docs/compat-matrix">兼容矩阵</a>。
+          这里已经把迁移时最容易踩的地方说清了；需要核对完整兼容情况时，再看{' '}
+          <a href="#/docs/compat-matrix">兼容矩阵</a>。
         </p>
       </DocSection>
     </>

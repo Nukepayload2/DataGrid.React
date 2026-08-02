@@ -349,7 +349,7 @@ export function renderWhenToMigrate(_ctx: DocsPageContext) {
             <Text code>scroll.&#123;y: number|string&#125;</Text> 改成 <Text code>scroll=&#123;&#123; y: true &#125;&#125;</Text>，父容器只要通过布局或尺寸约束提供稳定的可用高度即可，不要让内容把容器撑开；原先用 resize 监听手算高度的代码应删掉（详见 <a href="#/docs/scroll-y">scroll.y 语义</a>）。
           </li>
           <li>
-            <Text code>render</Text> 返回 <Text code>&#123; children, props &#125;</Text> 旧对象只消费 <Text code>children</Text>；合并格 / cell props 改用 <Text code>column.onCell</Text>（详见 <a href="#/docs/deprecated-antd-members">过时成员</a>）。
+            <Text code>render</Text> 返回 <Text code>&#123; children, props &#125;</Text> 旧对象只消费 <Text code>children</Text>；合并格 / cell props 改用 <Text code>column.onCell</Text>（详见 <a href="#/docs/compat-matrix">兼容矩阵</a>）。
           </li>
           <li>
             依赖 <Text code>tbody &gt; tr &gt; td</Text> 选择器的样式要改用 <Text code>classNames</Text> / <Text code>styles</Text> 的 Semantic DOM 槽位（详见 <a href="#/docs/semantic-dom">Semantic DOM</a>）。
@@ -360,7 +360,7 @@ export function renderWhenToMigrate(_ctx: DocsPageContext) {
       <DocSection
         id="avoid"
         title="这些场景 data-grid 明确不做或未系统支持"
-        description="data-grid 有清晰的边界。下面这些场景迁过来会撞墙——要么改业务方预期，要么留到 backlog 解决。"
+        description="data-grid 有清晰的边界。下面这些场景迁移前需要先确认取舍：要么调整业务方预期，要么等待后续兼容项补齐。"
       >
         <ul className="docs-bullet-list">
           <li>
@@ -371,7 +371,7 @@ export function renderWhenToMigrate(_ctx: DocsPageContext) {
           </li>
           <li>
             <Text strong>依赖大量过时成员</Text>：例如
-            <Text code>column.filterDropdownOpen</Text> / <Text code>column.onFilterDropdownOpenChange</Text> 等已过时字段未暴露；旧
+            <Text code>column.filterDropdownOpen</Text> / <Text code>column.onFilterDropdownOpenChange</Text> 等已过时字段不作为 data-grid API 提供；旧
             <Text code>render</Text> 返回的 <Text code>props</Text> 字段会被忽略。
           </li>
           <li>

@@ -33,6 +33,8 @@ export type {
   SortDirections,
   CompareFn,
   ColumnSorter,
+  DataIndex,
+  DeepNamePath,
   SorterResult,
   TableCurrentDataSource,
   ColumnFilterItem,

@@ -516,6 +516,28 @@ describe('Table public API behavior', () => {
     expect(document.querySelector('.dg-wrapper')).toHaveClass('dg-data-area')
   })
 
+  it('supports expandable columnTitle and fixed expand column', () => {
+    render(
+      <Table<Person>
+        columns={baseColumns}
+        dataSource={data}
+        pagination={false}
+        scroll={{ x: 640 }}
+        expandable={{
+          columnTitle: 'Details',
+          fixed: 'left',
+          expandedRowRender: (record) => <div>More {record.name}</div>,
+        }}
+      />,
+    )
+
+    expect(screen.getByText('Details')).toBeInTheDocument()
+    const expandHeader = document.querySelector(
+      '.dg-cell-header[data-column-key="__dg_expand__"]',
+    )
+    expect(expandHeader).toHaveClass('ant-table-cell-fix-left')
+  })
+
   it('emits antd table class aliases for stable data-grid nodes', () => {
     const columns: Array<ColumnType<Person>> = [
       {

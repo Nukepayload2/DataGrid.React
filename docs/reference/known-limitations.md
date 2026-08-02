@@ -1,7 +1,7 @@
 # 已知限制
 
 本页只保留仍有长期价值的限制、兼容缺口和视觉对齐遗留项，不记录任务批次或会话过程。
-能通过局部 API 适配补齐的项目不再描述为架构限制，而归入“可实施兼容 backlog”。
+能通过局部 API 适配补齐的项目不再描述为架构限制。
 
 ## 架构边界
 
@@ -10,18 +10,9 @@
 
 ## 兼容缺口
 
-- `expandable` 仍缺少部分字段，例如 `columnTitle` 和 `fixed`。
 - `components` 仍缺少原生表格 wrapper 级槽位和 `body` 函数形态。
 
-## 可实施兼容 backlog
-
-这些项目此前容易被误记为“限制”，但本质上是 API 适配或局部渲染增强，可以按优先级补齐：
-
-- `expandable.columnTitle`、`expandable.fixed`。
-- `column.filtered`、`column.sortIcon`、`column.filterResetToDefaultFilteredValue`。
-- `filterDropdownProps` 更完整透传。
-- `dataIndex` 的 `DeepNamePath` 类型增强。
-- `sticky.offsetSummary`。
+## 需要确认取舍的兼容项
 
 以下项目能做，但需要先确认设计取舍或回归范围：
 

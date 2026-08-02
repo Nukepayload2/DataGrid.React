@@ -17,6 +17,7 @@ describe('useScrollMode', () => {
       expect(r.stickyHeaderOffset).toBeUndefined()
       expect(r.stickyOffsetHeader).toBe(0)
       expect(r.stickyOffsetScroll).toBe(0)
+      expect(r.stickyOffsetSummary).toBe(0)
       expect(r.stickyGetContainer).toBeUndefined()
     })
 
@@ -36,11 +37,12 @@ describe('useScrollMode', () => {
       expect(r.stickyHeaderOffset).toBe(0)
     })
 
-    it('sticky = { offsetHeader: 20, offsetScroll: 10 } → 派生对应数值', () => {
-      const r = render({ sticky: { offsetHeader: 20, offsetScroll: 10 } })
+    it('sticky = { offsetHeader: 20, offsetScroll: 10, offsetSummary: 6 } → 派生对应数值', () => {
+      const r = render({ sticky: { offsetHeader: 20, offsetScroll: 10, offsetSummary: 6 } })
       expect(r.stickyEnabled).toBe(true)
       expect(r.stickyOffsetHeader).toBe(20)
       expect(r.stickyOffsetScroll).toBe(10)
+      expect(r.stickyOffsetSummary).toBe(6)
       expect(r.stickyHeaderOffset).toBe(20)
     })
 

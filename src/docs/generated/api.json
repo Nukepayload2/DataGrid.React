@@ -259,7 +259,7 @@
       "type": "boolean | StickyConfig",
       "required": false,
       "advanced": false,
-      "summary": "粘性表头 + 页面级滚动条。\n\n**语义（区别容器内固定）**：表头跟随**页面**滚动固定（sticky 钉在 `offsetHeader` 处，\n相对 `getContainer` 默认 `window`），而非容器内固定（`scroll.y` 表体限高滚动）。\n详见 `StickyConfig` 注释。\n\n**取值**：\n  - `undefined` / `false`：不启用（所有现有 demo 行为不变，零回归）。\n  - `true`：启用（默认偏移 0）。\n  - 对象 `{ offsetHeader?, offsetScroll?, getContainer? }`：自定义。\n\n**与容器内固定互斥语义**：同时传 `sticky` 与 `scroll.y` 时，`sticky` 优先（页面级固定），\n`scroll.y` 的容器内固定表头不生效（data-grid 简化：不为同表同时支持两种固定模式）。\n\n未提供（undefined）时不启用，零回归。\n\n同名同义于 antd v6 `TableProps.sticky`。"
+      "summary": "粘性表头 + 页面级滚动条。\n\n**语义（区别容器内固定）**：表头跟随**页面**滚动固定（sticky 钉在 `offsetHeader` 处，\n相对 `getContainer` 默认 `window`），而非容器内固定（`scroll.y` 表体限高滚动）。\n详见 `StickyConfig` 注释。\n\n**取值**：\n  - `undefined` / `false`：不启用（所有现有 demo 行为不变，零回归）。\n  - `true`：启用（默认偏移 0）。\n  - 对象 `{ offsetHeader?, offsetSummary?, offsetScroll?, getContainer? }`：自定义。\n\n**与容器内固定互斥语义**：同时传 `sticky` 与 `scroll.y` 时，`sticky` 优先（页面级固定），\n`scroll.y` 的容器内固定表头不生效（data-grid 简化：不为同表同时支持两种固定模式）。\n\n未提供（undefined）时不启用，零回归。\n\n同名同义于 antd v6 `TableProps.sticky`。"
     },
     {
       "name": "onHeaderRow",
@@ -486,8 +486,8 @@
     {
       "name": "dataIndex",
       "kind": "prop",
-      "signature": "dataIndex?: string | number | Array<string | number>",
-      "type": "string | number | Array<string | number>",
+      "signature": "dataIndex?: DataIndex<RecordType>",
+      "type": "DataIndex<RecordType>",
       "required": false,
       "advanced": false,
       "summary": "取值字段路径。\n\n**取值**：\n  - 字符串：取 `record[dataIndex]`（如 `'name'`）。\n  - 数字：按数组下标取值（用于 record 字段是数组的场景）。\n  - 路径数组：嵌套 record 取值（如 `['user', 'address', 'city']` 取 `record.user.address.city`）。\n\n**用途**：默认单元格渲染（无 `render` 时直接显示 `record[dataIndex]`）、\n排序默认比较字段（`sorter: true` 时按本字段值比较）、筛选 onChange 的 filters 对象 key 兜底\n（当 `column.key` 未提供时以 `dataIndex` 作 key）。\n\n与 antd `column.dataIndex` 同义（data-grid 同样支持路径数组形态）。"
@@ -655,6 +655,15 @@
       "summary": "点击表头切换排序的循环顺序。\n默认 `['ascend', 'descend']`；循环到末尾后隐式回退到 `null`（取消排序）。\n对齐 antd：值数组不含 `null`，`null` 是循环到末尾的隐式回退。\n例：`['descend']` → 初次点击 descend → 再点 null（取消）。"
     },
     {
+      "name": "sortIcon",
+      "kind": "method",
+      "signature": "sortIcon?: (props: { sortOrder: SortOrder }) => ReactNode",
+      "type": "(props: { sortOrder: SortOrder }) => ReactNode",
+      "required": false,
+      "advanced": false,
+      "summary": "自定义排序图标。函数收到当前排序方向（未排序为 null）。"
+    },
+    {
       "name": "showSorterTooltip",
       "kind": "prop",
       "signature": "showSorterTooltip?: boolean | { target?: 'full-header' | 'sorter-icon' }",
@@ -682,6 +691,15 @@
       "summary": "筛选判定函数。\n\n签名 `(value, record) => boolean`：返回 true 表示该 value 命中该 record。\n与 `filters` 配合：当前选中值集合中**任一**命中即保留该 record（OR 语义，对齐 antd）。\n\n**前端筛选**（非受控）：data-grid 按 `filters` + `onFilter` 对 dataSource 过滤后渲染\n（与排序叠加：antd 顺序 raw → sort → filter，即先排序后过滤）。\n**受控筛选**（外部传 `filteredValue`）：data-grid 不主动过滤，调用方在 onChange 后自行更新 dataSource；\n  data-grid 仍按 `filteredValue` 显示漏斗激活态、触发 onChange。\n同名同义于 antd `column.onFilter`。"
     },
     {
+      "name": "filtered",
+      "kind": "prop",
+      "signature": "filtered?: boolean",
+      "type": "boolean",
+      "required": false,
+      "advanced": false,
+      "summary": "强制筛选图标显示激活态。用于服务端筛选等场景，数据处理仍由调用方负责。"
+    },
+    {
       "name": "filterMultiple",
       "kind": "prop",
       "signature": "filterMultiple?: boolean",
@@ -693,8 +711,8 @@
     {
       "name": "defaultFilteredValue",
       "kind": "prop",
-      "signature": "defaultFilteredValue?: Array<FilterValue>",
-      "type": "Array<FilterValue>",
+      "signature": "defaultFilteredValue?: Array<FilterValue> | null",
+      "type": "Array<FilterValue> | null",
       "required": false,
       "advanced": false,
       "summary": "非受控初始筛选值。仅当 `filteredValue` 未传时生效（初始态）。"
@@ -707,6 +725,15 @@
       "required": false,
       "advanced": false,
       "summary": "受控筛选值。传入即受控（data-grid 不主动过滤，调用方负责 dataSource）。\n与 `defaultFilteredValue` 互斥：`filteredValue` 优先。\n\n传 `[]`（空数组）表示\"无激活筛选\"（受控显式空）；传非空数组表示激活筛选。\n（注意与 undefined 区分：undefined 表示该列非受控，由 defaultFilteredValue 初始化。）"
+    },
+    {
+      "name": "filterResetToDefaultFilteredValue",
+      "kind": "prop",
+      "signature": "filterResetToDefaultFilteredValue?: boolean",
+      "type": "boolean",
+      "required": false,
+      "advanced": false,
+      "summary": "点击重置时是否恢复到 defaultFilteredValue。\nfalse / undefined 时重置为空筛选。"
     },
     {
       "name": "filterOnClose",
@@ -1269,6 +1296,28 @@
       "kind": "type",
       "signature": "type ColumnSorter",
       "type": "ColumnSorter",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "DataIndex",
+      "kind": "type",
+      "signature": "type DataIndex",
+      "type": "DataIndex",
+      "required": true,
+      "advanced": false,
+      "from": "./types",
+      "isTypeOnly": true,
+      "summary": ""
+    },
+    {
+      "name": "DeepNamePath",
+      "kind": "type",
+      "signature": "type DeepNamePath",
+      "type": "DeepNamePath",
       "required": true,
       "advanced": false,
       "from": "./types",

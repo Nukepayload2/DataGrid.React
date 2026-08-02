@@ -60,7 +60,14 @@ export interface FilterDropdownProps {
 }
 
 /** 透传给筛选下拉 antd `Dropdown` 的 props。 */
-export interface ColumnFilterDropdownProps {
+export interface ColumnFilterDropdownProps extends Omit<
+  DropdownProps,
+  | 'children'
+  | 'trigger'
+  | 'open'
+  | 'onOpenChange'
+  | 'popupRender'
+> {
   /** 受控打开状态。语义与 antd `Dropdown.open` 一致。 */
   open?: boolean
   /** 打开/关闭回调。filterOnClose=true 时据此应用草稿。 */
@@ -69,12 +76,8 @@ export interface ColumnFilterDropdownProps {
   triggerClassName?: string
   /** 触发器额外 style。 */
   triggerStyle?: import('react').CSSProperties
-  /** 弹出层额外 className（v6：作用于 overlay root）。 */
+  /** 弹出层额外 className（兼容旧 overlayClassName 写法，作用于弹层 root）。 */
   overlayClassName?: string
-  /** 弹出层对齐配置（透传 antd Dropdown）。 */
-  align?: DropdownProps['align']
-  /** 弹出层挂载容器（透传 antd Dropdown getPopupContainer）。 */
-  getPopupContainer?: (triggerNode: HTMLElement) => HTMLElement
 }
 
 /** 单个筛选项。 */

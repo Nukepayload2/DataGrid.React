@@ -340,14 +340,21 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
               </div>
               <div className="dg-column-actions">
                 {sortable ? (
-                  <SortIndicator sortOrder={sortOrder} priority={column.sortPriority} />
+                  column.sortIcon ? (
+                    column.sortIcon({ sortOrder })
+                  ) : (
+                    <SortIndicator sortOrder={sortOrder} priority={column.sortPriority} />
+                  )
                 ) : null}
                 {filterable && onFilterApply ? (
                   <FilterDropdown
                     filters={column.filters ?? []}
                     filterMultiple={column.filterMultiple ?? true}
                     filteredValue={column.filteredValue ?? null}
+                    forceFiltered={column.filtered === true}
                     filterOnClose={column.filterOnClose ?? true}
+                    defaultFilteredValue={column.defaultFilteredValue ?? null}
+                    filterResetToDefaultFilteredValue={column.filterResetToDefaultFilteredValue === true}
                     onApply={(next) => onFilterApply(column.key, next)}
                     customDropdown={column.filterDropdown}
                     customIcon={column.filterIcon}

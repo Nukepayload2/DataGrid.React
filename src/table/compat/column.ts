@@ -19,6 +19,42 @@ import type {
 import type { ColumnSorter, SortDirections, SortOrder } from './sort'
 import type { GridColumnOptions } from '../engine/recyclingCellTypes'
 
+type PrimitiveValue =
+  | string
+  | number
+  | boolean
+  | bigint
+  | symbol
+  | null
+  | undefined
+  | Date
+  | ((...args: Array<any>) => any)
+
+export type DeepNamePath<RecordType> =
+  DeepNamePathDepth<RecordType, 4>
+
+type PreviousDepth = [never, 0, 1, 2, 3, 4]
+
+type DeepNamePathDepth<RecordType, Depth extends number> =
+  [Depth] extends [never]
+    ? never
+    : RecordType extends PrimitiveValue
+      ? never
+      : RecordType extends ReadonlyArray<infer Item>
+        ? readonly [number] | readonly [number, ...DeepNamePathDepth<Item, PreviousDepth[Depth]>]
+        : {
+            [Key in keyof RecordType & (string | number)]:
+              RecordType[Key] extends PrimitiveValue
+                ? readonly [Key]
+                : readonly [Key] | readonly [Key, ...DeepNamePathDepth<RecordType[Key], PreviousDepth[Depth]>]
+          }[keyof RecordType & (string | number)]
+
+export type DataIndex<RecordType = any> =
+  | string
+  | number
+  | readonly (string | number)[]
+  | DeepNamePath<RecordType>
+
 /**
  * @deprecated data-grid only consumes `children` from this legacy object form.
  * Use `onCell` for colSpan/rowSpan and custom body-cell props.
@@ -71,7 +107,7 @@ export interface ColumnType<RecordType = any> {
    *
    * 与 antd `column.dataIndex` 同义（data-grid 同样支持路径数组形态）。
    */
-  dataIndex?: string | number | Array<string | number>
+  dataIndex?: DataIndex<RecordType>
   /**
    * data-grid 列级专属选项命名空间。
    *
@@ -300,6 +336,8 @@ export interface ColumnType<RecordType = any> {
    * 例：`['descend']` → 初次点击 descend → 再点 null（取消）。
    */
   sortDirections?: SortDirections
+  /** 自定义排序图标。函数收到当前排序方向（未排序为 null）。 */
+  sortIcon?: (props: { sortOrder: SortOrder }) => ReactNode
   /**
    * 是否显示排序提示 tooltip（非阻塞）。
    * hover 排序列表头时显示"点击排序"提示。
@@ -335,6 +373,8 @@ export interface ColumnType<RecordType = any> {
    * 同名同义于 antd `column.onFilter`。
    */
   onFilter?: (value: FilterValue, record: RecordType) => boolean
+  /** 强制筛选图标显示激活态。用于服务端筛选等场景，数据处理仍由调用方负责。 */
+  filtered?: boolean
   /**
    * 是否多选（默认 true）。
    * - `true`（默认）：Checkbox.Group 多选，命中任一保留（OR）。
@@ -346,7 +386,7 @@ export interface ColumnType<RecordType = any> {
   /**
    * 非受控初始筛选值。仅当 `filteredValue` 未传时生效（初始态）。
    */
-  defaultFilteredValue?: Array<FilterValue>
+  defaultFilteredValue?: Array<FilterValue> | null
   /**
    * 受控筛选值。传入即受控（data-grid 不主动过滤，调用方负责 dataSource）。
    * 与 `defaultFilteredValue` 互斥：`filteredValue` 优先。
@@ -355,6 +395,11 @@ export interface ColumnType<RecordType = any> {
    * （注意与 undefined 区分：undefined 表示该列非受控，由 defaultFilteredValue 初始化。）
    */
   filteredValue?: Array<FilterValue> | null
+  /**
+   * 点击重置时是否恢复到 defaultFilteredValue。
+   * false / undefined 时重置为空筛选。
+   */
+  filterResetToDefaultFilteredValue?: boolean
   /**
    * 关闭下拉即应用筛选（默认 true）。
    *

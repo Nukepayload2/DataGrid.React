@@ -595,6 +595,16 @@ export const demos: DemoMeta[] = [
     category: '固定列与表头',
   },
   {
+    name: 'sticky-summary-offset',
+    aliases: ['summary-offset'],
+    title: '固定汇总栏避让操作栏',
+    subtitle: 'sticky.offsetSummary',
+    description: '在页面底部有固定批量操作栏时，让 Table.Summary fixed 保持在操作栏上方。',
+    element: () => import('./sticky-summary-offset'),
+    compare: true,
+    category: '固定列与表头',
+  },
+  {
     name: 'nested-table-border-isolation',
     aliases: ['nest-table-border-debug'],
     title: '嵌套表格边框隔离',

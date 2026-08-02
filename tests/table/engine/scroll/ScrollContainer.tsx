@@ -1,9 +1,10 @@
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   ScrollContainer,
   type ScrollContainerProps,
 } from '../../../../src/table/engine/ScrollContainer'
+import { Summary } from '../../../../src/table/engine/Summary'
 
 /**
  * ScrollContainer 单元测试。
@@ -41,6 +42,7 @@ function baseProps(overrides: Partial<ScrollContainerProps> = {}): ScrollContain
     stickyScrollBarUpdateThumbRef: { current: null },
     stickyScrollInertiaActive: false,
     stickyOffsetScroll: 0,
+    stickyOffsetSummary: 0,
     stickyGetContainer: undefined,
     gridRef: { current: null },
     stickySummaryGridRef: { current: null },
@@ -111,6 +113,107 @@ describe('ScrollContainer', () => {
     // 两个 dg-sticky-scroll-viewport（主 grid + 提取出的 summary grid）。
     const viewports = container.querySelectorAll('.dg-sticky-scroll-viewport')
     expect(viewports.length).toBe(2)
+  })
+
+  it('sticky 分支：offsetSummary 只在 fixed summary 且非数据区域滚动时生效，并保持滚动条在 summary 上方', async () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      x: 0,
+      y: 0,
+      width: 400,
+      height: 36,
+      top: 0,
+      right: 400,
+      bottom: 36,
+      left: 0,
+      toJSON: () => ({}),
+    } as DOMRect)
+
+    const { container } = render(
+      <ScrollContainer
+        {...baseProps({
+          stickyEnabled: true,
+          extractSummary: true,
+          stickyOffsetScroll: 4,
+          stickyOffsetSummary: 20,
+          summaryParsed: {
+            fixed: true,
+            rows: [
+              <Summary.Row key="r1">
+                <Summary.Cell index={0}>Offset summary</Summary.Cell>
+              </Summary.Row>,
+            ],
+            count: 1,
+          },
+          gridClassName: 'dg-grid',
+          gridTemplateColumns: '100px',
+          scrollMinWidth: 120,
+        })}
+      />,
+    )
+
+    const summaryCell = screen.getByText('Offset summary').closest('.dg-cell-summary') as HTMLElement
+    expect(summaryCell.style.bottom).toBe('20px')
+
+    const bar = container.querySelector('.dg-sticky-scroll-bar') as HTMLElement
+    const summaryViewport = container.querySelector('.dg-sticky-summary-viewport') as HTMLElement
+    expect(summaryViewport.style.position).toBe('sticky')
+    expect(summaryViewport.style.bottom).toBe('20px')
+    await waitFor(() => {
+      expect(bar.style.bottom).toBe('60px')
+    })
+  })
+
+  it('sticky 分支：offsetSummary 不作用于非 fixed summary', () => {
+    const { container } = render(
+      <ScrollContainer
+        {...baseProps({
+          stickyEnabled: true,
+          extractSummary: true,
+          stickyOffsetScroll: 4,
+          stickyOffsetSummary: 20,
+          summaryParsed: {
+            fixed: false,
+            rows: [
+              <Summary.Row key="r1">
+                <Summary.Cell index={0}>Inline summary</Summary.Cell>
+              </Summary.Row>,
+            ],
+            count: 1,
+          },
+        })}
+      />,
+    )
+
+    const summaryCell = screen.getByText('Inline summary').closest('.dg-cell-summary') as HTMLElement
+    expect(summaryCell.style.bottom).toBe('')
+    expect((container.querySelector('.dg-sticky-scroll-bar') as HTMLElement).style.bottom).toBe('4px')
+  })
+
+  it('sticky 分支：scroll.y 数据区域模式下 offsetSummary 不生效', () => {
+    const { container } = render(
+      <ScrollContainer
+        {...baseProps({
+          stickyEnabled: true,
+          extractSummary: true,
+          scrollYEnabled: true,
+          stickyOffsetScroll: 4,
+          stickyOffsetSummary: 20,
+          summaryParsed: {
+            fixed: true,
+            rows: [
+              <Summary.Row key="r1">
+                <Summary.Cell index={0}>Data area summary</Summary.Cell>
+              </Summary.Row>,
+            ],
+            count: 1,
+          },
+        })}
+      />,
+    )
+
+    const summaryCell = screen.getByText('Data area summary').closest('.dg-cell-summary') as HTMLElement
+    expect(summaryCell.style.bottom).toBe('0px')
+    expect((container.querySelector('.dg-sticky-scroll-bar') as HTMLElement).style.bottom).toBe('4px')
   })
 
   it('sticky 分支：主视口和 summary 视口都用 passive:false 原生 wheel 监听', () => {

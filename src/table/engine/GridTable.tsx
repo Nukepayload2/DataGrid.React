@@ -208,6 +208,7 @@ function GridTableInner<RecordType = any>(
   const {
     stickyEnabled,
     stickyOffsetScroll,
+    stickyOffsetSummary,
     stickyGetContainer,
     scrollYEnabled,
     virtualEnabled,
@@ -910,6 +911,7 @@ function GridTableInner<RecordType = any>(
       stickyScrollBarUpdateThumbRef={stickyScrollBarUpdateThumbRef}
       stickyScrollInertiaActive={stickyScrollInertiaActive}
       stickyOffsetScroll={stickyOffsetScroll}
+      stickyOffsetSummary={stickyOffsetSummary}
       stickyGetContainer={stickyGetContainer}
       gridRef={gridRef}
       stickySummaryGridRef={stickySummaryGridRef}

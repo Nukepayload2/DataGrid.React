@@ -32,10 +32,10 @@ export function renderStyling({ onOpen }: DocsPageContext) {
     <>
       <DocSection id="overview" title="样式和主题">
         <p>
-          全局主题通过 antd <Text code>ConfigProvider</Text> 的 Table 令牌配置，data-grid 复用同一套令牌，并把 CSS 变量映射到单元格、表头、边框等部位。局部结构差异通过 <Text code>classNames</Text> / <Text code>styles</Text> 的语义槽位覆盖。
+          全局主题通过 antd <Text code>ConfigProvider</Text> 的 Table 令牌配置，data-grid 复用同一套令牌，并把 CSS 变量映射到单元格、表头、边框等部位。局部结构差异通过 <Text code>classNames</Text> / <Text code>styles</Text> 的语义化样式入口覆盖。
         </p>
         <p>
-          槽位落点与 a11y 兼容状态见 Semantic DOM 页；主题编辑器在顶栏弹窗，可实时预览令牌修改效果。
+          可替换的组件位置与 a11y 兼容状态见 Semantic DOM 页；主题编辑器在顶栏弹窗，可实时预览令牌修改效果。
         </p>
       </DocSection>
       <DocSection

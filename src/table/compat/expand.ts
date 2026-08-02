@@ -7,6 +7,7 @@
 // 按业务域从 compatTypes.ts 拆出；哨兵常量随展开域就近放置（runtime 值，barrel re-export 透传）。
 
 import type { ReactNode } from 'react'
+import type { FixedInput } from '../nativeOptions'
 import type { ColumnType } from './column'
 
 /**
@@ -14,7 +15,7 @@ import type { ColumnType } from './column'
  *
  * **覆盖**：`expandedRowRender`、`expandedRowOffset`、`rowExpandable`、`defaultExpandedRowKeys`、
  *   `expandedRowKeys`（受控）、`onExpand`、`onExpandedRowsChange`、`columnWidth`、
- *   `expandIcon`、`defaultExpandAllRows`、`showExpandColumn`。
+ *   `columnTitle`、`fixed`、`expandIcon`、`defaultExpandAllRows`、`showExpandColumn`。
  *
  * 与 antd 同名字段同语义，便于直接替换。
  *
@@ -75,6 +76,10 @@ export interface Expandable<RecordType = any> {
   onExpandedRowsChange?: (expandedKeys: Array<React.Key>) => void
   /** 展开列宽度（缺省 48，等同 antd `tableExpandColumnWidth` 默认值）。 */
   columnWidth?: number | string
+  /** 展开列表头内容。与 antd `expandable.columnTitle` 同名同义。 */
+  columnTitle?: ReactNode
+  /** 展开列固定方向。与 antd `expandable.fixed` 同名同义。 */
+  fixed?: FixedInput
   /** 自定义展开图标（props 子集：expanded + onExpand，与 antd `ExpandIcon` 同构）。 */
   expandIcon?: (props: { expanded: boolean; onExpand: (record: RecordType, e: React.MouseEvent) => void; record: RecordType }) => ReactNode
   /** 非受控：是否默认展开所有可展开行。与 defaultExpandedRowKeys 互斥（前者优先）。 */

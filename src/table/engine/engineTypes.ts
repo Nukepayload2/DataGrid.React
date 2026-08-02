@@ -70,7 +70,7 @@ export interface EngineLeafColumn<RecordType = any> {
   /** 稳定 key（antd column.key 或 dataIndex）。 */
   key: string
   /** 数据取值路径（antd column.dataIndex）。 */
-  dataIndex?: string | number | Array<string | number>
+  dataIndex?: string | number | ReadonlyArray<string | number>
   /** 表头文本或节点。 */
   title?: ReactNode
   /** 列宽（数字按 px，字符串直接作为 track size，如 '200px' / '1fr' / 'max-content'）。 */
@@ -164,6 +164,8 @@ export interface EngineLeafColumn<RecordType = any> {
    * 引擎不消费，仅透传到 headerCells 供表头格渲染参考（当前未直接用；循环逻辑在适配层）。
    */
   sortDirections?: Array<'ascend' | 'descend'>
+  /** 自定义排序图标（透传对外 `column.sortIcon`）。 */
+  sortIcon?: (props: { sortOrder: EngineSortOrder }) => ReactNode
   /**
    * 是否显示排序提示 tooltip。引擎不消费，仅透传到 headerCells 供表头格渲染 tooltip。
    */
@@ -188,10 +190,16 @@ export interface EngineLeafColumn<RecordType = any> {
    * 空数组/undefined/null 均视为"无激活筛选"（漏斗为 FilterOutlined 灰态）。
    */
   filteredValue?: Array<import('../types').FilterValue> | null
+  /** 强制筛选图标显示激活态（透传对外 `column.filtered`）。 */
+  filtered?: boolean
   /**
    * 关闭下拉即应用（默认 true）。引擎据此控制 Dropdown 的 onOpenChange 行为。
    */
   filterOnClose?: boolean
+  /** 非受控默认筛选值，供 filterResetToDefaultFilteredValue 重置时恢复。 */
+  defaultFilteredValue?: Array<import('../types').FilterValue> | null
+  /** 重置筛选时是否恢复到 defaultFilteredValue。 */
+  filterResetToDefaultFilteredValue?: boolean
   /**
    * 自定义筛选下拉面板（透传对外 `column.filterDropdown`）。
    * 引擎渲染层（FilterDropdown）据此切换：有 filterDropdown → 渲染自定义面板（注入 antd 兼容 props）；
@@ -284,7 +292,7 @@ export interface EngineColumnNode<RecordType = any> {
    */
   children?: Array<EngineColumnNode<RecordType>>
   /** 叶子列属性（dataIndex/width/render；仅当本节点为叶子时使用）。 */
-  dataIndex?: string | number | Array<string | number>
+  dataIndex?: string | number | ReadonlyArray<string | number>
   width?: number | string
   render?: (text: any, record: RecordType, index: number) => ReactNode | EngineRenderedCell
   /**
@@ -326,6 +334,8 @@ export interface EngineColumnNode<RecordType = any> {
    * 点击表头切换排序的循环顺序（仅叶子节点消费）。
    */
   sortDirections?: Array<'ascend' | 'descend'>
+  /** 自定义排序图标（仅叶子节点消费）。 */
+  sortIcon?: (props: { sortOrder: EngineSortOrder }) => ReactNode
   /**
    * 是否显示排序提示 tooltip（仅叶子节点消费）。
    */
@@ -346,10 +356,16 @@ export interface EngineColumnNode<RecordType = any> {
    * 当前激活筛选值（仅叶子节点消费，由适配层 useFilter 解析后回填）。
    */
   filteredValue?: Array<import('../types').FilterValue> | null
+  /** 强制筛选图标显示激活态（仅叶子节点消费）。 */
+  filtered?: boolean
   /**
    * 关闭下拉即应用（仅叶子节点消费，默认 true）。
    */
   filterOnClose?: boolean
+  /** 非受控默认筛选值，供 filterResetToDefaultFilteredValue 重置时恢复。 */
+  defaultFilteredValue?: Array<import('../types').FilterValue> | null
+  /** 重置筛选时是否恢复到 defaultFilteredValue。 */
+  filterResetToDefaultFilteredValue?: boolean
   /**
    * 自定义筛选下拉面板（仅叶子节点消费，透传 `column.filterDropdown`）。
    * 详见 EngineLeafColumn.filterDropdown。
@@ -510,6 +526,8 @@ export interface EngineHeaderCell<RecordType = any> {
    * 引擎据此在 caret 旁渲染优先级数字（1/2/3…）；undefined/0 不渲染。
    */
   sortPriority?: number
+  /** 自定义排序图标（仅叶子表头格有值）。 */
+  sortIcon?: (props: { sortOrder: EngineSortOrder }) => ReactNode
   /**
    * 是否显示排序提示 tooltip（仅叶子表头格有值）。
    */
@@ -551,10 +569,16 @@ export interface EngineHeaderCell<RecordType = any> {
    * 空数组/null 均视为无激活（漏斗为 Outlined 灰态）。
    */
   filteredValue?: Array<import('../types').FilterValue> | null
+  /** 强制筛选图标显示激活态（仅叶子表头格有值）。 */
+  filtered?: boolean
   /**
    * 关闭下拉即应用（仅叶子表头格有值，默认 true）。
    */
   filterOnClose?: boolean
+  /** 非受控默认筛选值，供 filterResetToDefaultFilteredValue 重置时恢复。 */
+  defaultFilteredValue?: Array<import('../types').FilterValue> | null
+  /** 重置筛选时是否恢复到 defaultFilteredValue。 */
+  filterResetToDefaultFilteredValue?: boolean
   /**
    * 自定义筛选下拉面板（仅叶子表头格有值，透传 `column.filterDropdown`）。
    * 有值时引擎渲染层（FilterDropdown）渲染自定义面板（注入 antd 兼容 props），
@@ -788,6 +812,7 @@ export interface EngineTableProps<RecordType = any> {
    *
    * 引擎消费：
    *   - `offsetHeader`：表头 grid item 的 sticky top 值（页面纵向滚动时表头钉在视口顶部该偏移处）。
+   *   - `offsetSummary`：fixed summary 的 sticky bottom 值（仅 sticky + summary fixed + 非 scroll.y 生效）。
    *   - `offsetScroll`：底部 StickyScrollBar 的 sticky bottom 值。
    *   - `getContainer`：StickyScrollBar 同步监听的滚动容器（默认 window）。
    *
@@ -800,6 +825,7 @@ export interface EngineTableProps<RecordType = any> {
   sticky?: {
     offsetHeader?: number
     offsetScroll?: number
+    offsetSummary?: number
     getContainer?: () => HTMLElement | Window | undefined
   }
   /**

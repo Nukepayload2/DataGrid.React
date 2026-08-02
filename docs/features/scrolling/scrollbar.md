@@ -186,7 +186,7 @@ caller 在 pointerdown 入口从 `geometryRef.clientSize` 与 `trackInsetRef` �
 
 ### 1. sticky 模式（`stickyEnabled`）
 
-grid **不包** overflow 容器（避免 overflow 祖先拦截表头 sticky 上下文）。grid 直接渲染 + `min-width: scrollX` 撑宽页面；表头 grid item 用 `stickyHeaderOffset` 驱动（`position: sticky; top: offsetHeader`，相对 viewport 固定）。grid 之后渲染 `StickyScrollBar`（`position: sticky; bottom: offsetScroll`）作为底部固定横向滚动条。
+grid **不包** overflow 容器（避免 overflow 祖先拦截表头 sticky 上下文）。grid 直接渲染 + `min-width: scrollX` 撑宽页面；表头 grid item 用 `stickyHeaderOffset` 驱动（`position: sticky; top: offsetHeader`，相对 viewport 固定）。grid 之后渲染 `StickyScrollBar` 作为底部固定横向滚动条；fixed summary 使用 `offsetSummary` 时，横向滚动条会叠加 summary 高度和偏移，继续停在 summary 上方。
 
 关键：grid 不包 overflow 容器 → grid 的最近可滚动祖先是 window（页面）→ 表头 sticky 相对 viewport 固定（页面纵向滚动时表头钉在视口顶部 offsetHeader 处）。这是 sticky 与容器内固定表头的本质区别（容器内固定表头相对 `.dg-fixed-header-scroll` 容器固定，容器内滚动）。
 

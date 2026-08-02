@@ -359,14 +359,21 @@ function HeaderCell<RecordType>({
           </div>
           <div className="dg-column-actions">
             {sortable ? (
-              <SortIndicator sortOrder={sortOrder} priority={cell.sortPriority} />
+              cell.sortIcon ? (
+                cell.sortIcon({ sortOrder })
+              ) : (
+                <SortIndicator sortOrder={sortOrder} priority={cell.sortPriority} />
+              )
             ) : null}
             {filterable && onFilterApply ? (
               <FilterDropdown
                 filters={cell.filters ?? []}
                 filterMultiple={cell.filterMultiple ?? true}
                 filteredValue={cell.filteredValue ?? null}
+                forceFiltered={cell.filtered === true}
                 filterOnClose={cell.filterOnClose ?? true}
+                defaultFilteredValue={cell.defaultFilteredValue ?? null}
+                filterResetToDefaultFilteredValue={cell.filterResetToDefaultFilteredValue === true}
                 onApply={(next) => onFilterApply((cell.filterKey ?? cell.key) as string, next)}
                 customDropdown={cell.filterDropdown}
                 customIcon={cell.filterIcon}

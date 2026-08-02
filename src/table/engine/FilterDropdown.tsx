@@ -7,14 +7,13 @@
  * 语义要点：
  * - **filterOnClose**：true（默认）关闭即应用草稿；false 仅"确定"按钮才应用（关闭丢弃）。
  * - **localSelected**：面板内勾选是本地草稿，与外部 filteredValue 解耦；打开时重置为 filteredValue。
- * - **重置**：清空草稿（不立即应用）；下次关闭/确定时应用为空。
+ * - **重置**：默认清空草稿；filterResetToDefaultFilteredValue=true 时恢复默认筛选值。
  *
  * 详见 [docs/design-notes/filter-sorter.md](../../../docs/design-notes/filter-sorter.md)。
  */
 
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { ConfigProvider, Dropdown, Empty } from 'antd'
-import type { DropdownProps } from 'antd'
 // filter 图标用 `@ant-design/icons` 的 FilterFilled（与 antd Table 默认 filterIcon 一致）。
 // 默认/激活态都用同一个 FilterFilled——激活视觉差异由 `.dg-filter-trigger-active`（color）驱动，不切换图标。
 import { FilterFilled } from '@ant-design/icons'
@@ -48,8 +47,14 @@ export interface FilterDropdownProps {
   filterMultiple?: boolean
   /** 当前应用的筛选值（来自列树 EngineHeaderCell.filteredValue；空数组/null = 无激活）。 */
   filteredValue?: Array<FilterValue> | null
+  /** 强制筛选图标显示激活态（antd column.filtered）。 */
+  forceFiltered?: boolean
   /** 关闭下拉即应用（默认 true）。 */
   filterOnClose?: boolean
+  /** 非受控默认筛选值，供 filterResetToDefaultFilteredValue 重置时恢复。 */
+  defaultFilteredValue?: Array<FilterValue> | null
+  /** 重置时是否恢复到 defaultFilteredValue。 */
+  filterResetToDefaultFilteredValue?: boolean
   /**
    * 应用筛选回调（Dropdown 关闭/确定时调用）。
    * @param nextFilteredValue 新筛选值数组；空数组表示清除该列筛选。
@@ -121,7 +126,10 @@ export function FilterDropdown({
   filters,
   filterMultiple = true,
   filteredValue,
+  forceFiltered = false,
   filterOnClose = true,
+  defaultFilteredValue,
+  filterResetToDefaultFilteredValue = false,
   onApply,
   triggerRender,
   customDropdown,
@@ -294,8 +302,8 @@ export function FilterDropdown({
   // 内置面板 filters 为空（无筛选项可勾选）→ 显示占位。对齐 antd `(column.filters||[]).length===0`。
   const filtersEmpty = !isCustom && filters.length === 0
 
-  // 漏斗激活态：当前应用的 filteredValue 非空 → 高亮；否则灰。
-  const activated = !!filteredValue && filteredValue.length > 0
+  // 漏斗激活态：column.filtered 强制激活；否则当前应用的 filteredValue 非空 → 高亮。
+  const activated = forceFiltered || (!!filteredValue && filteredValue.length > 0)
 
   // 应用草稿：调 onApply + 关闭下拉。
   //
@@ -310,10 +318,10 @@ export function FilterDropdown({
     setTimeout(() => setOpen(false), 0)
   }, [localSelected, onApply])
 
-  // 重置草稿：清空 localSelected（仅草稿，不立即应用）。
+  // 重置草稿：默认清空；filterResetToDefaultFilteredValue=true 时恢复默认筛选值。
   const resetDraft = useCallback(() => {
-    setLocalSelected([])
-  }, [])
+    setLocalSelected(filterResetToDefaultFilteredValue ? (defaultFilteredValue ?? []).slice() : [])
+  }, [defaultFilteredValue, filterResetToDefaultFilteredValue])
 
   // Dropdown onOpenChange：关闭时处理 filterOnClose 语义。
   const handleOpenChange = useCallback(
@@ -356,17 +364,18 @@ export function FilterDropdown({
   )
   const clearFiltersFn = useCallback(
     (param?: { closeDropdown?: boolean; confirm?: boolean }) => {
-      // 清空草稿。
-      setLocalSelected([])
+      // 默认清空草稿；filterResetToDefaultFilteredValue=true 时恢复默认筛选值。
+      const nextSelected = filterResetToDefaultFilteredValue ? (defaultFilteredValue ?? []).slice() : []
+      setLocalSelected(nextSelected)
       // confirm=true：立即应用清空（对齐 antd reset + confirm 语义）。
       if (param?.confirm) {
-        onApply([])
+        onApply(nextSelected)
       }
       if (param?.closeDropdown) {
         setTimeout(() => setOpen(false), 0)
       }
     },
-    [onApply],
+    [defaultFilteredValue, filterResetToDefaultFilteredValue, onApply],
   )
   const closeFn = useCallback(() => {
     setTimeout(() => setOpen(false), 0)
@@ -486,27 +495,43 @@ export function FilterDropdown({
   )
 
   // === dropdownProps 合并 ===
-  // - open 受控优先（filterDropdownProps.open 覆盖内部 state）。
-  // - onOpenChange：handleOpenChange 内部已调用 dropdownProps.onOpenChange，这里只传 handleOpenChange。
-  // - overlayClassName 合并到 classNames.root（v6 推荐方式）。
-  // - getPopupContainer / align 透传。
+  // - 大多数 antd Dropdown props 透传。
+  // - open / onOpenChange / popupRender 由筛选状态机接管。
+  // - dropdownRender 可包裹当前筛选面板（对齐 antd filterDropdownProps 行为）。
+  const dropdownClassNamesRoot =
+    dropdownProps?.classNames && typeof dropdownProps.classNames !== 'function'
+      ? (dropdownProps.classNames as { root?: string }).root
+      : undefined
   const dropdownOverlayClass = [
     'dg-filter-dropdown-overlay',
+    dropdownProps?.rootClassName,
+    dropdownClassNamesRoot,
     dropdownProps?.overlayClassName,
   ]
     .filter(Boolean)
     .join(' ')
 
-  // antd Dropdown props 子集（只挑支持的；避免类型不兼容）。
-  const dropdownRestProps: Partial<DropdownProps> = {}
-  if (dropdownProps?.align) dropdownRestProps.align = dropdownProps.align as DropdownProps['align']
+  const {
+    open: _open,
+    onOpenChange: _onOpenChange,
+    rootClassName: _rootClassName,
+    classNames: _classNames,
+    overlayClassName: _overlayClassName,
+    triggerClassName: _triggerClassName,
+    triggerStyle: _triggerStyle,
+    getPopupContainer: columnGetPopupContainer,
+    dropdownRender,
+    ...dropdownRestProps
+  } = dropdownProps ?? {}
+
   // getPopupContainer 优先级——列级 dropdownProps.getPopupContainer
   //   > Table 级 getPopupContainer（本组件 prop）> antd Dropdown 默认（document.body）。
   //   与 antd InternalTable.tsx:492 `getPopupContainer || getContextPopupContainer` 同款语义。
   const effectiveGetPopupContainer =
-    dropdownProps?.getPopupContainer ?? getPopupContainer
-  if (effectiveGetPopupContainer) {
-    dropdownRestProps.getPopupContainer = effectiveGetPopupContainer
+    columnGetPopupContainer ?? getPopupContainer
+  const renderDropdownPanel = () => {
+    if (typeof dropdownRender === 'function') return dropdownRender(panel)
+    return panel
   }
 
   // Dropdown 弹出层：antd v6 Dropdown 用 `popupRender` 渲染自定义面板（非 menu 模式）。
@@ -515,12 +540,13 @@ export function FilterDropdown({
   //   - open 受控 + onOpenChange 驱动 filterOnClose 语义。
   return (
     <Dropdown
+      {...dropdownRestProps}
       trigger={['click']}
       open={effectiveOpen}
       onOpenChange={handleOpenChange}
-      popupRender={() => panel}
+      popupRender={renderDropdownPanel}
       classNames={{ root: dropdownOverlayClass }}
-      {...dropdownRestProps}
+      getPopupContainer={effectiveGetPopupContainer}
     >
       {trigger}
     </Dropdown>

@@ -60,6 +60,8 @@ export interface SummaryRowContextValue {
   rowLine: number
   /** 是否 sticky bottom（来自 Summary.fixed，经引擎注入）。 */
   fixed: boolean
+  /** fixed summary 的 sticky bottom 偏移（px）。 */
+  stickyBottomOffset: number
   /**
    * 叶子列横向 sticky 信息：长度 === 叶子列数，每项含 side/offset/width/isEdge。
    * 来自引擎 cloneElement 注入（与表体固定列同源 useStickyColumns.leafSticky）。
@@ -123,6 +125,8 @@ export interface SummaryRowProps {
   __rowLine?: number
   /** 引擎内部注入：是否 sticky bottom。调用方不传。 */
   __fixed?: boolean
+  /** 引擎内部注入：fixed summary 的 sticky bottom 偏移（px）。调用方不传。 */
+  __stickyBottomOffset?: number
   /**
    * 引擎内部注入：叶子列横向 sticky 信息。调用方不传。
    * 与表体固定列同源（useStickyColumns.leafSticky），透传给 Cell 实现横向 sticky。
@@ -131,11 +135,16 @@ export interface SummaryRowProps {
 }
 
 export function SummaryRow(props: SummaryRowProps): ReactNode {
-  const { children, __rowLine, __fixed, __leafSticky } = props
+  const { children, __rowLine, __fixed, __stickyBottomOffset, __leafSticky } = props
   if (__rowLine === undefined) return children
   return (
     <SummaryRowContext.Provider
-      value={{ rowLine: __rowLine, fixed: !!__fixed, leafSticky: __leafSticky }}
+      value={{
+        rowLine: __rowLine,
+        fixed: !!__fixed,
+        stickyBottomOffset: __stickyBottomOffset ?? 0,
+        leafSticky: __leafSticky,
+      }}
     >
       {children}
     </SummaryRowContext.Provider>
@@ -173,7 +182,8 @@ export function SummaryCell(props: SummaryCellProps): ReactNode {
     cellStyle.gridRow = `${rowCtx.rowLine}`
     if (rowCtx.fixed) {
       cellStyle.position = 'sticky'
-      cellStyle.bottom = '0'
+      cellStyle.bottom =
+        rowCtx.stickyBottomOffset === 0 ? '0' : `${rowCtx.stickyBottomOffset}px`
       // 普通summary 格不设 zIndex（保持 z-auto，同表体普通格），仅 sticky bottom 钉底
       //   （不透明背景由 CSS 保证）。固定列 summary 格由下方横向 sticky 分支显式赋 z-index 盖普通格。
     }

@@ -54,6 +54,6 @@ export type SortDirections = Array<'ascend' | 'descend'>
 export interface SorterResult<RecordType = any> {
   column?: ColumnType<RecordType>
   order?: SortOrder
-  field?: string | number | Array<string | number>
+  field?: string | number | ReadonlyArray<string | number>
   columnKey?: React.Key
 }

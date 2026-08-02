@@ -12,6 +12,7 @@ export interface RenderSummaryRowsOptions {
   summary: SummaryParsedRows
   startLine: number
   leafSticky: Array<LeafStickyInfo | undefined>
+  stickyBottomOffset?: number
 }
 
 export function summaryRowsTrack(count: number): string {
@@ -22,6 +23,7 @@ export function renderSummaryRows({
   summary,
   startLine,
   leafSticky,
+  stickyBottomOffset = 0,
 }: RenderSummaryRowsOptions): Array<ReactNode> {
   return summary.rows.map((row, rowIndex) => {
     const rowLine = startLine + rowIndex
@@ -29,6 +31,7 @@ export function renderSummaryRows({
       key: `dg-summary-row-${rowIndex}`,
       __rowLine: rowLine,
       __fixed: summary.fixed,
+      __stickyBottomOffset: stickyBottomOffset,
       __leafSticky: leafSticky,
     } as Partial<typeof row.props>)
   })
@@ -43,6 +46,7 @@ export interface SummaryLayerProps {
   gridClassName?: string
   gridTemplateColumns?: string
   scrollMinWidth?: number | string
+  stickyBottomOffset?: number
 }
 
 export function SummaryLayer({
@@ -54,6 +58,7 @@ export function SummaryLayer({
   gridClassName,
   gridTemplateColumns,
   scrollMinWidth,
+  stickyBottomOffset = 0,
 }: SummaryLayerProps): ReactNode {
   if (!summary) return null
 
@@ -73,7 +78,7 @@ export function SummaryLayer({
         ...(scrollMinWidth ? { minWidth: scrollMinWidth } : null),
       }}
     >
-      {renderSummaryRows({ summary, startLine: 1, leafSticky })}
+      {renderSummaryRows({ summary, startLine: 1, leafSticky, stickyBottomOffset })}
     </div>
   )
 }

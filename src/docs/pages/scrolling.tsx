@@ -25,6 +25,7 @@ export function renderScrolling({ onOpen }: DocsPageContext) {
             { label: '虚拟列表 demo', kind: 'path', value: '/demos/virtual-list' },
             { label: 'DOM 复用 demo', kind: 'path', value: '/demos/dom-recycled-virtual-list' },
             { label: '页面级 sticky demo', kind: 'path', value: '/demos/page-sticky-header' },
+            { label: 'sticky summary 避让操作栏 demo', kind: 'path', value: '/demos/sticky-summary-offset' },
           ]}
           onOpen={onOpen}
         />

@@ -1,4 +1,5 @@
 import type { Key } from 'react'
+import { normalizeFixed } from './columnAdapter'
 import { ExpandIcon } from './engine/ExpandIcon'
 import { getRowKey } from './engine/GridTable'
 import type { EngineColumnNode } from './engine/types'
@@ -35,7 +36,7 @@ export function buildExpandColumnNode<RecordType>(
   rowKeyResolved: string | ((record: RecordType) => string | number),
   locale: TableLocale,
 ): EngineColumnNode<RecordType> {
-  const { columnWidth, expandIcon } = expandable
+  const { columnTitle, columnWidth, expandIcon, fixed } = expandable
   // 列宽默认：antd 展开列默认宽度 48px（token tableExpandColumnWidth）。用户传 columnWidth 覆盖。
   const width = columnWidth ?? 48
   // 展开列固定居中（与 antd 一致：展开图标居中；antd expandable 无 align 字段）。
@@ -44,9 +45,9 @@ export function buildExpandColumnNode<RecordType>(
 
   return {
     key: EXPAND_COLUMN_KEY,
-    title: null, // 展开列表头无内容（与 antd 一致）
+    title: columnTitle ?? null,
     align,
-    fixed: undefined,
+    fixed: normalizeFixed(fixed),
     // 叶子列属性：width/render。dataIndex 不设（展开列不取数据字段）。
     width,
     render: (_text: any, record: RecordType, _index: number) => {

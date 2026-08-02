@@ -72,7 +72,7 @@ const EXPORT_DESCRIPTIONS: Record<string, string> = {
   TableSemanticClassNames: '按部位注入的 classNames 对象形态（root / header.cell / body.cell / pagination 等部位 → className 字符串）。',
   TableSemanticStyles: '按部位注入的 styles 对象形态（结构与 TableSemanticClassNames 同构，值为 CSSProperties）。',
   TableSemanticInfo: 'classNames/styles 函数形态收到的 info 参数类型（含 size / bordered / virtual / scroll / pagination 子集）。',
-  StickyConfig: 'sticky prop 的对象配置类型（offsetHeader / offsetScroll / getContainer）。',
+  StickyConfig: 'sticky prop 的对象配置类型（offsetHeader / offsetSummary / offsetScroll / getContainer）。',
   ScrollBarFoldMode: '悬浮滚动条折叠或显示策略类型（showOnTableHover / expandOnHover）。',
   TableLocale: '本地化文案配置类型（filterConfirm / filterReset / emptyText / selectAll 等文案字段）。',
   // === 类型导出：recycling cell 域 ===

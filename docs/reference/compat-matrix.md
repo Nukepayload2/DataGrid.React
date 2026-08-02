@@ -37,8 +37,6 @@
 |-----|------|--------|-----------|------|
 | `scroll.y = number\|string`（滚动区域高度语义） | TableProps.scroll | 未实现 | dg 的 `scroll.y` 仅接受 `true`（启用容器内纵向滚动 + sticky 表头），不把 number/string 当作滚动区域高度。antd/rc-table 接受 number/string 作为滚动区域高度。决策 7。 | antd `InternalTable.tsx:177`；rc-table `Table.d.ts:55` (`y?: number \| string`)；dg `types.ts:990, 1313`（`y?: true`）|
 | `direction: 'rtl'`（RTL 布局） | ConfigProvider | 未实现 | dg 无 RTL 支持；`direction` 通过 ConfigProvider 注入，dg 未消费。 | antd `ConfigProvider` direction；dg 全仓无 `direction`/`RTL` 字段（types.ts 无命中）|
-| `expandable.columnTitle` | expandable | 未实现 | 展开列列表头自定义内容。dg 未实现。 | antd rc-table `ExpandableConfig.columnTitle`；dg `types.ts:1084` |
-| `expandable.fixed` | expandable | 未实现 | 展开列固定方向（'left'\|'right'）。dg 未实现。 | antd `ExpandableConfig.fixed`；dg `types.ts:1107-1158`（无 `fixed`）|
 | `components.table` | components | 未实现 | 整个 `<table>` 替换。dg 无 table 元素。 | antd rc-table components；dg `types.ts:742-769`（TableComponents 仅 header/body，无 table）|
 | `components.header.table` | components | 未实现 | 表头 `<table>` 替换。 | dg `types.ts:747-749`（header 只有 `cell`）|
 | `components.header.wrapper` | components | 未实现 | 表头 `<thead>` 替换。 | dg `types.ts:747-749`（仅 `cell`）|
@@ -46,13 +44,8 @@
 | `components.body.wrapper` | components | 未实现 | 表体 `<tbody>` 替换。 | dg `types.ts:769`（body 仅 `row`/`cell`，无 wrapper）|
 | `components.body`（函数形态） | components | 未实现 | antd 的 `components.body` 支持 `(node, ...) => ReactNode` 函数形态（custom-render-body demo）。dg 仅支持对象 `{ cell?, row? }`。 | antd rc-table `body?: CustomizeScrollBody \| {…}`（`interface.d.ts:130`）；dg `types.ts:769`（仅对象）|
 | `column.rowSpan`（独立字段） | ColumnType | 未实现 | antd column 上的 `rowSpan` 独立字段（非 onCell 返回）。dg 仅支持 `onCell` 返回 `{ rowSpan }`；`render` 返回对象形态的 `props` 已废弃并忽略。 | antd `interface.ts` ColumnType（继承 rc-table `ColumnSharedType.rowSpan`）；dg `types.ts:373-476`（无独立 `rowSpan`，仅 onCell 路径）|
-| `column.filtered`（受控筛选态） | ColumnType | 未实现 | 列级受控筛选指示。dg 用 `filteredValue` 控制态，未单独暴露 `filtered`。 | antd `interface.ts:163`；dg `types.ts:373-548`（无 `filtered`）|
-| `column.sortIcon` | ColumnType | 未实现 | 自定义排序图标。 dg 未实现。 | antd `interface.ts:159`；dg `types.ts`（无 `sortIcon`）|
-| `column.filterResetToDefaultFilteredValue` | ColumnType | 未实现 | 重置时回到默认筛选。dg 未实现。 | antd `interface.ts:179`；dg `types.ts`（无此字段）|
 | `column.filterDropdownOpen`（deprecated） | ColumnType | 未实现 | 旧的筛选下拉受控打开字段。dg 未暴露该字段；使用 `filterDropdownProps.open`。 | antd `interface.ts` deprecated 字段；dg `compat\column.ts` / `compat\filter.ts` 无此字段 |
 | `column.onFilterDropdownOpenChange`（deprecated） | ColumnType | 未实现 | 旧的筛选下拉打开变化回调。dg 未暴露该字段；使用 `filterDropdownProps.onOpenChange`。 | antd `interface.ts` deprecated 字段；dg `compat\column.ts` / `compat\filter.ts` 无此字段 |
-| `dataIndex = DeepNamePath`（深层路径类型） | ColumnType | 未实现 | antd `dataIndex` 支持 `DeepNamePath`（嵌套路径强类型）。dg 仅 `string \| number \| Array<string\|number>`（运行时已支持路径数组，但类型不深）。 | antd rc-table `DataIndex`/`DeepNamePath`；dg `types.ts:376` |
-| `sticky.offsetSummary` | TableProps.sticky | 未实现 | summary 跟随 sticky 表头时的偏移。dg 的 `sticky` 仅 `offsetHeader`/`offsetScroll`/`getContainer`，缺 `offsetSummary`。 | antd rc-table `interface.d.ts:199`（`offsetSummary`）；dg `types.ts:1658`（`sticky?: boolean \| StickyConfig`，StickyConfig 无 offsetSummary）|
 | `transformCellText` | ColumnType | 未实现（无回归） | antd 6 已删除此字段，dg 也无。**无兼容负担**。 | antd v6 `interface.ts` 已无；dg 无 |
 | `onRowClick`/`onRowDoubleClick`/…（rc-table 行级事件系列） | event | 未实现（无回归） | rc-table 已删除这些独立事件，统一并入 `onRow`。dg 仅支持 `onRow`。**无兼容负担**。 | rc-table `interface.d.ts`（无该系列）；dg `types.ts:1693`（`onRow`）|
 
@@ -78,10 +71,10 @@
 | `rowSelection`（整体） | rowSelection | 部分兼容 | 覆盖：`type/selectedRowKeys/defaultSelectedRowKeys/onChange/onSelect/onSelectMultiple/onSelectAll/onSelectInvert/onSelectNone/getCheckboxProps/getTitleCheckboxProps/columnTitle/onCell/columnWidth/fixed/hideSelectAll/align/selections/preserveSelectedRowKeys/checkStrictly/renderCell`。仍有 DOM 形态适配差异。 | antd `interface.ts:222-256`；dg `compat/selection.ts` / `selectionAdapter.tsx` / `useSelectionAdapter.ts` |
 | `expandable`（整体） | expandable | 部分兼容 | 覆盖：`expandedRowRender/expandedRowOffset/rowExpandable/expandedRowKeys/defaultExpandedRowKeys/onExpand/onExpandedRowsChange/columnWidth/expandIcon/defaultExpandAllRows/showExpandColumn/childrenColumnName/indentSize/expandRowByClick/expandedRowClassName`。缺：`columnTitle/fixed`。 | antd `ExpandableConfig`；dg `types.ts:1078-1158` |
 | `components`（整体） | components | 部分兼容 | 覆盖：`header.cell`/`body.cell`/`body.row`。缺：`table/header.table/header.wrapper/header.row/body.wrapper/body 函数形态`。语义有适配（cell/row 见「名兼义异」）。 | antd rc-table components；dg `types.ts:742-769` |
-| `sticky`（整体） | TableProps | 部分兼容 | 覆盖：`boolean \| { offsetHeader?, offsetScroll?, getContainer? }`，页面级 sticky 表头 + 底部 fake scrollbar。缺：`offsetSummary`。 | antd rc-table `interface.d.ts:199`；dg `types.ts:1017-1054, 1658` |
+| `sticky`（整体） | TableProps | 部分兼容 | 覆盖：`boolean \| { offsetHeader?, offsetSummary?, offsetScroll?, getContainer? }`，页面级 sticky 表头、fixed summary 偏移 + 底部 fake scrollbar。`offsetSummary` 在 fixed summary、页面级 sticky、非 `scroll.y` 数据区域模式下生效。 | antd rc-table `interface.d.ts:199`；dg `compat/sticky.ts` / `useScrollMode.ts` / `ScrollContainer.tsx` |
 | `locale`（整体） | locale | 部分兼容 | 已接入 `useLocale('Table')`，优先级为 `TableProps.locale > ConfigProvider locale.Table > 默认英文`。已消费：`emptyText`、FilterDropdown 的 `filterConfirm/filterReset/filterEmptyText/filterSearchPlaceholder/filterCheckAll`、selection 内置菜单、排序 hover title、展开按钮 aria。未完整消费：`filterTitle/selectAll/sortTitle` 等边缘字段。 | antd `interface.ts:41-63`；dg `types.ts` / `Table.tsx` / `engine\FilterDropdown.tsx` / `engine\GridTable.tsx` |
-| `filterDropdownProps` | ColumnType | 部分兼容 | dg 仅透传子集（`open`/`onOpenChange` 等被消费），antd 完整 `CoverableDropdownProps`（Omit DropdownProps 一组字段）。 | antd `interface.ts:138-149, 178`；dg `engine\FilterDropdown.tsx:452-471`（仅消费 onOpenChange 等）|
-| `dataIndex` | ColumnType | 部分兼容 | 运行时支持路径数组；类型不深（`string \| number \| Array<string\|number>`，非 `DeepNamePath`）。 | antd rc-table `DeepNamePath`；dg `types.ts:376` |
+| `filterDropdownProps` | ColumnType | 兼容支持 | 透传多数 antd Dropdown props；`open` / `onOpenChange` / 弹层内容由筛选状态机接管。 | antd `interface.ts:138-149, 178`；dg `compat/filter.ts` / `engine/FilterDropdown.tsx` |
+| `dataIndex` | ColumnType | 兼容支持 | 运行时支持路径数组；类型提供有限深度 `DeepNamePath`，避免循环数据结构导致 TS 递归过深。 | antd rc-table `DeepNamePath`；dg `compat/column.ts` |
 | `ref`（Reference） | ref | 部分兼容 | antd/rc-table `Reference` 仅 `nativeElement + scrollTo`（**antd 也没有 `getColumns`**，澄清无回归）。dg 在此基础上**扩展** `scrollTo` 支持 `index/key/scrollTop/align/behavior`（超集）。 | antd rc-table `interface.d.ts:41-44`；dg `types.ts:1778-1823` |
 
 ---
@@ -169,9 +162,8 @@
 
 6. **RTL（`direction`）未支持**。通过 ConfigProvider 注入，dg 未消费。证据：dg types.ts 全仓无 `direction`/`RTL`。
 
-7. **`sticky.offsetSummary` 缺**；**`dataIndex` 不支持 `DeepNamePath`**（运行时支持路径数组，类型不深）。证据：antd rc-table `interface.d.ts:199`；dg `types.ts:1658, 376`。
 
-8. **`ColumnType` 缺 `rowSpan`(独立字段,仅 onCell props)/`filtered`/`sortIcon`/`filterResetToDefaultFilteredValue`/`filterDropdownOpen`/`onFilterDropdownOpenChange`**；**`filterDropdownProps` 仅透传子集**。证据：antd `interface.ts:159, 163, 178, 179`；dg `types.ts:373-548`。
+8. **`ColumnType` 缺 `rowSpan`(独立字段,仅 onCell props)/`filterDropdownOpen`/`onFilterDropdownOpenChange`**。证据：antd `interface.ts`；dg `compat/column.ts`。
 
 ---
 
@@ -179,10 +171,8 @@
 
 按「迁移影响面 × 实现成本」排序：
 
-1. **P1：`expandable.columnTitle/fixed`**（TOP #4）—— API 适配面清楚，和现有展开列构造逻辑直接相关。
-2. **P1：`components` 缺槽位补齐**（TOP #5）—— 至少 `header.row`/`body.wrapper` 可以提供 data-grid 语义下的适配；完整 table DOM 替换仍受架构限制。
-3. **P2：`column.sortIcon/filtered/filterResetToDefaultFilteredValue` 与 `filterDropdownProps` 全透传**（TOP #8）。
-4. **P2：`sticky.offsetSummary`、`dataIndex` 深类型、RTL**（TOP #6/#7）—— 长尾，按需。
+1. **P1：`components` 缺槽位补齐**（TOP #5）—— 至少 `header.row`/`body.wrapper` 可以提供 data-grid 语义下的适配；完整 table DOM 替换仍受架构限制。
+2. **P2：RTL**（TOP #7）—— 长尾，按需。
 
 明确不作为迁移优先项：
 

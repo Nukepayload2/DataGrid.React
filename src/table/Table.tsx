@@ -662,9 +662,9 @@ function TableInner<RecordType = any>(
 
   // === 页面级粘性表头归一化 ===
   // 对外 `sticky?: boolean | StickyConfig`（对齐 antd v6）→ 引擎层统一为
-  // `{ offsetHeader?, offsetScroll?, getContainer? } | undefined`。
+  // `{ offsetHeader?, offsetSummary?, offsetScroll?, getContainer? } | undefined`。
   //   - undefined / false：不启用（engineSticky=undefined，零回归）。
-  //   - true：启用（默认偏移 0；engineSticky={}，引擎读 offsetHeader/offsetScroll 时兜底 0）。
+  //   - true：启用（默认偏移 0；engineSticky={}，引擎读 offsetHeader/offsetSummary/offsetScroll 时兜底 0）。
   //   - 对象：原样透传。
   //   详见 `docs/design-notes/sticky.md`。
   const engineSticky = useMemo(() => {

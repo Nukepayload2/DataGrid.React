@@ -1,7 +1,7 @@
 /** 取 record 的字段值（支持 dataIndex 为 string/number/(string|number)[]）。 */
 export function getValueByDataIndex(
   record: any,
-  dataIndex: string | number | Array<string | number> | undefined | null,
+  dataIndex: string | number | ReadonlyArray<string | number> | undefined | null,
 ): any {
   if (record === null || record === undefined) return undefined
   if (dataIndex === undefined || dataIndex === null) return undefined
@@ -11,6 +11,7 @@ export function getValueByDataIndex(
       return acc[key]
     }, record)
   }
+  if (typeof dataIndex !== 'string' && typeof dataIndex !== 'number') return undefined
   return record[dataIndex]
 }
 

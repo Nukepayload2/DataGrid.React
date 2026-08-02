@@ -587,7 +587,7 @@ export interface TableProps<RecordType = any> {
    * **取值**：
    *   - `undefined` / `false`：不启用（所有现有 demo 行为不变，零回归）。
    *   - `true`：启用（默认偏移 0）。
-   *   - 对象 `{ offsetHeader?, offsetScroll?, getContainer? }`：自定义。
+   *   - 对象 `{ offsetHeader?, offsetSummary?, offsetScroll?, getContainer? }`：自定义。
    *
    * **与容器内固定互斥语义**：同时传 `sticky` 与 `scroll.y` 时，`sticky` 优先（页面级固定），
    * `scroll.y` 的容器内固定表头不生效（data-grid 简化：不为同表同时支持两种固定模式）。

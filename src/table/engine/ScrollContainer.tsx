@@ -18,8 +18,10 @@
  * 作 props 传入。
  */
 import {
+  useCallback,
   useEffect,
   useRef,
+  useState,
   type ReactNode,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
@@ -59,6 +61,8 @@ export interface ScrollContainerProps {
   stickyScrollInertiaActive: boolean
   /** StickyScrollBar bottom 偏移（避开页面底部内容）。 */
   stickyOffsetScroll: number
+  /** fixed summary bottom 偏移（仅 sticky + summary fixed + 非 scroll.y 生效）。 */
+  stickyOffsetSummary: number
   /** StickyScrollBar 解析容器的 getter（window / HTMLElement）。 */
   stickyGetContainer?: () => HTMLElement | Window | undefined
   /** 主 grid ref（StickyScrollBar 读 scrollWidth/clientWidth 算 thumb）。 */
@@ -128,6 +132,7 @@ export function ScrollContainer(props: ScrollContainerProps): ReactNode {
     stickyScrollBarUpdateThumbRef,
     stickyScrollInertiaActive,
     stickyOffsetScroll,
+    stickyOffsetSummary,
     stickyGetContainer,
     gridRef,
     stickySummaryGridRef,
@@ -146,6 +151,19 @@ export function ScrollContainer(props: ScrollContainerProps): ReactNode {
     sectionStyle,
   } = props
   const summaryStickyViewportRef = useRef<HTMLDivElement | null>(null)
+  const [stickySummaryHeight, setStickySummaryHeight] = useState(0)
+
+  const summaryStickyEnabled =
+    extractSummary && summaryParsed?.fixed === true && !scrollYEnabled
+  const effectiveStickySummaryOffset = summaryStickyEnabled ? stickyOffsetSummary : 0
+  const stickyScrollbarOffset =
+    effectiveStickySummaryOffset === 0
+      ? stickyOffsetScroll
+      : stickyOffsetScroll + effectiveStickySummaryOffset + stickySummaryHeight
+
+  const setSummaryStickyViewportNode = useCallback((node: HTMLDivElement | null) => {
+    summaryStickyViewportRef.current = node
+  }, [])
 
   useEffect(() => {
     if (!stickyEnabled) return
@@ -163,11 +181,32 @@ export function ScrollContainer(props: ScrollContainerProps): ReactNode {
     }
   }, [stickyEnabled, stickyViewportRef, onStickyViewportWheel, extractSummary])
 
+  useEffect(() => {
+    if (!summaryStickyEnabled || effectiveStickySummaryOffset === 0) {
+      setStickySummaryHeight((current) => (current === 0 ? current : 0))
+      return
+    }
+    const summaryViewport = summaryStickyViewportRef.current
+    if (!summaryViewport) return
+
+    const measure = () => {
+      const rectHeight = summaryViewport.getBoundingClientRect().height
+      const next = Math.ceil(rectHeight || summaryViewport.scrollHeight || 0)
+      setStickySummaryHeight((current) => (current === next ? current : next))
+    }
+
+    measure()
+    const resizeObserver = new ResizeObserver(measure)
+    resizeObserver.observe(summaryViewport)
+    return () => resizeObserver.disconnect()
+  }, [summaryStickyEnabled, effectiveStickySummaryOffset, summaryParsed?.count])
+
   // === 页面级粘性表头（区别于容器内固定）— 详见 docs/design-notes/sticky.md ===
   // sticky 启用时：grid 只包一层 `overflow: clip` 视口，裁剪宽表但不创建滚动容器；
   // 横向位移由虚拟 scrollLeft + transform 驱动。表头 grid item 用 stickyHeaderOffset 驱动
   // （position: sticky; top: offsetHeader，相对 viewport 固定，已在上游 HeaderCell/ColumnCells 应用）。
-  // grid 之后渲染 StickyScrollBar（position: sticky; bottom: offsetScroll）作为底部固定横向滚动条。
+  // grid 之后渲染 StickyScrollBar 作为底部固定横向滚动条；offsetSummary 生效时，滚动条
+  // bottom 叠加 summary 偏移和实测 summary 高度，继续停在 summary 上方。
   //
   // 关键：`overflow: clip` 不提供滚动机制，表头 sticky 仍相对外层页面/内容滚动容器固定
   //   （页面纵向滚动时表头钉在视口顶部 offsetHeader 处）。这是 sticky 与容器内固定表头
@@ -198,7 +237,7 @@ export function ScrollContainer(props: ScrollContainerProps): ReactNode {
           {children}
         </div>
         <StickyScrollBar
-          offsetScroll={stickyOffsetScroll}
+          offsetScroll={stickyScrollbarOffset}
           getContainer={stickyGetContainer}
           gridRef={gridRef}
           viewportRef={stickyViewportRef}
@@ -210,8 +249,20 @@ export function ScrollContainer(props: ScrollContainerProps): ReactNode {
         {/* summary 提取到 StickyScrollBar 之后 → 横向滚动条落在 summary 上方。 */}
         {extractSummary ? (
           <div
-            ref={summaryStickyViewportRef}
-            className="dg-sticky-scroll-viewport"
+            ref={setSummaryStickyViewportNode}
+            className={[
+              'dg-sticky-scroll-viewport',
+              summaryStickyEnabled ? 'dg-sticky-summary-viewport' : undefined,
+            ].filter(Boolean).join(' ')}
+            style={
+              summaryStickyEnabled
+                ? {
+                    position: 'sticky',
+                    bottom: `${effectiveStickySummaryOffset}px`,
+                    zIndex: 5,
+                  }
+                : undefined
+            }
             onPointerDown={onStickyViewportPointerDown}
             onPointerMove={onStickyViewportPointerMove}
             onPointerUp={onStickyViewportPointerUp}
@@ -226,6 +277,7 @@ export function ScrollContainer(props: ScrollContainerProps): ReactNode {
               extractedGridRef={stickySummaryGridRef}
               gridTemplateColumns={gridTemplateColumns}
               scrollMinWidth={scrollMinWidth}
+              stickyBottomOffset={effectiveStickySummaryOffset}
             />
           </div>
         ) : null}

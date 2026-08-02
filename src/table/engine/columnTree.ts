@@ -88,6 +88,7 @@ export function collectLeaves<RecordType>(
         sorter: node.sorter,
         sortOrder: node.sortOrder,
         sortPriority: node.sortPriority,
+        sortIcon: node.sortIcon,
         sortDirections: node.sortDirections,
         showSorterTooltip: node.showSorterTooltip,
         // 筛选相关字段透传（filters/onFilter/filterMultiple/filteredValue/filterOnClose）。
@@ -103,7 +104,10 @@ export function collectLeaves<RecordType>(
         onFilter: node.onFilter,
         filterMultiple: node.filterMultiple,
         filteredValue: node.filteredValue,
+        filtered: node.filtered,
         filterOnClose: node.filterOnClose,
+        defaultFilteredValue: node.defaultFilteredValue,
+        filterResetToDefaultFilteredValue: node.filterResetToDefaultFilteredValue,
         filterDropdown: node.filterDropdown,
         filterIcon: node.filterIcon,
         filterDropdownProps: node.filterDropdownProps,
@@ -205,6 +209,7 @@ export function flattenHeaderCells<RecordType>(
       sortable: leaf ? !!node.sorter : false,
       sortOrder: leaf ? node.sortOrder : undefined,
       sortPriority: leaf ? node.sortPriority : undefined,
+      sortIcon: leaf ? node.sortIcon : undefined,
       showSorterTooltip: leaf ? node.showSorterTooltip : undefined,
       // 嵌套叶子排序/筛选修复：表头格 key = 完整路径（如 `Other.Age`），但排序/筛选引擎按
       //   column.key ?? dataIndex（如 `'age'`）匹配。多级表头下嵌套叶子两者不同 → 点击/筛选无响应。
@@ -228,7 +233,10 @@ export function flattenHeaderCells<RecordType>(
       filters: leaf ? node.filters : undefined,
       filterMultiple: leaf ? node.filterMultiple : undefined,
       filteredValue: leaf ? node.filteredValue : undefined,
+      filtered: leaf ? node.filtered : undefined,
       filterOnClose: leaf ? node.filterOnClose : undefined,
+      defaultFilteredValue: leaf ? node.defaultFilteredValue : undefined,
+      filterResetToDefaultFilteredValue: leaf ? node.filterResetToDefaultFilteredValue : undefined,
       // 自定义面板三字段透传（FilterDropdown 据此渲染自定义面板 + 自定义图标 + Dropdown props）。
       filterDropdown: leaf ? node.filterDropdown : undefined,
       filterIcon: leaf ? node.filterIcon : undefined,

@@ -37,6 +37,8 @@ export type {
   SortOrder,
   CompareFn,
   ColumnSorter,
+  DataIndex,
+  DeepNamePath,
   SortDirections,
   SorterResult,
   ColumnType,

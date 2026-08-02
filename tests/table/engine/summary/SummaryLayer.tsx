@@ -27,13 +27,26 @@ describe('SummaryLayer', () => {
     expect((rendered[0] as ReactElement).props).toMatchObject({
       __rowLine: 5,
       __fixed: true,
+      __stickyBottomOffset: 0,
       __leafSticky: [],
     })
     expect((rendered[1] as ReactElement).props).toMatchObject({
       __rowLine: 6,
       __fixed: true,
+      __stickyBottomOffset: 0,
       __leafSticky: [],
     })
+  })
+
+  it('injects summary bottom offset when requested', () => {
+    const rendered = renderSummaryRows({
+      summary,
+      startLine: 5,
+      leafSticky: [],
+      stickyBottomOffset: 18,
+    })
+
+    expect((rendered[0] as ReactElement).props.__stickyBottomOffset).toBe(18)
   })
 
   it('renders nothing when summary is missing or inline placement has no row line', () => {
@@ -76,6 +89,7 @@ describe('SummaryLayer', () => {
       gridClassName: 'dg-grid',
       gridTemplateColumns: '10px 20px',
       scrollMinWidth: 120,
+      stickyBottomOffset: 18,
     })
 
     expect(isValidElement(layer)).toBe(true)
@@ -93,5 +107,6 @@ describe('SummaryLayer', () => {
     })
     expect(element.props.children[0].props.__rowLine).toBe(1)
     expect(element.props.children[1].props.__rowLine).toBe(2)
+    expect(element.props.children[0].props.__stickyBottomOffset).toBe(18)
   })
 })

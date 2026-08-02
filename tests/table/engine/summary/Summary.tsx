@@ -56,6 +56,20 @@ describe('Summary component family', () => {
     })
   })
 
+  it('applies injected fixed summary bottom offset', () => {
+    render(
+      <Summary.Row __rowLine={7} __fixed __stickyBottomOffset={24}>
+        <Summary.Cell index={1}>Offset fixed</Summary.Cell>
+      </Summary.Row>,
+    )
+
+    const cell = screen.getByText('Offset fixed').closest('.dg-cell-summary') as HTMLElement
+    expect(cell).toHaveStyle({
+      position: 'sticky',
+      bottom: '24px',
+    })
+  })
+
   it('applies horizontal sticky style when every spanned leaf is on the same side', () => {
     const leafSticky: LeafStickyInfo[] = [
       { side: 'start', offset: 0, width: 80, isEdge: true },
