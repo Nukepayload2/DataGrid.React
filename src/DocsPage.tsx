@@ -11,6 +11,10 @@ import { navigate } from './demos/registry'
 
 const docAliases = new Map([
   ['virtual-scrolling', 'scrolling'],
+  // intro 与 quick-start 已合并为单一入口页；旧 URL 落到合并后的页面。
+  ['intro', 'quick-start'],
+  // scroll.y 语义页已删除，正典在 scrolling 页内。
+  ['scroll-y', 'scrolling'],
 ])
 
 function openDocsAction(action: DocsAction, goDoc: (slug: string) => void) {
@@ -166,8 +170,8 @@ export default function DocsPage({
   const { token } = theme.useToken()
   const groups = useMemo(() => groupDocs(docs), [])
   const docsBySlug = useMemo(() => new Map(docs.map((doc) => [doc.slug, doc])), [])
-  const activeSlug = docAliases.get(section ?? '') ?? section ?? 'intro'
-  const activeDoc = docsBySlug.get(activeSlug) ?? docsBySlug.get('intro')!
+  const activeSlug = docAliases.get(section ?? '') ?? section ?? 'quick-start'
+  const activeDoc = docsBySlug.get(activeSlug) ?? docsBySlug.get('quick-start')!
   const activeIndex = docs.findIndex((doc) => doc.slug === activeDoc.slug)
   const previousDoc = activeIndex > 0 ? docs[activeIndex - 1] : undefined
   const nextDoc = activeIndex >= 0 && activeIndex < docs.length - 1 ? docs[activeIndex + 1] : undefined
@@ -212,10 +216,10 @@ export default function DocsPage({
         <main className="docs-content">
           <nav className="docs-breadcrumb" aria-label="breadcrumb">
             <a
-              href="#/docs/intro"
+              href="#/docs/quick-start"
               onClick={(event) => {
                 event.preventDefault()
-                goDoc('intro')
+                goDoc('quick-start')
               }}
             >
               Docs

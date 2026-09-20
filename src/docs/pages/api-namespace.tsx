@@ -42,7 +42,6 @@ export function renderApiNamespace({ onOpen }: DocsPageContext) {
             { label: 'Table API 参考页', kind: 'doc', value: 'table-api' },
             { label: 'Column API 参考页', kind: 'doc', value: 'column-api' },
             { label: 'gridOptions / gridColumnOptions 参考页', kind: 'doc', value: 'grid-options' },
-            { label: '公开导出清单', kind: 'doc', value: 'public-api' },
           ]}
           onOpen={onOpen}
         />

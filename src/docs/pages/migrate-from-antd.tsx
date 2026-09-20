@@ -163,7 +163,7 @@ export function renderMigration(_ctx: DocsPageContext) {
       <DocSection
         id="step-2"
         title="改滚动高度"
-        description="把 antd 的 scroll.y 数字或字符串改成 data-grid 的 y:true；表格会占满父容器提供的可用空间，不再传高度值。"
+        description="把 antd 的 scroll.y 数字或字符串改成 data-grid 的 y:true；高度由父容器提供，不再传高度值。"
       >
         <DocsCode code={MIGRATION_SCROLL} height="auto" ariaLabel="迁移 scroll.y 代码" />
         <div style={{ margin: '20px 0' }}>
@@ -173,8 +173,8 @@ export function renderMigration(_ctx: DocsPageContext) {
           <MigrationScrollCompare />
         </div>
         <DocsNote title="父容器要先给出受限高度">
-          <Text code>{'scroll={{ y: true }}'}</Text> 只打开数据区域模式；父容器需要先提供受限的可用高度，否则表格会继续被内容撑开，不会出现内部滚动。常见做法是给父级
-          <Text code>flex: 1</Text> + <Text code>min-height: 0</Text>，或者直接固定高度。
+          否则表格会继续被内容撑开，不会出现内部滚动；常见做法见{' '}
+          <a href="#/docs/scrolling">滚动和虚拟化</a>。
         </DocsNote>
       </DocSection>
 
@@ -187,9 +187,6 @@ export function renderMigration(_ctx: DocsPageContext) {
         <DocsNote title="用法">
           1) 复制上方整段提示词；2) 在同一轮对话中附上待迁移文件内容或文件路径；3) 先审查 AI 给出的迁移计划；4) 同意计划后再让它修改文件并检查变更摘要。
         </DocsNote>
-        <p style={{ margin: 0, lineHeight: 1.8 }}>
-          这段提示词已经可以直接使用；需要确认某一条规则时，再对照相关文档即可。
-        </p>
       </DocSection>
 
       <DocSection
@@ -198,13 +195,10 @@ export function renderMigration(_ctx: DocsPageContext) {
         description="迁移前先检查业务代码是否依赖 antd 已标记过时的成员。data-grid 对这类入口只保留迁移兼容，不作为新代码推荐写法。"
       >
         <DocsNote title="重点">
-          <Text code>render</Text> 返回 <Text code>{'{ children, props }'}</Text> 时，data-grid 只消费
-          <Text code>children</Text>；<Text code>props</Text> 不会合并到单元格。合并格和 cell props
-          改用 <Text code>column.onCell</Text>。
+          <Text code>render</Text> 返回 <Text code>{'{ children, props }'}</Text> 时，data-grid 只消费 <Text code>children</Text>，<Text code>props</Text> 会被忽略；合并格和 cell props 改用 <Text code>column.onCell</Text>。
         </DocsNote>
         <p style={{ margin: 0, lineHeight: 1.8 }}>
-          这里已经把迁移时最容易踩的地方说清了；需要核对完整兼容情况时，再看{' '}
-          <a href="#/docs/compat-matrix">兼容矩阵</a>。
+          完整的过时成员清单与迁移建议见 <a href="#/docs/compat-matrix">兼容矩阵</a>。
         </p>
       </DocSection>
     </>

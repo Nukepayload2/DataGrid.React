@@ -83,7 +83,7 @@ export function renderGridOptions({ onOpen }: DocsPageContext) {
         <DocsNote title="使用条件">
           <Text code>virtualizationMode: 'recycling'</Text> 只在 <Text code>virtual</Text> 与
           <Text code>{'scroll={{ y: true }}'}</Text>（详见{' '}
-          <a href="#/docs/scroll-y">scroll.y 语义</a>）同时启用时生效。一般场景用默认
+          <a href="#/docs/scrolling">scroll.y 语义</a>）同时启用时生效。一般场景用默认
           <Text code>standard</Text>，只有超大表格或需要在 DOM 层做深度集成时才考虑 recycling。
         </DocsNote>
         <DocsCode code={RECYCLING_CODE} height={260} ariaLabel="recycling 虚拟化示例代码" />

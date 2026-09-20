@@ -114,7 +114,7 @@ const painToCureRows: PainToCureRow[] = [
     ),
     demo: (
       <>
-        见 <a href="#/docs/scroll-y">scroll.y 语义</a>、<a href="#/demos/fixed-header">固定表头 demo</a>、<a href="#/demos/dom-recycled-virtual-list-antd">antd 大量数据对照 demo</a>
+        见 <a href="#/docs/scrolling">滚动和虚拟化</a>、<a href="#/demos/fixed-header">固定表头 demo</a>、<a href="#/demos/dom-recycled-virtual-list-antd">antd 大量数据对照 demo</a>
       </>
     ),
   },
@@ -255,52 +255,29 @@ function PainToCureBlock({ label, children }: { label: string; children: ReactNo
   )
 }
 
-function MigrationCostBlock({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <div style={{ display: 'grid', gap: 6, lineHeight: 1.8 }}>
-      <Text strong>{title}</Text>
-      <div>{children}</div>
-    </div>
-  )
-}
-
 export function renderWhenToMigrate(_ctx: DocsPageContext) {
   return (
     <>
       <DocSection
         id="fit"
         title="data-grid 能明显赢过 antd Table 的场景"
-        description="data-grid 不是 antd Table 的全量替代，而是在特定场景下做了取舍的继任者。下面这些场景是 data-grid 的强项，迁移收益最直接。"
+        description="data-grid 不是 antd Table 的全量替代，而是在特定场景下做了取舍的继任者。下面这些场景迁移收益最直接；对应的专属字段在 gridOptions 参考页维护。"
       >
         <ul className="docs-bullet-list">
           <li>
-            <Text strong>大数据表格 / 长列表性能</Text>：内置虚拟滚动（
-            <Text code>virtual</Text> + <Text code>{'scroll={{ y: true }}'}</Text>），并额外提供
-            <Text code>recycling</Text> 虚拟化模式（DOM 复用，适合超大数据量和高频滚动）。
+            <Text strong>大数据量表格</Text>：内置虚拟滚动，另有 recycling 模式在 DOM 层复用节点，适合超大数据量和高频滚动。
           </li>
           <li>
-            <Text strong>自适应表体高度</Text>：<Text code>scroll.y</Text> 不再传手算数字；父容器用 CSS 给出可用高度，表格填满剩余空间，避免 resize 监听 + setState 的重算链路。
+            <Text strong>表体高度自适应</Text>：高度交给父容器的 CSS 决定，业务不必监听 resize 手算高度再塞回 Table。
           </li>
           <li>
-            <Text strong>动态行高</Text>：支持测量行高 + 有界行高（
-            <Text code>gridOptions.minRowHeight</Text> / <Text code>maxRowHeight</Text>），并在虚拟滚动下保持一致布局模型。
+            <Text strong>动态行高</Text>：支持测量行高与有界行高，并在虚拟滚动下保持同一套布局模型。
           </li>
           <li>
-            <Text strong>列宽拖拽</Text>：<Text code>gridOptions.resizable</Text> 与
-            <Text code>columnResizeMode</Text> 直接可用，无需自行实现 resize 逻辑。
+            <Text strong>列宽和顺序要交给用户调</Text>：列宽拖拽、行 / 列拖拽排序都有原生入口，不需要自己拼 DnD 逻辑。
           </li>
           <li>
-            <Text strong>行 / 列拖拽排序</Text>：通过
-            <Text code>gridOptions.rowDragSort</Text> / <Text code>columnDragSort</Text> 启用，业务侧在
-            <Text code>onSort</Text> 内提交新顺序，无需拼装 DnD 库。
-          </li>
-          <li>
-            <Text strong>多级表头 + 合并 + 固定列组合</Text>：三者能在同一套布局下共存，减少复杂组合下的对齐漂移。
-          </li>
-          <li>
-            <Text strong>antd v6 兼容 API + grid 渲染</Text>：希望继续用
-            <Text code>TableProps</Text>、<Text code>ColumnType</Text>、<Text code>rowSelection</Text>、
-            <Text code>expandable</Text> 等熟悉 props，同时拿到 grid 布局的红利。
+            <Text strong>复杂布局组合</Text>：多级表头、合并单元格和固定列能在同一套布局下共存，减少对齐漂移。
           </li>
         </ul>
       </DocSection>
@@ -329,30 +306,32 @@ export function renderWhenToMigrate(_ctx: DocsPageContext) {
       <DocSection
         id="cost"
         title="迁移前先看成本"
-        description="在常见表格场景中，data-grid 延续了 antd Table 的主要 props 与类型形态；但它不是对 antd 历史行为的逐字复刻。迁移前应先确认以下差异，避免把架构取舍误判为实现缺口。"
+        description="常见表格场景里，data-grid 延续了 antd Table 的主要 props 与类型形态，但不是对 antd 历史行为的逐字复刻。先确认下面的差异，避免把架构取舍误判为实现缺口。"
       >
-        <div style={{ display: 'grid', gap: 18 }}>
-          <MigrationCostBlock title="可以直接延续的部分">
-            顶层 import 与类型 import 切到 <Text code>@nukepayload2/data-grid</Text> 后，基础表格、列定义、选择、展开、分页、排序、筛选、sticky、多级表头、合并单元格的 API 形态都保持兼容。详见{' '}
-            <a href="#/docs/compat-matrix">兼容矩阵</a>。
-          </MigrationCostBlock>
-        </div>
+        <p>
+          顶层 import 与类型 import 切到 <Text code>@nukepayload2/data-grid</Text> 后，基础表格、列定义、选择、展开、分页、排序、筛选、sticky、多级表头和合并单元格的 API 形态都保持兼容，兼容状态见{' '}
+          <a href="#/docs/compat-matrix">兼容矩阵</a>。
+        </p>
       </DocSection>
 
       <DocSection
         id="adjust"
         title="需要同步调整的部分"
-        description="下面这些写法需要一起改，才能把 antd Table 的旧语义完整换成 data-grid 的写法。"
+        description={
+          <>
+            只有三类写法要一起改；逐条做法见 <a href="#/docs/migrate-from-antd">如何从 antd Table 迁移</a>。
+          </>
+        }
       >
         <ul className="docs-bullet-list">
           <li>
-            <Text code>scroll.&#123;y: number|string&#125;</Text> 改成 <Text code>scroll=&#123;&#123; y: true &#125;&#125;</Text>，父容器只要通过布局或尺寸约束提供稳定的可用高度即可，不要让内容把容器撑开；原先用 resize 监听手算高度的代码应删掉（详见 <a href="#/docs/scroll-y">scroll.y 语义</a>）。
+            <Text code>scroll.y</Text>：数字 / 字符串高度改为 <Text code>{'{ y: true }'}</Text>。
           </li>
           <li>
-            <Text code>render</Text> 返回 <Text code>&#123; children, props &#125;</Text> 旧对象只消费 <Text code>children</Text>；合并格 / cell props 改用 <Text code>column.onCell</Text>（详见 <a href="#/docs/compat-matrix">兼容矩阵</a>）。
+            <Text code>column.render</Text>：不再返回 <Text code>{'{ children, props }'}</Text> 旧对象。
           </li>
           <li>
-            依赖 <Text code>tbody &gt; tr &gt; td</Text> 选择器的样式要改用 <Text code>classNames</Text> / <Text code>styles</Text> 的 Semantic DOM 槽位（详见 <a href="#/docs/semantic-dom">Semantic DOM</a>）。
+            样式选择器：不再依赖 <Text code>tbody &gt; tr &gt; td</Text> 层级，改用语义槽位。
           </li>
         </ul>
       </DocSection>
@@ -360,34 +339,17 @@ export function renderWhenToMigrate(_ctx: DocsPageContext) {
       <DocSection
         id="avoid"
         title="这些场景 data-grid 明确不做或未系统支持"
-        description="data-grid 有清晰的边界。下面这些场景迁移前需要先确认取舍：要么调整业务方预期，要么等待后续兼容项补齐。"
+        description="data-grid 有清晰的边界，迁移前先确认取舍：要么调整业务方预期，要么等待后续兼容项补齐。"
       >
         <ul className="docs-bullet-list">
           <li>
-            <Text strong>架构边界 / 兼容缺口</Text>：data-grid 不复刻原生 table / thead / tbody / tr DOM、不提供完整 ARIA table / row / rowgroup role 树、
-            <Text code>scroll.y</Text> 不接受数字 / 字符串滚动区域高度、RTL 未系统支持、
-            <Text code>components</Text> 仅暴露 <Text code>body.cell</Text> / <Text code>body.row</Text>（无 header.cell / wrapper / table）。详见{' '}
-            <a href="#/docs/known-limitations">已知限制页</a>。
-          </li>
-          <li>
-            <Text strong>依赖大量过时成员</Text>：例如
-            <Text code>column.filterDropdownOpen</Text> / <Text code>column.onFilterDropdownOpenChange</Text> 等已过时字段不作为 data-grid API 提供；旧
-            <Text code>render</Text> 返回的 <Text code>props</Text> 字段会被忽略。
-          </li>
-          <li>
-            <Text strong>需要逐字对齐 antd 历史所有 API</Text>：data-grid 优先对齐真实业务常用的 antd v6 Table 行为，不追求全量历史兼容 API。
-          </li>
-        </ul>
-      </DocSection>
-
-      <DocSection id="next" title="相关参考">
-        <ul className="docs-bullet-list">
-          <li>
-            如果你已经决定开始迁移，先看 <a href="#/docs/migrate-from-antd">如何从 antd Table 迁移</a>。
-          </li>
-          <li>
-            如果你还想确认兼容边界，先看 <a href="#/docs/compat-matrix">兼容矩阵</a> 和{' '}
+            <Text strong>架构边界 / 兼容缺口</Text>：不复刻原生 table DOM、ARIA 树不完整、
+            <Text code>scroll.y</Text> 不接受数字 / 字符串高度等。完整清单见{' '}
             <a href="#/docs/known-limitations">已知限制</a>。
+          </li>
+          <li>
+            <Text strong>依赖大量过时成员，或要求逐字对齐 antd 全量历史 API</Text>：data-grid 只对齐真实业务常用的 antd v6 行为，过时成员的迁移建议见{' '}
+            <a href="#/docs/compat-matrix">兼容矩阵</a>。
           </li>
         </ul>
       </DocSection>

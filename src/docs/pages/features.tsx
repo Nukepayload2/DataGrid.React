@@ -106,20 +106,6 @@ export function renderFeatures({ onOpen }: DocsPageContext) {
           onOpen={onOpen}
         />
       </DocSection>
-
-      <DocSection id="references" title="相关文档">
-        <DocsActionList
-          actions={[
-            { label: 'Table API', kind: 'doc', value: 'table-api' },
-            { label: 'Column API', kind: 'doc', value: 'column-api' },
-            { label: 'gridOptions', kind: 'doc', value: 'grid-options' },
-            { label: '渲染模型', kind: 'doc', value: 'rendering-model' },
-            { label: 'Semantic DOM', kind: 'doc', value: 'semantic-dom' },
-            { label: '兼容矩阵', kind: 'doc', value: 'compat-matrix' },
-          ]}
-          onOpen={onOpen}
-        />
-      </DocSection>
     </>
   )
 }

@@ -913,8 +913,8 @@
     {
       "name": "onSelectedValuesChange",
       "kind": "method",
-      "signature": "onSelectedValuesChange?: (\r\n    selectedValues: Array<GridSelectionValue>,\r\n    selectedRows: Array<RecordType>,\r\n    info: { type: RowSelectMethod },\r\n  ) => void",
-      "type": "(\r\n    selectedValues: Array<GridSelectionValue>,\r\n    selectedRows: Array<RecordType>,\r\n    info: { type: RowSelectMethod },\r\n  ) => void",
+      "signature": "onSelectedValuesChange?: (\n    selectedValues: Array<GridSelectionValue>,\n    selectedRows: Array<RecordType>,\n    info: { type: RowSelectMethod },\n  ) => void",
+      "type": "(\n    selectedValues: Array<GridSelectionValue>,\n    selectedRows: Array<RecordType>,\n    info: { type: RowSelectMethod },\n  ) => void",
       "required": false,
       "advanced": false,
       "summary": "业务选中值变化回调。\n@param selectedValues 新的业务选中值数组。\n@param selectedRows 新的选中 record 数组（按当前渲染顺序）。\n@param info 操作类型（'all'/'none'/'invert'/'single'/'multiple'）。"

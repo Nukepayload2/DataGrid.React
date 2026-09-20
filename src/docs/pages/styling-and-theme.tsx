@@ -48,19 +48,9 @@ export function renderStyling({ onOpen }: DocsPageContext) {
       <DocSection id="demos" title="优先查看的 demo">
         <DocsActionList
           actions={[
-            { label: 'Semantic DOM 文档', kind: 'doc', value: 'semantic-dom' },
             { label: '组件主题令牌 demo', kind: 'path', value: '/demos/component-theme-tokens' },
             { label: '语义化样式 demo', kind: 'path', value: '/demos/semantic-styling' },
             { label: 'Semantic DOM 槽位 demo', kind: 'path', value: '/demos/semantic-dom-slots' },
-          ]}
-          onOpen={onOpen}
-        />
-      </DocSection>
-      <DocSection id="references" title="相关文档">
-        <DocsActionList
-          actions={[
-            { label: 'Semantic DOM 槽位矩阵', kind: 'doc', value: 'semantic-dom' },
-            { label: 'Table API', kind: 'doc', value: 'table-api' },
           ]}
           onOpen={onOpen}
         />

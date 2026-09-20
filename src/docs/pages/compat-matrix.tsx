@@ -17,7 +17,7 @@ const compatRows: CompatRow[] = [
   { key: 'base', api: 'dataSource / columns / rowKey', status: '完全兼容', detail: '基础数据、列定义和行 key 沿用 antd 使用习惯。' },
   { key: 'selection', api: 'rowSelection', status: '部分兼容', detail: '常用选择、受控键、自定义选择项和 renderCell 已覆盖；自定义样式和事件绑定的位置与 antd 略有差异。过时成员 onSelectMultiple 的处理见下方特例。' },
   { key: 'expandable', api: 'expandable', status: '部分兼容', detail: '展开行、默认展开、expandRowByClick、columnTitle、fixed 已覆盖；expandedRowOffset 的处理见下方特例。' },
-  { key: 'scroll', api: 'scroll', status: '部分兼容', detail: 'x 支持常用形态；y 只接受 true（数据区域模式，高度由父容器驱动）。详见 #/docs/scroll-y。' },
+  { key: 'scroll', api: 'scroll', status: '部分兼容', detail: 'x 支持常用形态；y 只接受 true（数据区域模式，高度由父容器驱动）。' },
   { key: 'components', api: 'components', status: '部分兼容', detail: '支持 body.cell、body.row；header.cell、wrapper / table 级替换暂未开放。可替换的组件位置见 Semantic DOM 页。' },
   { key: 'locale', api: 'locale', status: '部分兼容', detail: '表体空态、筛选下拉、选择菜单、排序和展开文案已接入 antd locale 链路；filterCheckall 兼容别名见下方特例。' },
   { key: 'sticky', api: 'sticky', status: '兼容支持', detail: '支持 offsetHeader、offsetSummary、offsetScroll 和 getContainer；offsetSummary 在 fixed summary、页面级 sticky、非 scroll.y 数据区域模式下生效。' },
@@ -56,8 +56,8 @@ export function renderCompatMatrix({ onOpen }: DocsPageContext) {
       <DocSection id="related" title="相关说明">
         <DocsActionList
           actions={[
+            { label: 'scroll.y 语义（滚动和虚拟化）', kind: 'doc', value: 'scrolling' },
             { label: 'Semantic DOM 说明', kind: 'doc', value: 'semantic-dom' },
-            { label: 'scroll.y 语义', kind: 'doc', value: 'scroll-y' },
           ]}
           onOpen={onOpen}
         />
