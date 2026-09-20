@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Button, Tag, Tooltip } from 'antd'
+import { useState, type CSSProperties } from 'react'
+import { Button, Tag, Tooltip, theme } from 'antd'
 import { InfoCircleOutlined } from '@ant-design/icons'
 import { navigate } from './registry'
 import SemanticDomDg from './semantic-dom-slots.dg'
@@ -159,9 +159,20 @@ function SemanticSlotList({
   onActiveSlotChange: (slot: string | undefined) => void
 }) {
   const isDataGrid = variant === 'data-grid'
+  const { token } = theme.useToken()
+
+  // 槽位卡是「浮在 demo 页之上的一张卡」：表面色必须走 token，
+  // 否则 dark 下写死的 #fff 会变成暗色界面里的白卡。见 index.css 的 --slot-item-* 消费处。
+  const slotVars = {
+    '--slot-item-bg': token.colorBgContainer,
+    '--slot-item-border': token.colorBorderSecondary,
+    '--slot-item-text': token.colorTextSecondary,
+    '--slot-item-active-border': token.colorPrimary,
+    '--slot-item-active-ring': `0 0 0 2px ${token.colorPrimaryBg}`,
+  } as CSSProperties
 
   return (
-    <ul className="semantic-slot-list">
+    <ul className="semantic-slot-list" style={slotVars}>
       {semanticSlots.map((slot) => {
         const active = activeSlot === slot.key
         const target = isDataGrid ? slot.dgTarget : slot.antdTarget
@@ -203,6 +214,7 @@ function SemanticSlotList({
 export default function SemanticDomDemo() {
   const [hoveredSlot, setHoveredSlot] = useState<string | undefined>()
   const [hoveredAntdSlot, setHoveredAntdSlot] = useState<string | undefined>()
+  const { token } = theme.useToken()
 
   return (
     <div className="semantic-dom-demo">
@@ -210,11 +222,11 @@ export default function SemanticDomDemo() {
         style={{
           marginBottom: 16,
           padding: 12,
-          border: '1px solid #f0f0f0',
+          border: `1px solid ${token.colorBorderSecondary}`,
           borderRadius: 8,
-          background: '#fff',
+          background: token.colorBgContainer,
           fontSize: 13,
-          color: 'rgba(0,0,0,0.75)',
+          color: token.colorText,
         }}
       >
         <strong>Semantic DOM：</strong> 左侧 data-grid 使用与 antd Semantic DOM 示例同名的

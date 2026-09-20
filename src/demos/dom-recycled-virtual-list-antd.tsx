@@ -385,6 +385,11 @@ export default function DomRecycledVirtualListAntdDemo() {
         <div>{actionModal ? JSON.stringify(actionModal.row) : ''}</div>
       </Modal>
       <style>{`
+        /* 与 dg 侧保持一致：antd virtual Table 同样复用行元素，选中状态同样会被滚动破坏。
+           对照组两侧都禁止选中，避免选区差异成为对照结论的干扰变量。 */
+        .antd-recycling-control-table {
+          user-select: none;
+        }
         .dg-recycling-text {
           display: inline-block;
           max-width: 100%;

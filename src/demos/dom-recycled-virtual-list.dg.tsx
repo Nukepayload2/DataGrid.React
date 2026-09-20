@@ -421,6 +421,7 @@ export default function VirtualListRecyclingDg() {
 
   return (
     <div
+      className="dg-recycling-demo"
       style={{
         padding: 24,
         // flex 链：占满 .demo-page 剩余高度，工具栏自然高、表格 flex:1 占剩余。
@@ -504,6 +505,11 @@ export default function VirtualListRecyclingDg() {
         <div>{actionModal ? JSON.stringify(actionModal.row) : ''}</div>
       </Modal>
       <style>{`
+        /* 回收的单元格元素会被复用：滚动后原有选区会指向复用后的新内容，选中状态随即损坏。
+           作用范围限定在表格内，工具栏计数器仍可选中复制以便排查。 */
+        .dg-recycling-demo .dg-wrapper {
+          user-select: none;
+        }
         .dg-recycling-text {
           display: inline-block;
           max-width: 100%;

@@ -142,19 +142,21 @@ body {
   list-style: none;
 }
 
+/* 槽位卡表面：底色 / 描边 / 次要文字 / 激活环由 demo 注入的 token var 提供，
+   fallback 为 light 主题下的等价字面量。 */
 .semantic-slot-item {
   padding: 10px 12px;
-  border: 1px solid rgba(5, 5, 5, 0.08);
+  border: 1px solid var(--slot-item-border, rgba(5, 5, 5, 0.08));
   border-radius: 6px;
-  background: #fff;
+  background: var(--slot-item-bg, #fff);
   transition:
     border-color 0.16s ease,
     box-shadow 0.16s ease;
 }
 
 .semantic-slot-item-active {
-  border-color: #1677ff;
-  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.12);
+  border-color: var(--slot-item-active-border, #1677ff);
+  box-shadow: var(--slot-item-active-ring, 0 0 0 2px rgba(22, 119, 255, 0.12));
 }
 
 .semantic-slot-heading {
@@ -189,7 +191,7 @@ body {
 
 .semantic-slot-item p {
   margin: 6px 0 0;
-  color: rgba(0, 0, 0, 0.62);
+  color: var(--slot-item-text, rgba(0, 0, 0, 0.62));
   font-size: 12px;
   line-height: 1.55;
 }
@@ -252,12 +254,14 @@ body {
   margin-bottom: 28px;
 }
 
+/* 价值卡表面：底色 / 描边由 HomePage 注入的 token var 提供，
+   fallback 为 light 主题下的等价字面量。 */
 .resource-value {
   height: 100%;
   padding: 16px 18px;
-  border: 1px solid rgba(5, 5, 5, 0.08);
+  border: 1px solid var(--resource-panel-border, rgba(5, 5, 5, 0.08));
   border-radius: 6px;
-  background: rgba(5, 5, 5, 0.02);
+  background: var(--resource-panel-bg, rgba(5, 5, 5, 0.02));
 }
 
 .resource-value h3 {

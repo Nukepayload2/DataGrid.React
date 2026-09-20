@@ -1,6 +1,7 @@
 /** 学习资源首页。 */
 
-import { Button, Card, Col, Row, Typography } from 'antd'
+import type { CSSProperties } from 'react'
+import { Button, Card, Col, Row, Typography, theme } from 'antd'
 import type { ColumnType, StickyConfig } from './table'
 import { Table } from './table'
 import { navigate } from './demos/registry'
@@ -124,8 +125,17 @@ function DocsIcon() {
 }
 
 export default function HomePage() {
+  const { token } = theme.useToken()
+
+  // 价值卡是「置于页面之上的一层浅表面」：底色与描边走主题 token，
+  // 否则 dark 下写死的深色叠加会等于没有表面（见 index.css 的 --resource-panel-* 消费处）。
+  const panelVars = {
+    '--resource-panel-bg': token.colorFillAlter,
+    '--resource-panel-border': token.colorBorderSecondary,
+  } as CSSProperties
+
   return (
-    <div className="resource-home">
+    <div className="resource-home" style={panelVars}>
       <section className="resource-home-intro">
         <Title level={1}>构建、迁移和验证 data-grid 表格</Title>
         <Paragraph>
