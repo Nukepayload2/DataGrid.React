@@ -15,7 +15,7 @@ export default function ResizableDemo() {
   const { token } = theme.useToken()
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       <DemoToolbar
         style={{
           display: 'flex',

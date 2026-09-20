@@ -10,7 +10,7 @@ export default function EditCellDemo() {
   const { virtual } = useVirtualization()
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       {/*
         minPaneWidth=480（窄表，4 列无 scroll.x）→ 横排阈值 ≈ 480×2 + 16 = 976。
         常规笔记本视口（≥1024）即可横排；窄视口自动换行竖排。

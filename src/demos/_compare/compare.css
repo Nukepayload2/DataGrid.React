@@ -38,8 +38,9 @@
   padding: 12px;
 }
 
+/* 说明块位于 .dg-compare 之后。 */
 .dg-compare__note {
-  margin-bottom: 16px;
+  margin-top: 16px;
   padding: 12px 16px;
   background: var(--compare-fill);
   border: 1px solid var(--compare-border);

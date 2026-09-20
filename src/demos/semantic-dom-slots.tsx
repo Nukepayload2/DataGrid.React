@@ -217,7 +217,7 @@ export default function SemanticDomDemo() {
   const { token } = theme.useToken()
 
   return (
-    <div className="semantic-dom-demo">
+    <div className="demo-view">
       <div
         style={{
           marginBottom: 16,

@@ -22,7 +22,7 @@ export interface SplitDemoProps {
    */
   minPaneWidth?: number
   /**
-   * 兼容旧 demo 的补充说明区。
+   * 对照说明区，渲染在两栏表格下方。
    */
   children?: ReactNode
   /**
@@ -73,7 +73,8 @@ export function SplitDemo({
   const { token } = antdTheme.useToken()
   const { virtual } = useVirtualization()
 
-  const containerStyle = {
+  // CSS 变量不跨兄弟继承：说明块需各挂一份 --compare-*。
+  const compareVars = {
     '--pane-min': `${minPaneWidth}px`,
     '--compare-bg': token.colorBgContainer,
     '--compare-fill': token.colorFillAlter,
@@ -94,8 +95,7 @@ export function SplitDemo({
 
   return (
     <>
-      {children ? <div className="dg-compare__note">{children}</div> : null}
-      <div className={containerClassName} style={containerStyle}>
+      <div className={containerClassName} style={compareVars}>
         <section className="dg-compare__pane">
           <div className="dg-compare__title">{leftTitle}</div>
           <div className="dg-compare__body">{left}</div>
@@ -105,6 +105,11 @@ export function SplitDemo({
           <div className="dg-compare__body">{right}</div>
         </section>
       </div>
+      {children ? (
+        <div className="dg-compare__note" style={compareVars}>
+          {children}
+        </div>
+      ) : null}
     </>
   )
 }

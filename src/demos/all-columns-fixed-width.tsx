@@ -5,7 +5,7 @@ import AllColumnsFixedWidthAntd from './all-columns-fixed-width.antd'
 
 export default function AllColumnsFixedWidthDemo() {
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       <SplitDemo
         minPaneWidth={480}
         left={<AllColumnsFixedWidthDg />}

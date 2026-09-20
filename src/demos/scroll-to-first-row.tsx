@@ -17,7 +17,7 @@ export default function ScrollToFirstRowDemo() {
   const [enabled, setEnabled] = useState(true)
 
   return (
-    <div className="scroll-first-demo" style={{ padding: 24 }}>
+    <div className="scroll-first-demo demo-view">
       <DemoToolbar>
         <Flex align="center" gap="middle" wrap>
           <Switch

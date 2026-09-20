@@ -7,7 +7,7 @@ export default function AjaxDemo() {
   const { virtual } = useVirtualization()
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       
       <SplitDemo
         minPaneWidth={600}

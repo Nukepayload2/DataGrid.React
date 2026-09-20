@@ -12,7 +12,7 @@ export default function EllipsisCustomTooltipDemo() {
   const { virtual } = useVirtualization()
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       {/* 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。 */}
       <DemoToolbar>
         <Space>

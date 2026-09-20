@@ -15,7 +15,7 @@ export default function OrderColumnDemo() {
   }
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       <SplitDemo
         minPaneWidth={480}
         left={

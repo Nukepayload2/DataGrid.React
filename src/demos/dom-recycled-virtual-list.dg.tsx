@@ -420,19 +420,7 @@ export default function VirtualListRecyclingDg() {
   }
 
   return (
-    <div
-      className="dg-recycling-demo"
-      style={{
-        padding: 24,
-        // flex 链：占满 .demo-page 剩余高度，工具栏自然高、表格 flex:1 占剩余。
-        // 触发条件：App.tsx 给 .demo-page 加 data-demo-name="dom-recycled-virtual-list"
-        // + index.css 针对该属性设 height/display:flex/flex-direction:column。
-        display: 'flex',
-        flexDirection: 'column',
-        flex: 1,
-        minHeight: 0,
-      }}
-    >
+    <div className="dg-recycling-demo demo-view demo-view--fill">
       <Space style={{ marginBottom: 8 }} align="center" wrap>
         <Typography.Text strong>Recycling virtual body</Typography.Text>
         <Typography.Text type="secondary">
@@ -505,8 +493,7 @@ export default function VirtualListRecyclingDg() {
         <div>{actionModal ? JSON.stringify(actionModal.row) : ''}</div>
       </Modal>
       <style>{`
-        /* 回收的单元格元素会被复用：滚动后原有选区会指向复用后的新内容，选中状态随即损坏。
-           作用范围限定在表格内，工具栏计数器仍可选中复制以便排查。 */
+        /* 单元格 DOM 会被复用，选区随滚动错位；仅禁用表格内选中。 */
         .dg-recycling-demo .dg-wrapper {
           user-select: none;
         }

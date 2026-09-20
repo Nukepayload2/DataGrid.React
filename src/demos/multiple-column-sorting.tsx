@@ -14,7 +14,7 @@ export default function MultipleSorterDemo() {
   const handleReset = () => setRemountKey((k) => k + 1)
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       <DemoToolbar>
         <Space>
           <Switch

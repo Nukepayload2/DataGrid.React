@@ -23,7 +23,7 @@ export default function HeadDemo() {
   const handleReset = () => setRemountKey((k) => k + 1)
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       {/* 共享控制条：全宽，在 SplitDemo 上方。同一个状态同时驱动两侧表格。
           DemoToolbar 用 useToken 适配主题（light/dark/自定义 token 自适应）。 */}
       <DemoToolbar>

@@ -103,7 +103,7 @@ export default function DragVirtualListDemo() {
   const totalCount = dataSource.length
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       
       <DemoToolbar>
         <Space wrap>

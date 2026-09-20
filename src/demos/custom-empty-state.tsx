@@ -25,7 +25,7 @@ export default function App() {
   const emptyText = <Empty description="No Data">{toggleButton}</Empty>
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       
       <DemoToolbar>
         <Space wrap>

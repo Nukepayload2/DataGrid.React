@@ -18,7 +18,7 @@ export default function FixedColumnsDemo() {
   const { virtual } = useVirtualization()
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       <DemoToolbar>
         <Space wrap>
           <Switch

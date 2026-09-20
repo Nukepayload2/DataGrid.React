@@ -24,7 +24,7 @@ export default function StableEmptyWidthDemo() {
   const [columnCount, setColumnCount] = useState(COLUMN_COUNT_DEFAULT)
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       <Alert
         type="warning"
         showIcon

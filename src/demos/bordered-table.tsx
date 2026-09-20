@@ -12,7 +12,7 @@ export default function BorderedDemo() {
   const { token } = theme.useToken()
 
   return (
-    <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
+    <div className="demo-view demo-view--stack demo-view--stack-wide">
       <DemoToolbar style={{ marginBottom: 0 }}>
         <Space>
           <Switch

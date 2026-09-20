@@ -26,7 +26,7 @@ export default function ExpandStickyDemo() {
   }
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       <DemoToolbar>
         <Space>
           <Button onClick={expandAll}>Expand All</Button>

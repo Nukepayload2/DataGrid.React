@@ -11,7 +11,7 @@ export default function NestTableBorderDebugDemo() {
   const { virtual } = useVirtualization()
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       <Form
         layout="inline"
         className="table-demo-control-bar"

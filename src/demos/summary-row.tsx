@@ -11,7 +11,7 @@ export default function SummaryDemo() {
   const { token } = theme.useToken()
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       <Flex vertical gap="middle">
         <div>
           <div

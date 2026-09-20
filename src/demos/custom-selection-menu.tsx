@@ -11,7 +11,7 @@ export default function RowSelectionCustomDemo() {
   const { token } = theme.useToken()
 
   return (
-    <div style={{ padding: 24, display: 'flex', flexDirection: 'column', gap: 16 }}>
+    <div className="demo-view demo-view--stack">
       <SplitDemo
         minPaneWidth={480}
         left={

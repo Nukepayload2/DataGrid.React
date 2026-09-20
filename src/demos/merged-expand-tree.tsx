@@ -172,7 +172,7 @@ export default function MergedExpandTreeDemo() {
   const expandFirstGroup = () => setExpandedRowKeys(['east-1'])
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       <Alert
         type="warning"
         showIcon

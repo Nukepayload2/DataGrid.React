@@ -69,15 +69,38 @@ body {
   margin: 24px 0;
 }
 
+/* demo 页描述：纯文本段落，深色主题下颜色由 App.tsx 的 token 覆盖。 */
 .demo-page__intro {
   margin: 0 0 16px;
-  padding: 10px 12px;
-  border: 1px solid rgba(5, 5, 5, 0.08);
-  border-radius: 6px;
-  background: rgba(5, 5, 5, 0.02);
   color: rgba(0, 0, 0, 0.65);
   font-size: 13px;
   line-height: 1.6;
+}
+
+/* demo 视图根容器：左右贴齐内容区，上下留 16px。
+   静态布局一律走 class，内联 style 只保留随主题 / 数据变化的动态值。 */
+.demo-view {
+  padding: 16px 0;
+}
+
+/* 多区块纵向堆叠（示例 1 / 示例 2、控件区 + 表格）。 */
+.demo-view--stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 堆叠间距更大的一档。 */
+.demo-view--stack-wide {
+  gap: 24px;
+}
+
+/* 占满 .demo-page 剩余高度：配合该页面的 flex 链使用。 */
+.demo-view--fill {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 /* dom-recycled-virtual-list：让 demo 页自身不滚动，表格占满剩余高度、由表格内部滚动。
@@ -91,7 +114,7 @@ body {
 .demo-page[data-demo-name='dom-recycled-virtual-list-antd'] {
   height: 100%;
   margin: 0;
-  padding-block: 24px;
+  padding-block: 16px;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -112,10 +135,6 @@ body {
 
 .demo-home-page {
   margin: 24px 0;
-}
-
-.semantic-dom-demo {
-  padding: 24px;
 }
 
 .semantic-demo-grid {

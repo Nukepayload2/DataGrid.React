@@ -316,15 +316,7 @@ export default function DomRecycledVirtualListAntdDemo() {
   }, [showActionColumn])
 
   return (
-    <div
-      style={{
-        padding: 24,
-        display: 'flex',
-        flexDirection: 'column',
-        flex: 1,
-        minHeight: 0,
-      }}
-    >
+    <div className="demo-view demo-view--fill">
       <Space style={{ marginBottom: 8 }} align="center" wrap>
         <Typography.Text strong>对照：antd 大量数据</Typography.Text>
         <Typography.Text type="secondary">
@@ -385,8 +377,7 @@ export default function DomRecycledVirtualListAntdDemo() {
         <div>{actionModal ? JSON.stringify(actionModal.row) : ''}</div>
       </Modal>
       <style>{`
-        /* 与 dg 侧保持一致：antd virtual Table 同样复用行元素，选中状态同样会被滚动破坏。
-           对照组两侧都禁止选中，避免选区差异成为对照结论的干扰变量。 */
+        /* 与 dg 侧一致：antd virtual Table 同样复用行元素。 */
         .antd-recycling-control-table {
           user-select: none;
         }

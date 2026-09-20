@@ -23,7 +23,7 @@ export default function RowSelectionAndOperationDemo() {
   const hasSelected = selectedRowKeys.length > 0
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       <DemoToolbar>
         <Flex align="center" gap="medium">
           <Button type="primary" onClick={start} disabled={!hasSelected} loading={loading}>

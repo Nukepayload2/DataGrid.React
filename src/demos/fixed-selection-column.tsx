@@ -29,7 +29,7 @@ export default function RowSelectionFixedDemo() {
   const { token } = theme.useToken()
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       <DemoToolbar>
         <div
           style={{

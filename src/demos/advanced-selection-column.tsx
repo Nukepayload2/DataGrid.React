@@ -13,7 +13,7 @@ export default function RowSelectionAdvancedDemo() {
   const [lastMultiple, setLastMultiple] = useState('Shift-click a checkbox range')
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       <DemoToolbar>
         <Flex align="center" gap="middle" wrap>
           <Switch

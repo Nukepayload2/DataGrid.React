@@ -299,7 +299,7 @@ export default function ColumnWidthConstraintsDemo() {
   const [maxWidth, setMaxWidth] = useState(ACTION_MAX_WIDTH)
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       <DemoToolbar>
         <Space wrap size={[16, 8]}>
           <Space>

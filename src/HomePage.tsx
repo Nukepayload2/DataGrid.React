@@ -29,7 +29,7 @@ const capabilityRows: CapabilityRow[] = [
     advantage: '面向大数据列表优化，配合 CSS Grid 和可选 DOM 复用降低渲染成本。',
     api: 'virtual / scroll.y / gridOptions',
     demo: '虚拟列表',
-    demoPath: '/demos/virtual-list',
+    demoPath: '/demos/dom-recycled-virtual-list',
   },
   {
     area: '固定列和表头',

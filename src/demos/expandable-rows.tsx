@@ -34,7 +34,7 @@ export default function ExpandDemo() {
   }
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       {/* 展开行视觉标记 class（仅左栏 data-grid 用，展开行底色变浅黄便于核对）。 */}
       <style>{`.dg-demo-expanded-row { background: var(--ant-color-warning-bg) !important; }`}</style>
       {/* 共享控制条：全宽，在 SplitDemo 上方。 */}

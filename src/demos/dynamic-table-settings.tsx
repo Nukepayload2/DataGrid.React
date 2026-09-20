@@ -36,7 +36,7 @@ export default function DynamicSettingsDemo() {
   const { virtual } = useVirtualization()
 
   return (
-    <div style={{ padding: 24 }}>
+    <div className="demo-view">
       <Form layout="inline" className="table-demo-control-bar" style={{ marginBottom: 16 }}>
         <Form.Item label="Bordered">
           <Switch checked={bordered} onChange={setBordered} />

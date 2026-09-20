@@ -545,11 +545,7 @@ function App() {
               {currentDemoMeta?.description ? (
                 <div
                   className="demo-page__intro"
-                  style={{
-                    background: token.colorFillAlter,
-                    borderColor: token.colorBorderSecondary,
-                    color: token.colorTextSecondary,
-                  }}
+                  style={{ color: token.colorTextSecondary }}
                 >
                   {currentDemoMeta.description}
                 </div>
