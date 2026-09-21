@@ -1,0 +1,33 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo extend · 行选择 > extend advanced-selection-column 1`] = `[]`;
+
+exports[`demo extend · 行选择 > extend advanced-selection-column 2`] = `[]`;
+
+exports[`demo extend · 行选择 > extend basic-row-selection 1`] = `[]`;
+
+exports[`demo extend · 行选择 > extend basic-row-selection 2`] = `[]`;
+
+exports[`demo extend · 行选择 > extend basic-row-selection-mode 1`] = `[]`;
+
+exports[`demo extend · 行选择 > extend basic-row-selection-mode 2`] = `[]`;
+
+exports[`demo extend · 行选择 > extend controlled-row-selection 1`] = `[]`;
+
+exports[`demo extend · 行选择 > extend controlled-row-selection 2`] = `[]`;
+
+exports[`demo extend · 行选择 > extend custom-selection-menu 1`] = `
+[
+  "<div class="ant-dropdown ant-slide-up css-dev-only-do-not-override-xsuzon css-var-root ant-dropdown-css-var ant-dropdown-placement-bottomLeft" style="--arrow-x: 0px; --arrow-y: 0px; left: -1000vw; top: -1000vh; right: auto; bottom: auto; box-sizing: border-box;"><ul class="ant-dropdown-menu ant-dropdown-menu-root ant-dropdown-menu-vertical ant-dropdown-menu-light css-dev-only-do-not-override-xsuzon css-var-root ant-dropdown-css-var css-var-root ant-dropdown-menu-css-var" role="menu" tabindex="0" data-menu-list="true"><li class="ant-dropdown-menu-item ant-dropdown-menu-item-only-child" role="menuitem" tabindex="-1" data-menu-id="rc-menu-uuid-all"><span class="ant-dropdown-menu-title-content">Select all data</span></li><li class="ant-dropdown-menu-item ant-dropdown-menu-item-only-child" role="menuitem" tabindex="-1" data-menu-id="rc-menu-uuid-invert"><span class="ant-dropdown-menu-title-content">Invert current page</span></li><li class="ant-dropdown-menu-item ant-dropdown-menu-item-only-child" role="menuitem" tabindex="-1" data-menu-id="rc-menu-uuid-none"><span class="ant-dropdown-menu-title-content">Clear all data</span></li><li class="ant-dropdown-menu-item ant-dropdown-menu-item-only-child" role="menuitem" tabindex="-1" data-menu-id="rc-menu-uuid-odd"><span class="ant-dropdown-menu-title-content">Select Odd Row</span></li><li class="ant-dropdown-menu-item ant-dropdown-menu-item-only-child" role="menuitem" tabindex="-1" data-menu-id="rc-menu-uuid-even"><span class="ant-dropdown-menu-title-content">Select Even Row</span></li></ul><div style="display: none;" aria-hidden="true"></div></div>",
+]
+`;
+
+exports[`demo extend · 行选择 > extend custom-selection-menu 2`] = `[]`;
+
+exports[`demo extend · 行选择 > extend fixed-selection-column 1`] = `[]`;
+
+exports[`demo extend · 行选择 > extend fixed-selection-column 2`] = `[]`;
+
+exports[`demo extend · 行选择 > extend special-column-order 1`] = `[]`;
+
+exports[`demo extend · 行选择 > extend special-column-order 2`] = `[]`;

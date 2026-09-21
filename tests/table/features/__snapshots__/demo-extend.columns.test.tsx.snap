@@ -1,0 +1,25 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo extend · 列 > extend column-width-constraints 1`] = `[]`;
+
+exports[`demo extend · 列 > extend column-width-constraints 2`] = `[]`;
+
+exports[`demo extend · 列 > extend custom-ellipsis-tooltip 1`] = `[]`;
+
+exports[`demo extend · 列 > extend custom-ellipsis-tooltip 2`] = `[]`;
+
+exports[`demo extend · 列 > extend hidden-columns 1`] = `[]`;
+
+exports[`demo extend · 列 > extend hidden-columns 2`] = `[]`;
+
+exports[`demo extend · 列 > extend jsx-columns 1`] = `[]`;
+
+exports[`demo extend · 列 > extend jsx-columns 2`] = `[]`;
+
+exports[`demo extend · 列 > extend resizable-columns 1`] = `[]`;
+
+exports[`demo extend · 列 > extend resizable-columns 2`] = `[]`;
+
+exports[`demo extend · 列 > extend text-ellipsis 1`] = `[]`;
+
+exports[`demo extend · 列 > extend text-ellipsis 2`] = `[]`;

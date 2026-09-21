@@ -193,7 +193,7 @@ body {
   gap: 8px;
 }
 
-.semantic-slot-title h5 {
+.semantic-slot-title h4 {
   min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;

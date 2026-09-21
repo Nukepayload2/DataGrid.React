@@ -1,0 +1,113 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo snapshot · 虚拟与汇总 > snapshot clickable-scrollbar 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-bordered.dg-data-area
+nodes: 492
+rows: 18
+cells: 216
+headerCells: 12
+gridTracks: 20
+columnKeys: id firstName lastName age address1 address2 address3 col-0 col-1 col-2 col-3 col-4
+rowIndexRuns: 0-16
+headerColspan: (none)
+mergedCells: (none)
+structural: fixedStartCells=54 fixedEndCells=18 headerVStickyCells=12 floatingScrollBar=1
+themeOverrides: (none)
+tags: a=34 div=441 span=17"
+`;
+
+exports[`demo snapshot · 虚拟与汇总 > snapshot custom-empty-state 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-bordered
+nodes: 38
+rows: 1
+cells: 3
+headerCells: 3
+gridTracks: 6
+columnKeys: name age address
+rowIndexRuns: (none)
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 filterTrigger=1
+themeOverrides: (none)
+tags: button=1 circle=1 div=20 ellipse=1 g=3 path=6 span=3 svg=2 title=1"
+`;
+
+exports[`demo snapshot · 虚拟与汇总 > snapshot dom-recycled-virtual-list 1`] = `
+"root: (no class)
+nodes: 959
+rows: 18
+cells: 306
+headerCells: 17
+gridTracks: 34
+columnKeys: id account status region owner priority amount score updated city channel product segment risk sla notes flag
+rowIndexRuns: 0-16
+headerColspan: (none)
+mergedCells: (none)
+structural: headerVStickyCells=17 floatingScrollBar=1
+themeOverrides: (none)
+tags: button=3 div=646 input=4 label=4 span=300 strong=1 style=1"
+`;
+
+exports[`demo snapshot · 虚拟与汇总 > snapshot scrollto-scoped 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-data-area
+nodes: 153
+rows: 18
+cells: 72
+headerCells: 4
+gridTracks: 5
+columnKeys: id lastName age address1
+rowIndexRuns: 0-16
+headerColspan: (none)
+mergedCells: (none)
+structural: headerVStickyCells=4 floatingScrollBar=1
+themeOverrides: (none)
+tags: div=153"
+`;
+
+exports[`demo snapshot · 虚拟与汇总 > snapshot summary-row 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-bordered
+nodes: 50
+rows: 5
+cells: 20
+headerCells: 3
+gridTracks: 6
+columnKeys: name borrow repayment
+rowIndexRuns: 0-3
+headerColspan: (none)
+mergedCells: (none)
+structural: summaryCells=5 floatingScrollBar=1
+themeOverrides: (none)
+tags: div=47 span=3"
+`;
+
+exports[`demo snapshot · 虚拟与汇总 > snapshot virtual-list 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-bordered.dg-data-area
+nodes: 437
+rows: 18
+cells: 163
+headerCells: 10
+gridTracks: 13
+columnKeys: __dg_selection__ id firstName lastName col-0 age address1 address2 address3 col-1
+rowIndexRuns: 0-16
+headerColspan: (none)
+mergedCells: col2=5 row4=5
+structural: fixedStartCells=72 fixedEndCells=18 rowSpanCells=5 headerVStickyCells=10 floatingScrollBar=1 selectionInput=17
+themeOverrides: (none)
+tags: a=34 div=335 input=17 label=17 span=34"
+`;
+
+exports[`demo snapshot · 虚拟与汇总 > snapshot virtual-summary 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-bordered.dg-data-area
+nodes: 161
+rows: 18
+cells: 75
+headerCells: 4
+gridTracks: 8
+columnKeys: id firstName lastName age
+rowIndexRuns: 0-16
+headerColspan: (none)
+mergedCells: (none)
+structural: summaryCells=3 headerVStickyCells=4 floatingScrollBar=1
+themeOverrides: (none)
+tags: div=159 span=2"
+`;

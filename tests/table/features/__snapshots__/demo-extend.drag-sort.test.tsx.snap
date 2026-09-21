@@ -1,0 +1,21 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo extend · 拖拽排序 > extend drag-column-sorting 1`] = `[]`;
+
+exports[`demo extend · 拖拽排序 > extend drag-column-sorting 2`] = `[]`;
+
+exports[`demo extend · 拖拽排序 > extend drag-handle-row-sorting 1`] = `[]`;
+
+exports[`demo extend · 拖拽排序 > extend drag-handle-row-sorting 2`] = `[]`;
+
+exports[`demo extend · 拖拽排序 > extend drag-row-sorting 1`] = `[]`;
+
+exports[`demo extend · 拖拽排序 > extend drag-row-sorting 2`] = `[]`;
+
+exports[`demo extend · 拖拽排序 > extend multi-row-drag-reorder 1`] = `[]`;
+
+exports[`demo extend · 拖拽排序 > extend multi-row-drag-reorder 2`] = `[]`;
+
+exports[`demo extend · 拖拽排序 > extend virtual-list-drag-row-sorting 1`] = `[]`;
+
+exports[`demo extend · 拖拽排序 > extend virtual-list-drag-row-sorting 2`] = `[]`;

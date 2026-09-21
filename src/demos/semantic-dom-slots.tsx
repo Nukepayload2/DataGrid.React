@@ -189,7 +189,7 @@ function SemanticSlotList({
           >
             <div className="semantic-slot-heading">
               <div className="semantic-slot-title">
-                <h5>{slot.title}</h5>
+                <h4>{slot.title}</h4>
               </div>
               <div className="semantic-slot-actions">
                 {isDataGrid ? <Tag color={statusColor[slot.status]}>{statusLabel[slot.status]}</Tag> : null}

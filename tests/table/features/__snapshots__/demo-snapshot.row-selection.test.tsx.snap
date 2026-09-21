@@ -1,0 +1,113 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo snapshot · 行选择 > snapshot advanced-selection-column 1`] = `
+"root: dg-wrapper.ant-table-wrapper
+nodes: 142
+rows: 9
+cells: 36
+headerCells: 4
+gridTracks: 8
+columnKeys: __dg_selection__ name team score
+rowIndexRuns: 0-7
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 selectionInput=9
+themeOverrides: (none)
+tags: div=106 input=9 label=9 span=18"
+`;
+
+exports[`demo snapshot · 行选择 > snapshot basic-row-selection 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-content-scrolled
+nodes: 81
+rows: 5
+cells: 20
+headerCells: 4
+gridTracks: 8
+columnKeys: __dg_selection__ name age address
+rowIndexRuns: 0-3
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1 selectionInput=5
+themeOverrides: (none)
+tags: a=5 button=2 div=49 input=5 label=5 li=3 path=2 span=7 svg=2 ul=1"
+`;
+
+exports[`demo snapshot · 行选择 > snapshot basic-row-selection-mode 1`] = `
+"root: (no class)
+nodes: 82
+rows: 5
+cells: 15
+headerCells: 3
+gridTracks: 6
+columnKeys: name age address
+rowIndexRuns: 0-3
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1
+themeOverrides: (none)
+tags: button=4 code=2 div=59 input=4 label=4 span=7 strong=2"
+`;
+
+exports[`demo snapshot · 行选择 > snapshot controlled-row-selection 1`] = `
+"root: dg-wrapper.ant-table-wrapper
+nodes: 524
+rows: 47
+cells: 188
+headerCells: 4
+gridTracks: 8
+columnKeys: __dg_selection__ name age address
+rowIndexRuns: 0-45
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 selectionInput=47
+themeOverrides: (none)
+tags: div=383 input=47 label=47 span=47"
+`;
+
+exports[`demo snapshot · 行选择 > snapshot custom-selection-menu 1`] = `
+"root: dg-wrapper.ant-table-wrapper
+nodes: 528
+rows: 47
+cells: 188
+headerCells: 4
+gridTracks: 8
+columnKeys: __dg_selection__ name age address
+rowIndexRuns: 0-45
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 selectionTrigger=1 selectionInput=47
+themeOverrides: (none)
+tags: div=384 input=47 label=47 path=1 span=48 svg=1"
+`;
+
+exports[`demo snapshot · 行选择 > snapshot fixed-selection-column 1`] = `
+"root: dg-wrapper.ant-table-wrapper
+nodes: 116
+rows: 5
+cells: 45
+headerCells: 9
+gridTracks: 15
+columnKeys: __dg_selection__ name col1 col2 col3 col4 col5 col6 action
+rowIndexRuns: 0-3
+headerColspan: (none)
+mergedCells: (none)
+structural: fixedStartCells=10 fixedEndCells=5 floatingScrollBar=1 selectionInput=5
+themeOverrides: (none)
+tags: a=4 div=97 input=5 label=5 span=5"
+`;
+
+exports[`demo snapshot · 行选择 > snapshot special-column-order 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-content-scrolled
+nodes: 91
+rows: 5
+cells: 25
+headerCells: 5
+gridTracks: 10
+columnKeys: name __dg_expand__ age __dg_selection__ address
+rowIndexRuns: 0-3
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1 selectionInput=5 expandIcon=4
+themeOverrides: (none)
+tags: a=1 button=6 div=59 input=5 label=5 li=3 path=2 span=7 svg=2 ul=1"
+`;

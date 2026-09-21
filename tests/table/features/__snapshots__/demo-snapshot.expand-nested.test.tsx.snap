@@ -1,0 +1,49 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo snapshot · 展开与嵌套 > snapshot expand-column-position 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-bordered.dg-content-scrolled
+nodes: 86
+rows: 5
+cells: 28
+headerCells: 6
+gridTracks: 12
+columnKeys: team __dg_expand__ name age address x
+rowIndexRuns: 0-3
+headerColspan: (none)
+mergedCells: row4=2
+structural: rowSpanCells=2 floatingScrollBar=1 pagination=1 expandIcon=4
+themeOverrides: (none)
+tags: a=5 button=6 div=65 li=3 path=2 span=2 svg=2 ul=1"
+`;
+
+exports[`demo snapshot · 展开与嵌套 > snapshot expandable-rows 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-content-scrolled
+nodes: 80
+rows: 5
+cells: 25
+headerCells: 5
+gridTracks: 10
+columnKeys: __dg_expand__ name age address x
+rowIndexRuns: 0-3
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1 expandIcon=4
+themeOverrides: (none)
+tags: a=5 button=6 div=59 li=3 path=2 span=2 svg=2 ul=1"
+`;
+
+exports[`demo snapshot · 展开与嵌套 > snapshot nested-table 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-size-large.dg-content-scrolled
+nodes: 177
+rows: 4
+cells: 52
+headerCells: 13
+gridTracks: 16
+columnKeys: __dg_expand__ name platform version upgradeNum creator createdAt operation date state
+rowIndexRuns: 0-2
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=2 pagination=1 expandIcon=3
+themeOverrides: (none)
+tags: a=13 button=5 div=134 li=3 path=5 span=11 svg=5 ul=1"
+`;

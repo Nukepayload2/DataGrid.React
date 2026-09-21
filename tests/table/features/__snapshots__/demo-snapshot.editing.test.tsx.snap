@@ -1,0 +1,33 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo snapshot · 编辑 > snapshot cell-editing 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-bordered.dg-content-scrolled
+nodes: 50
+rows: 3
+cells: 12
+headerCells: 4
+gridTracks: 7
+columnKeys: name age address operation
+rowIndexRuns: 0-1
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1
+themeOverrides: (none)
+tags: a=3 button=2 div=35 li=3 path=2 span=2 svg=2 ul=1"
+`;
+
+exports[`demo snapshot · 编辑 > snapshot row-editing 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-bordered.dg-content-scrolled
+nodes: 145
+rows: 11
+cells: 44
+headerCells: 4
+gridTracks: 5
+columnKeys: name age address operation
+rowIndexRuns: 0-9
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1
+themeOverrides: (none)
+tags: a=17 button=2 div=101 input=1 li=10 path=4 span=5 svg=4 ul=1"
+`;

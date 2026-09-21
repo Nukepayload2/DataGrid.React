@@ -1,0 +1,97 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo snapshot · 固定列与表头 > snapshot fixed-columns 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-size-middle
+nodes: 157
+rows: 3
+cells: 69
+headerCells: 23
+gridTracks: 43
+columnKeys: name age 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 operation
+rowIndexRuns: 0-1
+headerColspan: (none)
+mergedCells: (none)
+structural: fixedStartCells=6 fixedEndCells=3 floatingScrollBar=1 sorterUp=1 sorterDown=1
+themeOverrides: (none)
+tags: a=2 div=147 path=2 span=4 svg=2"
+`;
+
+exports[`demo snapshot · 固定列与表头 > snapshot fixed-columns-and-header 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-data-area
+nodes: 4753
+rows: 101
+cells: 2323
+headerCells: 23
+gridTracks: 43
+columnKeys: name age 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 operation
+rowIndexRuns: 0-99
+headerColspan: (none)
+mergedCells: (none)
+structural: fixedStartCells=202 fixedEndCells=101 headerVStickyCells=23 floatingScrollBar=1
+themeOverrides: (none)
+tags: a=100 div=4653"
+`;
+
+exports[`demo snapshot · 固定列与表头 > snapshot fixed-header 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-data-area
+nodes: 337
+rows: 51
+cells: 153
+headerCells: 3
+gridTracks: 4
+columnKeys: name age address
+rowIndexRuns: 0-49
+headerColspan: (none)
+mergedCells: (none)
+structural: headerVStickyCells=3 floatingScrollBar=1 pagination=1
+themeOverrides: (none)
+tags: a=2 button=2 div=317 input=1 li=5 path=3 span=3 svg=3 ul=1"
+`;
+
+exports[`demo snapshot · 固定列与表头 > snapshot non-contiguous-fixed-columns 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-size-middle.dg-bordered
+nodes: 163
+rows: 3
+cells: 75
+headerCells: 25
+gridTracks: 47
+columnKeys: name age 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 col-0 col-1 col-2
+rowIndexRuns: 0-1
+headerColspan: (none)
+mergedCells: (none)
+structural: fixedStartCells=6 fixedEndCells=6 floatingScrollBar=1
+themeOverrides: (none)
+tags: a=6 div=157"
+`;
+
+exports[`demo snapshot · 固定列与表头 > snapshot page-sticky-header 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-sticky.dg-scrollbar-table-hover
+nodes: 648
+rows: 49
+cells: 297
+headerCells: 6
+gridTracks: 12
+columnKeys: initiative owner status impact target notes
+rowIndexRuns: 0-47
+headerColspan: (none)
+mergedCells: (none)
+structural: summaryCells=3 headerVStickyCells=6 stickyScrollBar=1
+themeOverrides: (none)
+tags: div=600 span=48"
+`;
+
+exports[`demo snapshot · 固定列与表头 > snapshot sticky-summary-offset 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-sticky
+nodes: 960
+rows: 73
+cells: 441
+headerCells: 6
+gridTracks: 12
+columnKeys: task owner status amount updatedAt note
+rowIndexRuns: 0-71
+headerColspan: (none)
+mergedCells: (none)
+structural: summaryCells=3 headerVStickyCells=6 stickyScrollBar=1
+themeOverrides: (none)
+tags: div=888 span=72"
+`;

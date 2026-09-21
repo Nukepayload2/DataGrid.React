@@ -1,0 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo extend · 基础 > extend basic-table 1`] = `[]`;
+
+exports[`demo extend · 基础 > extend basic-table 2`] = `[]`;

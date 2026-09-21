@@ -1,0 +1,49 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo snapshot · 树形数据 > snapshot preserved-tree-selection 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-content-scrolled
+nodes: 107
+rows: 6
+cells: 24
+headerCells: 4
+gridTracks: 6
+columnKeys: __dg_selection__ name age address
+rowIndexRuns: 0-4
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1 selectionInput=6 expandIcon=5
+themeOverrides: (none)
+tags: a=3 button=7 div=57 input=6 label=6 li=5 path=2 span=18 svg=2 ul=1"
+`;
+
+exports[`demo snapshot · 树形数据 > snapshot tree-data 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-content-scrolled
+nodes: 61
+rows: 3
+cells: 12
+headerCells: 4
+gridTracks: 6
+columnKeys: __dg_selection__ name age address
+rowIndexRuns: 0-1
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1 selectionInput=3 expandIcon=2
+themeOverrides: (none)
+tags: a=1 button=4 div=33 input=3 label=3 li=3 path=2 span=9 svg=2 ul=1"
+`;
+
+exports[`demo snapshot · 树形数据 > snapshot tree-table-ellipsis 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-content-scrolled
+nodes: 159
+rows: 10
+cells: 40
+headerCells: 4
+gridTracks: 5
+columnKeys: __dg_selection__ name age address
+rowIndexRuns: 0-8
+headerColspan: (none)
+mergedCells: (none)
+structural: fixedStartCells=20 ellipsisCells=10 floatingScrollBar=1 pagination=1 selectionInput=10 expandIcon=9
+themeOverrides: (none)
+tags: a=1 button=11 div=89 input=10 label=10 li=3 path=2 span=30 svg=2 ul=1"
+`;

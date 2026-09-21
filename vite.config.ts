@@ -73,7 +73,7 @@ export default defineConfig({
     include: [
       'tests/**/*.{ts,tsx}',
     ],
-    exclude: [...configDefaults.exclude, 'e2e/**', 'tests/setup.ts'],
+    exclude: [...configDefaults.exclude, 'e2e/**', 'tests/setup.ts', 'tests/shared/**'],
     coverage: {
       provider: 'v8',
       include: ['src/table/**/*.{ts,tsx}'],

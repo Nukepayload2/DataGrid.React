@@ -1,0 +1,113 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo snapshot · 尺寸响应与样式 > snapshot bordered-table 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-bordered.dg-content-scrolled
+nodes: 51
+rows: 4
+cells: 12
+headerCells: 3
+gridTracks: 6
+columnKeys: name money address
+rowIndexRuns: 0-2
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1
+themeOverrides: (none)
+tags: a=4 button=2 div=35 li=3 path=2 span=2 svg=2 ul=1"
+`;
+
+exports[`demo snapshot · 尺寸响应与样式 > snapshot component-theme-tokens 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-size-large.dg-content-scrolled
+nodes: 326
+rows: 11
+cells: 66
+headerCells: 6
+gridTracks: 12
+columnKeys: __dg_selection__ __dg_expand__ name age address action
+rowIndexRuns: 0-9
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1 filterTrigger=1 selectionInput=11 expandIcon=10 sorterUp=2 sorterDown=2
+themeOverrides: (none)
+tags: a=21 button=12 div=210 input=11 label=11 li=3 path=17 span=23 svg=17 ul=1"
+`;
+
+exports[`demo snapshot · 尺寸响应与样式 > snapshot dynamic-table-settings 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-size-large.dg-content-scrolled
+nodes: 326
+rows: 11
+cells: 66
+headerCells: 6
+gridTracks: 12
+columnKeys: __dg_selection__ __dg_expand__ name age address action
+rowIndexRuns: 0-9
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1 filterTrigger=1 selectionInput=11 expandIcon=10 sorterUp=2 sorterDown=2
+themeOverrides: (none)
+tags: a=21 button=12 div=210 input=11 label=11 li=3 path=17 span=23 svg=17 ul=1"
+`;
+
+exports[`demo snapshot · 尺寸响应与样式 > snapshot narrow-container-table 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-size-small.dg-content-scrolled
+nodes: 122
+rows: 11
+cells: 33
+headerCells: 3
+gridTracks: 6
+columnKeys: name age address
+rowIndexRuns: 0-9
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1
+themeOverrides: (none)
+tags: a=9 button=2 div=80 input=1 li=12 path=5 span=7 svg=5 ul=1"
+`;
+
+exports[`demo snapshot · 尺寸响应与样式 > snapshot responsive-columns 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-content-scrolled
+nodes: 27
+rows: 2
+cells: 2
+headerCells: 1
+gridTracks: 2
+columnKeys: name
+rowIndexRuns: 0
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1
+themeOverrides: (none)
+tags: a=2 button=2 div=13 li=3 path=2 span=2 svg=2 ul=1"
+`;
+
+exports[`demo snapshot · 尺寸响应与样式 > snapshot semantic-styling 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-size-small.dg-data-area.dg-style-class-root
+nodes: 59
+rows: 4
+cells: 16
+headerCells: 4
+gridTracks: 8
+columnKeys: name age address description
+rowIndexRuns: 0-2
+headerColspan: (none)
+mergedCells: (none)
+structural: headerVStickyCells=4 floatingScrollBar=1 pagination=1
+themeOverrides: (none)
+tags: a=2 button=2 div=44 li=4 path=2 span=2 svg=2 ul=1"
+`;
+
+exports[`demo snapshot · 尺寸响应与样式 > snapshot table-size 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-size-middle.dg-content-scrolled
+nodes: 46
+rows: 4
+cells: 12
+headerCells: 3
+gridTracks: 6
+columnKeys: name age address
+rowIndexRuns: 0-2
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1
+themeOverrides: (none)
+tags: a=1 button=2 div=33 li=3 path=2 span=2 svg=2 ul=1"
+`;

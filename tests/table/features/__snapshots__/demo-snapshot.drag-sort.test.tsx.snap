@@ -1,0 +1,81 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo snapshot · 拖拽排序 > snapshot drag-column-sorting 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-drag-sort-enabled.dg-column-drag-sort-enabled.dg-content-scrolled
+nodes: 72
+rows: 5
+cells: 25
+headerCells: 5
+gridTracks: 10
+columnKeys: 0 1 2 3 4
+rowIndexRuns: 0-3
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1
+themeOverrides: (none)
+tags: a=1 button=2 div=59 li=3 path=2 span=2 svg=2 ul=1"
+`;
+
+exports[`demo snapshot · 拖拽排序 > snapshot drag-handle-row-sorting 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-drag-sort-enabled.dg-content-scrolled
+nodes: 66
+rows: 4
+cells: 16
+headerCells: 4
+gridTracks: 8
+columnKeys: sort name age address
+rowIndexRuns: 0-2
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1
+themeOverrides: (none)
+tags: a=1 button=5 div=41 li=3 path=5 span=5 svg=5 ul=1"
+`;
+
+exports[`demo snapshot · 拖拽排序 > snapshot drag-row-sorting 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-drag-sort-enabled.dg-content-scrolled
+nodes: 46
+rows: 4
+cells: 12
+headerCells: 3
+gridTracks: 4
+columnKeys: name age address
+rowIndexRuns: 0-2
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1
+themeOverrides: (none)
+tags: a=1 button=2 div=33 li=3 path=2 span=2 svg=2 ul=1"
+`;
+
+exports[`demo snapshot · 拖拽排序 > snapshot multi-row-drag-reorder 1`] = `
+"root: (no class)
+nodes: 148
+rows: 7
+cells: 35
+headerCells: 5
+gridTracks: 10
+columnKeys: __dg_selection__ sort name age address
+rowIndexRuns: 0-5
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1 selectionInput=7
+themeOverrides: (none)
+tags: a=1 br=1 button=9 div=90 input=7 label=7 li=3 path=8 span=13 svg=8 ul=1"
+`;
+
+exports[`demo snapshot · 拖拽排序 > snapshot virtual-list-drag-row-sorting 1`] = `
+"root: (no class)
+nodes: 274
+rows: 18
+cells: 90
+headerCells: 5
+gridTracks: 6
+columnKeys: sort key name age address
+rowIndexRuns: 0-16
+headerColspan: (none)
+mergedCells: (none)
+structural: headerVStickyCells=5 floatingScrollBar=1
+themeOverrides: (none)
+tags: button=19 div=199 path=17 span=22 svg=17"
+`;

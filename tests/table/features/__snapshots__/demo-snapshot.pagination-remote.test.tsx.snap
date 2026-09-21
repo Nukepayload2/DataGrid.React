@@ -1,0 +1,49 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo snapshot · 分页与远程 > snapshot pagination 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-content-scrolled
+nodes: 88
+rows: 4
+cells: 20
+headerCells: 5
+gridTracks: 10
+columnKeys: name age address tags action
+rowIndexRuns: 0-2
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1
+themeOverrides: (none)
+tags: a=10 button=2 div=61 li=3 path=2 span=7 svg=2 ul=1"
+`;
+
+exports[`demo snapshot · 分页与远程 > snapshot remote-data 1`] = `
+"root: dg-wrapper.ant-table-wrapper
+nodes: 52
+rows: 1
+cells: 4
+headerCells: 4
+gridTracks: 6
+columnKeys: __dg_selection__ name gender email
+rowIndexRuns: (none)
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 filterTrigger=1 selectionInput=1 sorterUp=1 sorterDown=1
+themeOverrides: (none)
+tags: circle=1 div=25 ellipse=1 g=3 input=1 label=1 path=8 span=7 svg=4 title=1"
+`;
+
+exports[`demo snapshot · 分页与远程 > snapshot scroll-to-first-row 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-data-area
+nodes: 105
+rows: 13
+cells: 39
+headerCells: 3
+gridTracks: 6
+columnKeys: name group index
+rowIndexRuns: 0-11
+headerColspan: (none)
+mergedCells: (none)
+structural: headerVStickyCells=3 floatingScrollBar=1 pagination=1
+themeOverrides: (none)
+tags: a=4 button=2 div=86 li=6 path=2 span=2 svg=2 ul=1"
+`;

@@ -1,0 +1,17 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo snapshot · 基础 > snapshot basic-table 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-content-scrolled
+nodes: 82
+rows: 4
+cells: 20
+headerCells: 5
+gridTracks: 10
+columnKeys: name age address tags action
+rowIndexRuns: 0-2
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1
+themeOverrides: (none)
+tags: a=10 button=2 div=49 li=3 path=2 span=13 svg=2 ul=1"
+`;

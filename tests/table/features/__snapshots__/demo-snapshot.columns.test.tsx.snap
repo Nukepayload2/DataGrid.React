@@ -1,0 +1,97 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo snapshot · 列 > snapshot column-width-constraints 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-size-small
+nodes: 75
+rows: 4
+cells: 20
+headerCells: 5
+gridTracks: 10
+columnKeys: orderNo customer status owner action
+rowIndexRuns: 0-2
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1
+themeOverrides: (none)
+tags: button=3 div=51 path=3 span=15 svg=3"
+`;
+
+exports[`demo snapshot · 列 > snapshot custom-ellipsis-tooltip 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-content-scrolled
+nodes: 85
+rows: 4
+cells: 24
+headerCells: 6
+gridTracks: 10
+columnKeys: name age address 1 address 2 address 3 address 4
+rowIndexRuns: 0-2
+headerColspan: (none)
+mergedCells: (none)
+structural: ellipsisCells=16 floatingScrollBar=1 pagination=1
+themeOverrides: (none)
+tags: a=4 button=2 div=57 li=3 path=2 span=14 svg=2 ul=1"
+`;
+
+exports[`demo snapshot · 列 > snapshot hidden-columns 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-content-scrolled
+nodes: 70
+rows: 3
+cells: 24
+headerCells: 8
+gridTracks: 16
+columnKeys: 1 2 3 4 5 6 7 8
+rowIndexRuns: 0-1
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1
+themeOverrides: (none)
+tags: a=1 button=2 div=57 li=3 path=2 span=2 svg=2 ul=1"
+`;
+
+exports[`demo snapshot · 列 > snapshot jsx-columns 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-content-scrolled
+nodes: 95
+rows: 4
+cells: 25
+headerCells: 7
+gridTracks: 12
+columnKeys: col-0.firstName col-0.lastName age address tags action
+rowIndexRuns: 0-2
+headerColspan: (none)
+mergedCells: (none)
+structural: headerGroupCells=1 floatingScrollBar=1 pagination=1
+themeOverrides: (none)
+tags: a=7 button=2 div=71 li=3 path=2 span=7 svg=2 ul=1"
+`;
+
+exports[`demo snapshot · 列 > snapshot resizable-columns 1`] = `
+"root: dg-wrapper.ant-table-wrapper
+nodes: 62
+rows: 4
+cells: 20
+headerCells: 5
+gridTracks: 10
+columnKeys: name age address tags description
+rowIndexRuns: 0-2
+headerColspan: (none)
+mergedCells: (none)
+structural: fixedStartCells=4 floatingScrollBar=1
+themeOverrides: (none)
+tags: a=3 div=51 span=8"
+`;
+
+exports[`demo snapshot · 列 > snapshot text-ellipsis 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-content-scrolled
+nodes: 73
+rows: 4
+cells: 24
+headerCells: 6
+gridTracks: 10
+columnKeys: name age address 1 address 2 address 3 address 4
+rowIndexRuns: 0-2
+headerColspan: (none)
+mergedCells: (none)
+structural: ellipsisCells=16 floatingScrollBar=1 pagination=1
+themeOverrides: (none)
+tags: a=4 button=2 div=57 li=3 path=2 span=2 svg=2 ul=1"
+`;

@@ -1,0 +1,97 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo snapshot · 细节兼容性 > snapshot all-columns-fixed-width 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-size-small.dg-bordered
+nodes: 47
+rows: 5
+cells: 20
+headerCells: 4
+gridTracks: 8
+columnKeys: ticket queue owner sla
+rowIndexRuns: 0-3
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1
+themeOverrides: (none)
+tags: div=47"
+`;
+
+exports[`demo snapshot · 细节兼容性 > snapshot custom-selection-cell 1`] = `
+"root: dg-wrapper.ant-table-wrapper
+nodes: 221
+rows: 47
+cells: 71
+headerCells: 2
+gridTracks: 4
+columnKeys: __dg_selection__ name
+rowIndexRuns: 0-45
+headerColspan: (none)
+mergedCells: row2=23
+structural: rowSpanCells=23 floatingScrollBar=1 selectionInput=24
+themeOverrides: (none)
+tags: div=149 input=24 label=24 span=24"
+`;
+
+exports[`demo snapshot · 细节兼容性 > snapshot nested-table-border-isolation 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-bordered.dg-content-scrolled
+nodes: 94
+rows: 4
+cells: 32
+headerCells: 8
+gridTracks: 16
+columnKeys: __dg_expand__ name platform version upgradeNum creator createdAt operation
+rowIndexRuns: 0-2
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1 expandIcon=3
+themeOverrides: (none)
+tags: a=4 button=5 div=75 li=3 path=2 span=2 svg=2 ul=1"
+`;
+
+exports[`demo snapshot · 细节兼容性 > snapshot semantic-dom-slots 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-size-small.dg-bordered.semantic-mark-root.dg-content-scrolled
+nodes: 62
+rows: 4
+cells: 13
+headerCells: 4
+gridTracks: 6
+columnKeys: col-0.name col-0.age address
+rowIndexRuns: 0-2
+headerColspan: (none)
+mergedCells: (none)
+structural: rowScopeCells=3 headerGroupCells=1 floatingScrollBar=1 pagination=1 sorterUp=1 sorterDown=1
+themeOverrides: (none)
+tags: a=2 button=2 div=39 li=4 path=4 span=6 svg=4 ul=1"
+`;
+
+exports[`demo snapshot · 细节兼容性 > snapshot stable-empty-width 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-size-small.dg-bordered.dg-data-area
+nodes: 31
+rows: 1
+cells: 4
+headerCells: 4
+gridTracks: 8
+columnKeys: id name age address
+rowIndexRuns: (none)
+headerColspan: (none)
+mergedCells: (none)
+structural: headerVStickyCells=4 floatingScrollBar=1
+themeOverrides: (none)
+tags: circle=1 div=19 ellipse=1 g=3 path=5 svg=1 title=1"
+`;
+
+exports[`demo snapshot · 细节兼容性 > snapshot table-column-defaults 1`] = `
+"root: dg-wrapper.ant-table-wrapper
+nodes: 25
+rows: 3
+cells: 9
+headerCells: 3
+gridTracks: 6
+columnKeys: name description address
+rowIndexRuns: 0-1
+headerColspan: (none)
+mergedCells: (none)
+structural: ellipsisCells=9 floatingScrollBar=1
+themeOverrides: (none)
+tags: div=25"
+`;

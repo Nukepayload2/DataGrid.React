@@ -1,0 +1,25 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo extend · 固定列与表头 > extend fixed-columns 1`] = `[]`;
+
+exports[`demo extend · 固定列与表头 > extend fixed-columns 2`] = `[]`;
+
+exports[`demo extend · 固定列与表头 > extend fixed-columns-and-header 1`] = `[]`;
+
+exports[`demo extend · 固定列与表头 > extend fixed-columns-and-header 2`] = `[]`;
+
+exports[`demo extend · 固定列与表头 > extend fixed-header 1`] = `[]`;
+
+exports[`demo extend · 固定列与表头 > extend fixed-header 2`] = `[]`;
+
+exports[`demo extend · 固定列与表头 > extend non-contiguous-fixed-columns 1`] = `[]`;
+
+exports[`demo extend · 固定列与表头 > extend non-contiguous-fixed-columns 2`] = `[]`;
+
+exports[`demo extend · 固定列与表头 > extend page-sticky-header 1`] = `[]`;
+
+exports[`demo extend · 固定列与表头 > extend page-sticky-header 2`] = `[]`;
+
+exports[`demo extend · 固定列与表头 > extend sticky-summary-offset 1`] = `[]`;
+
+exports[`demo extend · 固定列与表头 > extend sticky-summary-offset 2`] = `[]`;

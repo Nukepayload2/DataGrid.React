@@ -1,0 +1,13 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo extend · 树形数据 > extend preserved-tree-selection 1`] = `[]`;
+
+exports[`demo extend · 树形数据 > extend preserved-tree-selection 2`] = `[]`;
+
+exports[`demo extend · 树形数据 > extend tree-data 1`] = `[]`;
+
+exports[`demo extend · 树形数据 > extend tree-data 2`] = `[]`;
+
+exports[`demo extend · 树形数据 > extend tree-table-ellipsis 1`] = `[]`;
+
+exports[`demo extend · 树形数据 > extend tree-table-ellipsis 2`] = `[]`;

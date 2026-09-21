@@ -487,6 +487,17 @@ export function FilterDropdown({
         .filter(Boolean)
         .join(' ')}
       style={dropdownProps?.triggerStyle}
+      // 可达名与控件角色（a11y）：触发器是纯图标、语义上是一个按钮。
+      //   两条规则互斥地要求成对出现——只有 aria-label 没有 role → aria-prohibited-attr
+      //   （泛型 span 不允许命名）；只有 role 没有名字 → aria-command-name。
+      //   实测：内置 FilterFilled 自带 `<span role="img" aria-label="filter">`，触发器靠它侥幸有名；
+      //   `column.filterIcon` 传入的裸 svg（aria-hidden）没有，于是三个自定义图标列只有它们违规。
+      //   这里把角色与名字都落在触发器本身，不依赖图标实现；`tabindex="-1"` 与 antd Dropdown
+      //   补在触发器上的那份一致（保持脚本可聚焦、不进 Tab 序）。
+      //   文案用英文，与同层既有 aria-label（HeaderCell 的 "Resize column"）一致。
+      role="button"
+      tabIndex={-1}
+      aria-label="Filter"
       // 阻止点击冒泡到表头格（避免触发排序等表头点击行为）。
       onClick={(e) => e.stopPropagation()}
     >

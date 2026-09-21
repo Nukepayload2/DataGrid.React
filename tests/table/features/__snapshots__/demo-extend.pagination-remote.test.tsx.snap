@@ -1,0 +1,17 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo extend · 分页与远程 > extend pagination 1`] = `[]`;
+
+exports[`demo extend · 分页与远程 > extend pagination 2`] = `[]`;
+
+exports[`demo extend · 分页与远程 > extend remote-data 1`] = `
+[
+  "<div class="ant-dropdown ant-slide-up css-dev-only-do-not-override-xsuzon css-var-root ant-dropdown-css-var dg-filter-dropdown-overlay ant-dropdown-placement-bottomLeft" style="--arrow-x: 0px; --arrow-y: 0px; left: -1000vw; top: -1000vh; right: auto; bottom: auto; box-sizing: border-box;"><div class="dg-filter-dropdown" data-multiple="1" data-filter-mode="menu"><div class="dg-filter-dropdown-menu"><div class="ant-checkbox-group dg-filter-checkbox-group css-var-root ant-checkbox-css-var css-dev-only-do-not-override-xsuzon" role="group"><div class="dg-filter-menu-list"><div class="dg-filter-menu-item"><label class="ant-checkbox-wrapper css-var-root ant-checkbox-css-var css-dev-only-do-not-override-xsuzon"><span class="ant-checkbox ant-wave-target css-dev-only-do-not-override-xsuzon"><input class="ant-checkbox-input" type="checkbox" value="male"></span><span class="ant-checkbox-label">Male</span></label></div><div class="dg-filter-menu-item"><label class="ant-checkbox-wrapper css-var-root ant-checkbox-css-var css-dev-only-do-not-override-xsuzon"><span class="ant-checkbox ant-wave-target css-dev-only-do-not-override-xsuzon"><input class="ant-checkbox-input" type="checkbox" value="female"></span><span class="ant-checkbox-label">Female</span></label></div></div></div></div><div class="dg-filter-dropdown-btns"><button type="button" class="ant-btn css-dev-only-do-not-override-xsuzon css-var-root ant-btn-default ant-btn-color-default ant-btn-variant-outlined ant-btn-sm"><span>Reset</span></button><button type="button" class="ant-btn css-dev-only-do-not-override-xsuzon css-var-root ant-btn-primary ant-btn-color-primary ant-btn-variant-solid ant-btn-sm"><span>OK</span></button></div></div></div>",
+]
+`;
+
+exports[`demo extend · 分页与远程 > extend remote-data 2`] = `[]`;
+
+exports[`demo extend · 分页与远程 > extend scroll-to-first-row 1`] = `[]`;
+
+exports[`demo extend · 分页与远程 > extend scroll-to-first-row 2`] = `[]`;

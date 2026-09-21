@@ -98,3 +98,5 @@ $tf/
 /playwright/.cache/
 /test-results/
 /dist-docs/
+
+/tmp

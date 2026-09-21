@@ -1,0 +1,25 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo extend · 细节兼容性 > extend all-columns-fixed-width 1`] = `[]`;
+
+exports[`demo extend · 细节兼容性 > extend all-columns-fixed-width 2`] = `[]`;
+
+exports[`demo extend · 细节兼容性 > extend custom-selection-cell 1`] = `[]`;
+
+exports[`demo extend · 细节兼容性 > extend custom-selection-cell 2`] = `[]`;
+
+exports[`demo extend · 细节兼容性 > extend nested-table-border-isolation 1`] = `[]`;
+
+exports[`demo extend · 细节兼容性 > extend nested-table-border-isolation 2`] = `[]`;
+
+exports[`demo extend · 细节兼容性 > extend semantic-dom-slots 1`] = `[]`;
+
+exports[`demo extend · 细节兼容性 > extend semantic-dom-slots 2`] = `[]`;
+
+exports[`demo extend · 细节兼容性 > extend stable-empty-width 1`] = `[]`;
+
+exports[`demo extend · 细节兼容性 > extend stable-empty-width 2`] = `[]`;
+
+exports[`demo extend · 细节兼容性 > extend table-column-defaults 1`] = `[]`;
+
+exports[`demo extend · 细节兼容性 > extend table-column-defaults 2`] = `[]`;

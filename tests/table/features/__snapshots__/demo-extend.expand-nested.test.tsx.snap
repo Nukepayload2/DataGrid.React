@@ -1,0 +1,13 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo extend · 展开与嵌套 > extend expand-column-position 1`] = `[]`;
+
+exports[`demo extend · 展开与嵌套 > extend expand-column-position 2`] = `[]`;
+
+exports[`demo extend · 展开与嵌套 > extend expandable-rows 1`] = `[]`;
+
+exports[`demo extend · 展开与嵌套 > extend expandable-rows 2`] = `[]`;
+
+exports[`demo extend · 展开与嵌套 > extend nested-table 1`] = `[]`;
+
+exports[`demo extend · 展开与嵌套 > extend nested-table 2`] = `[]`;

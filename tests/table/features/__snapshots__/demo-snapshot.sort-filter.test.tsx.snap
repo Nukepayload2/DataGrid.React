@@ -1,0 +1,97 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo snapshot · 排序与筛选 > snapshot custom-filter-panel 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-content-scrolled
+nodes: 75
+rows: 5
+cells: 15
+headerCells: 3
+gridTracks: 4
+columnKeys: name age address
+rowIndexRuns: 0-3
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1 filterTrigger=3 sorterUp=1 sorterDown=1
+themeOverrides: (none)
+tags: a=1 button=2 div=45 li=3 path=7 span=9 svg=7 ul=1"
+`;
+
+exports[`demo snapshot · 排序与筛选 > snapshot filter-search 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-content-scrolled
+nodes: 74
+rows: 5
+cells: 15
+headerCells: 3
+gridTracks: 4
+columnKeys: name age address
+rowIndexRuns: 0-3
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1 filterTrigger=2 sorterUp=1 sorterDown=1
+themeOverrides: (none)
+tags: a=1 button=2 div=45 li=3 path=6 span=10 svg=6 ul=1"
+`;
+
+exports[`demo snapshot · 排序与筛选 > snapshot multiple-column-sorting 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-content-scrolled
+nodes: 92
+rows: 5
+cells: 20
+headerCells: 4
+gridTracks: 8
+columnKeys: name chinese math english
+rowIndexRuns: 0-3
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1 sorterUp=3 sorterDown=3
+themeOverrides: (none)
+tags: a=1 button=2 div=55 li=3 path=8 span=14 svg=8 ul=1"
+`;
+
+exports[`demo snapshot · 排序与筛选 > snapshot reset-sorting-and-filtering 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-content-scrolled
+nodes: 138
+rows: 5
+cells: 30
+headerCells: 6
+gridTracks: 12
+columnKeys: name age address status tag empty
+rowIndexRuns: 0-3
+headerColspan: (none)
+mergedCells: (none)
+structural: ellipsisCells=30 floatingScrollBar=1 pagination=1 filterTrigger=5 sorterUp=3 sorterDown=3
+themeOverrides: (none)
+tags: a=1 button=2 div=81 li=3 path=13 span=24 svg=13 ul=1"
+`;
+
+exports[`demo snapshot · 排序与筛选 > snapshot sorting-and-filtering 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-content-scrolled
+nodes: 82
+rows: 5
+cells: 15
+headerCells: 3
+gridTracks: 6
+columnKeys: name age address
+rowIndexRuns: 0-3
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1 filterTrigger=2 sorterUp=2 sorterDown=2
+themeOverrides: (none)
+tags: a=1 button=2 div=45 li=3 path=8 span=14 svg=8 ul=1"
+`;
+
+exports[`demo snapshot · 排序与筛选 > snapshot tree-filter 1`] = `
+"root: dg-wrapper.ant-table-wrapper.dg-content-scrolled
+nodes: 74
+rows: 5
+cells: 15
+headerCells: 3
+gridTracks: 4
+columnKeys: name age address
+rowIndexRuns: 0-3
+headerColspan: (none)
+mergedCells: (none)
+structural: floatingScrollBar=1 pagination=1 filterTrigger=2 sorterUp=1 sorterDown=1
+themeOverrides: (none)
+tags: a=1 button=2 div=45 li=3 path=6 span=10 svg=6 ul=1"
+`;

@@ -1,0 +1,9 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`demo extend · 编辑 > extend cell-editing 1`] = `[]`;
+
+exports[`demo extend · 编辑 > extend cell-editing 2`] = `[]`;
+
+exports[`demo extend · 编辑 > extend row-editing 1`] = `[]`;
+
+exports[`demo extend · 编辑 > extend row-editing 2`] = `[]`;
