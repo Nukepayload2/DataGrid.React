@@ -1,0 +1,933 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Table.filter > clearFilters should support params 1`] = `
+<div
+  class="dg-filter-view"
+  id="customFilter"
+>
+  <span>
+    <button
+      id="setNoParams"
+      type="button"
+    >
+      setSelectedKeys
+    </button>
+    <button
+      id="resetNoParams"
+      type="button"
+    >
+      Reset
+    </button>
+  </span>
+  <span>
+    <button
+      id="setConfirm"
+      type="button"
+    >
+      setSelectedKeys
+    </button>
+    <button
+      id="resetConfirm"
+      type="button"
+    >
+      Reset
+    </button>
+  </span>
+  <span>
+    <button
+      id="setClose"
+      type="button"
+    >
+      setSelectedKeys
+    </button>
+    <button
+      id="resetClose"
+      type="button"
+    >
+      Reset
+    </button>
+  </span>
+  <span>
+    <button
+      id="setParams"
+      type="button"
+    >
+      setSelectedKeys
+    </button>
+    <button
+      id="resetParams"
+      type="button"
+    >
+      Reset
+    </button>
+  </span>
+  <button
+    id="confirmAll"
+    type="button"
+  >
+    Confirm
+  </button>
+</div>
+`;
+
+exports[`Table.filter > override custom filter correctly 1`] = `
+<div
+  class="dg-filter-view"
+  id="customFilter"
+>
+  <span
+    id="setSelectedKeys"
+  >
+    setSelectedKeys
+  </span>
+  <span
+    id="confirm"
+  >
+    Confirm
+  </span>
+  <span
+    id="reset"
+  >
+    Reset
+  </span>
+  <span
+    id="set43"
+  >
+    SimulateOnSelect
+  </span>
+</div>
+`;
+
+exports[`Table.filter > renders custom content correctly 1`] = `
+<div
+  class="dg-filter-dropdown dg-filter-dropdown-custom"
+>
+  <div
+    class="custom-filter-dropdown"
+  >
+    custom filter
+  </div>
+</div>
+`;
+
+exports[`Table.filter > renders custom filter icon as ReactNode 1`] = `
+<div
+  class="dg-wrapper ant-table-wrapper"
+>
+  <div
+    class="dg-scroll-wrap dg-scroll-floating dg-scroll-wrap ant-table-container"
+  >
+    <div
+      class="dg-scroll ant-table-content"
+      style="overflow-y: hidden; overflow-x: auto;"
+    >
+      <div
+        class="dg-grid ant-table"
+        style="display: grid; grid-template-rows: auto auto auto auto auto; grid-template-columns: minmax(min-content, 1fr); width: 100%;"
+      >
+        <div
+          class="dg-cell ant-table-cell dg-cell-header dg-column-has-filter"
+          data-column-key="name"
+          data-leaf-index="0"
+          data-leaf-last=""
+          style="grid-column: 1; grid-row: 1;"
+        >
+          <div
+            class="dg-column-sorters ant-table-column-sorters"
+          >
+            <div
+              class="dg-column-title ant-table-column-title"
+            >
+              Name
+            </div>
+            <div
+              class="dg-column-actions"
+            >
+              <span
+                aria-label="Filter"
+                class="ant-dropdown-trigger dg-filter-trigger ant-table-filter-trigger"
+                role="button"
+                tabindex="-1"
+              >
+                <span
+                  class="customize-icon"
+                />
+              </span>
+            </div>
+          </div>
+        </div>
+        <div
+          class="dg-cell ant-table-cell dg-cell-body"
+          data-column-key="name"
+          data-known-size="0"
+          data-row-index="0"
+          style="grid-column: 1; grid-row: 2;"
+        >
+          <div
+            class="dg-cell-inner"
+          >
+            Jack
+          </div>
+        </div>
+        <div
+          class="dg-cell ant-table-cell dg-cell-body"
+          data-column-key="name"
+          data-known-size="0"
+          data-row-index="1"
+          style="grid-column: 1; grid-row: 3;"
+        >
+          <div
+            class="dg-cell-inner"
+          >
+            Lucy
+          </div>
+        </div>
+        <div
+          class="dg-cell ant-table-cell dg-cell-body"
+          data-column-key="name"
+          data-known-size="0"
+          data-row-index="2"
+          style="grid-column: 1; grid-row: 4;"
+        >
+          <div
+            class="dg-cell-inner"
+          >
+            Tom
+          </div>
+        </div>
+        <div
+          class="dg-cell ant-table-cell dg-cell-body"
+          data-column-key="name"
+          data-known-size="0"
+          data-row-index="3"
+          style="grid-column: 1; grid-row: 5;"
+        >
+          <div
+            class="dg-cell-inner"
+          >
+            Jerry
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      class="dg-floating-scrollbar dg-floating-scrollbar-v"
+      style="top: 0px; bottom: 0px;"
+    >
+      <div
+        class="dg-floating-scrollbar-thumb"
+        style="display: none;"
+      />
+    </div>
+    <div
+      class="dg-floating-scrollbar dg-floating-scrollbar-h"
+      style="left: 0px; right: 0px; bottom: 0px;"
+    >
+      <div
+        class="dg-floating-scrollbar-thumb-h"
+        style="display: none;"
+      />
+    </div>
+  </div>
+</div>
+`;
+
+exports[`Table.filter > renders custom filter icon as string correctly 1`] = `
+<div
+  class="dg-wrapper ant-table-wrapper"
+>
+  <div
+    class="dg-scroll-wrap dg-scroll-floating dg-scroll-wrap ant-table-container"
+  >
+    <div
+      class="dg-scroll ant-table-content"
+      style="overflow-y: hidden; overflow-x: auto;"
+    >
+      <div
+        class="dg-grid ant-table"
+        style="display: grid; grid-template-rows: auto auto auto auto auto; grid-template-columns: minmax(min-content, 1fr); width: 100%;"
+      >
+        <div
+          class="dg-cell ant-table-cell dg-cell-header dg-column-has-filter"
+          data-column-key="name"
+          data-leaf-index="0"
+          data-leaf-last=""
+          style="grid-column: 1; grid-row: 1;"
+        >
+          <div
+            class="dg-column-sorters ant-table-column-sorters"
+          >
+            <div
+              class="dg-column-title ant-table-column-title"
+            >
+              Name
+            </div>
+            <div
+              class="dg-column-actions"
+            >
+              <span
+                aria-label="Filter"
+                class="ant-dropdown-trigger dg-filter-trigger ant-table-filter-trigger"
+                role="button"
+                tabindex="-1"
+              >
+                string
+              </span>
+            </div>
+          </div>
+        </div>
+        <div
+          class="dg-cell ant-table-cell dg-cell-body"
+          data-column-key="name"
+          data-known-size="0"
+          data-row-index="0"
+          style="grid-column: 1; grid-row: 2;"
+        >
+          <div
+            class="dg-cell-inner"
+          >
+            Jack
+          </div>
+        </div>
+        <div
+          class="dg-cell ant-table-cell dg-cell-body"
+          data-column-key="name"
+          data-known-size="0"
+          data-row-index="1"
+          style="grid-column: 1; grid-row: 3;"
+        >
+          <div
+            class="dg-cell-inner"
+          >
+            Lucy
+          </div>
+        </div>
+        <div
+          class="dg-cell ant-table-cell dg-cell-body"
+          data-column-key="name"
+          data-known-size="0"
+          data-row-index="2"
+          style="grid-column: 1; grid-row: 4;"
+        >
+          <div
+            class="dg-cell-inner"
+          >
+            Tom
+          </div>
+        </div>
+        <div
+          class="dg-cell ant-table-cell dg-cell-body"
+          data-column-key="name"
+          data-known-size="0"
+          data-row-index="3"
+          style="grid-column: 1; grid-row: 5;"
+        >
+          <div
+            class="dg-cell-inner"
+          >
+            Jerry
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      class="dg-floating-scrollbar dg-floating-scrollbar-v"
+      style="top: 0px; bottom: 0px;"
+    >
+      <div
+        class="dg-floating-scrollbar-thumb"
+        style="display: none;"
+      />
+    </div>
+    <div
+      class="dg-floating-scrollbar dg-floating-scrollbar-h"
+      style="left: 0px; right: 0px; bottom: 0px;"
+    >
+      <div
+        class="dg-floating-scrollbar-thumb-h"
+        style="display: none;"
+      />
+    </div>
+  </div>
+</div>
+`;
+
+exports[`Table.filter > renders custom filter icon correctly 1`] = `
+<span
+  class="customize-icon"
+>
+  filtered
+</span>
+`;
+
+exports[`Table.filter > renders custom filter icon with right Tooltip title 1`] = `
+<div
+  class="dg-wrapper ant-table-wrapper"
+>
+  <div
+    class="dg-scroll-wrap dg-scroll-floating dg-scroll-wrap ant-table-container"
+  >
+    <div
+      class="dg-scroll ant-table-content"
+      style="overflow-y: hidden; overflow-x: auto;"
+    >
+      <div
+        class="dg-grid ant-table"
+        style="display: grid; grid-template-rows: auto auto auto auto auto; grid-template-columns: minmax(min-content, 1fr); width: 100%;"
+      >
+        <div
+          class="dg-cell ant-table-cell dg-cell-header dg-column-has-filter"
+          data-column-key="name"
+          data-leaf-index="0"
+          data-leaf-last=""
+          style="grid-column: 1; grid-row: 1;"
+        >
+          <div
+            class="dg-column-sorters ant-table-column-sorters"
+          >
+            <div
+              class="dg-column-title ant-table-column-title"
+            >
+              Name
+            </div>
+            <div
+              class="dg-column-actions"
+            >
+              <span
+                aria-label="Filter"
+                class="ant-dropdown-trigger dg-filter-trigger ant-table-filter-trigger"
+                role="button"
+                tabindex="-1"
+              >
+                <span
+                  aria-describedby="test-id"
+                  class="ant-tooltip-open"
+                >
+                  Tooltip
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div
+          class="dg-cell ant-table-cell dg-cell-body"
+          data-column-key="name"
+          data-known-size="0"
+          data-row-index="0"
+          style="grid-column: 1; grid-row: 2;"
+        >
+          <div
+            class="dg-cell-inner"
+          >
+            Jack
+          </div>
+        </div>
+        <div
+          class="dg-cell ant-table-cell dg-cell-body"
+          data-column-key="name"
+          data-known-size="0"
+          data-row-index="1"
+          style="grid-column: 1; grid-row: 3;"
+        >
+          <div
+            class="dg-cell-inner"
+          >
+            Lucy
+          </div>
+        </div>
+        <div
+          class="dg-cell ant-table-cell dg-cell-body"
+          data-column-key="name"
+          data-known-size="0"
+          data-row-index="2"
+          style="grid-column: 1; grid-row: 4;"
+        >
+          <div
+            class="dg-cell-inner"
+          >
+            Tom
+          </div>
+        </div>
+        <div
+          class="dg-cell ant-table-cell dg-cell-body"
+          data-column-key="name"
+          data-known-size="0"
+          data-row-index="3"
+          style="grid-column: 1; grid-row: 5;"
+        >
+          <div
+            class="dg-cell-inner"
+          >
+            Jerry
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      class="dg-floating-scrollbar dg-floating-scrollbar-v"
+      style="top: 0px; bottom: 0px;"
+    >
+      <div
+        class="dg-floating-scrollbar-thumb"
+        style="display: none;"
+      />
+    </div>
+    <div
+      class="dg-floating-scrollbar dg-floating-scrollbar-h"
+      style="left: 0px; right: 0px; bottom: 0px;"
+    >
+      <div
+        class="dg-floating-scrollbar-thumb-h"
+        style="display: none;"
+      />
+    </div>
+  </div>
+</div>
+`;
+
+exports[`Table.filter > renders filter correctly 1`] = `
+<div
+  class="dg-wrapper ant-table-wrapper"
+>
+  <div
+    class="dg-scroll-wrap dg-scroll-floating dg-scroll-wrap ant-table-container"
+  >
+    <div
+      class="dg-scroll ant-table-content"
+      style="overflow-y: hidden; overflow-x: auto;"
+    >
+      <div
+        class="dg-grid ant-table"
+        style="display: grid; grid-template-rows: auto auto auto auto auto; grid-template-columns: minmax(min-content, 1fr); width: 100%;"
+      >
+        <div
+          class="dg-cell ant-table-cell dg-cell-header dg-column-has-filter"
+          data-column-key="name"
+          data-leaf-index="0"
+          data-leaf-last=""
+          style="grid-column: 1; grid-row: 1;"
+        >
+          <div
+            class="dg-column-sorters ant-table-column-sorters"
+          >
+            <div
+              class="dg-column-title ant-table-column-title"
+            >
+              Name
+            </div>
+            <div
+              class="dg-column-actions"
+            >
+              <span
+                aria-label="Filter"
+                class="ant-dropdown-trigger dg-filter-trigger ant-table-filter-trigger"
+                role="button"
+                tabindex="-1"
+              >
+                <span
+                  aria-label="filter"
+                  class="anticon anticon-filter"
+                  role="img"
+                >
+                  <svg
+                    aria-hidden="true"
+                    data-icon="filter"
+                    fill="currentColor"
+                    focusable="false"
+                    height="1em"
+                    viewBox="64 64 896 896"
+                    width="1em"
+                  >
+                    <path
+                      d="M349 838c0 17.7 14.2 32 31.8 32h262.4c17.6 0 31.8-14.3 31.8-32V642H349v196zm531.1-684H143.9c-24.5 0-39.8 26.7-27.5 48l221.3 376h348.8l221.3-376c12.1-21.3-3.2-48-27.7-48z"
+                    />
+                  </svg>
+                </span>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div
+          class="dg-cell ant-table-cell dg-cell-body"
+          data-column-key="name"
+          data-known-size="0"
+          data-row-index="0"
+          style="grid-column: 1; grid-row: 2;"
+        >
+          <div
+            class="dg-cell-inner"
+          >
+            Jack
+          </div>
+        </div>
+        <div
+          class="dg-cell ant-table-cell dg-cell-body"
+          data-column-key="name"
+          data-known-size="0"
+          data-row-index="1"
+          style="grid-column: 1; grid-row: 3;"
+        >
+          <div
+            class="dg-cell-inner"
+          >
+            Lucy
+          </div>
+        </div>
+        <div
+          class="dg-cell ant-table-cell dg-cell-body"
+          data-column-key="name"
+          data-known-size="0"
+          data-row-index="2"
+          style="grid-column: 1; grid-row: 4;"
+        >
+          <div
+            class="dg-cell-inner"
+          >
+            Tom
+          </div>
+        </div>
+        <div
+          class="dg-cell ant-table-cell dg-cell-body"
+          data-column-key="name"
+          data-known-size="0"
+          data-row-index="3"
+          style="grid-column: 1; grid-row: 5;"
+        >
+          <div
+            class="dg-cell-inner"
+          >
+            Jerry
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      class="dg-floating-scrollbar dg-floating-scrollbar-v"
+      style="top: 0px; bottom: 0px;"
+    >
+      <div
+        class="dg-floating-scrollbar-thumb"
+        style="display: none;"
+      />
+    </div>
+    <div
+      class="dg-floating-scrollbar dg-floating-scrollbar-h"
+      style="left: 0px; right: 0px; bottom: 0px;"
+    >
+      <div
+        class="dg-floating-scrollbar-thumb-h"
+        style="display: none;"
+      />
+    </div>
+  </div>
+</div>
+`;
+
+exports[`Table.filter > renders menu correctly 1`] = `
+<div
+  class="dg-filter-dropdown"
+  data-filter-mode="menu"
+  data-multiple="1"
+>
+  <div
+    class="dg-filter-dropdown-menu"
+  >
+    <div
+      class="ant-checkbox-group dg-filter-checkbox-group css-var-root ant-checkbox-css-var css-dev-only-do-not-override-xsuzon"
+      role="group"
+    >
+      <div
+        class="dg-filter-menu-list"
+      >
+        <div
+          class="dg-filter-menu-item"
+        >
+          <label
+            class="ant-checkbox-wrapper css-var-root ant-checkbox-css-var css-dev-only-do-not-override-xsuzon"
+          >
+            <span
+              class="ant-checkbox ant-wave-target css-dev-only-do-not-override-xsuzon"
+            >
+              <input
+                class="ant-checkbox-input"
+                type="checkbox"
+                value="boy"
+              />
+            </span>
+            <span
+              class="ant-checkbox-label"
+            >
+              Boy
+            </span>
+          </label>
+        </div>
+        <div
+          class="dg-filter-menu-item"
+        >
+          <label
+            class="ant-checkbox-wrapper css-var-root ant-checkbox-css-var css-dev-only-do-not-override-xsuzon"
+          >
+            <span
+              class="ant-checkbox ant-wave-target css-dev-only-do-not-override-xsuzon"
+            >
+              <input
+                class="ant-checkbox-input"
+                type="checkbox"
+                value="girl"
+              />
+            </span>
+            <span
+              class="ant-checkbox-label"
+            >
+              Girl
+            </span>
+          </label>
+        </div>
+        <div
+          class="dg-filter-menu-item"
+        >
+          <label
+            class="ant-checkbox-wrapper css-var-root ant-checkbox-css-var css-dev-only-do-not-override-xsuzon"
+          >
+            <span
+              class="ant-checkbox ant-wave-target css-dev-only-do-not-override-xsuzon"
+            >
+              <input
+                class="ant-checkbox-input"
+                type="checkbox"
+                value="title"
+              />
+            </span>
+            <span
+              class="ant-checkbox-label"
+            >
+              Title
+            </span>
+          </label>
+        </div>
+        <div
+          class="dg-filter-menu-item"
+        >
+          <label
+            class="ant-checkbox-wrapper css-var-root ant-checkbox-css-var css-dev-only-do-not-override-xsuzon"
+          >
+            <span
+              class="ant-checkbox ant-wave-target css-dev-only-do-not-override-xsuzon"
+            >
+              <input
+                class="ant-checkbox-input"
+                type="checkbox"
+                value="designer"
+              />
+            </span>
+            <span
+              class="ant-checkbox-label"
+            >
+              Designer
+            </span>
+          </label>
+        </div>
+        <div
+          class="dg-filter-menu-item"
+        >
+          <label
+            class="ant-checkbox-wrapper css-var-root ant-checkbox-css-var css-dev-only-do-not-override-xsuzon"
+          >
+            <span
+              class="ant-checkbox ant-wave-target css-dev-only-do-not-override-xsuzon"
+            >
+              <input
+                class="ant-checkbox-input"
+                type="checkbox"
+                value="coder"
+              />
+            </span>
+            <span
+              class="ant-checkbox-label"
+            >
+              Coder
+            </span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div
+    class="dg-filter-dropdown-btns"
+  >
+    <button
+      class="ant-btn css-dev-only-do-not-override-xsuzon css-var-root ant-btn-default ant-btn-color-default ant-btn-variant-outlined ant-btn-sm"
+      type="button"
+    >
+      <span>
+        Reset
+      </span>
+    </button>
+    <button
+      class="ant-btn css-dev-only-do-not-override-xsuzon css-var-root ant-btn-primary ant-btn-color-primary ant-btn-variant-solid ant-btn-sm"
+      type="button"
+    >
+      <span>
+        OK
+      </span>
+    </button>
+  </div>
+</div>
+`;
+
+exports[`Table.filter > renders radio filter correctly 1`] = `
+<div
+  class="dg-filter-dropdown"
+  data-filter-mode="menu"
+  data-multiple="0"
+>
+  <div
+    class="dg-filter-dropdown-menu"
+  >
+    <div
+      class="ant-radio-group ant-radio-group-outline dg-filter-radio-group css-dev-only-do-not-override-xsuzon css-var-root ant-radio-css-var"
+      role="radiogroup"
+    >
+      <div
+        class="dg-filter-menu-list"
+      >
+        <div
+          class="dg-filter-menu-item"
+        >
+          <label
+            class="ant-radio-wrapper css-dev-only-do-not-override-xsuzon css-var-root ant-radio-css-var"
+          >
+            <span
+              class="ant-radio ant-wave-target"
+            >
+              <input
+                class="ant-radio-input"
+                name="test-id"
+                type="radio"
+                value="boy"
+              />
+            </span>
+            <span
+              class="ant-radio-label"
+            >
+              Boy
+            </span>
+          </label>
+        </div>
+        <div
+          class="dg-filter-menu-item"
+        >
+          <label
+            class="ant-radio-wrapper css-dev-only-do-not-override-xsuzon css-var-root ant-radio-css-var"
+          >
+            <span
+              class="ant-radio ant-wave-target"
+            >
+              <input
+                class="ant-radio-input"
+                name="test-id"
+                type="radio"
+                value="girl"
+              />
+            </span>
+            <span
+              class="ant-radio-label"
+            >
+              Girl
+            </span>
+          </label>
+        </div>
+        <div
+          class="dg-filter-menu-item"
+        >
+          <label
+            class="ant-radio-wrapper css-dev-only-do-not-override-xsuzon css-var-root ant-radio-css-var"
+          >
+            <span
+              class="ant-radio ant-wave-target"
+            >
+              <input
+                class="ant-radio-input"
+                name="test-id"
+                type="radio"
+                value="title"
+              />
+            </span>
+            <span
+              class="ant-radio-label"
+            >
+              Title
+            </span>
+          </label>
+        </div>
+        <div
+          class="dg-filter-menu-item"
+        >
+          <label
+            class="ant-radio-wrapper css-dev-only-do-not-override-xsuzon css-var-root ant-radio-css-var"
+          >
+            <span
+              class="ant-radio ant-wave-target"
+            >
+              <input
+                class="ant-radio-input"
+                name="test-id"
+                type="radio"
+                value="designer"
+              />
+            </span>
+            <span
+              class="ant-radio-label"
+            >
+              Designer
+            </span>
+          </label>
+        </div>
+        <div
+          class="dg-filter-menu-item"
+        >
+          <label
+            class="ant-radio-wrapper css-dev-only-do-not-override-xsuzon css-var-root ant-radio-css-var"
+          >
+            <span
+              class="ant-radio ant-wave-target"
+            >
+              <input
+                class="ant-radio-input"
+                name="test-id"
+                type="radio"
+                value="coder"
+              />
+            </span>
+            <span
+              class="ant-radio-label"
+            >
+              Coder
+            </span>
+          </label>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div
+    class="dg-filter-dropdown-btns"
+  >
+    <button
+      class="ant-btn css-dev-only-do-not-override-xsuzon css-var-root ant-btn-default ant-btn-color-default ant-btn-variant-outlined ant-btn-sm"
+      type="button"
+    >
+      <span>
+        Reset
+      </span>
+    </button>
+    <button
+      class="ant-btn css-dev-only-do-not-override-xsuzon css-var-root ant-btn-primary ant-btn-color-primary ant-btn-variant-solid ant-btn-sm"
+      type="button"
+    >
+      <span>
+        OK
+      </span>
+    </button>
+  </div>
+</div>
+`;

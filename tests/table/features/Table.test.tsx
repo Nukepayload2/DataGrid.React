@@ -27,6 +27,7 @@ import { customRender, renderWithConfig } from '../../shared/render'
 import { useFakeTimersSafe, waitFakeTimer } from '../../shared/fakeTimers'
 import { mountTest } from '../../shared/mountTest'
 import { directionTest } from '../../shared/directionTest'
+import { expectSnapshot } from '../../shared/snapshot'
 
 const { Column, ColumnGroup } = Table
 
@@ -68,7 +69,7 @@ describe('Table', () => {
       </Table>,
     )
 
-    expect(container.firstChild).toMatchSnapshot()
+    expectSnapshot(container.firstChild)
   })
 
   // antd L53：columns prop 更新后表头随之更新（th → .dg-cell-header）。
@@ -252,6 +253,10 @@ describe('Table', () => {
   // 重映射：td → .dg-cell-body[data-row-index="0"]（4 格：name / expand / age / selection）；
   // .ant-table-row-expand-icon → .dg-expand-icon；.ant-checkbox-input → .dg-selection-input。
   // 哨兵位置语义见 src/table/Table.tsx:492-494；全局 align 合并见 columnAdapter.ts:258-290。
+  // align 取值重映射：antd 用 `'left' | 'right'`（antd `es/table/interface.d.ts:180`），
+  // data-grid 的 `Align` 是逻辑值 `'start' | 'center' | 'end'`（src/table/nativeOptions.ts:5），
+  // 且对齐由 `data-align` 驱动的 flex `justify-content` 实现（src/table/style/table.css:220-226，
+  // 只有 `[data-align='center'|'end']` 两条规则，没有 `'right'`）——故用 `'end'` 而非 `'right'`。
   it('supports column align with per-column override and special columns', () => {
     const { container } = customRender(
       <Table
@@ -260,7 +265,7 @@ describe('Table', () => {
           Table.EXPAND_COLUMN,
           {
             title: 'Info',
-            children: [{ title: 'Age', dataIndex: 'age', align: 'right' }],
+            children: [{ title: 'Age', dataIndex: 'age', align: 'end' }],
           },
           Table.SELECTION_COLUMN,
         ]}
@@ -278,7 +283,8 @@ describe('Table', () => {
       />,
     )
 
-    const cells = container.querySelectorAll('.dg-cell-body[data-row-index="0"]')
+    // 泛型窄化到 HTMLElement：`.style`（ElementCSSInlineStyle）不在 Element 上。
+    const cells = container.querySelectorAll<HTMLElement>('.dg-cell-body[data-row-index="0"]')
 
     expect(cells).toHaveLength(4)
     // [0] name 列：全局 column.align='center'（applyColumnDefaults 合并）。
@@ -286,8 +292,8 @@ describe('Table', () => {
     expect(cells[0].textContent).toBe('Jack')
     // [1] 展开列：expandedRowRender 返回 null → 图标渲染但 disabled（expandAdapter）。
     expect(cells[1].querySelector('.dg-expand-icon')).toBeTruthy()
-    // [2] age 列：逐列 align='right' 覆盖全局。
-    expect(cells[2].style.textAlign).toBe('right')
+    // [2] age 列：逐列 align='end' 覆盖全局（antd 同位置为 `'right'`）。
+    expect(cells[2].style.textAlign).toBe('end')
     expect(cells[2].textContent).toBe('20')
     // [3] 选择列：原生 checkbox input。
     expect(cells[3].querySelector('.dg-selection-input')).toBeTruthy()
@@ -373,7 +379,7 @@ describe('Table', () => {
       />,
     )
 
-    expect(container.querySelector('.dg-cell-header')).toMatchSnapshot()
+    expectSnapshot(container.querySelector('.dg-cell-header'))
   })
 
   // antd L425：aria-*/data-* 属性透传。
@@ -399,7 +405,7 @@ describe('Table', () => {
       <Table columns={columns} />,
       { theme: { token: { wireframe: true } } },
     )
-    expect(container.firstChild).toMatchSnapshot()
+    expectSnapshot(container.firstChild)
   })
 
   // antd L460：ConfigProvider getPopupContainer 注入到筛选下拉（portal 挂到表格外层 div 内）。
@@ -525,17 +531,26 @@ describe('Table', () => {
   // antd L640：rowSelection.align 透传到选择列（.ant-table-selection-column →
   // .dg-cell-body[data-column-key="__dg_selection__"]，inline textAlign，
   // src/table/selectionAdapter.tsx:154-158 align 缺省 'center'）。
+  // ★ 与 antd 差异：antd 传物理值 'right'，data-grid 的 Align 联合是逻辑值
+  // 'start' | 'center' | 'end'（src/table/nativeOptions.ts:5），且对齐实际由
+  // `.dg-cell[data-align]` 的 justify-content 驱动（src/table/style/table.css:172 单元格是
+  // flex 容器，220-226 只有 [data-align='center'/'end'] 两条规则，无 [data-align='right']）。
+  // 实测 'right'：inline text-align='right'、data-align="right" 均写出，但没有 CSS 规则匹配，
+  // 内容对齐退回 .dg-cell 默认 flex-start → 即"被透传成对布局无效的值"，属被忽略而非可用。
+  // 故本用例改用 data-grid 合法取值 'end'（实测 data-align="end"、inline textAlign='end'）。
   it('rowSelection should support align', () => {
     const { container } = customRender(
       <Table
         columns={[{ title: 'Name', dataIndex: 'name' }]}
         dataSource={[{ key: 1, name: 'Jack' }]}
-        rowSelection={{ align: 'right' }}
+        rowSelection={{ align: 'end' }}
       />,
     )
 
-    const selectionCell = container.querySelector('.dg-cell-body[data-column-key="__dg_selection__"]')
+    const selectionCell = container.querySelector<HTMLElement>(
+      '.dg-cell-body[data-column-key="__dg_selection__"]',
+    )
     expect(selectionCell).toBeTruthy()
-    expect(selectionCell!.style.textAlign).toBe('right')
+    expect(selectionCell!.style.textAlign).toBe('end')
   })
 })

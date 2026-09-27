@@ -21,6 +21,7 @@ import { describe, expect, it } from 'vitest'
 
 import { Table, type TableProps } from '../../../src/table/index'
 import { customRender } from '../../shared/render'
+import { expectSnapshot } from '../../shared/snapshot'
 
 const columns: TableProps<any>['columns'] = [
   { title: 'Column 1', dataIndex: 'address', key: '1' },
@@ -66,7 +67,7 @@ describe('Table empty', () => {
     expect(empty!.querySelector('.ant-empty')).toBeTruthy()
     expect(container.querySelector('.dg-cell-body')).toBeFalsy()
 
-    expect(container.firstChild).toMatchSnapshot()
+    expectSnapshot(container.firstChild)
   })
 
   // antd empty.test.tsx L56-91 'renders empty table with fixed columns should work'。
@@ -80,7 +81,7 @@ describe('Table empty', () => {
     expect(container.querySelector('.dg-empty')).toBeTruthy()
     expect(container.querySelector('.ant-empty')).toBeTruthy()
 
-    expect(container.firstChild).toMatchSnapshot()
+    expectSnapshot(container.firstChild)
   })
 
   // antd empty.test.tsx L93 'renders empty table when emptyText is null'。
@@ -118,7 +119,7 @@ describe('Table empty', () => {
 
     expect(container.querySelector('.ant-spin-spinning')).toBeTruthy()
 
-    expect(container.firstChild).toMatchSnapshot()
+    expectSnapshot(container.firstChild)
   })
 
   // antd empty.test.tsx L122-128（issue 54601）'should not render empty when loading'。

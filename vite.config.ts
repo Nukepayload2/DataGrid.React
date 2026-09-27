@@ -74,6 +74,13 @@ export default defineConfig({
       'tests/**/*.{ts,tsx}',
     ],
     exclude: [...configDefaults.exclude, 'e2e/**', 'tests/setup.ts', 'tests/shared/**'],
+    // typecheck 必须显式指定 tsconfig：vitest 默认用根 `tsconfig.json`，而它是
+    // `{"files": [], "references": [...]}` 的 solution 文件，交给 tsc 会编译 0 个文件
+    // —— `pnpm test:types` 会「全绿但空跑」（实测：写入 `const x: number = 'string'` 仍报
+    // `Type Errors  no errors`）。`tsconfig.test.json` 把 `src` 与 `tests` 纳入同一 program。
+    typecheck: {
+      tsconfig: './tsconfig.test.json',
+    },
     coverage: {
       provider: 'v8',
       include: ['src/table/**/*.{ts,tsx}'],

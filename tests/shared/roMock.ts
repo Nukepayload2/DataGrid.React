@@ -55,6 +55,11 @@ export function withResizeObserver(
     }
 
     trigger(): void {
+      // jsdom 无布局：三个 box size 字段一律给空数组，devicePixelContentBoxSize 也补上
+      // （ResizeObserverEntry 的必填字段，src 只读 contentRect / target）。
+      // 空数组元素类型退化为 never，与真实入口的 ResizeObserverSize[] 不同构，故整体走
+      // `as unknown as`（与 tests/table/engine/scroll/StickyScrollBar.tsx:283-291 的
+      // makeROEntry 同款写法）。mock 的对外 API 不变。
       const entries: ResizeObserverEntry[] = Array.from(this.observed).map(
         (target) =>
           ({
@@ -62,7 +67,8 @@ export function withResizeObserver(
             contentRect: target.getBoundingClientRect(),
             borderBoxSize: [],
             contentBoxSize: [],
-          }) as ResizeObserverEntry,
+            devicePixelContentBoxSize: [],
+          }) as unknown as ResizeObserverEntry,
       )
       this.callback(entries, this)
     }

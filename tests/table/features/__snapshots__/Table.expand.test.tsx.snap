@@ -1,0 +1,26 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Table.expand > click to expand 1`] = `
+[
+  {
+    "ariaExpanded": "true",
+    "column": "name",
+    "expandIcon": "dg-expand-icon-expanded",
+    "expandedRowContent": null,
+    "iconDisabled": false,
+    "indentPaddingLeft": "0px",
+    "row": "0",
+    "text": "John Brown",
+  },
+  {
+    "ariaExpanded": "false",
+    "column": "name",
+    "expandIcon": "dg-expand-icon-spaced",
+    "expandedRowContent": null,
+    "iconDisabled": true,
+    "indentPaddingLeft": "15px",
+    "row": "1",
+    "text": "Jim Green",
+  },
+]
+`;
