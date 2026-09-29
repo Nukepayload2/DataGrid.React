@@ -70,14 +70,14 @@ export function useSemanticClassNames(
     if (classNames === undefined) return undefined
     if (typeof classNames === 'function') return classNames(semanticInfo)
     return classNames
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-doctor/exhaustive-deps
   }, [classNames, size, bordered, virtual, scroll, pagination])
 
   const stylesResolved: TableSemanticStyles | undefined = useMemo(() => {
     if (styles === undefined) return undefined
     if (typeof styles === 'function') return styles(semanticInfo)
     return styles
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-doctor/exhaustive-deps
   }, [styles, size, bordered, virtual, scroll, pagination])
 
   // 引擎消费子集（section/content/header/body）。

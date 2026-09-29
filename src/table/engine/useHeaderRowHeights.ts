@@ -74,7 +74,7 @@ export function useHeaderRowHeights(
 
     return () => ro.disconnect()
     // offsets 不进依赖（measure 内部用闭包比较，避免循环触发）。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-doctor/exhaustive-deps
   }, [gridRef, maxDepth])
 
   return offsets

@@ -485,3 +485,45 @@ Phase 2/3 的功能用例原本 `expect(container.firstChild).toMatchSnapshot()`
    要不要换裁判/加版本门（`bat0-workorder.md` 的 0-E 有选项与代价）。
 3. **是否补上那两个未复验批次的验证**，还是先继续修第二节的真缺陷（我建议先补验证，代价一轮，收益是后面所有判词的前提）。
 
+## 七、本轮终态读数（main 亲跑，独占窗口 2026-09-29 18:35–19:17）
+
+| 门 | 命令 | 读数 |
+|---|---|---|
+| 全量 | `pnpm test`（= `vitest run` ＋ CSS 兼容门） | **EXIT=0**；`Test Files 128 passed (128)`、`Tests 1785 passed \| 42 skipped (1827)`、`Test timed out` 命中 **0**；`CSS compatibility check passed for Chrome >= 105.` |
+| 类型 | `pnpm test:types` | **EXIT=0**；`129 files / 1791 passed \| 42 skipped (1833)` |
+| 类型 | `npx tsc -b`、`npx tsc -p tsconfig.test.json --noEmit`、`npx tsc -p tsconfig.lib.json --noEmit` | 各 **EXIT=0**、`error TS` **0** 行 |
+| 静态 | `npx oxlint . --ignore-path=.oxlintignore` | `Found 0 warnings and 0 errors.`（555 files / 99 rules） |
+| 构建 | `pnpm build`（vite 双格式 ＋ 声明产物） | **EXIT=0**；`dist/index.js` 245.34 kB、`dist/index.cjs` 195.12 kB、`dist/style.css` 29.04 kB，`.d.ts` 树 mtime 与运行时刻一致（非空跑） |
+| 构建 | `pnpm build:docs` | **EXIT=0**；`dist-docs/index.html` **5,096,097 B**；产物内 `design-notes` 命中 **0** ⇒ 死文档路径不进重生产物 |
+| 生成物 | `node scripts/extract-api.mjs` | **EXIT=0**，与工作树抄件 `diff` **0 行**；`sortDirections` 命中 8 次 |
+| 计数 | `node tmp/check-skips.mjs` | `skip 总数=40 无注释=0 文件数=47`（本轮基线 41 ⇒ 只降不升） |
+| 计数 | `node tmp/anchor-audit.mjs` | 指针总数 1452、指向不存在文件 **14**、行号越界 **0**、错行锚点候选 **65**（开工 67） |
+| 覆盖 | `pnpm test:coverage` | **EXIT=0**；`All files 92.84% stmts / 87.83% branch / 95.92% fn / 95% lines`；**零覆盖的 `src/table/**` 生产文件清单为空**（`coverage/lcov.info` 记录数 103、全部落在统计面内；最低档 `engine/RecyclingBodyGrid.tsx` 76.3%）。⚠️ 该配置**不产** `coverage-final.json`，按 json 解析会得出假的「0 条」 |
+
+**判红一次的定性（不是产品回归）**：`demo-extend.pagination-remote > extend remote-data` 在**带 v8 插桩**的 coverage 跑里
+快照取到 `[]`；同一工作树**独占复跑该文件 ⇒ 3 passed / EXIT=0**。单变量差＝插桩变慢导致的**弹窗收敛竞态**
+（红点 `tests/shared/demoHarness.tsx:450`：`settlePopupHtml()` 之后才 `toMatchSnapshot`）。已列为测试底座缺陷待派工，
+**不许**用更新快照基线掩盖。
+
+### 仍未覆盖的面（不许被上面的绿掩盖）
+
+1. **端到端未跑**：`pnpm test:e2e` 与截图基线需要本机浏览器与站点进程，属用户侧窗口；本轮只做过选择器文本的静态核对。
+2. **「参照版本条件性分叉」整类未扫**：对齐基准＝已安装的 **antd 6.4.4**（peer 写 `^6.1.0`、npm 最新 6.6.5、本机上游克隆 6.5.2）。
+   已抓到两例（某排序状态的列收集口径 6.5.x 起改；表体勾选框默认无障碍名是 6.5.2 才有的能力）
+   ⇒ 凡「参照没有／不生效」类依据都必须带**裁判版本号**，换裁判要重判一遍。
+3. **「注释声称与 antd 一致」共 406 条，只逐条复核了承载「不修／跳过」决策的 55 条**。
+4. **代码质量面（静态分析）分诊已交回，修复在飞**：权威清单是 **134 条**（产品码 83／站点码 51），不是 206——
+   同二进制、同 `doctor.config.ts` 的 `--verbose` 重跑两次都稳定 134；**206 是没吃到行内抑制时的读数**
+   （anchor ×85 与 pnpm-hardening ×2 会重新出现），这个差异**尚未闭合**、引用时要带档位口径。
+   A 档 3 批／11 条：**批 1 是真缺陷**（用户 `onRow` 的 `key` 经后置 spread 覆写引擎给的格子 key，flat 与 multi 两条表体路径同坏，
+   fiber 实锤 `["boom","boom","boom"]`）**与批 2**（`useTableThemeVars.ts` 把 `cssVar` 字面量写在 hook 体内当 memo 依赖
+   ⇒ 两个 token memo 每轮全量重算，与 `:63-64` 注释自陈的预期互相矛盾）**均已派实现棒**；
+   **批 3 已落地**（6 处 disable 注释只写短名 `react-hooks/exhaustive-deps`、引擎按全名匹配 ⇒ 抑制不生效；改全名后
+   总数 **134 → 130**，`已运行`：`oxlint` 0/0、`tsc` EXIT=0，**只改注释名、依赖数组未动**）。
+   另修 `package.json` 的 `doctor` 脚本一个漏写 flag：`--json-out` 必须配 `--json` 才产文件（实测补上后写出 184,646 B 报告）。
+   判跳要点：12 条 `unused-export` **零条落在产品码**；85 条 `Anchor used as a button` 落在 **46 个 `src/demos/**` ＋ 1 个
+   `src/table/engine/__tests__/BodyGrid.test.tsx`，**生产码 0 命中** ⇒ 禁整类 sweep。
+   工具仓库钉 `^0.7.1`、最新 0.9.14 是另一套 100 条规则集（升不升属裁判级决定，见第六节第 2 项同源问题）。
+5. **白盒层 2 条既有类型错**（`tests/table/selection/selectionAdapter.tsx:102`、`:117`）被 `tsconfig.test.json`
+   的 include 面盖住 ⇒ `tsc` 门 EXIT=0 **不等于**测试层类型干净。
+

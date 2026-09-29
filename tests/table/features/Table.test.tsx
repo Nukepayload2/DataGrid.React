@@ -31,6 +31,39 @@ import { expectSnapshot } from '../../shared/snapshot'
 
 const { Column, ColumnGroup } = Table
 
+/** 用户 onRow 返回的 `key` 值——缺陷现场里它会覆写引擎给格子的 React key。 */
+const USER_CELL_KEY = 'boom-cell-key'
+
+/**
+ * 读 DOM 节点上的 React fiber `key`（步骤 84 探针口径，`tmp/84-doctor/probe-fiber.txt`）。
+ * React 的元素 key **不落 DOM** ⇒ 属性断言测不到覆写，只能从 fiber 取。
+ */
+function readFiberKey(el: Element): string {
+  const names = Object.getOwnPropertyNames(el).concat(Object.keys(el))
+  const fiberProp = names.find((name) => name.startsWith('__reactFiber$'))
+  if (!fiberProp) return '<no-fiber>'
+  const fiber = (el as unknown as Record<string, any>)[fiberProp]
+  const key = fiber?.key
+  return key === null || key === undefined ? '<undefined>' : String(key)
+}
+
+/**
+ * 读格子的祖先**组件名**链——用来确认这条用例真跑在预期的那条表体路径上
+ * （flat 路径格子由 `ColumnCells` 渲染，multi 路径由 `BodyCell` 渲染）。
+ */
+function fiberAncestorNames(el: Element): string[] {
+  const names = Object.getOwnPropertyNames(el).concat(Object.keys(el))
+  const fiberProp = names.find((name) => name.startsWith('__reactFiber$'))
+  if (!fiberProp) return []
+  let cur = (el as unknown as Record<string, any>)[fiberProp]
+  const out: string[] = []
+  for (let depth = 0; cur && depth < 8; depth += 1) {
+    if (typeof cur.type === 'function') out.push(cur.type.name || '<anonymous>')
+    cur = cur.return
+  }
+  return out
+}
+
 describe('Table', () => {
   mountTest(Table)
   directionTest(Table)
@@ -746,5 +779,103 @@ describe('Table', () => {
     fireEvent.click(checkbox!)
     expect(onChange).toHaveBeenCalledTimes(1)
     expect(onChange.mock.calls[0]?.[0]).toEqual(['Foobar'])
+  })
+
+  // ── 本仓独有缺陷钉子（taskId `fix-real-bugs`／步骤 86；react-doctor `jsx-key` error ×2）──────
+  // 症状：用户 `onRow` 返回的对象里带 `key` 时，会**覆写**引擎写在格子上的 React key。
+  // 落点（实读）：引擎 key 在 `src/table/engine/BodyGrid.tsx:165`（multi）与
+  //   `src/table/engine/FlatColumnCells.tsx:460`（flat）；用户 onRow 的其余字段
+  //   （`src/table/engine/bodyCellUtils.ts:21-32` 只剔 className/style）在 `BodyGrid.tsx:237` 与
+  //   `FlatColumnCells.tsx:518` 以**最后一个属性**位置 spread ⇒ 后置属性赢，引擎 key 消失。
+  // 裁判侧形状（实读 `@rc-component/table@1.10.2/es/body/BodyRow.js`）：`:124` 把 onRow 返回值只
+  //   spread 到该行**唯一一个** `<tr>`，`:146` 格子的 key 走 `getCellProps().key`，与 onRow 无关
+  //   ⇒ 「行级 key 广播到该行 N 个格子」是本仓自家产物，不属于「与 antd 不一致但功能正常」。
+  // 取证口径＝fiber 读数（上面 readFiberKey 的注释）；React 元素 key 不落 DOM，属性断言测不到。
+  it('keeps the engine cell key when onRow returns a key (flat body path)', () => {
+    const rows = [
+      { id: 'a', name: 'Alice', code: 1 },
+      { id: 'b', name: 'Bob', code: 2 },
+      { id: 'c', name: 'Cary', code: 3 },
+    ]
+    const columns: TableProps<any>['columns'] = [
+      { title: 'Name', dataIndex: 'name', key: 'name' },
+      { title: 'Code', dataIndex: 'code', key: 'code' },
+    ]
+    // `key` 不在公开返回类型 `React.HTMLAttributes` 上（`src/table/publicTypes.ts:680`）
+    //   ⇒ 只有 JS 用户 / 断言用户会写出来；用 `as never` 复刻同形返回值。
+    const onRowControl = () => ({ 'data-user-row': 'injected' }) as never
+    const onRowWithKey = () => ({ 'data-user-row': 'injected', key: USER_CELL_KEY }) as never
+
+    const control = customRender(
+      <Table rowKey="id" columns={columns} dataSource={rows} onRow={onRowControl} pagination={false} />,
+    )
+    const exp = customRender(
+      <Table rowKey="id" columns={columns} dataSource={rows} onRow={onRowWithKey} pagination={false} />,
+    )
+
+    const controlCells = Array.from(control.container.querySelectorAll('.dg-cell-body'))
+    const expCells = Array.from(exp.container.querySelectorAll('.dg-cell-body'))
+    // 非空对照：3 行 × 2 列 = 6 格在场（否则"没覆写"可能只是因为"没渲染"）。
+    expect(controlCells).toHaveLength(6)
+    expect(expCells).toHaveLength(6)
+    // 路径见证：格子祖先链里有 `ColumnCells` ⇒ 这条用例量的确实是 flat 表体路径。
+    expect(fiberAncestorNames(controlCells[0]!)).toContain('ColumnCells')
+
+    // 引擎值（实读 `src/table/engine/FlatColumnCells.tsx:460` = `getRowKey(record,rowKey) ?? index`；
+    // DOM 按行优先输出 ⇒ 每行的两列共享同一行键，列间靠父层 `ColumnCells` 的 key 区分）。
+    const engineKeys = ['a', 'a', 'b', 'b', 'c', 'c']
+    expect(controlCells.map(readFiberKey)).toEqual(engineKeys)
+
+    // 主断言：用户 onRow 加 `key` 后，格子的 React key 逐位等于引擎值/等于对照组 ⇒ 未被覆写。
+    expect(expCells.map(readFiberKey)).toEqual(engineKeys)
+    expect(expCells.map(readFiberKey)).not.toContain(USER_CELL_KEY)
+
+    // 修法边界：只让 React 元素身份归引擎，用户其余字段照旧上到每个格子（防"整包丢弃"式修法）。
+    expect(expCells.every((cell) => cell.getAttribute('data-user-row') === 'injected')).toBe(true)
+  })
+
+  it('keeps the engine cell key when onRow returns a key (multi body path)', () => {
+    const rows = [
+      { id: 'a', name: 'Alice', code: 1 },
+      { id: 'b', name: 'Bob', code: 2 },
+      { id: 'c', name: 'Cary', code: 3 },
+    ]
+    // 分组表头 ⇒ maxDepth>1 ⇒ mode='multi'（`src/table/engine/GridTable.tsx:289`），表体走 BodyGrid。
+    const columns: TableProps<any>['columns'] = [
+      {
+        title: 'Group',
+        key: 'group',
+        children: [
+          { title: 'Name', dataIndex: 'name', key: 'name' },
+          { title: 'Code', dataIndex: 'code', key: 'code' },
+        ],
+      },
+    ]
+    const onRowControl = () => ({ 'data-user-row': 'injected' }) as never
+    const onRowWithKey = () => ({ 'data-user-row': 'injected', key: USER_CELL_KEY }) as never
+
+    const control = customRender(
+      <Table rowKey="id" columns={columns} dataSource={rows} onRow={onRowControl} pagination={false} />,
+    )
+    const exp = customRender(
+      <Table rowKey="id" columns={columns} dataSource={rows} onRow={onRowWithKey} pagination={false} />,
+    )
+
+    const controlCells = Array.from(control.container.querySelectorAll('.dg-cell-body'))
+    const expCells = Array.from(exp.container.querySelectorAll('.dg-cell-body'))
+    expect(controlCells).toHaveLength(6)
+    expect(expCells).toHaveLength(6)
+    // 路径见证：格子祖先链里有 `BodyCell` ⇒ 量的确实是 multi 表体路径（与 flat 那条互不冒充）。
+    expect(fiberAncestorNames(controlCells[0]!)).toContain('BodyCell')
+
+    // 引擎值（实读 `src/table/engine/BodyGrid.tsx:165` = `resolveStandardBodyCellKey`，
+    // 格式 `b-{colIdx}-{行键}`，见 `src/table/engine/recyclingIdentity.ts:17`）。
+    const engineKeys = ['b-0-a', 'b-1-a', 'b-0-b', 'b-1-b', 'b-0-c', 'b-1-c']
+    expect(controlCells.map(readFiberKey)).toEqual(engineKeys)
+
+    expect(expCells.map(readFiberKey)).toEqual(engineKeys)
+    expect(expCells.map(readFiberKey)).not.toContain(USER_CELL_KEY)
+
+    expect(expCells.every((cell) => cell.getAttribute('data-user-row') === 'injected')).toBe(true)
   })
 })

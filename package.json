@@ -63,7 +63,7 @@
     "test:e2e": "playwright test",
     "preview": "vite preview",
     "lint": "oxlint . --ignore-path=.oxlintignore",
-    "doctor": "react-doctor --blocking none --no-telemetry --output-dir docs/react-doctor-dump --json-out docs/react-doctor-report-stage6.json"
+    "doctor": "react-doctor --blocking none --no-telemetry --json --output-dir docs/react-doctor-dump --json-out docs/react-doctor-report-stage6.json"
   },
   "dependencies": {
     "@ant-design/cssinjs": "2.1.2",

@@ -117,7 +117,7 @@ export function useStickyColumns<RecordType>(
 
     return () => ro.disconnect()
     // widths 不进依赖：measure 内部比较 next/widths 决定是否 set，避免循环触发。
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-doctor/exhaustive-deps
   }, [gridRef, leafColumns])
 
   // === 计算 sticky 偏移 ===

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { renderHook } from '@testing-library/react'
-import type { ReactNode } from 'react'
-import { ConfigProvider } from 'antd'
+import { render, renderHook } from '@testing-library/react'
+import { useState } from 'react'
+import type { CSSProperties, ReactNode } from 'react'
+import { ConfigProvider, theme } from 'antd'
 import { useTableThemeVars } from '../../../src/table/useTableThemeVars'
 import type { TableSemanticStyles } from '../../../src/table/types'
 
@@ -149,6 +150,99 @@ describe('useTableThemeVars', () => {
       )
       const merged = result.current.wrapperStyle as Record<string, unknown>
       expect(merged.margin).toBe(12)
+    })
+  })
+
+  // ── memo 引用稳定性（缺陷 A-2 钉子）──────────────────────────────────────────
+  // 被钉语义：`aliasTokenVars` / `tableTokenVars` 两个 useMemo 只在**真实输入变化**时才重算。
+  //   二者的真实输入只有 `theme.useToken()` 的 realToken 引用（`cssVar` 是与 ConfigProvider 无关的
+  //   固定配置常量）。旧实现把 `cssVar` 写成 hook 体内对象字面量并塞进 deps ⇒ 每轮 `===` 必失败
+  //   ⇒ 每轮全量重算（全套 alias 转换 + `prepareComponentToken` 派生），memo 静默失效。
+  // 为什么「产物同引用」是直接判据而不是代理指标：
+  //   `tokenToCssVars` / `tableTokenToCssVars` 每次调用都现造并返回新对象（无内部缓存），
+  //   故「引用相同」⇔「本轮 memo 回调没有执行」⇔「被钉的缺陷不在」。
+  // 仪表自证：先亲读 `theme.useToken().token` 的引用确实没换（下述 tokenRefs），否则「产物同引用」
+  //   会因为「压根没发生重渲染」而恒绿，什么也测不到。
+  describe('memo 引用稳定性 —— token 不变的重渲染不得重算 vars', () => {
+    type ProbeProps = {
+      style: CSSProperties | undefined
+      stylesResolved: TableSemanticStyles | undefined
+    }
+    type ProbeResult = ReturnType<typeof useTableThemeVars>
+
+    it('同 props + 同 realToken 引用重渲染 → 三个产物引用全等（含 token 引用自证）', () => {
+      const tokenRefs: unknown[] = []
+      const { result, rerender } = renderHook<ProbeProps, ProbeResult>(
+        (props) => {
+          tokenRefs.push(theme.useToken().token)
+          return useTableThemeVars(props.style, props.stylesResolved)
+        },
+        {
+          initialProps: { style: undefined, stylesResolved: undefined },
+          wrapper: ({ children }: { children: ReactNode }) => <>{withConfig(children)}</>,
+        },
+      )
+
+      const firstAlias = result.current.aliasTokenVars
+      const firstTable = result.current.tableTokenVars
+      const firstWrapper = result.current.wrapperStyle
+
+      rerender({ style: undefined, stylesResolved: undefined })
+
+      // 仪表前提：本轮渲染拿到的 realToken 与首轮是同一引用 ⇒ 「token 未变」成立。
+      expect(tokenRefs.length).toBeGreaterThanOrEqual(2)
+      expect(tokenRefs[1]).toBe(tokenRefs[0])
+
+      // 核心断言：token 未变 ⇒ memo 不该重算 ⇒ 产物同引用。
+      expect(result.current.aliasTokenVars).toBe(firstAlias)
+      expect(result.current.tableTokenVars).toBe(firstTable)
+      expect(result.current.wrapperStyle).toBe(firstWrapper)
+    })
+
+    it('仅 style 变化 → token memo 不跟着失效，只有 wrapperStyle 重算', () => {
+      const { result, rerender } = renderHook<ProbeProps, ProbeResult>(
+        (props) => useTableThemeVars(props.style, props.stylesResolved),
+        {
+          initialProps: { style: { margin: 1 }, stylesResolved: undefined },
+          wrapper: ({ children }: { children: ReactNode }) => <>{withConfig(children)}</>,
+        },
+      )
+      const firstAlias = result.current.aliasTokenVars
+      const firstTable = result.current.tableTokenVars
+      const firstWrapper = result.current.wrapperStyle
+
+      rerender({ style: { margin: 2 }, stylesResolved: undefined })
+
+      // 与 token 无关的入参变化，不得波及两个 token memo。
+      expect(result.current.aliasTokenVars).toBe(firstAlias)
+      expect(result.current.tableTokenVars).toBe(firstTable)
+      // 但 wrapperStyle 必须随之更新（否则就是过度 memo 化）。
+      expect(result.current.wrapperStyle).not.toBe(firstWrapper)
+      expect((result.current.wrapperStyle as Record<string, unknown>).margin).toBe(2)
+    })
+
+    it('反向保护：换 ConfigProvider theme 覆盖 → var 值跟上新 token', () => {
+      // 修「memo 每轮全量重算」时最容易顺手修成「memo 永不重算」——这条钉住后者。
+      // 与首轮比较的是**值**（不是引用）：theme 变了就必须看到新值。
+      const seen: Array<Record<string, string>> = []
+      function Probe() {
+        seen.push(useTableThemeVars(undefined, undefined).aliasTokenVars)
+        return null
+      }
+      const { rerender } = render(
+        <ConfigProvider theme={{ token: { colorPrimary: '#ff0000' } }}>
+          <Probe />
+        </ConfigProvider>,
+      )
+      rerender(
+        <ConfigProvider theme={{ token: { colorPrimary: '#00ff00' } }}>
+          <Probe />
+        </ConfigProvider>,
+      )
+
+      expect(seen[0]?.['--ant-color-primary']).toBe('#ff0000')
+      expect(seen[1]?.['--ant-color-primary']).toBe('#00ff00')
+      expect(seen[1]).not.toBe(seen[0])
     })
   })
 })

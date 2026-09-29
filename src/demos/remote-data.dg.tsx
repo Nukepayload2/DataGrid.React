@@ -73,7 +73,7 @@ export default function AjaxDg({
 
   useEffect(() => {
     fetchData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-doctor/exhaustive-deps
   }, [
     tableParams.pagination?.current,
     tableParams.pagination?.pageSize,
