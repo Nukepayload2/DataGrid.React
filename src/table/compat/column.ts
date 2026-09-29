@@ -83,14 +83,15 @@ export interface ColumnType<RecordType = any> {
    */
   key?: React.Key
   /**
-   * 列标题内容。
+   * 列标题内容：**只收 ReactNode**（字符串最常见，也可 JSX）。分组列（有 `children`）的 `title` 作分组标题、叶子列的作表头格内容。
    *
-   * **取值**：任意 ReactNode（字符串最常见；也可传 JSX，如带图标的标题、带排序提示的复合标题）。
-   *
-   * **多级表头**：分组列（有 `children`）的 `title` 作为该分组的分组标题渲染；
-   * 叶子列的 `title` 作为该列的列表头格内容。
-   *
-   * 与 antd `column.title` 同义。
+   * **与 antd `column.title` 的一处不同**：参照类型是 `ReactNode | ((props) => React.ReactNode)`（`antd 6.4.4
+   * es/table/interface.d.ts:72`，遇函数即调用：`es/table/util.js:14-19`）；本包不收函数（属功能移植、未提供）。
+   * JS 侧传函数的实测形状（两条表头路径 × 各档同形）：表头**渲染为空且不抛错**（框架只写一条按父组件名
+   * 去重的 console 错误），开 `ellipsis` 时原生 `title` 悬浮提示同档丢失。
+   * 开发态有一条 `[data-grid]` 告警按 `key`/`dataIndex`/列序号点名该列（判据在归一层
+   * `columnAdapter.warnFunctionTitleOnce`，**前缀拼接、按 key 去重与"仅非 `production` 才发"的环境门都在出口
+   * `src/table/devWarn.ts`**；TS 侧由类型面拦住）。
    */
   title?: ReactNode
   /**
@@ -260,8 +261,27 @@ export interface ColumnType<RecordType = any> {
   render?: (text: any, record: RecordType, index: number) => ReactNode | RenderedCell
   /**
    * 子列（多级表头，任意深度）。
-   * 有 children 时该列视为分组列（仅取 key/title/align/fixed）；
-   * 叶子列属性（dataIndex/width/render）仅取自无 children 的节点。
+   *
+   * 有 children 时该列视为**分组列**。分组列被消费的字段：
+   *   - 布局/外观：`key`/`title`/`align`/`fixed`/`className`/`style`/`ellipsis`/`showTitle`；
+   *   - **筛选整族**（BAT-19 19-A 起）：`filters`/`onFilter`/`filteredValue`/`defaultFilteredValue`/
+   *     `filterMultiple`/`filterOnClose`/`filterResetToDefaultFilteredValue`/`filtered`/
+   *     `filterDropdown`/`filterIcon`/`filterDropdownProps`/`filterSearch`/`filterMode`。
+   *     ⇒ 分组列自己就是一个可筛选列：它的配置参与数据过滤，它的**分组表头格**就是漏斗宿主
+   *     （与 antd 6.4.4 同形：`es/table/hooks/useFilter/index.js` 的
+   *     `getMergedColumns:151-156` 保留分组节点本身 + `collectFilterStates:8-41` 逐层收集 +
+   *     `injectFilter:42-85` 把漏斗挂在该列自己的 title 宿主上）。
+   *     修复前的行为是**静默丢弃**（写了不报错、也不生效，行数与表头都和 antd 分叉），
+   *     读码链路与探针读数见 `tmp/vortex-logs/fix-real-bugs/49-implementer-bat19-group-filter.md`。
+   *
+   * 分组列**不**消费的字段（仍只作用于叶子列）：
+   *   - `dataIndex`/`width`/`render`/`onCell`/`colSpan`/`rowScope`/`onHeaderCell`/`hidden`/
+   *     `shouldCellUpdate`/`gridColumnOptions`：数据格只按叶子渲染，这些"落到某一格数据/布局"
+   *     的字段在分组列上没有对应宿主（`hidden` 见上方该字段的说明）。
+   *   - `sorter`/`sortOrder`/`defaultSortOrder`/`sortDirections`/`sortIcon`/`showSorterTooltip`：
+   *     **本批刻意未改**。antd 6.4.4 对分组列的 `sorter` 只认「画箭头 + 点击生效 + 受控 `sortOrder`」，
+   *     不认 `defaultSortOrder`（`es/table/hooks/useSorter.js:34-68` 的 children 分支 vs `:70` 的
+   *     injectSorter 门），与我方排序入参形状不同构——要对齐需另开一批（结论与读数同上日志 §2.1）。
    */
   children?: Array<ColumnType<RecordType>>
   /**
@@ -403,10 +423,22 @@ export interface ColumnType<RecordType = any> {
   /**
    * 关闭下拉即应用筛选（默认 true）。
    *
-   * - `true`（默认）：用户关闭下拉（点击外部/ESC/确定按钮）即把当前勾选应用为 filteredValue。
+   * - `true`（默认）：**内置面板**关闭（点触发器/点面板外/ESC/确定按钮）即把当前勾选应用为 filteredValue。
    * - `false`：必须点"确定"按钮才应用；关闭下拉（点外部/ESC）丢弃未确认的勾选（恢复到上次应用值）。
+   * - **传了 `filterDropdown`（自定义面板）时本字段不起作用：关闭从不应用**。
+   *   面板内的值是调用方自己的草稿，只有他自己调 `confirm()` / `clearFilters({ confirm: true })` 才算应用
+   *   （否则用户在面板里"随手改的草稿"会静默生效、甚至把他**已生效的筛选顶掉/清空**）。
    *
-   * 默认值与 antd v6 一致（filterOnClose=true）。同名同义于 antd `column.filterOnClose`。
+   * 参照条款（antd **6.4.4** `es/table/hooks/useFilter/FilterDropdown.js:240-251`）有**两道门**：
+   *   - 门 ①（`:241`）`info.source === 'trigger'`——`onOpenChange` 第 2 参的 `source`，
+   *     实测取值只有 `'trigger'`（点触发器/点面板外/ESC）与 `'menu'`（弹层内 antd `<Menu>` 点项）；
+   *   - 门 ②（`:247`）`!newVisible && !column.filterDropdown && filterOnClose`——**自定义面板从不因关闭而应用**。
+   *
+   * ⇒ 本包接**门 ②**（`src/table/engine/FilterDropdown.tsx` 的 `handleOpenChange`：`filterOnClose && !isCustom`），
+   *   ⇒ **默认值（true）与门 ② 的语义都与 antd 6.4.4 同形**；
+   *   门 ①（`source`）本包**未接**——它决定的是"弹层内 `<Menu>` 点项该不该关掉面板"（我方关、参照不关），
+   *   与本条数据结果缺陷无关，属**独立待裁边界**，接它等于顺手改动开合语义。
+   *   同名同义于 antd `column.filterOnClose`（antd 6.4.4 `es/table/interface.d.ts:117`，同为列级字段）。
    */
   filterOnClose?: boolean
   /**

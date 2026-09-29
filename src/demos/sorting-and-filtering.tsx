@@ -71,7 +71,7 @@ export default function HeadDemo() {
                   渲染二级菜单（点 Submenu 弹出 Green/Black）。</li>
                 <li><strong>触发条件</strong>：点 Name 列筛选图标展开下拉。</li>
                 <li><strong>差异原因</strong>：两侧 filters 数据结构完全一致（逐字 antd demo），
-                  data-grid 现状不做二级菜单 UI（已知简化）。详见 <code>docs/design-notes/filter-sorter.md</code>。</li>
+                  data-grid 现状不做二级菜单 UI（已知简化）。详见 <code>docs/features/interaction/filter-sorter.md</code>。</li>
               </ul>
             </li>
             <li>

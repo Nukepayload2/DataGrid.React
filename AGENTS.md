@@ -13,6 +13,8 @@
 - 兼容与引擎类型边界 - {table}/compatTypes.ts,{compat}/*.ts - ColumnType
 - antd prop 适配器 - {table}/*Adapter*.tsx,{table}/*Adapter.ts - buildSelectionColumnNode buildExpandColumnNode
 - 主题变量桥 - {table}/useTableThemeVars.ts,{table}/tokenBridge.ts - aliasTokenVars tableTokenVars
+- 开发态告警出口 - {table}/devWarn.ts - devWarnOnce CHANNEL_PREFIX NODE_ENV 门 去重表
+- 上下文缺省回落单点 - {table}/contextDefaults.ts - rowKey scroll expandIcon props→上下文→缺省
 - 列树与选择适配 hook - {table}/useColumnTreeBuilder.ts,{table}/useSelectionAdapter.ts - columnTree keyToValue
 - 分页与展开绑定 hook - {table}/usePaginationAdapter.ts,{table}/useExpandRowBinding.ts - slicePage expandRowByClick
 - 响应式与语义样式 hook - {table}/useResponsiveColumns.ts,{table}/useScrollbarTouch.ts,{table}/useSemanticClassNames.ts - responsive classNames scrollBarFoldMode

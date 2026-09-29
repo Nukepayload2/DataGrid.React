@@ -14,13 +14,13 @@ const dgClassNames: TableClassNames<SemanticRecord> = {
   content: 'semantic-mark-content',
   title: 'semantic-mark-title',
   footer: 'semantic-mark-footer',
+  // 注：antd 的 header.wrapper / body.wrapper 落在 <thead> / <tbody>，data-grid 无该容器（表头格与
+  //   表体格同为 .dg-grid 的直接 grid item）⇒ 类型面不提供 wrapper；选中该槽位时 dg 无染色、antd 有染色。
   header: {
-    wrapper: 'semantic-mark-header-wrapper',
     row: 'semantic-mark-header-row',
     cell: 'semantic-mark-header-cell',
   },
   body: {
-    wrapper: 'semantic-mark-body-wrapper',
     row: 'semantic-mark-body-row',
     cell: 'semantic-mark-body-cell',
   },
@@ -68,12 +68,10 @@ const createDgStyles = (activeSlot?: string): TableStyles<SemanticRecord> | unde
     title: slotOutline('title', activeSlot),
     footer: slotOutline('footer', activeSlot),
     header: {
-      wrapper: slotOutline('header.wrapper', activeSlot),
       row: slotOutline('header.row', activeSlot),
       cell: slotOutline('header.cell', activeSlot),
     },
     body: {
-      wrapper: slotOutline('body.wrapper', activeSlot),
       row: slotOutline('body.row', activeSlot),
       cell: slotOutline('body.cell', activeSlot),
     },

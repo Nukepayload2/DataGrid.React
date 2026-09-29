@@ -1,5 +1,5 @@
 /**
- * 排序算法纯函数簇 — 详见 docs/design-notes/filter-sorter.md
+ * 排序算法纯函数簇 — 详见 docs/features/interaction/filter-sorter.md
  *
  * 从 useSorter.ts 抽出的模块级纯函数：判定可排序/优先级、比较函数解析、默认比较、
  * sortDirections 循环、状态收集、onChange sorter 结果生成、按 SortState[] 排序数据。
@@ -29,7 +29,7 @@ export interface SortState<RecordType> {
   sortOrder: SortOrder
   /**
    * 多列优先级。来自 `sorter.multiple`（number）——越大越优先。`false` 表示单列排序器。
-   * — 详见 docs/design-notes/filter-sorter.md（排序状态模型/多列优先级叠加）
+   * — 详见 docs/features/interaction/filter-sorter.md（排序状态模型/多列优先级叠加）
    */
   multiplePriority: number | false
 }
@@ -149,27 +149,87 @@ export function collectSortStates<RecordType>(
 }
 
 /**
+ * 受控排序状态的**互斥折叠**（逐字移植 antd `useSorter.js:305-345` 的 `validate`/`multipleMode` 环）。
+ *
+ * 背景：antd 的 `mergedSorterStates` 在「受控列 collectedStates 非空」时不是照收外部
+ * `column.sortOrder`，而是按列顺序走一遍状态机——**首个激活的受控列定型排序模式**，
+ * 与该模式不符的后续受控列一律被置 `sortOrder: null`：
+ *   1. `validate` 初值 true；`patchStates(s)` 在 `validate` 已为 false 时 push
+ *      `{ ...s, sortOrder: null }`（不改入参对象）。
+ *   2. 尚未定型（`multipleMode === null`）的列：**先 patch 再判** ⇒ 该条永远原样保留。
+ *      若它带激活 order：单列排序器（`multiplePriority === false`）⇒ `validate = false`
+ *      （其后所有受控列被置 null）；多列排序器 ⇒ `multipleMode = true`。
+ *      未激活（order 为 null）的列不改判定（所以「首个 `sortOrder: null` 的单列 + 后续多列」
+ *      仍按多列共存，实测与参照同读数）。
+ *   3. 已定型为多列后：`multiplePriority !== false` 的列继续原样保留；遇到单列排序器
+ *      ⇒ 先 `validate = false` 再 patch ⇒ **该单列自己也被置 null**。
+ *
+ * 口径说明：
+ *   - `multipleMode` 只会被赋 `true`（永不赋 `false`），参照那句
+ *     `else if (multipleMode && state.multiplePriority !== false)` 等价于只判后半；此处保留
+ *     同样的两段写法，便于与参照逐行对照。
+ *   - 纯多列受控（每列都带 `sorter.multiple`）折叠后**全部保留**（验收要求：不许打回单列）。
+ *   - 纯函数：只读 `states`，返回新数组（被置 null 的条目是浅拷贝，原对象不被改写）。
+ *
+ * **只在受控分支调用**（非受控的互斥由 `useSorter` 的点击逻辑 `resetToSingle` 保证，
+ * 与参照 `triggerSorter`（`useSorter.js:360-370`）同构）。
+ */
+export function resolveControlledStatesExclusively<RecordType>(
+  states: Array<SortState<RecordType>>,
+): Array<SortState<RecordType>> {
+  const out: Array<SortState<RecordType>> = []
+  let validate = true
+  let multipleMode: boolean | null = null
+
+  const patchStates = (state: SortState<RecordType>) => {
+    out.push(validate ? state : { ...state, sortOrder: null })
+  }
+
+  for (const state of states) {
+    if (multipleMode === null) {
+      patchStates(state)
+      if (state.sortOrder) {
+        if (state.multiplePriority === false) {
+          validate = false
+        } else {
+          multipleMode = true
+        }
+      }
+    } else if (multipleMode && state.multiplePriority !== false) {
+      patchStates(state)
+    } else {
+      validate = false
+      patchStates(state)
+    }
+  }
+
+  return out
+}
+
+/**
  * 把一组 SortStates 转为 onChange 的 sorter 结果（对齐 antd `generateSorterInfo`）。
  * - 0 激活：返回单对象（data-grid 简化：返回空对象 `{}`，与 antd `activeSorters[0] || {}` 一致）。
  * - 1 激活：返回单对象。
- * - >=2 激活：返回数组（按 multiple 升序）。
+ * - >=2 激活：返回数组（**states 原序**）。
+ *
+ * ⚠️ 顺序语义（BAT-23 23-B 修正）：产出数组的元素顺序**等于入参 `states` 的顺序**，
+ * 这里**不做任何二次排序**。参照 antd 6.4.4 `es/table/hooks/useSorter.js:216-239` 就是
+ * `sorterStates.reduce` 原序收集激活项；而 states 自身的顺序由上游决定：
+ *   - 非受控：`useSorter.onSorterClick`（对齐参照 `triggerSorter` `:360-372`）把被点列**搬到末尾**
+ *     ⇒ 产出序 = 点击序。
+ *   - 受控：`collectSortStates` + `resolveControlledStatesExclusively` 按列定义序产出 ⇒ 产出序 = 列定义序。
+ * 改前此处多了一步「按 `sorter.multiple` 升序排」，与参照**集合相同、顺序可能不同**
+ * （实测分叉见 tmp/vortex-logs/fix-real-bugs/58-implementer-bat23-23a-23b.md §5）。
  *
  * 与 antd 的细微差异：antd 在"0 激活但有 sorterStates"时会回退一个 `{ column: undefined,
  * order: undefined, ... }` 的 legacy 对象；data-grid 简化为 `{}`（调用方判 `!sorter.order` 即可）。
- * — 详见 docs/design-notes/filter-sorter.md（onChange 分发）
+ * — 详见 docs/features/interaction/filter-sorter.md（onChange 分发）
  */
 export function generateSorterInfo<RecordType>(
   states: Array<SortState<RecordType>>,
 ): SorterResult<RecordType> | Array<SorterResult<RecordType>> {
   const active = states
     .filter((s) => s.sortOrder !== null)
-    .slice()
-    // 按 multiple 升序（multiple 越小优先级越高，排在前）；非多列（false）按 0 处理（最高）。
-    .sort((a, b) => {
-      const pa = a.multiplePriority === false ? 0 : a.multiplePriority
-      const pb = b.multiplePriority === false ? 0 : b.multiplePriority
-      return pa - pb
-    })
     .map<SorterResult<RecordType>>((s) => ({
       column: s.column,
       order: s.sortOrder,

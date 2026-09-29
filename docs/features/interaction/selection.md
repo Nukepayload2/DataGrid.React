@@ -74,7 +74,9 @@ data-grid 只需调整 antd wrapper 的 margin + 让 wrapper 居中适配列布�
 ### 表头与选择列 props
 
 - `rowSelection.columnTitle`：自定义选择列表头内容。函数形态接收默认 checkbox/dropdown 节点，返回最终表头内容；ReactNode 形态直接替换表头内容。
-- `rowSelection.getTitleCheckboxProps`：注入表头全选 checkbox props。data-grid 当前消费 `disabled`、`name`、`aria-label`、`style`、`indeterminate` 子集，`checked` 仍由选择状态机控制。
+- `rowSelection.getTitleCheckboxProps`：注入表头全选 checkbox props。data-grid 消费 `disabled`、`name`、`aria-label`、`style` 等字段，`checked` 与 `indeterminate` **由选择状态机计算并覆盖**用户传值——这不是我们自创的优先级，参照的 spread 顺序同样先展开用户 props、后写计算值（`antd 6.4.4 es/table/hooks/useSelection.js:357, 359`）。要表达半选请改 `selectedRowKeys` 或用树形联动。`checked` 永远由状态机控制。`disabled` 的优先级是另一套：用户显式值优先，其次才是"没有任何可选行"的兜底。`已实读参照源码`
+- **表头全选框的默认无障碍名不走 locale**：参照在该处写死两个分支——有自定义选择项下拉时 `'Custom selection'`，否则 `'Select all'`（`antd 6.4.4 es/table/hooks/useSelection.js:356`），且写在展开用户 props **之前** ⇒ 用户传 `['aria-label']` 仍可覆盖。
+  此前我们误把 locale 里的**下拉菜单项文案键**当无障碍名用（默认值 `'Select all data'`），已按参照改成硬编码两分支；那个死兜底分支一并消除。两个分支各有直测钉住。`已实读参照源码`
 - `rowSelection.onCell(record, index)`：注入选择列单元格 props。`colSpan` / `rowSpan` 参与 data-grid 合并算法；其它字段会在提供 `components.body.cell` 时透传给自定义 cell。
 
 注意 data-grid 没有原生 `<td>/<th>`，选择列仍是 div grid item；这些 props 的挂载点遵循 data-grid 的 cell 适配语义，而不是直接替换 HTML table 单元格。
@@ -136,6 +138,16 @@ data-grid 之前选择列沿用普通 cell padding（large 16/16、middle 8/8、
 - hover 色 `headerIconHoverColor`（= `colorIconHover*opacityLoading`，默认 rgba(0,0,0,0.88)）。
 - 过渡 `transition: all motionDurationSlow`（≈0.3s）。
 
+**与参照的两处已登记差异（同一件事：菜单触发形态）**：
+
+- **触发方式**：我们显式用 `trigger={['click']}`（`SelectionsDropdown`），参照**没有传** `trigger` ⇒ 走下拉组件的默认值 `['hover']`。
+  依据：`antd 6.4.4 es/table/hooks/useSelection.js:326-329` 那个 `Dropdown` 只有 `menu` 与 `getPopupContainer`；
+  `@rc-component/dropdown 1.0.x es/Dropdown.js:24` 的默认形参是 `trigger = ['hover']`。
+  触屏与窄容器下点击更稳，属有意取舍，不改。`已实读参照源码`
+- **`getPopupContainer` 调用次数**：面板开合一轮我们 5 次、参照 4 次；两侧拿到的 `triggerNode` 是同一个触发器 `span`，
+  落点容器也相同。差异只由「我方 trigger 多带一个类名 ＋ 显式 `trigger` 造成的重渲染次数」产生 ⇒
+  **计数级微差**，功能等价、没有漏接。`探针实测`
+
 **布局差异（不强制修）**：antd 用 `position:absolute; marginInlineStart:100%` 把箭头放在 checkbox 之外（列宽随之 48px）；data-grid 用 `inline-flex gap:4` 把箭头放在 checkbox 旁（列宽恒 32px）。两种布局功能等价（箭头可见 + 点击弹菜单），data-grid 不改用 absolute（会牵连列宽策略 + 选择列 padding 规则），仅在颜色/对齐层对齐 antd。
 
 ## 与 antd 差异
@@ -158,7 +170,7 @@ data-grid 之前选择列沿用普通 cell padding（large 16/16、middle 8/8、
 - **全选态**（`allSelected`）：`selectableKeys ⊆ selected`（所有可勾选行都已选中）。
 - **半选态**（`intermediate`）：`0 < |selected ∩ selectableKeys| < |selectableKeys|`（有选中但没全选）。
 - 切换某 key：在 Set 中 add/delete（保留原顺序，新增追加末尾）。
-- 全选/全不选：select all → 合并 selectableKeys；unselect all → 清空所有 selectableKeys（保留 selectableKeys 之外的 key，如 disabled 行之前被选中——antd `preserveSelectedRowKeys` 语义）。
+- 全选/全不选：select all → 合并 selectableKeys；unselect all → 清空所有 selectableKeys（保留 selectableKeys 之外的 key，如 disabled 行之前被选中）。⚠️ 这半句**不等于**与 antd 逐字同值：实测参照在"清空"时只保留**当页**的 disabled 已选，我方保留**全量**（差在跨页时），见 `docs/reference/known-limitations.md`。
 
 ### 单选（radio）
 
@@ -173,6 +185,22 @@ antd `getCheckboxProps(record)` 返回 `{ disabled, ... }`。**禁用的行不�
 `selectedRowKeys` 是受控的：调用方负责在 `onChange` 后更新它。本 hook 不缓存"内部选中态"——每次渲染都从 `selectedRowKeys` 重新派生（与 React 受控组件语义一致）。`defaultSelectedRowKeys` 仅在 `selectedRowKeys` 未传时作为初始值（适配层处理）。
 
 注：`selectedRowKeys` 可能含 selectableKeys 之外的 key（如 disabled 行之前被选中、或 record 已不存在）。antd `preserveSelectedRowKeys` 控制是否保留这些；本 hook 不删除它们（保留语义），但 allSelected/intermediate 判定只看 selectableKeys 子集。
+
+### 选择适配层的入参约定（内部契约，非公共 API）
+
+`useSelectionAdapter` 现在要求传入**未排序、未筛选、未分页的原始 `dataSource`**，而不是任何"当前可见行"的子集。
+为什么不能省：
+
+- 勾选状态里可能存在**当前根本不显示**的 key——用户翻到第 3 页选了行、再翻回第 1 页；或者一条筛选把已选的行滤掉了。
+  判定"这个 key 还算不算存在于数据里"必须对着**全量数据**做，只喂可见行会让这些 key 被当成脏数据丢掉 ⇒ 表现为
+  「已选项莫名消失」，属于数据丢失级别的缺陷，已修。
+- 同理，`selectedRows` 之类的回填要靠全量数据把 key 映射回记录；喂子集会让顺序与成员都不对。
+
+参照在这一维同构：`antd 6.4.4 es/table/InternalTable.js:177` 用 `rawData`（原始数据）建 key↔record 的惰性映射，
+而不是用切片后的 `pageData`。`已实读参照源码`
+
+⚠️ **别把这个参数当冗余删掉**：它在类型上看起来与已有的"处理后数据源"重复，但换成子集会立刻把上面那条缺陷放回来。
+该约定在测试的白盒层有门钉着（按身份钉住传入源必须是未过滤的那一份）。`读码`
 
 ## selections 自定义选择项（对齐 antd `rowSelection.selections`）
 
@@ -215,7 +243,19 @@ antd `getCheckboxProps(record)` 返回 `{ disabled, ... }`。**禁用的行不�
 3. 对每个父 key（parentChildrenMap 中所有父）：计算其直接子行在 checked 中的比例——全选 → 把父加入 checked（递归向上传播）；部分选 → 父不加入 checked（但在 halfChecked）；全不选 → 父保持未选。
 4. 第 3 步需迭代直到稳定（因为补全父后，更高层父的"全选"判定会变）。
 
-**与 antd conductCheck 略简化**：不处理 disabled 行的"强制不参与"复杂规则（antd `isCheckboxDisabled` 在 conduction 中过滤 disabled 子；data-grid 简化为 disabled 子行仍参与父全选判定——demo 无此边界组合，已知简化）。
+**disabled 行参与传导的规则已按参照实现**（`src/table/engine/selectionTreeConduction.ts` 的 `conductTreeCheck`，
+入参 `isDisabled` 可选；不传时全部视为可选 ⇒ 无 disabled 的表格零回归）。三条规则：`已实读参照源码`
+
+1. 向下填充子孙时只加**未 disabled** 的子行；
+2. disabled 节点**不向下传播**（它自己即便在集合里，也不代表它的子孙该选）；
+3. 父行「全选 / 半选」的分母**只算可选子行**；disabled 父行与「没有任何可选中子行」的父行都不参与判定。
+
+另两条与参照对齐的行为（此前曾被写成"我们的简化"，实为已修的缺陷，本轮翻新这段文字）：
+
+- **子行的半选会向上级联**：子行「有选中成分」＝自身 checked **或** 自身 halfChecked。三层树里中间层半选时，
+  最上层必须也进半选，否则两个判据同时落空、三态全丢。参照的 `fillConductCheck` 同样用 `checked || halfChecked`。`探针实测`
+- **`children` 为空数组的表项不把父行判成全选**：没有可选中子行时父行既不判选中也不判半选（与参照的"遍历实体、
+  判据挂在 `entity.parent` 上"同形——没有任何一次迭代去判它）。注意这种表项在生产路径**会**出现，不是理论形状。`已实读参照源码`
 
 ### toggleTreeKey
 

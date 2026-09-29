@@ -670,10 +670,13 @@ describe('HeaderCell — 可筛选列集成', () => {
     expect(header.querySelector('.dg-column-actions')).not.toBeNull()
   })
 
-  it('filterable 仅在 cell.isLeaf=true 时生效（分组格不可筛选）', () => {
+  it('分组格也参与筛选：filterable 的分组格同样打 has-filter（旧断言钉的是修复前的行为）', () => {
     render(<HeaderCell cell={makeGroupCell({ filterable: true })} />)
     const header = screen.getByText('Group').closest('.dg-cell-header') as HTMLElement
-    expect(header).not.toHaveClass('dg-column-has-filter')
+    // 参照（已安装的 antd 6.4.4）里带 filters 的分组列不会被丢弃 ⇒ 分组格同样显示筛选控件；
+    // 本条断言原本钉的是"分组格不可筛选"这一修复前的旧行为。
+    expect(header).toHaveClass('dg-column-has-filter')
+    expect(header).toHaveClass('dg-cell-header-group')
   })
 })
 

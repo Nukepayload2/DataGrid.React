@@ -50,7 +50,7 @@ type AntdTableTokenInput = Record<string, unknown> & {
 /**
  * antd Table 组件 token 默认派生函数。
  *
- * 源自 `G:\Projects\ant-design\components\table\style\index.ts` 的
+ * 源自 `{{AntDesign}}/components/table/style/index.ts` 的
  * `prepareComponentToken`（antd 6.4.4），复制到本地以避免运行时依赖
  * `antd/es/table/style/index` 这类 internal API。只保留纯 token 派生逻辑，不引入
  * antd Table 样式注册、渲染或 rc-table/virtual-list。

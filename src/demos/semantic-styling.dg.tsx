@@ -95,7 +95,7 @@ export default function StyleClassDg({
         <h3 style={{ marginBottom: 12 }}>
           对象 styles（root/pagination/body.row/body.cell）
         </h3>
-        {/* scroll.y:true 数据区域模式需父容器有明确 height（详见 docs/design-notes/virtualization.md）。
+        {/* scroll.y:true 数据区域模式需父容器有明确 height（详见 docs/features/scrolling/virtualization.md）。
             scrollY 开启时给对象 styles 块固定 height:300。 */}
         <div style={scrollY ? { height: 300 } : undefined}>
           <Table<RecordType>

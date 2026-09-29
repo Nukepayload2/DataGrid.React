@@ -11,7 +11,7 @@
  *
  * 行选择适配：`rowSelection` 传入时在最前插入一个"选择列"叶子节点（`buildSelectionColumnNode`），
  *   该节点对引擎透明（普通 `EngineColumnNode`，无 children → 叶子），与多级表头 / 固定列 / 合并 /
- *   虚拟滚动无缝组合。详见 `docs/design-notes/selection.md`。
+ *   虚拟滚动无缝组合（该节点的 `__dg_selection__` key 与宿主见 `docs/features/interaction/selection.md`）。
  */
 
 import {
@@ -47,6 +47,7 @@ import {
   type ColumnProps,
   type ColumnType,
   type Expandable,
+  type FilterValue,
   type GridSelectionOptions,
   type SizeType,
   type TableLocale,
@@ -56,12 +57,13 @@ import {
   type TableRef,
   type TableRowSelection,
 } from './types'
-import {
-  useTableThemeVars,
-} from './useTableThemeVars'
+// 「该不该滚回首行」的唯一判据住在滚动归一层（engine/useScrollMode.ts），本文件只在唯一调用点消费。
+import { shouldScrollToFirstRowOnChange } from './engine/useScrollMode'
+import { useTableThemeVars } from './useTableThemeVars'
 import {
   applyColumnDefaults,
   convertChildrenToColumns,
+  flattenAllColumns,
   flattenLeafColumns,
 } from './columnAdapter'
 import { buildExpandColumnNode } from './expandAdapter'
@@ -77,9 +79,10 @@ import { useResponsiveColumns } from './useResponsiveColumns'
 import { buildTableRefHandle } from './buildTableRefHandle'
 import { useScrollbarTouch } from './useScrollbarTouch'
 import { useColumnTreeBuilder } from './useColumnTreeBuilder'
-import { usePaginationAdapter } from './usePaginationAdapter'
+import { usePaginationAdapter, type UsePaginationAdapterResult } from './usePaginationAdapter'
 import { useSelectionAdapter } from './useSelectionAdapter'
 import { useExpandRowBinding } from './useExpandRowBinding'
+import { type TableComponentConfig, normalizeTableContextDefaults } from './contextDefaults'
 import { useRowDragSort } from './engine/useRowDragSort'
 import { useColumnDragSort } from './engine/useColumnDragSort'
 import { ensureDataGridStyles } from './style/registerStyles'
@@ -108,7 +111,7 @@ delete defaultTableLocaleWithoutEmptyText.emptyText
  * 用类型断言 `as unknown as (props: ColumnProps<RecordType>) => null` 绕过 TS 对泛型箭头函数
  * 的限制（与 antd `<RecordType extends AnyObject>(_: ColumnProps<RecordType>) => null` 同款）。
  *
- * 详见 `docs/design-notes/jsx-api.md`。
+ * 详见 `docs/features/api/jsx-api.md`。
  */
 function TableColumn<RecordType = any>(_: ColumnProps<RecordType>): null {
   return null
@@ -125,7 +128,7 @@ const Column: <RecordType = any>(props: ColumnProps<RecordType>) => null =
  * props：`title`（分组列表头）+ `children`（Column / ColumnGroup 的 ReactElement 数组，任意深度嵌套）。
  * Table 适配层把它转换为 `{ title, ...rest, children: [...] }`（复用多级表头渲染）。
  *
- * 详见 `docs/design-notes/jsx-api.md`。
+ * 详见 `docs/features/api/jsx-api.md`。
  */
 function TableColumnGroup<RecordType = any>(_: ColumnGroupProps<RecordType>): null {
   return null
@@ -220,23 +223,29 @@ function TableInner<RecordType = any>(
 ) {
   const {
     dataSource = [],
-    rowKey = 'key',
+    // `rowKey` / `scroll` 不在此处给默认值：上下文回退统一由 `contextDefaults.ts` 的
+    // `normalizeTableContextDefaults` 归一（参照 antd 6.4.4 InternalTable.js:165 `customizeRowKey || table?.rowKey || 'key'`、
+    // :167 `scroll ?? table?.scroll`、:138 `expandable?.expandIcon ?? table?.expandable?.expandIcon`）。
+    rowKey: propsRowKey,
     bordered = false,
     size,
     showHeader = true,
     title,
     footer,
     gridOptions,
-    scroll,
+    scroll: propsScroll,
     virtual,
     rowSelection,
-    expandable,
+    expandable: propsExpandable,
     pagination,
     loading,
     className,
     style,
     onChange,
     showSorterTooltip,
+    // Table 级排序循环方向默认值（对齐 antd `TableProps.sortDirections`）；列级同名字段优先。
+    // 消费点见下方 useSorter 的 defaultSortDirections。
+    sortDirections,
     components,
     summary,
     // 列宽策略 tableLayout（对齐 antd `TableProps.tableLayout`）。详见下方 derivedTableLayout 注释。
@@ -285,17 +294,33 @@ function TableInner<RecordType = any>(
     // convertChildrenToColumns 依赖元素 props，props 变化时父组件本就会重渲染）。依赖 columns + children + column。
   }, [props.columns, props.children, column])
 
+  // === ConfigProvider `table` 上下文三项归一（BAT-29 第 3 片 / 29-A）===
+  // 上下文值取自本组件**既有的那一份** `useContext(ConfigContext)`（不新开 context 面）；
+  // 优先级判据只写在 `contextDefaults.ts` 一处，渲染点不得再各写一份 `?? table?.xxx`。
+  // 参照 antd 6.4.4 InternalTable.js:86（`table` 挂在 ConfigContext 上）/:138（expandIcon `??`）
+  //   /:165（rowKey `||`）/:167（scroll 整对象 `??`）。
+  const { locale: contextLocale, table: contextTableConfig } = useContext(ConfigContext)
+  const contextDefaults = normalizeTableContextDefaults(
+    { rowKey: propsRowKey, scroll: propsScroll, expandable: propsExpandable },
+    contextTableConfig as TableComponentConfig | undefined,
+  )
+  // 下游全部沿用这三个局部名（`rowKeyResolved` / `scroll?.x|y` / `expandable`），
+  // 故上下文回退自动覆盖所有消费点（rowKey 的 12 个使用点、scroll 的 6 个使用点均走这里）。
+  // ★ 三档链（props → 上下文 → 内置缺省 `'key'`）**整体**在归一层收口，此处**不再**补写 `?? 'key'`
+  //   ⇒ 同一条判据全仓只有一份（`contextDefaults.ts`）。本行只做类型收窄。
+  const rowKey = contextDefaults.rowKey
+  const scroll = contextDefaults.scroll
+  const expandable = contextDefaults.expandable as Expandable<RecordType> | undefined
   const rowKeyResolved = rowKey as string | ((record: RecordType) => string | number)
-  const { locale: contextLocale } = useContext(ConfigContext)
   const contextTableLocale = contextLocale?.Table as TableLocale | undefined
   const mergedLocale = useMemo<TableLocale>(
-    () => ({
-      ...defaultTableLocaleWithoutEmptyText,
-      ...(contextTableLocale as TableLocale),
-      ...locale,
-    }),
+    () => ({ ...defaultTableLocaleWithoutEmptyText, ...(contextTableLocale as TableLocale), ...locale }),
     [contextTableLocale, locale],
   )
+  // a11y 播报文案走 locale 的 **global** 段（与 Table 段互为兄弟，形状见 compat/locale.ts 的 A11yLocale）：
+  //   参照 InternalTable.js:121 `useLocale('global', defaultLocale.global)` + useLocale.js:7-14
+  //   ＝默认 global 段打底、ConfigProvider 的 global 段浅覆盖（partial global 不丢默认 sortable）。
+  const mergedA11yLocale = useMemo(() => ({ ...defaultLocale.global, ...contextLocale?.global }), [contextLocale])
 
   // === 响应式 responsive：按当前视口断点过滤列（对齐 antd InternalTable.tsx:235-246）===
   // 实现移至 `useResponsiveColumns` hook（needResponsive 短路 + Grid.useBreakpoint + 按 screens 过滤）。
@@ -345,22 +370,35 @@ function TableInner<RecordType = any>(
   //   受控时为原 dataSource。
   // - onSorterClick：引擎表头格点击时触发（该列自身 sortDirections 循环 + 单列/多列状态切换 + onChange 分发）。
   // 注意：传入的 columns 是**已过滤哨兵**的原始 antd 列（哨兵不是可排序列）。
-  // 详见 `docs/design-notes/filter-sorter.md`。
+  // 详见 `docs/features/interaction/filter-sorter.md`。
   // === 分页状态占位 ref ===
   // useSorter（在下方）/ useFilter（下方）的 onChange 在用户交互时触发（滞后于 render），
   // 届时 ref 已被 usePagination（更下方）同步为最新分页状态。这样 sort/filter 触发的 onChange
   // 的 pagination 参数始终反映当前分页（对齐 antd：onChange 的 pagination 始终反映当前分页）。
   // 初始值兜底（pagination 未启用时也安全——下方 useMemo 会算出"未启用"态注入）。
   const paginationStateRef = useRef<TablePaginationState>({ current: 1, pageSize: 0, total: 0 })
+  // === 筛选状态取值器 ref（同 paginationStateRef 的手法）===
+  // useSorter 的 onChange 第二参要携带**当前**筛选状态（对齐 antd：排序动作的 onChange 也带
+  // changeEventInfo.filters）。真取值器是下方 useFilter 返回的 `getFiltersArg`，它声明得比
+  // useSorter 晚（filter 的输入依赖 sort 的输出 sortedDataSource，故 useSorter 不能整体下移），
+  // 直接引用会命中 TDZ ⇒ 用 ref 承载：useFilter 之后在渲染期写入，排序回调触发时（滞后于渲染）读取。
+  const filtersArgRef = useRef<(() => Record<string, Array<FilterValue> | null>) | null>(null)
+  // === Table 级 onChange 发射口取值器（同 paginationStateRef / filtersArgRef 的手法）===
+  // 真发射口是下方 `usePaginationAdapter` 返回的 `fireTableChange`（BAT-24：它是「筛选 ⇒ 复位分页」
+  // 三件套的唯一落点，判据在 engine/usePagination.ts:shouldResetPagination，别处不许各写一遍）。
+  // useSorter/useFilter 在渲染体里都比它**早**，事件闭包只能经 ref 间接读；交互滞后于渲染 ⇒
+  // 读到的就是本次渲染的最新闭包（与参照「每次 render 重建 triggerOnChange」同形）。
+  const fireTableChangeRef =
+    useRef<UsePaginationAdapterResult<RecordType>['fireTableChange'] | null>(null)
   // 引擎层 ref（暴露 scrollTo 等）。本组件的 forwardRef ref 桥接到它。
   const engineRef = useRef<TableEngineHandle | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const scrollToFirstRowOnChange = useCallback(() => {
-    if (scroll?.scrollToFirstRowOnChange === false) return
+    if (!shouldScrollToFirstRowOnChange(scroll)) return
     engineRef.current?.scrollTo({ scrollTop: 0 })
     const scrollContainer = rootRef.current?.querySelector<HTMLElement>('.dg-scroll')
     if (scrollContainer) scrollContainer.scrollTop = 0
-  }, [scroll?.scrollToFirstRowOnChange])
+  }, [scroll])
 
   const sortableColumns = useMemo(
     () =>
@@ -369,9 +407,29 @@ function TableInner<RecordType = any>(
       //   setFilterValue 内的 `columns.find(c => resolveColumnSortKey(c) === key)` 仅扫顶层列——
       //   多级表头下嵌套叶子（如 Other.Age，sortKey='age'）找不到（顶层只有 Other，sortKey='other'）
       //   → 点击排序/应用筛选静默失效。修复：递归展开 children 取叶子列传入。
-      //   对齐 antd（antd InternalTable 用 flattenColumns 扁平化后给 useSorter/useFilter）。
+      //   对齐 antd（antd InternalTable 的 useSorter 内部 collectSortStates 递归 children 取叶子）。
       //   顶层叶子 demo（head 等）扁平化后仍是自身，零回归。
+      //   ⚠ BAT-19 19-A 之后**筛选侧不再共用本 memo**（改吃下面的 `filterColumns`）：参照对
+      //   排序与筛选的收集面并不相同（`useSorter.js:34-68` 只对叶子收 `defaultSortOrder`，
+      //   而 `useFilter/index.js:151-156` 的 `getMergedColumns` 把分组节点本身也保留），
+      //   共用一份「只取叶子」的列表 = 分组列上的筛选配置被静默丢弃（探针 A1/A2/A3）。
+      //   排序侧维持叶子集＝与参照同形，本批不动排序侧（判据与缺项见步骤 49 日志 §2.1/§7）。
       flattenLeafColumns(
+        (visibleColumnsForRender as Array<ColumnOrSentinel<RecordType>>).filter(
+          (c): c is ColumnType<RecordType> =>
+            c !== SELECTION_COLUMN && c !== EXPAND_COLUMN,
+        ),
+      ),
+    [visibleColumnsForRender],
+  )
+  // === 筛选侧列集（19-A）：前序展开、**含分组列自身** ===
+  // 对齐 antd@6.4.4 `es/table/hooks/useFilter/index.js:151-156 getMergedColumns` +
+  //   `:8-41 collectFilterStates` + `:42-85 injectFilter`——分组节点自己既进筛选收集面、
+  //   又是漏斗宿主。展开形状＝前序，每个分组列**自身**与其每个后代各出现一次（叶子不会重复），
+  //   与参照一致。
+  const filterColumns = useMemo(
+    () =>
+      flattenAllColumns(
         (visibleColumnsForRender as Array<ColumnOrSentinel<RecordType>>).filter(
           (c): c is ColumnType<RecordType> =>
             c !== SELECTION_COLUMN && c !== EXPAND_COLUMN,
@@ -382,15 +440,29 @@ function TableInner<RecordType = any>(
   const { sortOrderMap, sortPriorityMap, sortedDataSource, onSorterClick, currentSorterResult } = useSorter<RecordType>({
     columns: sortableColumns,
     dataSource,
-    // 包装 onChange，把 useSorter 内部传入的占位 pagination `{}` 替换为当前实际分页状态
-    // （paginationStateRef.current，对齐 antd：onChange 的 pagination 始终反映当前分页）。
-    // filters/sorter/extra 原样透传（useSorter 内部已组装 filters={} / sorter / action:'sort'）。
+    // 当前筛选状态取值器（#4）：排序动作的 onChange 第二参要带 filters，对齐 antd。
+    // 真取值器 getFiltersArg 在下方 useFilter 才声明（TDZ）⇒ 经 filtersArgRef 间接读取。
+    getFilters: () => filtersArgRef.current?.() ?? {},
+    // Table 级排序循环方向（#14a）：列自带 `column.sortDirections` 优先，回退顺序在 useSorter 内。
+    defaultSortDirections: sortDirections,
+    // 包装 onChange：统一走下方 usePaginationAdapter 的 `fireTableChange`（同一判据、单一实现）。
+    // 排序 action 在参照里 `reset=false`（InternalTable.js:213-218）⇒ **不复位**，pagination 参数
+    // 仍是当前实际分页（paginationStateRef.current，由 fireTableChange 内部读取）。
+    // filters/sorter/extra 原样透传（filters 由上面的 getFilters 携带当前筛选态；
+    // sorter/extra 由 useSorter 内部组装，action:'sort'）。
     onChange: (_pagination, filters, sorter, extra) => {
       scrollToFirstRowOnChange()
-      if (!onChange) return
-      onChange(paginationStateRef.current, filters, sorter, extra)
+      fireTableChangeRef.current?.(filters, sorter, extra)
     },
   })
+
+  // === childrenColumnName / indentSize 派生（上移：useFilter 递归过滤 children 需要它）===
+  // 解析规则：expandable.* 字段优先（对齐 antd getExpandableProps），
+  // 未设时用 Table 级字段；都未设时用默认 'children' / 15（对齐 antd 6.4.4 实测 InternalTable.tsx:611）。
+  // 原派生点在下方「树形数据」小节；因筛选（useFilter）早于树形执行，故上移到此处。
+  const childrenColumnName =
+    expandable?.childrenColumnName ?? props.childrenColumnName ?? 'children'
+  const indentSize = expandable?.indentSize ?? 15
 
   // === 基础列筛选（须在选择 / 展开之前派生 filteredDataSource，供下游 hooks 消费）===
   // useFilter 从原始 antd columns + sortedDataSource 派生筛选状态（受控/非受控、filteredValue、
@@ -403,32 +475,36 @@ function TableInner<RecordType = any>(
   // 注意：传入 sortedDataSource（排序后），实现 raw → sort → filter 叠加（与 antd 一致）。
   // 排序结果（sortOrderMap/sortedDataSource）变化时，useFilter 的输入随之变化，filteredDataSource
   // 重算（筛选条件基于新排序结果——虽然筛选是数据集合层面操作、与顺序无关，但叠加链顺序对齐 antd）。
-  // 详见 `docs/design-notes/filter-sorter.md`。
+  // 列集用 `filterColumns`（**含分组列自身**的扁平集，19-A）而不是 `sortableColumns`：
+  //   参照的筛选收集面包含分组节点本身，共用只取叶子的列表会把分组列上的筛选配置静默丢掉。
+  // 详见 `docs/features/interaction/filter-sorter.md`。
   const { filteredValueMap, filteredDataSource, setFilterValue, getFiltersArg } = useFilter<RecordType>({
-    columns: sortableColumns,
+    columns: filterColumns,
     dataSource: sortedDataSource,
+    // 树形数据的 children 同样参与筛选（对齐 antd getFilterData 逐层递归）：
+    // 命中的父行保留，其不匹配的子孙行被过滤掉。非树形数据该入参无副作用。
+    childrenColumnName,
     onFilterChange: (filters, currentDataSource) => {
       scrollToFirstRowOnChange()
       // 适配层注入最新 sorter（useSorter.currentSorterResult），组装完整 onChange。
       // sorter 取当前排序状态（非"本次筛选前的"也非"点击排序触发的 nextStates"——
       // 筛选不改变排序，sorter 应反映当前已应用的排序）。
-      // 注入当前分页状态（对齐 antd：onChange 的 pagination 始终反映当前分页）。
-      if (!onChange) return
-      onChange(
-        paginationStateRef.current,
-        filters,
-        currentSorterResult,
-        { currentDataSource, action: 'filter' },
-      )
+      // 分页复位（BAT-24）在 fireTableChange 内部按 action 判定；这里**不再** `if (!onChange) return`
+      // 早退——参照 `:186/:193` 两条副作用不受 table 级 onChange 存在与否约束。
+      fireTableChangeRef.current?.(filters, currentSorterResult, {
+        currentDataSource,
+        action: 'filter',
+      })
     },
   })
 
+  // === #4：把筛选取值器交给上方的 useSorter（渲染期写入，与 paginationStateRef 同法）===
+  // useSorter 声明在本行之前（filter 的输入是 sort 的输出，不能换位），故其 getFilters 只能
+  // 经 filtersArgRef 间接读；交互回调滞后于渲染，届时读到的就是本次渲染的最新取值器。
+  filtersArgRef.current = getFiltersArg
+
   // === 树形数据（须在选择 / 展开之前派生 flattenedDataSource，供下游 hooks 消费）===
-  // 解析 childrenColumnName / indentSize：expandable.* 字段优先（对齐 antd getExpandableProps），
-  // 未设时用 Table 级字段；都未设时用默认 'children' / 15（对齐 antd 6.4.4 实测 InternalTable.tsx:611）。
-  const childrenColumnName =
-    expandable?.childrenColumnName ?? props.childrenColumnName ?? 'children'
-  const indentSize = expandable?.indentSize ?? 15
+  // childrenColumnName / indentSize 的派生已上移到 useFilter 之前（筛选需递归 children）。
 
   // useTreeData：检测树形（任一 record 含 childrenColumnName 非空数组）→ 扁平化 + 展开过滤。
   // 非树形 → flattenedData 原样 filteredDataSource（零回归）；rowInfoMap/parentChildrenMap 空。
@@ -461,6 +537,8 @@ function TableInner<RecordType = any>(
     gridSelection: gridOptions?.selection as GridSelectionOptions<RecordType> | undefined,
     flattenedDataSource,
     filteredDataSource,
+    // 原始 dataSource（antd rawData 口径）：行选择的 key 存在性判定与 selectedRows 查表用它。
+    rawDataSource: dataSource,
     treeEnabled,
     childrenColumnName,
     rowKey: rowKeyResolved,
@@ -501,6 +579,9 @@ function TableInner<RecordType = any>(
         mergedLocale,
         selectionAnchorKey,
         setSelectionAnchorKey,
+        // 缺口 #12c：antd 在选择列表头下拉的 <Dropdown> 上传了 getPopupContainer
+        // （es/table/hooks/useSelection.js:326-329），我们此前漏了 → 静默失效。
+        getPopupContainer,
       )
     : null
   const expandNode =
@@ -553,13 +634,13 @@ function TableInner<RecordType = any>(
   //   但 overflow:hidden 使 .dg-wrapper 成为表头 sticky 的非 visible 溢出祖先（CSS 规范），
   //   拦截 sticky 上下文，导致页面级 sticky 表头相对 viewport 永不触发。
   //   sticky 模式改用 .dg-sticky：overflow:clip 裁剪宽表但不创建滚动容器，横向位移由
-  //   GridTable 内部的 StickyScrollBar + transform 驱动，避免撑宽外层文档流。
-  //   详见 `docs/design-notes/sticky.md`。
+  //   ScrollContainer 的 sticky 分支驱动（`.dg-sticky-scroll-viewport` ＋ `StickyScrollBar` ＋ `--dg-sticky-scroll-left` transform），避免撑宽外层文档流。
+  //   sticky 上下文穿透与圆角/宽表裁剪的现值见 `docs/features/layout/sticky.md`（CSS 落点：table.css `.dg-wrapper.dg-sticky`）。
   const stickyClassEnabled = sticky !== undefined && sticky !== false
   // scroll.y===true 数据区域模式 → .dg-wrapper 加 dg-data-area 修饰类
   //   （display:flex; flex-direction:column; height:100%），让表体区（.dg-scroll-wrap）
   //   flex:1 填满父容器剩余空间（CSS 自动适应高度，不用 JS 算数字）。父容器需有明确 height。
-  //   详见 `docs/design-notes/layout.md`。
+  //   详见 `docs/features/layout/layout.md`。
   const dataAreaClassEnabled = scroll?.y === true
   const wrapperClass = [
     'dg-wrapper',
@@ -628,10 +709,31 @@ function TableInner<RecordType = any>(
   // === 行展开 + 行点击绑定（useExpandRowBinding：expandRowByClick 派生 + onRowWithExpand
   //   行点击选择 single/multiple/extended-shift + expandRowByClick 叠加 + rowClassNameWithExpand
   //   展开行追加 class，详见 ./useExpandRowBinding.ts）===
+  //
+  // 树形表的"整行可点展开"（29-H / BAT-30 的 30-B）：
+  //   实测（步骤 56 向量 H1，读数存档 `tmp/56-vitest-final2.log`）参照 antd **6.4.4** 树形表点**行体**
+  //   会展开被点节点（`aria-expanded` false→true，且**只**影响被点那一行），
+  //   而我们此前被 `expandEnabled = !treeEnabled && …` 整条门掉 ⇒ 声明了 props 却静默不生效，真 bug。
+  //   这里**只**切换"行点击绑定"的状态源（树形用 `tree.expandableKeySet` / `tree.toggleExpand`）；
+  //   `expandEnabled` 承载的是另一条判据（展开列 + `expandedRowRender` 的"树形优先禁用"），保持不动。
+  //   零新增 DOM：走的仍是既有 `onRow` 通道（格子上的行级 props），不加包装节点。
+  const treeRowClickExpandEnabled =
+    treeEnabled && expandable?.expandRowByClick === true && tree.expandableKeySet.size > 0
+  const expandBindingState = useMemo(
+    () =>
+      treeRowClickExpandEnabled
+        ? {
+            ...expand,
+            expandableKeySet: tree.expandableKeySet,
+            toggleExpand: (key: React.Key) => tree.toggleExpand(key),
+          }
+        : expand,
+    [treeRowClickExpandEnabled, expand, tree],
+  )
   const { onRowWithExpand, rowClassNameWithExpand } = useExpandRowBinding<RecordType>({
-    expandEnabled,
+    expandEnabled: expandEnabled || treeRowClickExpandEnabled,
     expandable: expandable as Expandable<RecordType> | undefined,
-    expand,
+    expand: expandBindingState,
     onRow,
     rowClassName,
     rowKey: rowKeyResolved,
@@ -648,7 +750,7 @@ function TableInner<RecordType = any>(
   // 把 useTreeData 的派生结果封装为 EngineTreeState，传给引擎。
   // 引擎据此在第一列数据单元格内按 level × indentSize 左缩进 + 渲染展开/收起图标。
   // 非树形 → undefined（零回归，引擎不消费）。
-  // 详见 `docs/design-notes/header.md`（树形缩进）。
+  // 详见 `docs/features/interaction/tree-data.md`（树形缩进）。
   const engineTreeState: EngineTreeState | undefined = useMemo(() => {
     if (!treeEnabled) return undefined
     return {
@@ -666,7 +768,7 @@ function TableInner<RecordType = any>(
   //   - undefined / false：不启用（engineSticky=undefined，零回归）。
   //   - true：启用（默认偏移 0；engineSticky={}，引擎读 offsetHeader/offsetSummary/offsetScroll 时兜底 0）。
   //   - 对象：原样透传。
-  //   详见 `docs/design-notes/sticky.md`。
+  //   对外形态与引擎侧字段集登记见 `docs/reference/compat-matrix.md` 的 `sticky` 行。
   const engineSticky = useMemo(() => {
     if (sticky === undefined || sticky === false) return undefined
     if (sticky === true) return {}
@@ -681,6 +783,7 @@ function TableInner<RecordType = any>(
     pagedDataSource,
     topPaginationNode,
     bottomPaginationNode,
+    fireTableChange,
   } = usePaginationAdapter<RecordType>({
     pagination,
     flattenedDataSource,
@@ -694,6 +797,9 @@ function TableInner<RecordType = any>(
     classNamesResolved,
     stylesResolved,
   })
+  // 渲染期写入发射口（同上方 `filtersArgRef.current = getFiltersArg`）：useSorter/useFilter 的
+  // 事件闭包比本 hook 早声明，只能经 ref 读；交互发生在渲染之后 ⇒ 读到的是本次渲染的最新闭包。
+  fireTableChangeRef.current = fireTableChange
 
   const renderedDataSource = useMemo(() => {
     if (!treeEnabled || !paginationEnabled) return pagedDataSource
@@ -717,7 +823,7 @@ function TableInner<RecordType = any>(
   // ★ 与 title/footer 传 filteredDataSource（全量）不同：summary 传 **pagedDataSource**（当前页），
   //   对齐 antd summary 实际行为（antd summary 的 pageData 也是当前页数据）。未启用分页时
   //   pagedDataSource = filteredDataSource（全量）。
-  //   详见 `docs/design-notes/summary.md`。
+  //   `pagedDataSource` 的切片定义见 `docs/features/interaction/pagination-and-data.md`。
   const summaryNode: ReactNode = useMemo(() => {
     if (summary === undefined || summary === null) return null
     if (typeof summary === 'function') {
@@ -789,7 +895,7 @@ function TableInner<RecordType = any>(
   //   paginationInfo/placement/showPagination（更后置），无法在上面的 wrapperClass 原地处计算，
   //   故采用 finalWrapperClass 二次拼接 dg-content-scrolled 类。
   //
-  // 详见 `docs/design-notes/scrollbar.md`（横向滚动条位置策略）。
+  // 详见 `docs/features/scrolling/scrollbar.md`（横向滚动条位置策略）。
   const contentScrolledEnabled =
     (!!topPaginationNode || !!bottomPaginationNode || !!footer) &&
     !dataAreaClassEnabled &&
@@ -827,7 +933,7 @@ function TableInner<RecordType = any>(
         overflow-x:hidden——不再自身出条，仅承载圆角裁剪与内容区边界语义。
 
         不启用时（basic/head 等无 pagination/footer 的 demo）直接渲染 `<GridTable>`，零 DOM 变化。
-        详见 `docs/design-notes/scrollbar.md`。
+        详见 `docs/features/scrolling/scrollbar.md`。
       */}
       {contentScrolledEnabled ? (
         <div className="dg-scroll ant-table-content" style={{ overflowX: 'hidden' }}>
@@ -863,9 +969,9 @@ function TableInner<RecordType = any>(
                   }
                 : undefined
             }
-            // Table 级 locale 透传到引擎 → FilterDropdown（filterConfirm/Reset/EmptyText/
-            //   SearchPlaceholder/CheckAll）。locale 为 undefined 时引擎/FilterDropdown 回退到内置默认值。
+            // Table 级 locale 双通道透传：filterLocale＝Table 段（FilterDropdown/排序 title）、a11yLocale＝global 段（表头 aria-description）。
             filterLocale={mergedLocale}
+            a11yLocale={mergedA11yLocale}
           />
         </div>
       ) : (
@@ -904,9 +1010,9 @@ function TableInner<RecordType = any>(
                 }
               : undefined
           }
-          // Table 级 locale 透传到引擎 → FilterDropdown（filterConfirm/Reset/EmptyText/
-          //   SearchPlaceholder/CheckAll）。locale 为 undefined 时引擎/FilterDropdown 回退到内置默认值。
+          // Table 级 locale 双通道透传：filterLocale＝Table 段（FilterDropdown/排序 title）、a11yLocale＝global 段（表头 aria-description）。
           filterLocale={mergedLocale}
+          a11yLocale={mergedA11yLocale}
         />
       )}
       {footer ? (

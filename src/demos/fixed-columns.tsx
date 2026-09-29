@@ -68,7 +68,7 @@ export default function FixedColumnsDemo() {
                 <li><strong>触发条件</strong>：列含 <code>fixed:'start'/'end'</code> + scroll.x（始终）。</li>
                 <li><strong>差异原因</strong>：data-grid 用 CSS Grid <code>position:sticky</code> + 列宽
                   策略保证偏移稳定；antd 原生 <code>&lt;table&gt;</code> sticky。语义等价。详见
-                  <code>docs/design-notes/fixed-column.md</code>。</li>
+                  <code>docs/features/columns/fixed-column.md</code>。</li>
               </ul>
             </li>
             <li>
@@ -78,7 +78,7 @@ export default function FixedColumnsDemo() {
                   data-grid 两侧阴影恒显（阴影本身 8px 模糊 + 极淡 alpha，视觉差异极小）。</li>
                 <li><strong>触发条件</strong>：横向滚到边缘。</li>
                 <li><strong>差异原因</strong>：antd 由 rc-table 监听 scrollLeft 动态切换；data-grid 纯 CSS
-                  不脚本监听。详见 <code>docs/design-notes/fixed-column.md</code>。</li>
+                  不脚本监听。详见 <code>docs/features/columns/fixed-column.md</code>。</li>
               </ul>
             </li>
             <li>
@@ -89,7 +89,7 @@ export default function FixedColumnsDemo() {
                 <li><strong>触发条件</strong>：含无 <code>width</code> 普通列 + <code>scroll.x:'max-content'</code>。</li>
                 <li><strong>差异原因</strong>：data-grid 列宽策略下 max-content 路径使固定列偏移稳定贴边；
                   数字 <code>scroll.x</code> + 无 width 列总和 &lt; 声明宽时可能脱离（本 demo 不命中）。
-                  详见 <code>docs/design-notes/fixed-column.md</code>。</li>
+                  详见 <code>docs/features/columns/fixed-column.md</code>。</li>
               </ul>
             </li>
           </ul>

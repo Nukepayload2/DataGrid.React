@@ -66,7 +66,7 @@ export default function TreeTablePreserveSelectedRowKeysDemo() {
                 <li><strong>差异原因</strong>：antd <code>getRecordByKey</code>（useLazyKVMap dig 递归 <code>rawData</code>
                   全树）与 data-grid 全树存在性判定（<code>filteredDataSource</code> 递归 walk）覆盖范围不同；
                   本 demo 用固定数据源，两侧 preserve=true / false 行为一致。详见
-                  <code> docs/design-notes/selection.md</code>。</li>
+                  <code> docs/features/interaction/selection.md</code>。</li>
               </ul>
             </li>
             <li>

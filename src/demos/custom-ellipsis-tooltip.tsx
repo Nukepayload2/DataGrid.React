@@ -60,7 +60,7 @@ export default function EllipsisCustomTooltipDemo() {
                 <li><strong>触发条件</strong>：任一 ellipsis 列存在。</li>
                 <li><strong>差异原因</strong>：data-grid 有 ellipsis 列即派生 <code>tableLayout:'fixed'</code>
                   → <code>minmax(width,1fr)</code> 限 track 宽；antd 用 <code>&lt;table width:100%&gt;</code> +
-                  <code>tableLayout:fixed</code>，等效。详见 <code>docs/design-notes/column-width.md</code>。</li>
+                  <code>tableLayout:fixed</code>，等效。详见 <code>docs/features/columns/column-width.md</code>。</li>
               </ul>
             </li>
           </ul>

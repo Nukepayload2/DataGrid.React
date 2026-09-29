@@ -1,6 +1,6 @@
 // 黑盒 feature-slice 测试：与 antd 自家 Table 测试用例逐条对齐（antd-style 黑盒层）。
 //
-// 对齐来源: G:\Projects\ant-design\components\table\__tests__\Table.test.tsx
+// 对齐来源: {{AntDesign}}/components/table/__tests__/Table.test.tsx
 //   30 个 it + mountTest（1 it）+ directionTest 占位（1 it.skip）= 共 32 用例。
 //
 // 选择器重映射（data-grid 无语义化 table DOM，行无 .dg-row 元素，以 data-row-index 标识）:
@@ -123,13 +123,12 @@ describe('Table', () => {
     })
   })
 
-  // antd L101。
-  // skip 依据：data-grid 从未有 columnsPageRange/columnsPageSize 字段（antd v5 已移除这两个
-  // 废弃字段），无废弃兼容 warning 可断言；且 TableProps 不接受这两个字段，wrapper div 也
-  // 不 spread rest props（src/table/Table.tsx:924-931 仅接 className/style/ref/onPointerDown）。
-  it.skip('props#columnsPageRange and props#columnsPageSize do not warn anymore', () => {
-    // 占位：与 antd 用例清单对齐，data-grid 无对应废弃字段。
-  })
+  // antd L101（props#columnsPageRange / columnsPageSize）→ **已转直测，物理位置移到本域末尾**
+  // （见文末「步骤 81 由 skip 转直测」组）。原因：本文件 `support wireframe` 的存量快照把 cssinjs 的
+  // `css-var-_r_N_` 类名一起存了，N 随**全文件 <Table> 挂载次数**漂移；在它之前新增任何挂载都会把
+  // 那条快照染红（`__snapshots__/` 与 `tests/shared/snapshot.ts` 均在本棒写边界外）⇒ 三条转直测统一后置。
+  // 用例内容与 antd L101 逐条对应，provenance 以 `// antd L101` 标记为准，不以物理位置为准。
+
 
   // antd L124：onHeaderCell 返回值合并进表头格 div props（src/table/engine/FlatColumnCells.tsx:180-209,314-330）。
   it('support onHeaderCell', () => {
@@ -252,11 +251,14 @@ describe('Table', () => {
   // antd L236：全局 column.align + 逐列 align 覆盖 + EXPAND/SELECTION 哨兵列位置。
   // 重映射：td → .dg-cell-body[data-row-index="0"]（4 格：name / expand / age / selection）；
   // .ant-table-row-expand-icon → .dg-expand-icon；.ant-checkbox-input → .dg-selection-input。
-  // 哨兵位置语义见 src/table/Table.tsx:492-494；全局 align 合并见 columnAdapter.ts:258-290。
-  // align 取值重映射：antd 用 `'left' | 'right'`（antd `es/table/interface.d.ts:180`），
-  // data-grid 的 `Align` 是逻辑值 `'start' | 'center' | 'end'`（src/table/nativeOptions.ts:5），
-  // 且对齐由 `data-align` 驱动的 flex `justify-content` 实现（src/table/style/table.css:220-226，
-  // 只有 `[data-align='center'|'end']` 两条规则，没有 `'right'`）——故用 `'end'` 而非 `'right'`。
+  // 哨兵位置语义见 src/table/Table.tsx:492-494；全局 align 合并见 columnAdapter.ts:280-312。
+  // align 取值（缺口 #13 已修）：antd 用物理值 `'left' | 'right'`（`es/table/interface.d.ts:180`），
+  // data-grid 的输入面 `Align` 是**双取值**（逻辑值 start/center/end + 物理值 left/center/right，
+  // src/table/nativeOptions.ts:19），物理值在适配层由 `columnAdapter.normalizeAlign`（`:39-44`）
+  // 归一为逻辑值后才落引擎 ⇒ 本用例照 antd 原值传 `'right'`。
+  // ★ 归一是**唯一**的对齐真源：`table.css` 只有 `[data-align='center'|'end']` 两条规则，
+  //   **不补** `[data-align='right']`——所以 `'right'` 与 `'end'` 的落点（data-align / inline
+  //   textAlign / justify-content）逐值全等（探针 P6 并排实测）。
   it('supports column align with per-column override and special columns', () => {
     const { container } = customRender(
       <Table
@@ -265,7 +267,7 @@ describe('Table', () => {
           Table.EXPAND_COLUMN,
           {
             title: 'Info',
-            children: [{ title: 'Age', dataIndex: 'age', align: 'end' }],
+            children: [{ title: 'Age', dataIndex: 'age', align: 'right' }],
           },
           Table.SELECTION_COLUMN,
         ]}
@@ -292,19 +294,30 @@ describe('Table', () => {
     expect(cells[0].textContent).toBe('Jack')
     // [1] 展开列：expandedRowRender 返回 null → 图标渲染但 disabled（expandAdapter）。
     expect(cells[1].querySelector('.dg-expand-icon')).toBeTruthy()
-    // [2] age 列：逐列 align='end' 覆盖全局（antd 同位置为 `'right'`）。
+    // [2] age 列：逐列 align='right'（antd 原值）覆盖全局，经 normalizeAlign 归一为 'end' 落点
+    //     —— data-align 与 inline textAlign 都是 'end'，**不会**写出未匹配的 'right'。
+    expect(cells[2].getAttribute('data-align')).toBe('end')
     expect(cells[2].style.textAlign).toBe('end')
     expect(cells[2].textContent).toBe('20')
     // [3] 选择列：原生 checkbox input。
     expect(cells[3].querySelector('.dg-selection-input')).toBeTruthy()
   })
 
-  // antd L273：rowKey 函数 index 参数废弃 warning。
-  // skip 依据：data-grid 的 RowKeyType 为 `string | ((record) => string | number)`，
-  // 函数形态本就没有 index 参数（src/table/publicTypes.ts:31），无废弃 warning 可触发。
+  // antd L273（规约源 6.5.2 `Table.test.tsx:273`；裁判 = 已安装 antd **6.4.4**）：rowKey 函数 index 参数废弃 warning。
+  // skip 依据（**结论仍真**）：data-grid 在该场景**不产生任何告警**，与裁判不同值 ⇒ 缺口在我方，不可转直测。
+  //   - 类型面：`RowKeyType = string | ((record) => string | number)`，函数形态本就没有 index 参数
+  //     （`src/table/publicTypes.ts:32`；旧依据写的 `:31` 实测 off-by-one，已改）。
+  //   - ⚠️ 但"类型面没有 index"只解释调用约定，**不等于**"不会/不该告警"——真判据是运行时零告警：
+  //     `src/table` 唯一的 console 出口是 `devWarn.ts:84` 的 `console.warn`，全文 `console.error` 零命中。
+  //   - 裁判 6.4.4 产物：`node_modules/antd/es/table/InternalTable.js:169`
+  //     `warning(!(isFunction(rowKey) && rowKey.length > 1), 'usage', '`index` parameter of `rowKey` function is deprecated. …')`
+  //     ⇒ 判据是**形参个数**，6.4.4 与 6.5.2 都在场（非版本条件性分叉）。
+  //   - 双臂实测（探针 `tmp/81-probe2-readings.txt`）：`B2.dg.indexWarnHit = 0`（行 2 gate 已过）
+  //     ↔ `B2.ref.indexWarnHit = 2`（StrictMode 双跑，同文案）⇒ **不同值**，留 skip。
   it.skip('warn about rowKey when using index parameter', () => {
-    // 占位：data-grid rowKey 函数无 index 参数。
+    // 占位：data-grid 不产生该废弃告警（缺口在我方产品码）。
   })
+
 
   // antd L288：rowKey 函数（无 index 参数）不产生 warning。
   it('not warn about rowKey', () => {
@@ -320,18 +333,13 @@ describe('Table', () => {
     expect(warnSpy).not.toHaveBeenCalled()
   })
 
-  // antd L301：ConfigProvider table={{ rowKey }} 全局配置。
-  // skip 依据：data-grid 只从 ConfigProvider 上下文消费 locale（src/table/Table.tsx:289-298），
-  // 无全局 rowKey 配置；且 DOM 无 .ant-table-row 元素 / data-row-key 属性可断言。
-  it.skip('use global rowKey config', () => {
-    // 占位：data-grid 无 ConfigProvider table.rowKey 全局配置。
-  })
+  // antd L301 / L320（ConfigProvider `table={{rowKey}}` 全局配置 与 props 优先级）
+  // → **已转直测，物理位置移到本域末尾**（原因见文件内 `antd L101` 处的指针注释）。
+  // 旧依据「data-grid 只从 ConfigProvider 消费 locale、无全局 rowKey 配置」已实测为假：
+  //   `src/table/Table.tsx:302` 同时取 `table` 段，`src/table/contextDefaults.ts` 归一
+  //   `props.rowKey || table?.rowKey || 'key'` 三档链（与裁判 6.4.4
+  //   `node_modules/antd/es/table/InternalTable.js:165` 同形）⇒ 与裁判同值，转直测。
 
-  // antd L320：rowKey prop 优先于全局配置。
-  // skip 依据：同上——全局 rowKey 配置不存在，"优先"语义无从谈起。
-  it.skip('prefer rowKey prop over global rowKey config', () => {
-    // 占位：data-grid 无 ConfigProvider table.rowKey 全局配置。
-  })
 
   // antd L340：ref 支持不产生 warning（data-grid ref 为 TableRef 句柄，
   // src/table/Table.tsx:596-605 useImperativeHandle）。
@@ -352,14 +360,24 @@ describe('Table', () => {
     expect(warnSpy).not.toHaveBeenCalled()
   })
 
-  // antd L358（issue 38371）：column title 函数形态（title: () => ReactNode）。
-  // skip 依据：data-grid 的 ColumnType.title 仅支持 ReactNode
-  // （src/table/compat/column.ts:95 `title?: ReactNode`），无函数形态——函数作为
-  // ReactNode 会被 React 抛 "Functions are not valid as a React child"。
-  // ReactNode 形态由下方 'title should support ReactNode' 用例覆盖。
+  // antd L358（规约源 6.5.2 `Table.test.tsx:358`，issue 38371）：column title 函数形态（title: () => ReactNode）。
+  // skip 依据（**仍真**）：data-grid 的 `ColumnType.title` 仅支持 ReactNode
+  //   （`src/table/compat/column.ts:96`；旧依据写的 `:95` 实测 off-by-one，已改），无函数形态。
+  //   实测后果（不是"React 会抛"——那句是假理由，框架只按父组件名重写一条 console 错误、永不抛）：
+  //   标题**渲染为空**，开 `ellipsis` 时连原生 `title` 属性也丢；现值另有一条开发态按列 `console.warn` 兜住可发现性。
+  // 双臂实测（探针 `tmp/81-probe-readings.txt` / `81-probe3-readings.txt`）：
+  //   `A5.dg` = 表头文本 `["sex",""]`、函数被调 **0** 次、`console.error` 1 条（React「Functions are not
+  //   valid as a React child」）、`console.warn` 1 条 `[data-grid] column.title … key=`t` …`；
+  //   `C1.dg` = 加 `ellipsis` 后表头 `title` 属性仍为 `null`；
+  //   `A5.ref` = `["sex","age20"]`、被调 **4** 次（形参 1 个）、err/warn 皆 0
+  //   （裁判 6.4.4 侧 `renderColumnTitle` 遇函数即调）⇒ **不同值**。
+  // ⚠️ 另登记一条转直测的**结构性前置**：上游该用例的承重断言是 `expect(container).toMatchSnapshot()`，
+  //   而本仓 6.5.2 与 6.4.4 两侧生成的类名/节点不同 ⇒ 将来即使补齐产品码，转直测还要先解决
+  //   "新增快照要写 `tests/table/features/__snapshots__/`"（本棒写边界外）。能力不移植（属功能移植），故留 skip。
   it.skip('should render title', () => {
-    // 占位：data-grid column.title 不支持函数形态。
+    // 占位：data-grid column.title 不支持函数形态（缺口在我方产品码）。
   })
+
 
   // antd L404：column title 支持 ReactNode（thead th 快照 → .dg-cell-header 快照）。
   it('title should support ReactNode', () => {
@@ -382,20 +400,30 @@ describe('Table', () => {
     expectSnapshot(container.querySelector('.dg-cell-header'))
   })
 
-  // antd L425：aria-*/data-* 属性透传。
-  // skip 依据：data-grid 的 TableProps 不继承 HTMLAttributes，wrapper div 只接收
-  // className/style/ref/onPointerDown，不 spread rest props（src/table/Table.tsx:924-931）；
-  // 且无语义化 <table> 元素可挂 aria-label。
+  // antd L425（规约源 6.5.2 `Table.test.tsx:425`）：aria-*/data-* 属性透传。
+  // skip 依据（**仍真**）：data-grid 的 `TableProps` 不继承 HTMLAttributes，wrapper div 只接
+  //   `className` / `style` / `ref` / `onPointerDownCapture` / `onPointerDown`，**不 spread rest props**
+  //   （真位 `src/table/Table.tsx:1031-1037`；旧依据写的 `:924-931` 实测是 `.dg-scroll` 的文档注释区，已改）；
+  //   且无语义化 `<table>` 元素可挂 `aria-label`。
+  // 双臂实测（探针 `tmp/81-probe-readings.txt` 臂 `A6.dg` / `A6.ref`）：dg `<table>` **0** 张、
+  //   wrapper 与 `.dg-grid` 的 `data-number`/`aria-label` 全 **null** ↔ 裁判 `<table>` 1 张且
+  //   `aria-label='label'`、`.ant-table[data-number]='123'` ⇒ **不同值**。
   it.skip('support aria-* and data-*', () => {
     // 占位：data-grid TableProps 无 HTML 属性透传。
   })
 
-  // antd L432（issue 44802）：scroll 时 aria-* 透传到所有 table。
-  // skip 依据：同上（无 HTML 属性透传）；且 data-grid 为单 DOM 结构，不存在 antd
-  // 头/体双 table 的"多 table"场景。
+  // antd L432（规约源 6.5.2 `Table.test.tsx:432`，issue 44802）：scroll 时 aria-* 透传到所有 table。
+  // skip 依据（**仍真**）：同上（无 HTML 属性透传，`src/table/Table.tsx:1031-1037`）；
+  //   且 data-grid 为单 DOM 结构，不存在 antd 头/体双 `<table>` 的"多 table"场景。
+  // 双臂实测（臂 `A7.dg` / `A7.ref`，构造 `scroll:{x:400,y:100}`）：dg `<table>` **0**、`.dg-grid` 1（无 aria）
+  //   ↔ 裁判 `<table>` **2** 张、`allTablesAriaLabel = [null,'label']` ⇒ **不同值**。
+  // ⚠️ 新登记一条对裁判的读数（不改判决，本条 dg 侧连 `<table>` 都没有）：**已安装 antd 6.4.4 自身
+  //   不满足**上游"每张 table 都带 aria-label"的期望（两张里只有一张带）⇒ 该期望属**规约源 6.5.2** 的行为，
+  //   本条不存在"补齐我方就同值"的路径（按 P-088 记版本）。
   it.skip('passes aria-* props to all tables with scroll', () => {
     // 占位：data-grid TableProps 无 HTML 属性透传，且为单 DOM 结构。
   })
+
 
   // antd L450：ConfigProvider theme wireframe token（wireframe 为 token 级主题，
   // 此处快照 DOM 结构与 antd 用例对齐；data-grid 主题经 ConfigProvider token 注入）。
@@ -444,13 +472,25 @@ describe('Table', () => {
     })
   })
 
-  // antd L492：scroll.y=200 时受控 Popover 不重复渲染。
-  // skip 依据：data-grid 的 scroll.y 仅支持 true（布尔），不支持数字固定高度
-  // （src/table/publicTypes.ts:175 `y?: true`；known-limitations: scroll-y）；
-  // 且"重复 Popover"根因是 antd 头/体双 table DOM，data-grid 单 DOM 结构不存在该问题。
+  // antd L492（规约源 6.5.2 `Table.test.tsx:492`）：scroll.y=200 时受控 Popover 不重复渲染。
+  // skip 依据（**仍真**）：data-grid 的 `scroll.y` 仅支持 `true`（布尔），不支持数字固定高度
+  //   （`src/table/publicTypes.ts:176` `scroll?: { x?: true | number | string; y?: true; … }`；
+  //   旧依据写的 `:175` 实测是上一行的 `*/`，已改；known-limitations: scroll-y）；
+  //   且"重复 Popover"的根因是 antd 头/体双 `<table>` DOM，data-grid 单 DOM 结构不存在该问题。
+  // 双臂实测（**第三轮干净读数** `tmp/81-probe3-readings.txt` 臂 `B8.dg` / `B8.ref`，
+  //   每臂独立 it ＋ 臂首打印 body 残留基线 `popoverInBodyBeforeArm: 0`）：
+  //   点表头按钮 开→关→开 三次 `.ant-popover` 计数 dg **`[1,1,1]`** ↔ 裁判 **`[1,1,1]`**、弹层内按钮文本
+  //   两臂都是 `["C"]` ⇒ **上游的期望值（恰好 1）两臂已达**。
+  //   ⚠️ 第一轮曾用 `thead button` 读 dg ⇒ `headerButtonFound:false`、弹层数 0，那是**读不到**不是**没发生**
+  //   （dg 无 `<thead>`，选择器要换 `.dg-cell-header button`）；同一轮还因两臂共用一个 it 让 dg 的 portal
+  //   残留把裁判读数染成 2。两条都已作废。
+  // 判决＝仍留 skip，但**理由不是"无法断"**：转直测要写 `scroll={{ y: 200 }}`，本仓公开类型 `y?: true` 直接拒，
+  //   只能 `as never` 破类型面才能构造 ⇒ 与"黑盒层按公开类型面写用例"的口径冲突。**交 main 裁定**
+  //   （要不要为这条开"故意传非法值"的先例），本棒不硬转。
   it.skip('should not render duplicated controlled Popover in column title when scroll is enabled', () => {
-    // 占位：scroll.y 数字形态未支持（known-limitations: scroll-y）。
+    // 占位：scroll.y 数字形态未支持（known-limitations: scroll-y），转直测需先破公开类型面。
   })
+
 
   // antd L541：ref 句柄。data-grid ref 是 TableRef 句柄对象（非 antd 的 wrapper DOM 节点），
   // 故 antd 对 ref 本身的 toHaveClass 断言重映射为 nativeElement === .ant-table-wrapper
@@ -494,13 +534,20 @@ describe('Table', () => {
     expect(headerCells[2].classList.contains('dg-cell-hidden')).toBe(false)
   })
 
-  // antd L574：分组表头 hidden 列（组级 hidden + 组内叶子 hidden）。
-  // skip 依据：data-grid 的 hidden 仅对叶子列生效，分组列 hidden 无效
-  // （src/table/compat/column.ts:238-239）；叶子列 hidden 已由上方 'support hidden columns'
-  // 用例覆盖（.dg-cell-hidden 类断言）。
+  // antd L574（规约源 6.5.2 `Table.test.tsx:574`）：分组表头 hidden 列（组级 hidden ＋ 组内叶子 hidden）。
+  // skip 依据（**仍真**）：data-grid 的 `hidden` 仅对叶子列生效，分组列（有 `children`）的 `hidden` 无效
+  //   （判据文案在 `src/table/compat/column.ts:239-240`；旧依据写的 `:238-239` 实测越界一格，已改）。
+  // 双臂实测（探针 `tmp/81-probe-readings.txt` 臂 `A9.dg` / `A9.ref`；两臂都只数容器内节点、无 portal 面）：
+  //   dg `.dg-cell-header` **9** 个（组级 hidden 的 `title2` 及其三个子叶子**全在**），
+  //   带 `.dg-cell-hidden` 的只有叶子级的 `title3-1` / `title3-3`；
+  //   ↔ 裁判 `thead th` **3** 个，两行分别 `['title1','title3']` / `['title3-2']`（上游正是断 2 与 1）
+  //   ⇒ **不同值**。
+  // ⚠️ 更正旧依据末句的口径：「叶子列 hidden 已由上方 'support hidden columns' 用例覆盖」只对**平铺表头**成立；
+  //   分组表头下的叶子 hidden（dg 保留 DOM ＋ 加 `.dg-cell-hidden`，0fr track 方案）本文件**无直测**。
   it.skip('support hidden columns in Group table head', () => {
-    // 占位：data-grid hidden 仅支持叶子列。
+    // 占位：data-grid hidden 仅支持叶子列（组级 hidden 无效＝与裁判的真实分叉）。
   })
+
 
   // antd L616：rowHoverable=false 关闭行 hover 高亮（.ant-table-cell-row-hover → .dg-row-hover，
   // src/table/engine/BodyGrid.tsx:160-182 resolveHoverClass）。
@@ -529,21 +576,20 @@ describe('Table', () => {
   })
 
   // antd L640：rowSelection.align 透传到选择列（.ant-table-selection-column →
-  // .dg-cell-body[data-column-key="__dg_selection__"]，inline textAlign，
-  // src/table/selectionAdapter.tsx:154-158 align 缺省 'center'）。
-  // ★ 与 antd 差异：antd 传物理值 'right'，data-grid 的 Align 联合是逻辑值
-  // 'start' | 'center' | 'end'（src/table/nativeOptions.ts:5），且对齐实际由
-  // `.dg-cell[data-align]` 的 justify-content 驱动（src/table/style/table.css:172 单元格是
-  // flex 容器，220-226 只有 [data-align='center'/'end'] 两条规则，无 [data-align='right']）。
-  // 实测 'right'：inline text-align='right'、data-align="right" 均写出，但没有 CSS 规则匹配，
-  // 内容对齐退回 .dg-cell 默认 flex-start → 即"被透传成对布局无效的值"，属被忽略而非可用。
-  // 故本用例改用 data-grid 合法取值 'end'（实测 data-align="end"、inline textAlign='end'）。
+  // .dg-cell-body[data-column-key="__dg_selection__"]，inline textAlign + data-align，
+  // src/table/selectionAdapter.tsx:315 align 缺省 'center'）。
+  // 缺口 #13 已修：`rowSelection.align` 与普通列 align 走**同一条**归一路径
+  // （`normalizeAlign`，src/table/columnAdapter.ts:39-44），所以 antd 的物理值 `'right'`
+  // 在这里合法且有效 ⇒ 本用例回归 antd 原值 `'right'`（旧版因未归一被迫改用 `'end'`，
+  // 因为 `'right'` 会直通成没有 CSS 规则匹配的 `data-align="right"`）。
+  // 归一后落点是逻辑值：data-align="end"、inline textAlign='end'，与直接传 'end' 逐值全等
+  // （table.css 不补 `[data-align='right']` 规则，归一是单一真源；探针 P6 并排实测）。
   it('rowSelection should support align', () => {
     const { container } = customRender(
       <Table
         columns={[{ title: 'Name', dataIndex: 'name' }]}
         dataSource={[{ key: 1, name: 'Jack' }]}
-        rowSelection={{ align: 'end' }}
+        rowSelection={{ align: 'right' }}
       />,
     )
 
@@ -551,6 +597,154 @@ describe('Table', () => {
       '.dg-cell-body[data-column-key="__dg_selection__"]',
     )
     expect(selectionCell).toBeTruthy()
+    expect(selectionCell!.getAttribute('data-align')).toBe('end')
     expect(selectionCell!.style.textAlign).toBe('end')
+  })
+
+  // ══════════════ 步骤 81 由 skip 转直测（antd L101 / L301 / L320）══════════════
+  // 三条统一后置到本域末尾：`support wireframe` 的存量快照把 cssinjs 的 `css-var-_r_N_` 类名存了进去，
+  // N 随全文件 `<Table>` 挂载次数漂移 ⇒ 在它之前新增任何挂载都会把那条快照染红，而
+  // `tests/table/features/__snapshots__/` 与 `tests/shared/snapshot.ts` 都在本棒写边界外。
+  // provenance 以每条的 `// antd LNNN` 标记为准，不以物理位置为准。
+
+  // antd L101（规约源 6.5.2 `Table.test.tsx:101`；裁判 = 已安装 antd **6.4.4**）。
+  // 旧依据「无废弃兼容 warning 可断言」把上游的**负向期望**读成了正向——上游断的正是
+  // 「不 warn 那串 v5 文案」＋「两字段不被调用」，data-grid 与裁判 6.4.4 逐值同值
+  // （探针 `tmp/81-probe2-readings.txt` 臂 `B1.dg` / `B1.ref`：行 2、告警 0 条、两 mock 0/0、
+  // wrapper 上 `columnsPage*` 属性 []）。裁判产物 `grep -rn columnsPageRange node_modules/antd/es/`
+  // 零命中 ⇒ 该告警在 6.4.4 也已彻底不存在。
+  // 旧依据的假锚点同时改实：wrapper div 真位在 `src/table/Table.tsx:1031-1037`，属性面只有
+  // className/style/ref/onPointerDownCapture/onPointerDown（原写的 `:924-931` 实测是 `.dg-scroll` 注释区）。
+  // 永绿防护：本条承重全是负向断言 ⇒ 末尾的阳性对照不可省（否则 spy 没接上也恒绿）。
+  it('props#columnsPageRange and props#columnsPageSize do not warn anymore', () => {
+    const data = [
+      { key: '1', age: 32 },
+      { key: '2', age: 42 },
+    ]
+    const columnsPageRange = vi.fn()
+    const columnsPageSize = vi.fn()
+    const props = { columnsPageRange, columnsPageSize }
+
+    warnSpy.mockReset()
+    const { container } = customRender(
+      <Table dataSource={data} rowKey="key" {...props}>
+        <Column title="Age" dataIndex="age" key="age" />
+      </Table>,
+    )
+
+    // 非空对照 ①（P-102）：两行确实渲染了 ⇒ "没告警"不是因为"没跑到"。
+    // data-grid 无语义 <tbody>，行以 data-row-index 标识（见本文件头选择器重映射）。
+    const rowIndexes = new Set(
+      Array.from(container.querySelectorAll('.dg-cell-body')).map((cell) => cell.getAttribute('data-row-index')),
+    )
+    expect([...rowIndexes]).toEqual(['0', '1'])
+
+    // 上游的两条承重断言（照 6.5.2 语义）。
+    expect(warnSpy).not.toHaveBeenCalledWith(
+      '`columnsPageRange` and `columnsPageSize` are removed, please use fixed columns instead, see: https://u.ant.design/fixed-columns.',
+    )
+    expect(columnsPageRange).not.toHaveBeenCalled()
+    expect(columnsPageSize).not.toHaveBeenCalled()
+    // 比上游更强一档：dg 侧连一条 console.error 都不该有。
+    expect(warnSpy).not.toHaveBeenCalled()
+    // wrapper 未被 spread 上未知属性（真分叉点，实测 []）。
+    const wrapper = container.firstElementChild as HTMLElement
+    expect(wrapper.getAttributeNames().filter((name) => name.startsWith('columnsPage'))).toEqual([])
+
+    // 非空对照 ②（阳性）：本用例的 console.error 捕获通道确实会响——
+    // 函数式 `column.title` 会让 React 走一次 console.error（探针 `A5.dg.errCount = 1`）。
+    customRender(
+      <Table
+        columns={[{ title: (() => <span>fn</span>) as never, key: 't', dataIndex: 'age' }]}
+        dataSource={data}
+        pagination={false}
+      />,
+    )
+    const errorCalls = warnSpy.mock.calls.length
+    warnSpy.mockReset()
+    expect(errorCalls).toBeGreaterThan(0)
+  })
+
+  // antd L301（规约源 6.5.2 `Table.test.tsx:301`；裁判 = 已安装 antd **6.4.4**）：
+  // `ConfigProvider table={{ rowKey }}` 全局配置生效。
+  // 选择器重映射：上游断 `.ant-table-row` 的 `dataset.rowKey`；data-grid 无 `data-row-key` 属性
+  //   （探针 `B3.dg.anyDataRowKey = null`），改从 `rowSelection.onChange` 回传的 selectedRowKeys 观测行键；
+  //   裁判侧用**同一个观测面**读数与 dg 逐值相同（`B3.ref.ctxOnly = ["666"]`）。
+  it('use global rowKey config', () => {
+    const rows = [{ id: '666', key: 'foobar', name: 'Foobar' }]
+    const columns: TableProps<any>['columns'] = [{ title: 'Name', dataIndex: 'name', key: 'name' }]
+
+    // 非空对照（同一观测面的缺省档）：不给 ConfigProvider 时行键回退内置 'key' 字段。
+    const baselineOnChange = vi.fn()
+    const baseline = customRender(
+      <Table
+        columns={columns}
+        dataSource={rows}
+        rowSelection={{ onChange: baselineOnChange }}
+        pagination={false}
+      />,
+    )
+    const baselineCheckbox = baseline.container.querySelector<HTMLInputElement>('.dg-cell-body .dg-selection-input')
+    expect(baselineCheckbox).toBeTruthy() // P-102：先确认点击目标在场
+    fireEvent.click(baselineCheckbox!)
+    expect(baselineOnChange.mock.calls[0]?.[0]).toEqual(['foobar'])
+
+    // 主断言：只给 ConfigProvider 的全局 rowKey ⇒ 行键取 `id`。
+    const onChange = vi.fn()
+    const { container } = customRender(
+      <ConfigProvider table={{ rowKey: 'id' }}>
+        <Table columns={columns} dataSource={rows} rowSelection={{ onChange }} pagination={false} />
+      </ConfigProvider>,
+    )
+    const checkbox = container.querySelector<HTMLInputElement>('.dg-cell-body .dg-selection-input')
+    expect(checkbox).toBeTruthy()
+    fireEvent.click(checkbox!)
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange.mock.calls[0]?.[0]).toEqual(['666'])
+  })
+
+  // antd L320（规约源 6.5.2 `Table.test.tsx:320`；裁判 = 已安装 antd **6.4.4**）：
+  // `rowKey` prop 优先于 `ConfigProvider table={{ rowKey }}`。
+  // 双臂实测 `B3.dg.propWinsCtx = ["Foobar"]` ↔ `B3.ref.propWinsCtx = ["Foobar"]` ⇒ 同值。
+  it('prefer rowKey prop over global rowKey config', () => {
+    const rows = [{ id: '666', key: 'foobar', name: 'Foobar' }]
+    const columns: TableProps<any>['columns'] = [{ title: 'Name', dataIndex: 'name', key: 'name' }]
+
+    // 非空对照：同一棵树里先量"只有上下文"那一档 ⇒ 证明下面的 'Foobar' 是 **props 赢了**，
+    // 不是"上下文根本没生效"或"恒回退 'key'"（三档取值互不相同：'foobar' / '666' / 'Foobar'）。
+    const ctxOnlyOnChange = vi.fn()
+    const ctxOnly = customRender(
+      <ConfigProvider table={{ rowKey: 'id' }}>
+        <Table
+          columns={columns}
+          dataSource={rows}
+          rowSelection={{ onChange: ctxOnlyOnChange }}
+          pagination={false}
+        />
+      </ConfigProvider>,
+    )
+    const ctxOnlyCheckbox = ctxOnly.container.querySelector<HTMLInputElement>('.dg-cell-body .dg-selection-input')
+    expect(ctxOnlyCheckbox).toBeTruthy()
+    fireEvent.click(ctxOnlyCheckbox!)
+    expect(ctxOnlyOnChange.mock.calls[0]?.[0]).toEqual(['666'])
+
+    // 主断言：再加 `rowKey="name"` ⇒ props 覆盖上下文。
+    const onChange = vi.fn()
+    const { container } = customRender(
+      <ConfigProvider table={{ rowKey: 'id' }}>
+        <Table
+          columns={columns}
+          dataSource={rows}
+          rowKey="name"
+          rowSelection={{ onChange }}
+          pagination={false}
+        />
+      </ConfigProvider>,
+    )
+    const checkbox = container.querySelector<HTMLInputElement>('.dg-cell-body .dg-selection-input')
+    expect(checkbox).toBeTruthy()
+    fireEvent.click(checkbox!)
+    expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange.mock.calls[0]?.[0]).toEqual(['Foobar'])
   })
 })

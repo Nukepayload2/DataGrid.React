@@ -38,7 +38,7 @@
  * 与 antd 的差异：antd summary 是真实 `<tfoot><tr><td>` DOM；data-grid 是 div + CSS Grid（无 tfoot）；
  * antd summary 的 colSpan 用 `<td colspan>`，data-grid 用 `gridColumn: span N`。功能等价。
  *
- * 详见 [docs/design-notes/summary.md](../../../docs/design-notes/summary.md)。
+ * 详见 [docs/features/layout/summary.md](../../../docs/features/layout/summary.md)。
  */
 
 import {
@@ -190,7 +190,7 @@ export function SummaryCell(props: SummaryCellProps): ReactNode {
     // 固定列横向 sticky —— summary 固定列 cell 横滚时贴左/右边缘，与表体固定列一致。
     // info 取自 Context 的 leafSticky[index]（与表体固定列同源 useStickyColumns.leafSticky）。
     //
-    // 合并格 sticky 判定采用「区间全同侧」（详见 docs/design-notes/summary.md）：
+    // 合并格 sticky 判定采用「区间全同侧」（详见 docs/features/layout/summary.md）：
     //   扫描 [index, index+colSpan) 区间 leafSticky，全存在且全同 side（全 start 或全 end）→ sticky。
     //   offset 取边界 leaf（start 侧用起始 leaf，end 侧用末 leaf），与 antd fixUtil 一致。
     const info = rowCtx.leafSticky?.[index]

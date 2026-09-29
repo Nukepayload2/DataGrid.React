@@ -1,5 +1,5 @@
 /**
- * grid 模板计算 hook — 详见 docs/design-notes/virtualization.md / row-height.md / expand.md / column-width.md
+ * grid 模板计算 hook — 详见 docs/features/scrolling/virtualization.md / docs/features/layout/row-height.md / docs/features/interaction/expand.md / docs/features/columns/column-width.md
  *
  * 职责：从 GridTableInner 编排层抽出的 grid 模板 useMemo 块（先移动不重写，字节级保真）。
  *
@@ -154,7 +154,7 @@ export function useGridLayout<RecordType>(
       //   DOM 总高 > totalSize，浏览器滚动条位置可能轻微偏移，但窗口稳定不崩。
       const visibleTracks: string[] = []
       for (let i = virtualState.start; i < virtualState.end; i += 1) {
-        // 有界行高模型（详见 docs/design-notes/row-height.md）：
+        // 有界行高模型（详见 docs/features/layout/row-height.md）：
         //   - 有界模式（min/max 均设）：track = `auto`（行随内容自适应），每行 cell 加
         //     `min-height:minRowHeight; max-height:maxRowHeight`（dg-cell-bounded 类，见 table.css）。
         //     不能用 `minmax(min,max)` track：grid 的 free-space 分配会把所有 minmax track 拉满到 max
@@ -179,7 +179,7 @@ export function useGridLayout<RecordType>(
         }
       }
       // paddingTop/paddingBottom track 用 `'auto'`，由独立的 FillerRow grid item 撑高——
-      // 详见 docs/design-notes/virtualization.md 的「占位 track / FillerRow（spacer 解耦）」一节。
+      // 详见 docs/features/scrolling/virtualization.md 的「占位 track / FillerRow（spacer 解耦）」一节。
       bodyTracks = ['auto', ...visibleTracks, 'auto']
     } else {
       // 非虚拟下数据行间穿插展开内容 track（可展开行后插一条 0fr/1fr）。无展开时退化为 dataSource.map。
@@ -239,7 +239,7 @@ export function useGridLayout<RecordType>(
     //     （summaryStartLine>0 时 = summaryStartLine - 1；summaryStartLine=0 时直接由 tracks 长度算。）
     //   虚拟模式下 bodyTracks 首末恒为 'auto'（FillerRow 用 height 撑高其 auto track）。
     //   非虚拟下 bodyTracks 无 padding track（无 FillerRow），此处的线号仅虚拟场景使用。
-    //   详见 docs/design-notes/virtualization.md 的「占位 track / FillerRow（spacer 解耦）」一节。
+    //   详见 docs/features/scrolling/virtualization.md 的「占位 track / FillerRow（spacer 解耦）」一节。
     const paddingTopLine = headerTracks.length + 1
     const paddingBottomLine = headerTracks.length + bodyTracks.length
 

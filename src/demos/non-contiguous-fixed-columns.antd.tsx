@@ -72,7 +72,7 @@ export default function FixedGappedColumnsAntd({
       size={size}
       // 虚拟化开关接入：ON 时 scroll.x 'max-content' 转数字 2000 + y:300（antd virtual 需数字 x/y，
       // 'max-content' 会抛 "scroll.x must be number"）；OFF 回退原 max-content。
-      // 详见 docs/design-notes/virtualization.md
+      // 详见 docs/features/scrolling/virtualization.md
       virtual={virtual}
       scroll={virtual ? { x: 2000, y: 300 } : { x: 'max-content' }}
       pagination={false}

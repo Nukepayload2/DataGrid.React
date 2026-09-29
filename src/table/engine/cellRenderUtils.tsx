@@ -75,7 +75,7 @@ export function toTrack(value: number | string | null | undefined): string | und
 }
 
 /**
- * ellipsis 默认 title 提示：把单元格/表头内容文本化为 string 供 native `title` 用。详见 docs/design-notes/ellipsis.md。
+ * ellipsis 默认 title 提示：把单元格/表头内容文本化为 string 供 native `title` 用。详见 docs/features/display/ellipsis.md。
  *
  * 对齐 antd 默认行为：ellipsis 单元格 hover 显示完整文本（native title）。
  *   - string / number：直接转 string。
@@ -129,7 +129,7 @@ export function toEllipsisTitle(content: ReactNode): string | undefined {
  * - 缺省：返回 0（虚拟滚动要求 rowHeight 必须给数值约定；未给时退化为 0，调用方应避免）。
  *
  * 仅虚拟滚动需要数值化（计算 offset/totalSize 用）；非虚拟路径仍走 `toTrack` 生成 track 字符串。
- * 详见 docs/design-notes/virtualization.md。
+ * 详见 docs/features/scrolling/virtualization.md。
  */
 export function resolveNumericRowHeight<RecordType>(
   rowHeight: NonNullable<NonNullable<EngineTableProps<RecordType>['gridOptions']>['rowHeight']>,
@@ -153,7 +153,7 @@ export function resolveNumericRowHeight<RecordType>(
 }
 
 /**
- * 把 size 限制到 [min, max] 区间（有界行高模型，详见 docs/design-notes/row-height.md）。
+ * 把 size 限制到 [min, max] 区间（有界行高模型，详见 docs/features/layout/row-height.md + docs/features/scrolling/virtualization.md）。
  * min/max 任一为 undefined 时不约束该侧；返回取整（与 useRowMeasurements correctRowSize 一致，
  * 避免 sizeTree 写入浮点抖动）。
  */
@@ -172,7 +172,7 @@ export function fixedClass(fixed: FixedSide | undefined): string | undefined {
 
 /**
  * Body 单元格 ellipsis 列的 native `title` 派生：把原始 dataIndex 值文本化为 string。
- * 详见 docs/design-notes/ellipsis.md。
+ * 详见 docs/features/display/ellipsis.md。
  *
  * 与 header 端 `toEllipsisTitle`（递归遍历 ReactNode 抽文本）有意区分：Body 这里**只处理
  * 原始 string/number 文本**，对元素/数组/null/undefined/boolean 一律返回 undefined（不强行文本化）。
@@ -209,7 +209,7 @@ export function omitKey<T extends Record<string, unknown>>(obj: T, key: string):
 }
 
 /**
- * 固定列边缘阴影 class。详见 docs/design-notes/fixed-column.md。
+ * 固定列边缘阴影 class。详见 docs/features/columns/fixed-column.md。
  * - 'start' 侧且 isEdge（start 侧最右一列，与普通列交界）→ 'dg-sticky-shadow-start'
  *   （右侧画淡阴影，提示其右还有可滚动内容）。
  * - 'end' 侧且 isEdge（end 侧最左一列）→ 'dg-sticky-shadow-end'

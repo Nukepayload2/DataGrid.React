@@ -20,7 +20,7 @@ data-grid 的整体容器结构与 antd `<table>` 三层包裹（`table-wrapper 
 | 修饰类 | 启用条件 | 覆盖什么 |
 |---|---|---|
 | `dg-data-area` | `scroll.y === true`（数据区域模式） | `.dg-wrapper` 转 flex column + height:100%，内部 `.dg-scroll-wrap` flex:1 填满剩余空间，**不用 JS 算数字高度** |
-| `dg-sticky` | 页面级 sticky 模式 | `.dg-wrapper` 的 `overflow: visible; width: auto`（放开 overflow/width 约束，让表头 sticky 上下文穿透到 window） |
+| `dg-sticky` | 页面级 sticky 模式 | `.dg-wrapper` 的 `overflow: clip` + `overscroll-behavior-x/-inline: contain` + `width: auto`（`clip` 裁掉溢出但**不建滚动容器** ⇒ 表头 sticky 上下文仍穿透到 window，且不出滚动条） |
 | `dg-content-scrolled` | 有 pagination/footer 且非数据区域、非 sticky | wrapper `overflow-x: hidden`，横向滚动交给内部 `.dg-scroll` |
 
 ## 与 antd 差异
@@ -42,17 +42,17 @@ data-grid 的整体容器结构与 antd `<table>` 三层包裹（`table-wrapper 
 
 仅 `scroll.y === true` 的 demo（如 dynamic-settings/component-token/ajax）命中；`loading=undefined`（如 fixed-header/virtual-list）不渲染 Spin，零变化。
 
-### dg-sticky 下的圆角降级
+### dg-sticky 下的圆角与宽表裁剪
 
-`.dg-wrapper.dg-sticky` 改 `overflow: visible` 后，顶部圆角不再裁剪子节点溢出（视觉降级）。优先 sticky 功能正确，圆角视觉可接受降级。
+`.dg-wrapper.dg-sticky` 用 `overflow: clip`（非 `visible`）：`clip` 的裁剪能力与 `hidden` 同值，只是不附带滚动机制 ⇒ 顶部圆角照旧裁切子节点溢出，sticky **不牺牲圆角**。grid 的实际横向宿主是 ScrollContainer sticky 分支渲染的 `.dg-sticky-scroll-viewport`（同为 `overflow: clip`），宽表超出视口的部分在圆角框内被裁掉，横向位移靠 grid 上的 `--dg-sticky-scroll-left` transform（`.dg-sticky-scroll-translated`）将视口外内容送进视口。详见 `docs/features/layout/sticky.md`。
 
 ### dg-data-area × dg-sticky 互斥
 
-sticky 是页面级（grid 不包 overflow 容器），data-area 是容器内（包 overflow）。同时存在时 dg-sticky 优先（sticky 不消费 scroll.y:true 的容器内固定语义）。Table.tsx 的 `contentScrolledEnabled` 判定已排除 `stickyClassEnabled`/`dataAreaClassEnabled`，三者不同时触发。
+sticky 是页面级（grid 外包的是 `overflow: clip` 视口——裁剪宽表但**不创建滚动容器**，故 sticky 上下文仍穿透到页面），data-area 是容器内（包 `overflow-y: auto` 的滚动容器 `.dg-scroll`）。同时存在时 dg-sticky 优先（sticky 不消费 scroll.y:true 的容器内固定语义）。Table.tsx 的 `contentScrolledEnabled` 判定已排除 `stickyClassEnabled`/`dataAreaClassEnabled`，三者不同时触发。
 
 ## 关联源码
 
-- [`src/table/style/table.css`](../../../src/table/style/table.css) — `.dg-wrapper` / `.dg-wrapper.dg-sticky` / `.dg-wrapper.dg-data-area` / `.dg-wrapper.dg-content-scrolled` 规则。
+- [`src/table/style/table.css`](../../../src/table/style/table.css) — `.dg-wrapper` / `.dg-wrapper.dg-sticky`（`overflow: clip`）/ `.dg-wrapper.dg-data-area` / `.dg-wrapper.dg-content-scrolled` / `.dg-sticky-scroll-viewport` / `.dg-sticky-scroll-translated` 规则。
 - [`src/table/Table.tsx`](../../../src/table/Table.tsx) — 三类修饰类的启用判定（`dataAreaClassEnabled` / `stickyClassEnabled` / `contentScrolledEnabled`）。
 - [`src/table/engine/hoverController.ts`](../../../src/table/engine/hoverController.ts) — `hoveredRowIndex` state + 行 hover 类分发。
 - [`src/table/engine/ScrollContainer.tsx`](../../../src/table/engine/ScrollContainer.tsx) — `.dg-scroll-wrap` 渲染（sticky / FloatingScrollBar 三分支路由）。

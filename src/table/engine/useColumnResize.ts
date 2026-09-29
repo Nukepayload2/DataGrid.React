@@ -1,5 +1,5 @@
 /**
- * 列宽拖拽调整 hook（resizable）— 详见 docs/design-notes/column-width.md（「拖拽调整列宽」节）。
+ * 列宽拖拽调整 hook（resizable）— 详见 docs/features/columns/column-width.md（「拖拽调整列宽」节）。
  *
  * 维护"用户拖拽后的列宽映射"（`resizedWidths: Map<key, px>`），GridTable 在算
  * `grid-template-columns` 时优先取此映射（覆盖 column.width）。不操作 DOM 样式。

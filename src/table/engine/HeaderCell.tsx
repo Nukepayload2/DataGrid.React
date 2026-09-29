@@ -12,7 +12,7 @@
 import { SortIndicator } from './SortIndicator'
 import { FilterDropdown } from './FilterDropdown'
 import type {
-  Align,
+  EngineAlign,
   EngineHeaderCell,
   FixedSide,
 } from './types'
@@ -49,13 +49,13 @@ function HeaderCell<RecordType>({
   onHeaderRow,
   getPopupContainer,
   headerColumns,
-  // Table 级 locale（透传到本表头格内的 FilterDropdown）。
-  filterLocale,
+  // Table 级 locale（FilterDropdown/排序 title）+ a11y locale（global 段 → aria-description）。
+  filterLocale, a11yLocale,
 }: {
   cell: EngineHeaderCell<RecordType>
   sticky?: { side: FixedSide; offset: number; isEdge: boolean }
   /**
-   * 表头纵向 sticky（虚拟 + 非虚拟 scroll.y 共用）。详见 docs/design-notes/virtualization.md + sticky.md。
+   * 表头纵向 sticky（虚拟 + 非虚拟 scroll.y 共用）。详见 docs/features/scrolling/virtualization.md + docs/features/layout/sticky.md。
    *
    * `true` 时表头格额外 `position: sticky; top: 0`（相对滚动容器顶部固定，使表头不随纵向
    * 滚动消失）。z-index 提高到 4，高于表体（2）与表头横向固定（3）。
@@ -77,8 +77,8 @@ function HeaderCell<RecordType>({
    *
    * `undefined`：不启用页面级 sticky（走容器内或默认无固定）。
    * `number`（含 0）：表头格 inline style 加 `position: sticky; top: <offset>px; zIndex: 4`
-   * （或 corner 双 sticky 时 5），相对**页面 viewport** 固定（grid 不包 overflow 容器，无 overflow
-   * 祖先拦截 sticky 上下文）。页面纵向滚动时表头钉在视口顶部 `<offset>px` 处。
+   * （或 corner 双 sticky 时 5），相对**页面 viewport** 固定（grid 包在 `overflow: clip` 视口里，
+   * 而 clip 不建滚动容器 ⇒ 无 overflow 祖先拦截 sticky 上下文）。页面纵向滚动时表头钉在视口顶部 `<offset>px` 处。
    *
    * 与 `headerStickyTop` 互斥（同时启用时 sticky 优先，headerStickyTop 恒 false）。
    * 与横向 sticky 共存（corner cell 双 sticky）。
@@ -129,8 +129,8 @@ function HeaderCell<RecordType>({
    * 由 GridTableInner 计算后传入（多级表头简化为顶层列）。
    */
   headerColumns?: Array<unknown>
-  /** Table 级 locale（透传到本表头格内的 FilterDropdown）。 */
-  filterLocale?: import('./types').EngineTableProps['filterLocale']
+  /** Table 级 locale（FilterDropdown/排序 title）+ a11y locale（表头 aria-description）。 */
+  filterLocale?: import('./types').EngineTableProps['filterLocale']; a11yLocale?: import('./types').EngineTableProps['a11yLocale']
 }) {
   // onHeaderCell 返回值（表头格 props 注入）。
   //   仅叶子表头格消费（cell.onHeaderCell 仅叶子格有值；分组格恒 undefined）。返回值整体合并到表头格 div
@@ -173,17 +173,23 @@ function HeaderCell<RecordType>({
   // 提取事件 props（onHeaderCell + onHeaderRow 合并；行级优先覆盖单元格级同名字段）。
   //   仅取 on* 开头的事件 handler（排除 className/style 已单独合并；其余 onXxx 透传到 div）。
   const headerEventProps = mergeHeaderEventProps([onHeaderCellProps, onHeaderRowProps])
+  // 用户注入的 onKeyDown（onHeaderCell / onHeaderRow 两条来源，已由上面合并）。可排序格按 Enter
+  //   触发排序时**必须链式调用它**、不能覆盖——antd 同款：useSorter.js:155 取 originOKeyDown、
+  //   :173 `originOKeyDown?.(event)`。onClick 的处理方式一致（见下方排序分支末尾）。
+  const userHeaderKeyDown = headerEventProps.onKeyDown as
+    | ((e: React.KeyboardEvent<HTMLElement>) => void)
+    | undefined
   // 分组表头格默认居中（与 antd 多级表头一致）；叶子表头格保留列对齐。
   // 表头横向合并格（headerColSpan>1）也居中（跨多列的表头，与 antd <th colspan> 一致）。
   const headerSpan = cell.headerColSpan ?? 1
-  const selfAlign: Align | undefined = cell.isLeaf
+  const selfAlign: EngineAlign | undefined = cell.isLeaf
     ? headerSpan > 1
       ? 'center'
       : cell.align
     : 'center'
   // 合并 sticky 样式：横向（左/右）+ 纵向 top:0（容器内）或 top:offsetHeader（页面级）。
   //   详细语义（含 corner cell 双 sticky 取最高 z-index=5 的修复、逐行偏移 headerStickyTopOffset）
-  //   详见 headerCellUtils.ts:mergeHeaderStickyStyle + docs/design-notes/fixed-column.md + sticky.md。
+  //   详见 headerCellUtils.ts:mergeHeaderStickyStyle + docs/features/columns/fixed-column.md + docs/features/layout/sticky.md。
   const mergedSticky = mergeHeaderStickyStyle(
     sticky,
     stickyHeaderOffset,
@@ -196,13 +202,16 @@ function HeaderCell<RecordType>({
   const sortOrder = sortable ? (cell.sortOrder ?? null) : null
   // 是否为当前激活排序列（order 非 null）→ 加 dg-column-sort 类（表头/表体背景变淡灰）。
   const isSorted = sortable && sortOrder !== null
-  // 该表头格是否可筛选（仅叶子表头格；分组格无筛选）。
-  // filterable 标志由列树派生（useFilter.isFilterable）；但防御性兜底：即便 cell.filterable 未置位，
-  // 只要 cell.filterDropdown 存在 / filters 已定义（含空数组）/ onFilter 存在也视为可筛选
-  // （对齐 antd `useFilter/index.tsx:38`：filters || filterDropdown || onFilter 任一即 filterable；
-  //   `filters: []` 是 truthy → 画漏斗 + 空面板走 renderEmpty）。
+  // 该表头格是否可筛选（19-A 之后：**叶子格与分组格都可以是漏斗宿主**）。
+  //   依据 antd@6.4.4 `es/table/hooks/useFilter/index.js`：`getMergedColumns:151-156` 保留分组节点
+  //   本身、`injectFilter:42-85` 把漏斗挂在**该列自己的** title 上 ⇒ 分组表头格同样是宿主。
+  //   此前用 `cell.isLeaf` 收口，是「分组列筛选静默失效」的最后一环（探针 A3：dg 连触发器都没有）。
+  // filterable 标志由列树派生（engine/columnTree.ts flattenHeaderCells，与 useFilter.isFilterable
+  //   同一判据）；这里保留防御性兜底：即便 cell.filterable 未置位，只要 cell.filterDropdown 存在 /
+  //   filters 已定义（含空数组）也视为可筛选（对齐仓库既有的三条件放宽口径——
+  //   `filters || filterDropdown || onFilter` 任一即画漏斗；`filters: []` 是 truthy →
+  //   画漏斗 + 空面板走 renderEmpty）。⚠ 判据本批**未改**，只扩了宿主面（差异登记见步骤 49 日志 §7）。
   const filterable =
-    cell.isLeaf &&
     !cell.hidden &&
     (cell.filterable === true ||
       (cell.filterDropdown !== undefined && cell.filterDropdown !== null) ||
@@ -210,14 +219,14 @@ function HeaderCell<RecordType>({
   // 表头格内部是否需要"右侧操作区"（sorter caret / filter 漏斗）。
   // sortable 或 filterable 任一为 true → 用 dg-column-sorters flex 容器（title + 右侧图标）。
   const hasActions = sortable || filterable
-  // 表头 ellipsis（仅叶子表头格；对齐 antd：长 title 省略 + hover 显示完整标题）。详见 docs/design-notes/ellipsis.md。
-  //   - cell.ellipsis=true 且无右侧操作区（非 sortable/filterable）→ 单 .dg-cell-inner 容器，
-  //     该容器加 ellipsis 类 + title。
-  //   - 有右侧操作区（sortable/filterable）→ 用 .dg-column-sorters 容器（title 在 .dg-column-title
-  //     子元素里）；ellipsis 作用于 .dg-column-title（CSS 选择器见 table.css）。title 仍文本化加到
-  //     .dg-column-title 上（hover 标题文字提示完整文案）。
-  //   注：分组表头格（cell.isLeaf=false）不消费 ellipsis（columnTree 已置 undefined）。
-  //   showTitle:false 时不加 native title（让 render/外部 Tooltip 接管）——与表体同款门。
+  // 表头 ellipsis（仅叶子表头格；对齐 antd：长 title 省略 + hover 显示完整标题）。详见 docs/features/display/ellipsis.md。
+  //   - cell.ellipsis=true 且无右侧操作区（非 sortable/filterable）→ 单 .dg-cell-inner 容器加 ellipsis 类 + title；
+  //     有右侧操作区 → .dg-column-sorters 容器（title 在 .dg-column-title 子元素里），ellipsis 与文本化 native
+  //     title 都作用于 .dg-column-title（CSS 选择器见 table.css；hover 提示完整文案）。
+  //   注：分组表头格（cell.isLeaf=false）不消费 ellipsis（columnTree 已置 undefined）；showTitle:false 时不加
+  //     native title（让 render/外部 Tooltip 接管）——与表体同款门。
+  // 【函数式 title】本层把 title 原样当 React child ⇒ 传函数时**渲染为空且不抛错**（框架只写一条按父组件名去重
+  //   的 console 错误），且 toEllipsisTitle 对函数返回 undefined ⇒ headerTitle 落空、原生 title 同档丢失；告警不在这里发（判据在归一层 warnFunctionTitleOnce，前缀/去重/环境门在出口 `src/table/devWarn.ts`）。
   const headerEllipsis = cell.isLeaf && cell.ellipsis === true
   const headerTitle =
     headerEllipsis && cell.showTitle !== false ? toEllipsisTitle(cell.title) : undefined
@@ -230,7 +239,7 @@ function HeaderCell<RecordType>({
         cell.isLeaf ? undefined : 'dg-cell-header-group',
         fixedClass(cell.fixed),
         shadowClass(sticky),
-        // 隐藏叶子列表头格加 dg-cell-hidden（详见 docs/design-notes/hidden-column.md）。
+        // 隐藏叶子列表头格加 dg-cell-hidden（详见 docs/features/columns/hidden-column.md）。
         cell.hidden ? 'dg-cell-hidden' : undefined,
         // 叶子表头格 ellipsis 加 dg-cell-ellipsis（作用于 .dg-cell-inner / .dg-column-title）。
         headerEllipsis ? 'dg-cell-ellipsis' : undefined,
@@ -264,11 +273,32 @@ function HeaderCell<RecordType>({
             ? 'descending'
             : undefined
       }
+      // 【刻意不加】antd useSorter.js:184 的 `aria-label`（值 = displayTitle）：
+      //   antd 把它落在 <th>（隐式 role=columnheader）上合法；本项目两条表头路径的格子元素
+      //   都是**无 role 的 <div>**（探针读数 tag=DIV / role=null，祖先链 .dg-grid → .dg-wrapper
+      //   全程无 role，故 axe 也不会因「祖先 widget role」短路）。axe-core 4.13 的标准表把 div
+      //   记为 namingProhibited（axe.js:14036-14041），listProhibitedAttrs 因此对本格返回
+      //   ['aria-label','aria-labelledby']（axe.js:27944-27960）。探针实测 axe 对该格的
+      //   aria-prohibited-attr 判定：messageKey='noRoleSingular'、data.role=null、
+      //   prohibited=['aria-label']——即属性本身被判**禁止**，只是当格内有文本时降级为
+      //   needs-review（incomplete，impact=serious，"aria-label attribute is not well supported
+      //   on a div with no valid role attribute"），把格内子树文本清空后同一节点直接落
+      //   **violations**（"aria-label attribute cannot be used…"）。补 role 合法化会立刻转
+      //   aria-required-parent（探针实测）＝用户已裁定本轮不修的 L3 ARIA 链边界。
+      //   对应保留 skip 的用例：Table.sorter.test.tsx 的 'should have aria-label if the column
+      //   is sortable and is not sorted'。
+      // 【已接线】antd useSorter.js:183 的 `aria-description`（本批 BAT-20）：axe 对它判 pass
+      //   （"ARIA attribute is allowed"，同批探针复测）；当年唯一阻塞是「值在 locale 的 **global**
+      //   段、表头只收到 Table 段」⇒ 按参照同形补兄弟通道：compat/locale.ts A11yLocale →
+      //   Table.tsx mergedA11yLocale → GridTable.tsx a11yLocale → 本文件与 FlatColumnCells.tsx（成对）。
+      //   写入点在下方 tabIndex 那条 spread 内——必须在用户 onHeaderCell spread **之后**（参照 :153
+      //   以用户结果为底、:183 再赋值 ⇒ 计算值覆盖用户值，locale 缺值时连用户值也不写）。缺 sortable
+      //   **不写该属性**、禁止硬编码文案（缺口 #19 判据）；原 skip 那条已转直测。
       data-align={selfAlign ?? undefined}
       data-leaf={cell.isLeaf ? '1' : '0'}
       data-leaf-index={cell.isLeaf && cell.leafIndex !== undefined ? String(cell.leafIndex) : undefined}
       data-column-key={cell.isLeaf ? cell.key : undefined}
-      // 表头分隔线排除标记（对齐 antd `thead th:not(:last-child)::before`）— 详见 docs/design-notes/header.md：
+      // 表头分隔线排除标记（对齐 antd `thead th:not(:last-child)::before`）— 详见 docs/features/layout/header-and-span.md：
       //   data-leaf-last = 全局末列；data-group-last = 分组最右叶子（多级表头分组右边界）。
       //   由 columnTree.markLastLeaves 算出（见该函数注释）；CSS ::before 用 :not() 排除。
       data-leaf-last={cell.isLeaf && cell.isLastLeaf ? '' : undefined}
@@ -282,8 +312,10 @@ function HeaderCell<RecordType>({
           : undefined
       }
       data-sorter-order={isSorted ? (sortOrder ?? undefined) : undefined}
-      // showSorterTooltip（非 false）→ hover 提示。简单实现为原生 title（对齐 antd 默认 locale：
-      //   ascend → "Click to sort descending"，descend → "Cancel sorting"，null → "Click to sort ascending"）。
+      // showSorterTooltip（非 false）→ hover 提示。简单实现为原生 title：文案取 Table 级 locale
+      //   （ascend → triggerDesc，descend → cancelSort，null → triggerAsc），未提供时回退
+      //   antd en_US 默认 locale 的同款英文（"Click to sort descending" / "Click to cancel sorting"
+      //   / "Click to sort ascending"）。单层 flat 路径同款表达式见 FlatColumnCells.tsx。
       //   完整 Tooltip + target 区分（full-header / sorter-icon）留后续视觉打磨。
       //   ellipsis 冲突处理：表头格 ellipsis 启用时，title 用于显示完整表头文案（对齐 antd：antd 用
       //   独立 Tooltip 显示排序提示、title 属性显示单元格内容，两者不冲突；data-grid 用原生 title
@@ -341,9 +373,38 @@ function HeaderCell<RecordType>({
             }
           : (headerEventProps.onClick as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)
       }
+      // 键盘可达性（对齐 antd useSorter.js:165-176 的 cell.onKeyDown + :185 的 cell.tabIndex = 0）。
+      //   ⚠️ 单层快速路径（FlatColumnCells.tsx 的表头格）必须与本文件**成对**实现：只改一边就是
+      //   缺口 #19（同配置两条渲染路径行为不同）的键盘版——多级能按 Enter 排序、单层不能。
+      //   Enter 的方向循环复用点击那一条 onSorterClick（内部走 sorterUtils.nextSortDirection），
+      //   不另造方向逻辑，故键盘序列与鼠标序列逐值相同、onChange 的 sorter 参数也相同。
+      //   Enter 判据：antd 只认 `event.keyCode === KeyCode.ENTER`（useSorter.js:166）；这里额外认
+      //   `event.key === 'Enter'`——jsdom 下 `fireEvent.keyDown(el, { key: 'Enter' })` 的 keyCode
+      //   恒为 0（探针实测 keydown-event-shapes 读数），只认 keyCode 会让这条链路在测试里不可复现。
+      //   真实浏览器两者同真，覆盖面不小于 antd。
+      //   `e.target === e.currentTarget` 门：筛选面板由 Dropdown portal 出 DOM，但 React 仍沿
+      //   **组件树**把 keydown 冒泡到本格，若不设门就会「在筛选面板里按 Enter → 顺带排序」，
+      //   正是 antd issue 38579（对应用例 'should not sort records when press enter in filter dropdown'）。
+      //   与 antd 一样不调 stopPropagation（用户注在祖先上的 onKeyDown 不受本分支影响）。
+      onKeyDown={
+        sortable && onSorterClick
+          ? (e) => {
+              if ((e.key === 'Enter' || e.keyCode === 13) && e.target === e.currentTarget) {
+                onSorterClick((cell.sortKey ?? cell.key) as string)
+              }
+              // 用户自带 onKeyDown 恒链式调用（含非 Enter 键、面板冒泡的 keydown），不被排序分支吞掉。
+              userHeaderKeyDown?.(e)
+            }
+          : userHeaderKeyDown
+      }
       // 其余事件 props（onDoubleClick/onMouseEnter/...）透传到表头格 div。
-      //   onClick 已单独合并到排序逻辑（上方），这里跳过 onClick 避免重复触发。
-      {...omitKey(headerEventProps, 'onClick')}
+      //   onClick / onKeyDown 已单独合并到排序逻辑（上方），这里跳过避免覆盖排序分支。
+      {...omitKey(omitKey(headerEventProps, 'onClick'), 'onKeyDown')}
+      // 可排序表头格的 a11y 注入（antd useSorter.js:185 `cell.tabIndex = 0` + :183 `cell['aria-description']
+      //   = a11yLocale?.sortable`，两条同在 :74 `if (newColumn.sorter)` 门内、都盖在用户 onHeaderCell 结果
+      //   之上 ⇒ 必须放在上方 spread 之后）。tabIndex 覆盖用户注入值；aria-description 取 locale **global**
+      //   段、缺值即不写（禁硬编码文案＝缺口 #19）；非可排序列两者都不注入。axe 实测两属性零违规。
+      {...(sortable ? { tabIndex: 0, 'aria-description': a11yLocale?.sortable } : null)}
     >
       {hasActions ? (
         // 可排序或可筛选列用 dg-column-sorters 容器（flex space-between：title + 右侧操作区）。
@@ -362,7 +423,20 @@ function HeaderCell<RecordType>({
               cell.sortIcon ? (
                 cell.sortIcon({ sortOrder })
               ) : (
-                <SortIndicator sortOrder={sortOrder} priority={cell.sortPriority} />
+                <SortIndicator
+                  sortOrder={sortOrder}
+                  priority={cell.sortPriority}
+                  // 生效方向（23-A 端到端）。BAT-25 25-D 起 `EngineHeaderCell` 正式带 `sortDirections`
+                  // 字段（声明 `engineTypes.ts` 的 EngineHeaderCell、生产点 `columnTree.ts` 的
+                  // flattenHeaderCells 叶子分支），本处直接读 `cell.sortDirections`，与单层路径
+                  // `FlatColumnCells` 的 `column.sortDirections`（collectLeaves 透传）**读同名对称字段**，
+                  // 不再反向掏 `cell.node`。两侧透传的都是 `columnAdapter.toEngineColumns` 里
+                  // `col.sortDirections ?? tableSortDirections` 合并后的**同一个节点值** ⇒ 判据只有一份实现。
+                  // 零行为变化：`sortable` 门（`cell.isLeaf && cell.sortable && !cell.hidden`）使本分支
+                  // 只在叶子表头格执行，而 flattenHeaderCells 对叶子格填的正是 `node.sortDirections`
+                  // （分组格 undefined，但分组格走不到这一支）——与改前的 `cell.node?.sortDirections` 同值。
+                  sortDirections={cell.sortDirections}
+                />
               )
             ) : null}
             {filterable && onFilterApply ? (
@@ -411,7 +485,7 @@ function HeaderCell<RecordType>({
 }
 
 /**
- * 列宽拖拽 resizer 手柄。详见 docs/design-notes/column-width.md + `useColumnResize.ts` 文件头注释。
+ * 列宽拖拽 resizer 手柄。详见 docs/features/columns/column-width.md + `useColumnResize.ts` 文件头注释。
  *
  * 渲染在叶子表头格**右侧边缘**（绝对定位 `inset-inline-end:0`），默认透明且 pointer-events:none，
  * 表头 hover 时接收事件。pointerdown 由 `useColumnResize.onPointerDown(key)` 处理

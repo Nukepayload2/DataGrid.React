@@ -1,6 +1,6 @@
 # ag-grid 拖拽能力借鉴参考（data-grid）
 
-> **源码**：`G:\Projects\ag-grid`（v36）。
+> **源码**：`{{AGGrid}}`（v36）。
 > - community = `packages\ag-grid-community`（MIT，可参考实现 + 抄码）。
 > - enterprise = `packages\ag-grid-enterprise`（Commercial，仅研究行为，**不抄码**）。
 

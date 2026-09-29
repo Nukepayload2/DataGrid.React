@@ -50,7 +50,7 @@ export default function ColspanRowspanDemo() {
                 <li><strong>差异原因</strong>：data-grid 用 CSS Grid，把被覆盖格标 <code>hidden</code> 不渲染
                   DOM、左上角格设 <code>grid-column/grid-row</code> span；antd 原生 <code>&lt;table&gt;</code>
                   直接用 <code>colspan/rowspan</code> 属性。两侧合并区最终一致。详见
-                  <code>docs/design-notes/header.md</code>。</li>
+                  <code>docs/features/layout/header-and-span.md</code>。</li>
               </ul>
             </li>
             <li>

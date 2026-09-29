@@ -1,5 +1,5 @@
 /**
- * 行拖拽排序 hook — 详见 docs/design-notes/drag-sort.md。
+ * 行拖拽排序 hook — 详见 docs/features/interaction/drag-sort.md。
  *
  * 采用事件委托（命中 `[data-row-index]` body 单元格）+ setPointerCapture + 行 hit-test +
  * 指示线 + 拖拽 overlay（被拖行脱离虚拟窗口跟手）+ 离散让位（中间行让位）+ arrayMove。
@@ -254,7 +254,7 @@ export function useRowDragSort<RecordType>(
     lastAppliedOverIndex: number | null
     /**
      * 拖拽期间 nativeMove/nativeUp 所在 window 监听的 AbortController。
-     * 详见 docs/design-notes/drag-sort.md（「虚拟模式健壮性」节）。
+     * 详见 docs/features/interaction/drag-sort.md（「虚拟模式健壮性」节）。
      *
      * pointerdown 时创建并赋值；pointermove/pointerup/pointercancel 三个 window 监听挂
      * `{ signal: ac.signal }`，nativeUp 内 `ac.abort()` 一次性移除全部三个，卸载 cleanup
@@ -317,7 +317,7 @@ export function useRowDragSort<RecordType>(
 
   /**
    * 离散让位辅助：对容器内所有 `[data-row-index]` body 单元格命令式施加 transform + 类。
-   * 详见 docs/design-notes/drag-sort.md（「离散让位」节）。
+   * 详见 docs/features/interaction/drag-sort.md（「离散让位」节）。
    *
    * 分类（依据 cell.dataset.rowIndex 与 dragState.fromIndex/overIndex 的关系）：
    *   - **被拖行源格**（rowIndex === fromIndex）：加 `dg-drag-row-active` / `dg-drag-row-source`
@@ -598,7 +598,7 @@ export function useRowDragSort<RecordType>(
       autoScrollPointerRef.current = { clientX: e.clientX, clientY: e.clientY }
       startAutoScroll()
 
-      // 拖拽期间在滚动容器上挂 scroll 监听。详见 docs/design-notes/drag-sort.md（「auto-scroll」节）。
+      // 拖拽期间在滚动容器上挂 scroll 监听。详见 docs/features/interaction/drag-sort.md（「auto-scroll」节）。
       //
       // 背景：auto-scroll 的 RAF 循环对 .dg-scroll 调 scrollBy(0, dy) 滚动容器，但 hit-test /
       // applyYieldTransforms / setDragState / setIndicator 原本只在 pointermove 内调用。
@@ -693,7 +693,7 @@ export function useRowDragSort<RecordType>(
         stopAutoScroll()
         // 最终 overIndex 取自 dragRef，同步反映 pointerup 坐标。from===over 不重排。
         if (finalFromIndex !== finalOverIndex) {
-          // 多行成块重排判定。详见 docs/design-notes/drag-sort.md（「行拖：多行成块重排」节）。
+          // 多行成块重排判定。详见 docs/features/interaction/drag-sort.md（「行拖：多行成块重排」节）。
           //
           // 仅当 multiRowReorder=true 且被拖行属于多选 selection（selectedRowKeys 含 ≥2 个
           // 且包含被拖行的 key）时，把所有选中行作为一块移到目标位置（保持相对顺序）；
@@ -733,7 +733,7 @@ export function useRowDragSort<RecordType>(
         setDragState(null)
         setIndicator({ visible: false, top: 0, left: 0, right: 0 })
       }
-      // 虚拟模式健壮性：pointermove/up/cancel 监听挂 window（详见 docs/design-notes/drag-sort.md
+      // 虚拟模式健壮性：pointermove/up/cancel 监听挂 window（详见 docs/features/interaction/drag-sort.md
       //   「虚拟模式健壮性」节）。window 永远存在、不受虚拟卸载影响，且 pointer 事件冒泡到 window
       //   （无论 setPointerCapture 是否因 el detached 而丢失）。用 AbortController 批量管理三监听，
       //   nativeUp 内 ac.abort() 一次性移除全部；卸载 cleanup 也 abort()。

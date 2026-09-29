@@ -1,5 +1,5 @@
 /**
- * 多级表头逐行高度测量 — 详见 docs/design-notes/row-height.md（「多级表头逐行 sticky 偏移」节）。
+ * 多级表头逐行高度测量 — 详见 docs/features/layout/row-height.md（「多级表头逐行 sticky 偏移」节）。
  *
  * `headerStickyTop` 启用（虚拟 / 非虚拟 scroll.y / 页面级 sticky）时，多行表头（maxDepth>1）
  * 所有表头行都 sticky 到容器顶 0 会堆叠重叠。本 hook 返回按表头行号升序的逐行累计偏移数组，

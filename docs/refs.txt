@@ -1,3 +1,3 @@
-只读：用 CSS Grid 做的表格，功能不全 `G:\Projects\trash-antd-table\lun`
-只读：antd 表格 `G:\Projects\ant-design\components\table`
-只读：rc-table `G:\Projects\trash-antd-table\react-component\table`
+只读：用 CSS Grid 做的表格，功能不全 `../lun`
+只读：antd 表格 `{{AntDesign}}/components/table`
+只读：rc-table `../react-component/table`

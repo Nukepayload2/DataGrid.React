@@ -18,7 +18,7 @@ export default function FixedHeaderDg({
   virtual: boolean
 }) {
   return (
-    /* 数据区域模式 — 详见 docs/design-notes/layout.md
+    /* 数据区域模式 — 详见 docs/features/layout/layout.md
        父容器需有明确 height（394 = stickyHeader 54.8 + 表体可见 275.2 + 分页条区 64）；
        分页条(.dg-pagination) 是 wrapper 末尾 flex item（在 .dg-scroll 之外、wrapper 之内），
        占用 wrapper 垂直空间，故 height 必须把分页条区算进去，否则表体 flex:1 被挤、可见行少于右栏。 */

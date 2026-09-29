@@ -9,13 +9,13 @@
  * - 行高两条路径：非虚拟走约定 `rowHeight`（数字/函数）→ CSS grid track，不测量（缺省 `'auto'`）；
  *   虚拟路径采用 virtuoso 式 ResizeObserver 动态测量（measured-first + 约定兜底）。
  *   不实现 antd `measureRowRender` 兼容 API（隐藏测量行重渲染），与 RO 测量是两回事
- *   （详见 docs/design-notes/virtualization.md）。
+ *   （详见 docs/features/scrolling/virtualization.md）。
  * - 预留 fixed / virtual / children(多级表头) / colSpan / rowSpan / rowExpand 钩子。
  *
  * === 拆分说明（档二·纯类型） ===
  *
  * 低耦合部分已拆到 `./engineTypes/` 子目录：
- *   - atomic.ts：Align / FixedSide。
+ *   - atomic.ts：EngineAlign / FixedSide。
  *   - filter.ts：EngineFilterItem。
  *   - sort.ts：EngineSortOrder / EngineCompareFn / EngineColumnSorter。
  *   - state.ts：EngineTreeState / EngineExpandState。
@@ -38,7 +38,7 @@ import type {
   VirtualizationMode,
 } from './recyclingCellTypes'
 // 拆出的子文件类型（用于本文件强耦合主体引用 + 透传 re-export）
-import type { Align, FixedSide } from './engineTypes/atomic'
+import type { EngineAlign, FixedSide } from './engineTypes/atomic'
 import type { EngineFilterItem } from './engineTypes/filter'
 import type {
   EngineColumnSorter,
@@ -48,7 +48,9 @@ import type { EngineExpandState, EngineTreeState } from './engineTypes/state'
 import type { EngineSemantic } from './engineTypes/semantic'
 
 // === barrel re-export：保持 `from './engineTypes'` 全部公开表面不变 ===
-export type { Align, FixedSide } from './engineTypes/atomic'
+// 例外（BAT-25 25-B）：窄取值面对齐类型改名 `Align` → `EngineAlign`（与公共宽输入面
+// `nativeOptions.Align` 去重名）。两侧取值面一字未改，仅引擎内部名字变化。
+export type { EngineAlign, FixedSide } from './engineTypes/atomic'
 export type { EngineFilterItem } from './engineTypes/filter'
 export type {
   EngineSortOrder,
@@ -76,7 +78,7 @@ export interface EngineLeafColumn<RecordType = any> {
   /** 列宽（数字按 px，字符串直接作为 track size，如 '200px' / '1fr' / 'max-content'）。 */
   width?: number | string
   /** 对齐方式。 */
-  align?: Align
+  align?: EngineAlign
   /** 是否固定列（已归一化为 start/end）。 */
   fixed?: FixedSide
   /**
@@ -103,7 +105,7 @@ export interface EngineLeafColumn<RecordType = any> {
   showTitle?: boolean
   /**
    * 是否隐藏该列。`true`：该叶子列 track 置 `0fr` + 单元格加 `dg-cell-hidden` 类
-   * （track 不删保线号稳定）。详见 `docs/design-notes/hidden-column.md`。
+   * （track 不删保线号稳定）。详见 `docs/features/columns/hidden-column.md`。
    */
   hidden?: boolean
   /**
@@ -247,7 +249,7 @@ export interface EngineLeafColumn<RecordType = any> {
 }
 
 /**
- * 引擎列树节点（多级表头）。详见 docs/design-notes/header.md。
+ * 引擎列树节点（多级表头）。详见 docs/features/layout/header-and-span.md。
  *
  * 由 antd `columns[].children` 嵌套映射而来，**任意深度**。
  * - 叶子节点（`children` 为空/undefined）：参与 `grid-template-columns` 列宽拼接与数据行渲染，
@@ -262,7 +264,7 @@ export interface EngineColumnNode<RecordType = any> {
   /** 表头文本或节点（分组列的 group title）。 */
   title?: ReactNode
   /** 对齐方式（仅叶子列消费）。 */
-  align?: Align
+  align?: EngineAlign
   /** 是否固定列（已归一化）。 */
   fixed?: FixedSide
   /**
@@ -406,7 +408,7 @@ export interface EngineColumnNode<RecordType = any> {
 }
 
 /**
- * 表头格布局描述（多级表头）。详见 docs/design-notes/header.md。
+ * 表头格布局描述（多级表头）。详见 docs/features/layout/header-and-span.md。
  *
  * 引擎把列树展开为表头格平面表，每项对应 DOM 中一个 `<div role="columnheader">`：
  *   - `gridColumnStart/gridColumnEnd`：横跨的列范围（1-based，grid 索引）。
@@ -423,7 +425,7 @@ export interface EngineHeaderCell<RecordType = any> {
   /** 表头文本或节点。 */
   title?: ReactNode
   /** 对齐方式（仅叶子表头格消费；分组格通常居中）。 */
-  align?: Align
+  align?: EngineAlign
   /** 是否固定列（透传）。 */
   fixed?: FixedSide
   /**
@@ -507,7 +509,7 @@ export interface EngineHeaderCell<RecordType = any> {
   rowScope?: 'row'
   /**
    * 该叶子表头格对应列是否隐藏。仅叶子表头格有值（分组表头格恒 false）；`true` 时加
-   * `dg-cell-hidden` 类。详见 `docs/design-notes/hidden-column.md`。
+   * `dg-cell-hidden` 类。详见 `docs/features/columns/hidden-column.md`。
    */
   hidden?: boolean
   /**
@@ -526,6 +528,23 @@ export interface EngineHeaderCell<RecordType = any> {
    * 引擎据此在 caret 旁渲染优先级数字（1/2/3…）；undefined/0 不渲染。
    */
   sortPriority?: number
+  /**
+   * 点击表头切换排序的循环顺序（**仅叶子表头格有值**；分组表头格恒 undefined）。
+   *
+   * BAT-25 25-D：本字段此前**不在** `EngineHeaderCell` 上、`flattenHeaderCells` 也没抄，
+   * 于是多级表头路径只能写 `cell.node?.sortDirections`（反向掏关联节点），而单层路径写
+   * `column.sortDirections`（`collectLeaves` 透传）——两条表头路径读**不同形状**，
+   * 是本仓「成对站点」不变量上的隐式差（步骤 59 交回项）。
+   *
+   * 现在两条路径都读**自己那个对象上的同名字段** `sortDirections`。
+   * **值只有判据的一份来源**：`columnAdapter.toEngineColumns` 里
+   * `node.sortDirections = col.sortDirections ?? tableSortDirections`（列级优先的合并只此一处），
+   * `collectLeaves`（→`EngineLeafColumn`）与 `flattenHeaderCells`（→`EngineHeaderCell`）
+   * 都只是把这个**已合并的同一个节点值**透传一遍（与 `showTitle`/`filterSearch`/`filterMode`
+   * 同款「双透传坑」——两条路径都要加，见 `engine/columnTree.ts` 注释）。
+   * 渲染层消费点＝`SortIndicator`（裁剪 caret 节点集，对齐 antd `useSorter.js:75` 的取值式）。
+   */
+  sortDirections?: Array<'ascend' | 'descend'>
   /** 自定义排序图标（仅叶子表头格有值）。 */
   sortIcon?: (props: { sortOrder: EngineSortOrder }) => ReactNode
   /**
@@ -621,7 +640,7 @@ export interface EngineHeaderCell<RecordType = any> {
  * 行高口径：非虚拟路径走本约定（track），不测量（缺省 `'auto'`）；虚拟路径采用 virtuoso 式
  * ResizeObserver 动态测量（measured-first），本约定仅作未测兜底/初值。
  * 不实现 antd `measureRowRender` 兼容 API（隐藏测量行重渲染），与 RO 测量是两回事
- * （详见 docs/design-notes/virtualization.md）。
+ * （详见 docs/features/scrolling/virtualization.md）。
  */
 export type RowHeight<RecordType = any> =
   | number
@@ -687,7 +706,7 @@ export interface EngineTableProps<RecordType = any> {
   scroll?: { x?: true | number | string; y?: true; scrollToFirstRowOnChange?: boolean }
   /**
    * 虚拟滚动开关。`virtual=true` 且 `scroll.y === true` 时启用纵向虚拟滚动。
-   * 详见对外 types.ts TableProps.virtual 注释 / docs/design-notes/virtualization.md。
+   * 详见对外 types.ts TableProps.virtual 注释 / docs/features/scrolling/virtualization.md。
    */
   virtual?: boolean
   /**
@@ -720,7 +739,7 @@ export interface EngineTableProps<RecordType = any> {
    *        实现 0fr↔1fr 平滑过渡。
    *   2. 展开内容作为 grid item 渲染在该 track（grid-column: 1 / -1 跨整行），overflow:hidden+min-height:0。
    *   3. 虚拟模式下，虚拟窗口（useVirtualList）仍按收起态算；展开 track 不参与窗口大小
-   *      （详见 docs/design-notes/virtualization.md）。
+   *      （详见 docs/features/scrolling/virtualization.md）。
    */
   expandState?: EngineExpandState
   /**
@@ -735,7 +754,7 @@ export interface EngineTableProps<RecordType = any> {
   treeState?: EngineTreeState
   /**
    * 列宽策略 tableLayout（对齐 antd `TableProps.tableLayout` + rc-table mergedTableLayout）。
-   * 详见 docs/design-notes/column-width.md（完整策略表 + mergedTableLayout 派生公式）。
+   * 详见 docs/features/columns/column-width.md（完整策略表 + mergedTableLayout 派生公式）。
    *
    * **语义**：
    *   - `'auto'`：grid 列 track 走 `min-content`（无 width 列）/ `minmax(width, max-content)`
@@ -748,7 +767,7 @@ export interface EngineTableProps<RecordType = any> {
    *
    * **派生位置**：由适配层 Table.tsx 派生（对齐 antd mergedTableLayout），引擎层只消费、不派生。
    *
-   * **与固定列/虚拟/sticky 的关系**：详见 docs/design-notes/column-width.md「grid-track 策略表」
+   * **与固定列/虚拟/sticky 的关系**：详见 docs/features/columns/column-width.md「grid-track 策略表」
    * 与「`.dg-grid { width: 100% }` 配合」节（sticky 模式不加 width:100% 例外）。
    */
   tableLayout?: 'auto' | 'fixed'
@@ -808,7 +827,7 @@ export interface EngineTableProps<RecordType = any> {
    * 页面级粘性表头配置（由适配层解析后传入；引擎据此切到"页面级 sticky"渲染路径）。
    *
    * **语义（区别容器内固定）**：表头相对**页面 viewport** 固定（`position: sticky;
-   * top: offsetHeader`），而非相对表格滚动容器。详见对外 `StickyConfig` 注释 / docs/design-notes/sticky.md。
+   * top: offsetHeader`），而非相对表格滚动容器。详见对外 `StickyConfig` 注释 / docs/features/layout/sticky.md。
    *
    * 引擎消费：
    *   - `offsetHeader`：表头 grid item 的 sticky top 值（页面纵向滚动时表头钉在视口顶部该偏移处）。
@@ -902,6 +921,20 @@ export interface EngineTableProps<RecordType = any> {
     triggerDesc?: string
     triggerAsc?: string
     cancelSort?: string
+  }
+  /**
+   * 表头无障碍播报 i18n（**兄弟**于 filterLocale：来自 antd locale 的 **global** 段，不是 Table 段）。
+   *
+   * 参照链路（antd 6.4.4）：`es/locale/en_US.js:15` `global.sortable` → `InternalTable.js:121`
+   * `useLocale('global', defaultLocale.global)` → `useSorter.js:374/:70`（改名 `a11yLocale`）→
+   * `useSorter.js:74` 的 `if (newColumn.sorter)` 门内 `:183` `cell['aria-description'] = a11yLocale?.sortable`。
+   *
+   * 引擎消费处：**两条表头路径**的可排序叶子表头格（`HeaderCell.tsx` 多级 + `FlatColumnCells.tsx` 单层），
+   * 且必须写在用户 `onHeaderCell` 返回值展开**之后**（参照把该属性盖在用户结果之上）。
+   * 缺 `sortable` 时**不写该属性**（与参照同形——不写空串、不回退默认英文；**禁止硬编码文案**＝缺口 #19）。
+   */
+  a11yLocale?: {
+    sortable?: string
   }
   /**
    * 行是否可 hover 高亮（对齐 antd v6 `TableProps.rowHoverable`），默认 true。

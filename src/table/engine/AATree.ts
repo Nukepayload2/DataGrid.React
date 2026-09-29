@@ -3,7 +3,7 @@
  *
  * 用于构建按行索引（key）→ 行高（value）的前缀和结构，支持 O(log n) 插入/删除/范围查询。
  * 详细机制（skew/split/adjust 不变量、与 sizeTree/offsetTree 的关系）见
- * docs/design-notes/virtualization.md。
+ * docs/features/scrolling/virtualization.md。
  *
  * 本文件零依赖，可独立测试。
  */

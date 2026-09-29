@@ -15,6 +15,7 @@
  */
 import type { ReactNode } from 'react'
 import {
+  shouldResetPagination,
   usePagination,
   slicePage,
   resolvePlacement,
@@ -23,6 +24,7 @@ import type {
   FilterValue,
   SorterResult,
   SizeType,
+  TableCurrentDataSource,
   TablePaginationConfig,
   TablePaginationState,
   TableProps,
@@ -55,6 +57,16 @@ export interface UsePaginationAdapterResult<RecordType> {
   topPaginationNode: ReactNode
   bottomPaginationNode: ReactNode
   showPagination: boolean
+  /**
+   * Table 级 `onChange` 的统一发射口（sort / filter 两条交互路径都走它）。
+   * 对应参照 `InternalTable.js:180-205 triggerOnChange`：先按 `shouldResetPagination(extra.action)`
+   * 做「复位三件套」，再打 table 级 `onChange`。详见函数体注释。
+   */
+  fireTableChange: (
+    filters: Record<string, Array<FilterValue> | null>,
+    sorter: SorterResult<RecordType> | Array<SorterResult<RecordType>>,
+    extra: TableCurrentDataSource<RecordType>,
+  ) => void
 }
 
 export function usePaginationAdapter<RecordType>(
@@ -81,7 +93,12 @@ export function usePaginationAdapter<RecordType>(
   const paginationConfig = (pagination === false ? {} : (pagination ?? {})) as TablePaginationConfig
 
   const paginationInfo = usePagination({
-    pagination: paginationConfig,
+    // #18a：用户的 `onShowSizeChange` 由 `renderPaginationNode` **原样透传**给 `<Pagination>`
+    // （antd 同款做法：`es/table/hooks/usePagination.js:52-59` 只把 `onChange` 绑到内部处理）。
+    // 这里必须把它从引擎可见的配置里摘掉——引擎的 `pageSize !== mergedPageSize` 分支
+    // （src/table/engine/usePagination.ts:113-115）也会调一次，两条腿并存会退回「一次改页长
+    // 用户回调跑 2 次」；且透传那条拿到的是钳制前的 `current`，语义与 antd 一致。
+    pagination: { ...paginationConfig, onShowSizeChange: undefined },
     dataSourceLength: paginationDataSource.length,
     onPaginationChange: (nextCurrent, nextPageSize) => {
       onFirstRowChange?.()
@@ -127,12 +144,54 @@ export function usePaginationAdapter<RecordType>(
       )
     : flattenedDataSource
 
+  // === Table 级 onChange 统一发射口（对齐参照 `triggerOnChange`，InternalTable.js:180-205）===
+  // 「复位」在参照里是一个 action 上的**三件事组合**（工单坑 2），少做一件就是半个修复：
+  //   ① `:186 changeEventInfo.resetPagination?.()` ⇒ 我方 `paginationInfo.resetPagination()`
+  //      （写 inner current=1 ⇒ 非受控时**可见行**真的回第 1 页；受控时被 mergeProps 掩掉）。
+  //   ② `:188-189 if (changeInfo.pagination?.current) changeInfo.pagination.current = 1`
+  //      ⇒ 只改**回调参数**（注意参照的 `if` 条件：current 为假值时不改，这里同形）。
+  //   ③ `:192-194 if (pagination) pagination.onChange?.(1, pageSize)`
+  //      ⇒ 打的是**用户裸 prop**，不是 `paginationInfo.onInternalChange`——后者会顺带驱动
+  //      `onPaginationChange` ⇒ 多吐一次 table 级 `onChange(action:'paginate')`（工单坑 1）。
+  // 三条都在 table 级 `onChange` 存在与否**之外**（参照 `:201 onChange?.()` 在最后，前面三条
+  // 不受它约束 ⇒ ①③ 必须在 `if (!onChange) return` 之前）。
+  // `paginationConfig.onChange` 就是用户裸 prop（`pagination===false` 时归一为 `{}` ⇒ 天然不 fire，
+  // 与参照 `if (pagination)` 同形）。
+  const fireTableChange: UsePaginationAdapterResult<RecordType>['fireTableChange'] = (
+    filters,
+    sorter,
+    extra,
+  ) => {
+    const reset = shouldResetPagination(extra.action)
+    const base = paginationStateRef.current
+    if (reset) {
+      paginationInfo.resetPagination()
+      paginationConfig.onChange?.(1, base.pageSize)
+    }
+    if (!onChange) return
+    onChange(
+      reset && base.current ? { ...base, current: 1 } : base,
+      filters,
+      sorter,
+      extra,
+    )
+  }
+
   // 解析 placement → top/bottom 对齐（未启用分页 → 两侧均 null，不渲染）。
   const placement = paginationEnabled
     ? resolvePlacement(paginationConfig.placement)
     : { top: null, bottom: null }
   // antd 行为：仅当 total > 0 且分页启用时渲染分页器。
-  const showPagination = paginationEnabled && paginationInfo.total > 0
+  // `hideOnSinglePage` 的判据并入这里（#18c）：rc-pagination 命中时自己 `return null`
+  // （@rc-component/pagination/es/Pagination.js:222 `hideOnSinglePage && total <= pageSize`），
+  // 只把开关传给内层 `<Pagination>` 的话，外层 `.dg-pagination` div 仍会留下**空壳**：全仓没有
+  // 针对它的 `display:none`，命中的只有 `table.css:133-138` 那条**无条件** `margin:16px 0`
+  // ⇒ 所有 `scroll.y` 形态下表尾都约 32px 量级空白（真实观感未经浏览器实测，只有单测层面证据），
+  // 双 placement 时留两个空壳。判据用 effective pageSize（未传时回落引擎默认 10），与 rc 同源。
+  const hideOnSinglePageActive =
+    paginationConfig.hideOnSinglePage === true && paginationInfo.total <= paginationInfo.pageSize
+  const showPagination =
+    paginationEnabled && paginationInfo.total > 0 && !hideOnSinglePageActive
   // 分页器尺寸：pagination.size 优先；否则随 Table size（small/middle→'small'，其余 default/undefined）。
   const paginationSize = getPaginationSize(size, paginationConfig.size)
   const topPaginationNode =
@@ -165,5 +224,6 @@ export function usePaginationAdapter<RecordType>(
     topPaginationNode,
     bottomPaginationNode,
     showPagination,
+    fireTableChange,
   }
 }

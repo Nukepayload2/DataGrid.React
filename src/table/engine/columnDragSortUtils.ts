@@ -1,5 +1,5 @@
 /**
- * 列拖拽排序纯函数簇 — 详见 docs/design-notes/drag-sort.md（「列拖」节）。
+ * 列拖拽排序纯函数簇 — 详见 docs/features/interaction/drag-sort.md。
  *
  * 从 useColumnDragSort.ts 抽出的模块级纯函数：
  *   - 数组搬运：arrayMoveColumns
@@ -163,7 +163,7 @@ export function getUntransformedRect(el: HTMLElement): { left: number; width: nu
 }
 
 /**
- * 锁定列友好的列重排算法 — 详见 docs/design-notes/drag-sort.md（「列拖：锁定列」节）。
+ * 锁定列友好的列重排算法 — 详见 docs/features/interaction/drag-sort.md（「列拖：锁定列」节）。
  *
  * 给定原 columns、被拖列 fromIndex、目标插入位置 toIndex（@dnd-kit 语义：to = 目标列 index，
  * 即 arrayMove 把 from 移到 to），返回重排后的新数组。`dragColumnLock:'lockPosition'` 列保持

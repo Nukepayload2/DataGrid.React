@@ -1,10 +1,11 @@
 // 黑盒 feature-slice 测试：与 antd 自家 Table 展开测试用例逐条对齐（antd-style 黑盒层）。
 //
-// 对齐来源: G:\Projects\ant-design\components\table\__tests__\Table.expand.test.tsx
+// 对齐来源: {{AntDesign}}/components/table/__tests__/Table.expand.test.tsx
 //   antd 共 7 个 it（click to expand / expandRowByClick should not block click icon / show expandIcon /
 //   row indent padding should be 0px when indentSize defined as 0 / has right aria-expanded state /
 //   describe('expandIconColumnIndex') 内 basic + work with selection）。
-//   本文件：直测 A=5 + skip B=2 = 7；另加 data-grid 专属补充直测 13 条（见下方清单）。
+//   本文件：antd 对齐 直测 A=5 + skip B=2 = 7；其余为 data-grid 专属补充直测（清单见下方 S*）。
+//   本批增量（BAT-26 / 步骤 40）：补充直测 +5（S12 组，展开图标冒泡）、skip +0（现值以 `--reporter=verbose` 运行时为准）。
 //
 // ── 选择器重映射表（data-grid 无语义化 table DOM：行不是容器元素，格子是 .dg-grid 直接子节点）──
 //   antd `.ant-table-row-expand-icon`          → `button.dg-expand-icon`
@@ -50,6 +51,7 @@
 //   S9 默认列序：选择列 + 展开列（对应 skip 的 `work with selection` 的替代直测）
 //   S10 树形数据与展开互斥 / showExpandColumn:false / expandRowByClick 行体点击
 //   S11 `expandIcon` 单独使用不建展开列（钉住 data-grid ≠ antd 的行为差异，避免只靠注释）
+//   S12 展开图标点击不冒泡到行（BAT-26）：默认图标两格（expandRowByClick 真/假）+ 自定义图标两格（条件 span）+ 树形一格
 import { describe, expect, it, vi } from 'vitest'
 import { fireEvent } from '@testing-library/react'
 
@@ -344,7 +346,7 @@ describe('Table.expand', () => {
       />,
     )
     // offset=1 → 从第 2 个叶子列起（实测：展开列不计入 offset，offset 从第一个数据列起算，
-    // 见 src/table/engine/expandLayerUtils.ts:32 `startLine = min(offset, leafColumns.length - 1) + 1`；
+    // 见 src/table/engine/expandLayerUtils.tsx:32 `startLine = min(offset, leafColumns.length - 1) + 1`；
     // 本表叶子列 = [展开列, name, age]，故 startLine=2 → '2 / -1'）。
     expect(offset.querySelector<HTMLElement>(ROW_EXPANDED)!.style.gridColumn).toBe('2 / -1')
   })
@@ -437,5 +439,149 @@ describe('Table.expand', () => {
     fireEvent.click(container.querySelector('.dg-cell-body[data-row-index="0"][data-column-key="name"]')!)
     expect(container.querySelectorAll('.er')).toHaveLength(1)
     expect(container.querySelector('button.dg-expand-icon-expanded')).toBeTruthy()
+  })
+
+  // ── S12（BAT-26）：展开图标的点击**不冒泡到行**——两道人参照同形 ──
+  //   ① 图标层无条件阻断：`node_modules/antd/es/table/ExpandIcon.js:17-20`
+  //      （默认图标 onClick 是 `e => { onExpand(record, e); e.stopPropagation() }`，**不看** `expandRowByClick`）
+  //      ⇒ 落点 `src/table/engine/ExpandIcon.tsx` 的 onClick（默认图标 + 树形缩进图标共用它）。
+  //   ② 展开列层条件阻断：`@rc-component/table/es/hooks/useColumns/index.js:144-147`
+  //      （`if (expandRowByClick) return <span onClick={e => e.stopPropagation()}>{icon}</span>`）
+  //      ⇒ 落点 `src/table/expandAdapter.tsx` 的自定义图标分支。
+  //   双侧读数以步骤 40 探针为准（`tmp/vortex-logs/fix-real-bugs/40-evidence-bat26-readings-{before,after}.txt`）。
+  it('expand icon click does not fire user onRow.onClick when expandRowByClick is true', () => {
+    const onClick = vi.fn()
+    const onExpand = vi.fn()
+    const { container } = customRender(
+      <Table
+        columns={columns}
+        dataSource={[John, Jim]}
+        onRow={() => ({ onClick })}
+        expandable={{
+          expandRowByClick: true,
+          expandedRowRender: () => <div className="er">ER</div>,
+          onExpand,
+        }}
+      />,
+    )
+
+    fireEvent.click(container.querySelector(EXPAND_ICON)!)
+    // 参照：图标自带 stopPropagation ⇒ 用户行回调 0 次；展开只切换 1 次。
+    expect(onClick).toHaveBeenCalledTimes(0)
+    expect(onExpand).toHaveBeenCalledTimes(1)
+    expect(container.querySelectorAll('.er')).toHaveLength(1)
+  })
+
+  it('expand icon click does not fire user onRow.onClick when expandRowByClick is off', () => {
+    const onClick = vi.fn()
+    const onExpand = vi.fn()
+    const { container } = customRender(
+      <Table
+        columns={columns}
+        dataSource={[John, Jim]}
+        onRow={() => ({ onClick })}
+        expandable={{
+          expandRowByClick: false,
+          expandedRowRender: () => <div className="er">ER</div>,
+          onExpand,
+        }}
+      />,
+    )
+
+    fireEvent.click(container.querySelector(EXPAND_ICON)!)
+    // ★ 参照在 `expandRowByClick:false` 时**同样**不触发用户回调——阻断挂在默认图标自己身上
+    //   （`ExpandIcon.js:19`），不挂在 `expandRowByClick` 那个条件 span 上（那层只管自定义图标）。
+    //   实测读数 antd 侧 0 次（探针 A3）；旧实现这里是 1 次（我们的图标没有那一行 stopPropagation）。
+    expect(onClick).toHaveBeenCalledTimes(0)
+    expect(onExpand).toHaveBeenCalledTimes(1)
+    expect(container.querySelectorAll('.er')).toHaveLength(1)
+  })
+
+  it('custom expand icon is wrapped against bubbling only when expandRowByClick is true', () => {
+    const onClick = vi.fn()
+    const onExpand = vi.fn()
+    const { container } = customRender(
+      <Table
+        columns={columns}
+        dataSource={[John, Jim]}
+        onRow={() => ({ onClick })}
+        expandable={{
+          expandRowByClick: true,
+          expandedRowRender: () => <div className="er">ER</div>,
+          onExpand,
+          expandIcon: ({ expanded, record, onExpand: toggle }) => (
+            <div
+              className="custom-expand-icon"
+              data-expanded={String(expanded)}
+              onClick={(e) => toggle(record, e)}
+            />
+          ),
+        }}
+      />,
+    )
+
+    fireEvent.click(container.querySelector('.custom-expand-icon')!)
+    // 参照 `useColumns/index.js:144-147`：erbc 为真 ⇒ 条件 span ⇒ 用户回调 0 次。
+    expect(onClick).toHaveBeenCalledTimes(0)
+    // 旧实现此处是 **2** 次：自定义图标不带 `.dg-expand-icon` 类 ⇒ 逃过 `shouldSkipRowSelectionClick`
+    //   的跳过集，冒泡进行体点击那条内部路径又补了一次 toggleExpand（同帧快照 → 净展开 1 行、回调 2 次）。
+    //   条件 span 顺带修掉这个双切换，与参照的 1 次对齐。
+    expect(onExpand).toHaveBeenCalledTimes(1)
+    expect(container.querySelectorAll('.er')).toHaveLength(1)
+    expect(container.querySelector('.custom-expand-icon')).toHaveAttribute('data-expanded', 'true')
+  })
+
+  it('custom expand icon still bubbles to user onRow.onClick when expandRowByClick is off', () => {
+    const onClick = vi.fn()
+    const onExpand = vi.fn()
+    const { container } = customRender(
+      <Table
+        columns={columns}
+        dataSource={[John, Jim]}
+        onRow={() => ({ onClick })}
+        expandable={{
+          expandRowByClick: false,
+          expandedRowRender: () => <div className="er">ER</div>,
+          onExpand,
+          expandIcon: ({ expanded, record, onExpand: toggle }) => (
+            <div
+              className="custom-expand-icon"
+              data-expanded={String(expanded)}
+              onClick={(e) => toggle(record, e)}
+            />
+          ),
+        }}
+      />,
+    )
+
+    fireEvent.click(container.querySelector('.custom-expand-icon')!)
+    // ★ 不许改这一格：参照此刻**刻意不**包那层 span（`useColumns/index.js:143-148` 的 else 分支原样返回 icon），
+    //   用户自定义图标的点击照样冒泡到 `onRow.onClick` ⇒ 两侧都是 1 次（探针 B2：dg 1 / antd 1）。
+    //   把它「顺手改成阻断」会造出一条新分叉（我们比参照更激进）。
+    expect(onClick).toHaveBeenCalledTimes(1)
+    expect(onExpand).toHaveBeenCalledTimes(1)
+    expect(container.querySelectorAll('.er')).toHaveLength(1)
+  })
+
+  it('tree expand icon click does not fire user onRow.onClick', () => {
+    const onClick = vi.fn()
+    const onExpand = vi.fn()
+    const { container } = customRender(
+      <Table
+        columns={columns}
+        dataSource={data}
+        onRow={() => ({ onClick })}
+        expandable={{ onExpand }}
+      />,
+    )
+
+    expect(container.querySelectorAll('.dg-cell-body')).toHaveLength(1)
+    fireEvent.click(container.querySelector(EXPAND_ICON)!)
+    // 树形缩进图标复用同一个 `ExpandIcon` ⇒ 同一道阻断；参照 nest 路径同理
+    //   （`@rc-component/table/es/Body/BodyRow.js:34-45` 调用的就是 antd 那个自带 stopPropagation 的图标，
+    //    且 nest 路径连条件 span 都没有）。
+    expect(onClick).toHaveBeenCalledTimes(0)
+    expect(onExpand).toHaveBeenCalledTimes(1)
+    expect(container.querySelectorAll('.dg-cell-body')).toHaveLength(2)
   })
 })

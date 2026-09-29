@@ -10,31 +10,31 @@ import type { SizeType } from './size'
 import type { TablePaginationConfig } from './pagination'
 
 /**
- * 语义化样式：内层 wrapper / cell / row 三部位（header 与 body 共用同结构）。
- * 对齐 antd v6 `ComponentsSemanticClassNames` / `ComponentsSemanticStyles`。
+ * 语义化样式：行 / 格 两部位（header 与 body 共用同结构）。
+ * 对齐 antd v6 `ComponentsSemanticClassNames` / `ComponentsSemanticStyles`，但**不含 `wrapper`**：
+ *   antd 的 `header.wrapper` / `body.wrapper` 落在 `<thead class="ant-table-thead">` /
+ *   `<tbody class="ant-table-tbody">`（`@rc-component/table` `es/Header/Header.js:83-88`、
+ *   `es/Body/index.js:110-111`），而 data-grid 的表头格与表体格同为 `.dg-grid` 的直接 grid item、
+ *   无 thead/tbody 中间容器（加容器会破坏显式 grid-row/grid-column 定位）⇒ 没有语义正确的宿主，
+ *   故该槽位已从公共类型面移除（不保留「已声明但运行时零消费」的公共 API）。
  *
- * - `wrapper`：header / body 的容器层（data-grid 中对应滚动容器/分组的根容器）。
- * - `row`：行（表头行 / 表体行）。
+ * - `row`：行（表头行 / 表体行；grid 无 `<tr>`，class/style 分发到该行每个格子）。
  * - `cell`：单元格（表头格 / 表体格）。
  *
- * data-grid 各部位的对应注入点：
- *   - `header.wrapper`：表头区根容器。
- *   - `header.row`：表头行。
- *   - `header.cell`：表头格。
- *   - `body.wrapper`：表体区根容器。
- *   - `body.row`：表体行（data-grid 用 div 渲染、无单一 `<tr>`，row className 透传到该行每个单元格）。
- *   - `body.cell`：表体格。
+ * data-grid 注入点：`header.row` / `header.cell`＝表头行 / 表头格；
+ *   `body.row` / `body.cell`＝表体行（透传到该行每个单元格）/ 表体格。
  *
- * @internal DOM class 对应：`header.cell`→`.dg-cell-header`、`body.row`→`.dg-row`、
- *   `body.cell`→`.dg-cell-body`；header.wrapper 在渲染层无独立 DOM 时注入到 grid。
+ * 替代写法（antd 里用 wrapper 给「整区」上样式的需求）：表头用 `header.row`、表体用 `body.row`
+ *   （逐格下发），容器级用 `section`（滚动容器/视口）或 `content`（`.dg-grid`）槽位。
+ *
+ * @internal DOM class 对应：`header.cell`→`.dg-cell-header`、`body.cell`→`.dg-cell-body`；
+ *   `header.row` / `body.row` 分发到该行每个格子（data-grid 无 `.dg-row` 类名）。
  */
 export interface ComponentsSemanticClassNames {
-  wrapper?: string
   cell?: string
   row?: string
 }
 export interface ComponentsSemanticStyles {
-  wrapper?: import('react').CSSProperties
   cell?: import('react').CSSProperties
   row?: import('react').CSSProperties
 }
@@ -64,16 +64,16 @@ export interface PaginationSemanticStyles {
  *   - `content`：内容元素（title/footer 之间的表格内容区）。
  *   - `title`：标题。
  *   - `footer`：脚注。
- *   - `header`：表头 `{ wrapper, row, cell }`。
- *   - `body`：表体 `{ wrapper, row, cell }`。
+ *   - `header`：表头 `{ row, cell }`（antd 的 `wrapper` 不支持，见上）。
+ *   - `body`：表体 `{ row, cell }`（同上）。
  *   - `pagination`：分页 `{ root, item }`。
  *
  * 字段语义对照 antd `_semantic.tsx`（root / title / content / section / header.{wrapper,row,cell} /
- * body.{wrapper,row,cell} / footer / pagination.{root,item}）。
+ * body.{wrapper,row,cell} / footer / pagination.{root,item}）；**仅 `wrapper` 两处不实现**（无宿主）。
  *
- * @internal DOM class 对应：`root`→`.dg-wrapper`、`section`→`.dg-section`、`content`→`.dg-content`、
- *   `title`→`.dg-title`、`footer`→`.dg-footer`；字段对照见 antd
- *   `components/table/InternalTable.tsx:102-112`。
+ * @internal DOM class 对应：`root`→`.dg-wrapper`、`section`→`.dg-scroll-wrap`（非 sticky）/
+ *   `.dg-sticky-scroll-viewport`（sticky，summary 视口同款）、`content`→`.dg-grid`、`title`→`.dg-title`、
+ *   `footer`→`.dg-footer`；字段对照见 antd `components/table/InternalTable.tsx:102-112`。
  */
 export interface TableSemanticClassNames {
   root?: string

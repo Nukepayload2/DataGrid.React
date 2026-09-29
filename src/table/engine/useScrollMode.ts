@@ -1,5 +1,5 @@
 /**
- * 滚动模式互斥判定 hook — 详见 docs/design-notes/sticky.md 与 virtualization.md。
+ * 滚动模式互斥判定 hook — 详见 docs/features/scrolling/scrollbar.md 与 docs/features/scrolling/virtualization.md。
  *
  * 引擎三种滚动模式互斥：
  *
@@ -54,17 +54,17 @@ export function useScrollMode(options: {
         getContainer?: () => HTMLElement | Window | undefined
       }
     | null
-  scroll?: { x?: true | number | string; y?: true; scrollToFirstRowOnChange?: boolean }
+  scroll?: ScrollModeScrollInput
   virtual?: boolean
 }): UseScrollModeResult {
   const { sticky, scroll, virtual } = options
 
-  // === 页面级粘性表头（区别于容器内固定）— 详见 docs/design-notes/sticky.md ===
+  // === 页面级粘性表头（区别于容器内固定）— 详见 docs/features/layout/sticky.md ===
   // sticky prop 启用时：表头相对**页面 viewport** 固定（position:sticky; top:offsetHeader），
   // 而非相对表格滚动容器固定。
   //
-  // 与虚拟 / 容器内固定表头互斥：sticky 启用时走"页面级"路径（grid 不包 overflow 容器，避免拦截
-  // sticky 上下文），virtual / scrollYNonVirtual 的容器内固定表头不生效（headerStickyTop 仍为 false，
+  // 与虚拟 / 容器内固定表头互斥：sticky 启用时走"页面级"路径（grid 包在 `overflow: clip` 视口里——
+  // clip 裁剪但不建滚动容器，故不拦截 sticky 上下文），virtual / scrollYNonVirtual 的容器内固定表头不生效（headerStickyTop 仍为 false，
   // 由 stickyHeaderOffset 驱动）。
   const stickyEnabled = sticky !== undefined && sticky !== null
   const stickyOffsetHeader =
@@ -76,7 +76,7 @@ export function useScrollMode(options: {
   const stickyGetContainer =
     sticky && typeof sticky === 'object' && sticky.getContainer ? sticky.getContainer : undefined
 
-  // === 虚拟滚动判定 — 详见 docs/design-notes/virtualization.md ===
+  // === 虚拟滚动判定 — 详见 docs/features/scrolling/virtualization.md ===
   // virtual=true 且 scroll.y === true 时启用纵向虚拟滚动（scroll.y 仅 true/undefined）。
   // 虚拟窗口高度由 CSS 自动适应（容器 clientHeight，ResizeObserver 实时测量——见 useVirtualList）。
   // sticky 启用时禁用虚拟（页面级与容器内虚拟互斥；sticky 下页面滚动，虚拟窗口失去意义）。
@@ -118,4 +118,44 @@ export function useScrollMode(options: {
     headerStickyTop,
     stickyHeaderOffset,
   }
+}
+
+/**
+ * `scroll` 归一层的入参形状（＝顶层 antd 同名字段 `scroll`，不新增语义）。
+ *
+ * 抽成具名接口是为了让 `useScrollMode` 的入参与下方 `shouldScrollToFirstRowOnChange`
+ * 共用一份定义，不在两处各写一遍对象字面量形状。
+ * 声明放在文件末尾（interface/type 声明在模块内提升可用）＝不移动上方任何行号，
+ * 避免把指向本文件中段行号的锚点弄偏。
+ */
+export interface ScrollModeScrollInput {
+  x?: true | number | string
+  y?: true
+  scrollToFirstRowOnChange?: boolean
+}
+
+/**
+ * 「表格变化（翻页 / 排序 / 筛选）后该不该把滚动位置复位到首行」——**全仓唯一判据**。
+ *
+ * 对齐裁判 antd@6.4.4 `es/table/InternalTable.js` triggerOnChange 内的三门
+ * （`scroll && scroll.scrollToFirstRowOnChange !== false && internalRef.body.current`），
+ * 取其两条**由配置决定**的门：
+ *
+ * 1. **`scroll` 对象必须存在**＝"对象存在性"而**不是"有没有 y"**。裁判把 body ref 同时挂在
+ *    `@rc-component/table` non-fixHeader 分支的 `.ant-table-content` 上，故 `scroll={{ x: 100 }}`
+ *    （无 y）时裁判**照样复位**（步骤 78 探针臂 V1b：裁判 16 次写入 vs 无 scroll 臂 V1 的 0 次）。
+ *    ⇒ 判据若写成"有 y 才滚"会把 V1b 从"滚"改成"不滚"＝修出新缺陷。
+ * 2. **`scrollToFirstRowOnChange !== false`**＝缺省滚，只有显式 `false` 才抑制（探针臂 V3：两侧均 0 次）。
+ *
+ * 裁判的第三门（body ref 已挂载）是"滚动容器存在性"；我方等价物由唯一调用点的
+ * `querySelector('.dg-scroll')` 判空承担（sticky 分支不渲染 `.dg-scroll` ⇒ 自然不写；探针臂 V6）。
+ *
+ * 判据只管"该不该滚"，不管"滚到哪个元素"：两侧写入都限定在自家滚动容器，
+ * 都不触碰 window／外层容器（九臂 `windowScrollTo` 恒 0）。
+ * 唯一调用点＝Table.tsx 的 `scrollToFirstRowOnChange`；**别处不许再写一份"该不该滚"的 if**。
+ */
+export function shouldScrollToFirstRowOnChange(
+  scroll: ScrollModeScrollInput | undefined,
+): boolean {
+  return !!scroll && scroll.scrollToFirstRowOnChange !== false
 }

@@ -12,6 +12,7 @@ import type {
   Expandable,
   FilterValue,
   SizeType,
+  SortDirections,
   SorterResult,
   StickyConfig,
   TableClassNames,
@@ -383,11 +384,11 @@ export interface TableProps<RecordType = any> {
    *     便于按当前 props 子集动态返回不同样式（如 size='medium' 时返回特定 root/title/header.cell）。
    *
    * 嵌套部位（对齐 antd v6 `_semantic`）：`root` / `section` / `content` / `title` / `footer` /
-   * `header.{wrapper,row,cell}` / `body.{wrapper,row,cell}` / `pagination.{root,item}`。
+   * `header.{row,cell}` / `body.{row,cell}` / `pagination.{root,item}`（antd 的 `header.wrapper`/`body.wrapper` **不支持**：dg 表头格与表体格同为 `.dg-grid` 的直接 grid item，无 thead/tbody 容器，详见 `compat/semantic.ts`）。
    *
    * 注入点（按部位）：`root`（与 `className` 合并）/ `title` / `footer` /
-   * `section`（content 外的包装容器）/ `content`（标题与脚注之间的表格内容区）/
-   * `header.{wrapper,row,cell}` / `body.{wrapper,row,cell}` /
+   * `section`（content 外的包装容器：非 sticky `.dg-scroll-wrap`、sticky `.dg-sticky-scroll-viewport`，两条布局路径同效）/
+   * `content`（标题与脚注之间的表格内容区 `.dg-grid`）/ `header.{row,cell}` / `body.{row,cell}` /
    * `pagination.{root,item}`（item 透传到 antd Pagination）。
    *
    * 未提供（undefined）时所有部位走默认 className，零回归。
@@ -395,8 +396,8 @@ export interface TableProps<RecordType = any> {
    * 同名同义于 antd v6 `TableProps.classNames`。
    *
    * @internal data-grid 各部位对应 DOM 类名：`root`→`.dg-wrapper`、`title`→`.dg-title`、
-   *   `footer`→`.dg-footer`、`section`→`.dg-section`、`content`→`.dg-content`、
-   *   `header.cell`→`.dg-cell-header`、`body.cell`→`.dg-cell-body`、
+   *   `footer`→`.dg-footer`、`section`→`.dg-scroll-wrap`（非 sticky）/`.dg-sticky-scroll-viewport`（sticky）、`content`→`.dg-grid`、
+   *   `header.cell`/`header.row`→`.dg-cell-header`、`body.cell`/`body.row`→`.dg-cell-body`、
    *   `pagination.root`→`.dg-pagination`。
    */
   classNames?: TableClassNames<RecordType>
@@ -450,6 +451,19 @@ export interface TableProps<RecordType = any> {
    * 同名同义于 antd `TableProps.showSorterTooltip`。
    */
   showSorterTooltip?: boolean | { target?: 'full-header' | 'sorter-icon' }
+  /**
+   * 点击表头切换排序的循环方向（**Table 级默认值**）。
+   * 单列可用自身 `column.sortDirections` 覆盖（**列级优先**）。默认 `['ascend', 'descend']`。
+   *
+   * 同名同义于 antd `TableProps.sortDirections`：antd `InternalTable` 解构该 prop 后作为
+   * `defaultSortDirections` 传给排序 hook，`useSorter.js:75` 按
+   * `column.sortDirections || defaultSortDirections` 取值 ⇒ 表级默认对未单独声明方向的列生效。
+   *
+   * **取值口径与列级同形**（`SortDirections = Array<'ascend'|'descend'>`，不含 `null`——
+   * `null` 是循环走到末尾后的隐式取消态，见 `compat/sort.ts`）。antd 公共类型写的是更宽的
+   * `SortOrder[]`，本仓两级（Table 级 / 列级）保持同一窄口径，避免同一个概念两个形状。
+   */
+  sortDirections?: SortDirections
   /**
    * 树形数据子字段名（默认 `'children'`）。
    *

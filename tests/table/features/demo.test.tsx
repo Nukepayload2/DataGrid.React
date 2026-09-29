@@ -1,5 +1,5 @@
-// 黑盒 demo 遍历层（挂载 + registry 一致性），对齐 antd tests/shared/demoTest.tsx 机制：
-//   G:\Projects\ant-design\tests\shared\demoTest.tsx
+// 黑盒 demo 遍历层（挂载 + registry 一致性），对齐 antd 上游仓 tests/shared/demoTest.tsx（本机 checkout 6.5.2，非实装的 6.4.4）机制：
+//   {{AntDesign}}/tests/shared/demoTest.tsx
 //   - antd demoTest：glob 组件 demo/*.tsx 逐个 renderToString 快照；data-grid 版拆成两层：
 //     · 本文件 = mountAll（渲染/卸载不抛）+ registry 一致性；
 //     · 快照基线按 registry 类目拆到 demo-snapshot.<slug>.test.tsx（抽片见 tests/shared/demoGroups.ts）。

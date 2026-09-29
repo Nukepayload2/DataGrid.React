@@ -15,16 +15,20 @@
 //     src/table/compat/size.ts:1-29（SizeType 定义与实测结论：antd v6 Table 无 compact 档）
 //   - empty 优先级: src/table/emptyLoadingAdapter.tsx:9-32（locale.emptyText 函数形态 +
 //     TableProps.locale.emptyText > ConfigProvider locale.Table.emptyText > renderEmpty('Table')
-//     > 默认 <Empty>）、src/table/Table.tsx:289-298（mergedLocale 合并顺序：defaults <
-//     contextLocale.Table < TableProps.locale）
-//   - 已消费 locale 字段: src/table/compat/locale.ts:9-23 清单（filterConfirm/filterReset/
+//     > 默认 <Empty>）、src/table/Table.tsx:302（`useContext(ConfigContext)` 同时取 locale 与 table 段）
+//     ＋ :316 mergedLocale（合并顺序：defaults < contextLocale.Table < TableProps.locale）
+//     （步骤 81 改实：旧写 `Table.tsx:289-298` 已漂，且"只消费 locale"的说法也不再成立）
+//   - 已消费 locale 字段: src/table/compat/locale.ts:24-44 清单（filterConfirm/filterReset/
 //     filterEmptyText/filterSearchPlaceholder/filterCheckAll/filterCheckall/emptyText）+
 //     src/table/engine/FilterDropdown.tsx:150-157（消费点）+
 //     src/table/engine/HeaderCell.tsx:292-302（triggerAsc/triggerDesc/cancelSort 排序 hover title）+
 //     src/table/expandAdapter.tsx:73-81（expand/collapse → 展开按钮 aria-label）+
-//     src/table/selectionAdapter.tsx:174-180 / 205（selectionAll/selectInvert/selectNone）
+//     src/table/selectionAdapter.tsx:269 / 272 / 275（selectionAll/selectInvert/selectNone）
+//     （两处行号由步骤 81 按实测改实：原写 `compat/locale.ts:9-23` 落在接口上方的文档注释里、
+//      原写 `selectionAdapter.tsx:174-180 / 205` 已漂，`grep -n "locale.selectionAll\|locale.selectInvert\|locale.selectNone"` 现值 269/272/275。）
 //
-// 直测 10 条 / skip 1 条（filterTitle / sortTitle / selectAll 无消费点）。
+// 直测 11 条 / skip 0 条（步骤 81：原 skip 的 `applies filterTitle / sortTitle / selectAll` 已转直测——
+//   实测**已安装 antd 6.4.4 侧同样不消费**这三字段，旧依据的"antd 有对应 UI 部位"是 v5 的假话）。
 //
 // 实测路径差异（不断言，仅记录；详见最终报告「疑似缺陷」）：
 //   单层表头的 flat 快速路径表头格（src/table/engine/FlatColumnCells.tsx:291-301）把排序 hover
@@ -316,13 +320,78 @@ describe('Table locale', () => {
     expect(iconOf()).toHaveAttribute('aria-label', '收起行')
   })
 
-  // skip 依据：filterTitle / sortTitle / selectAll 三个字段在 src/table 内**无任何消费点**
-  //   （grep `src/table/**` 仅命中 src/table/compat/locale.ts 自身的类型声明与注释；
-  //   FilterDropdown 消费 5 个 filter* 字段，HeaderCell 消费 trigger*/cancelSort，
-  //   expandAdapter 消费 expand/collapse，selectionAdapter 消费 selectionAll/selectInvert/selectNone
-  //   ——filterTitle（antd FilterDropdown 的下拉标题）与 sortTitle（antd 排序 tooltip）在
-  //   data-grid 无对应 UI 部位，selectAll 被 selectionAll 取代）。
-  it.skip('applies filterTitle / sortTitle / selectAll', () => {
-    // 占位：字段未被消费（src/table/compat/locale.ts:9-23 清单外的字段无渲染落点）。
+  // 步骤 81 由 skip 转直测（原用例名 `applies filterTitle / sortTitle / selectAll`）。
+  // 旧 skip 依据（「`filterTitle`（antd FilterDropdown 的下拉标题）与 `sortTitle`（antd 排序 tooltip）
+  // 在 data-grid **无对应 UI 部位**」）里的**比较级前提是假的**：那是 antd **v5** 的说法。
+  // 裁判 = **已安装 antd 6.4.4**：
+  //   `grep -rn "filterTitle\|sortTitle" node_modules/antd/es/table/` 只命中
+  //   `es/table/interface.d.ts:20`（filterTitle）/ `:35`（sortTitle）/ `:31`（selectAll）——**纯类型**；
+  //   `@rc-component/table@1.10.2/es/` 里三个键**零命中** ⇒ 参照侧同样**没有任何消费点**。
+  // 双臂实测（探针 `tmp/81-probe3-readings.txt` 臂 `B14.dg` / `B14.ref`，每臂独立 it、
+  //   臂首打印 body 残留基线 0 ⇒ 避开"前臂 portal 污染后臂"）：
+  //   两臂 container 与 **document.body**（下拉面板在 body portal）对 `FT`/`ST`/`SA` **全 false**；
+  //   阳性对照 `filterConfirm:'FC'` / `filterReset:'FR'` 两臂**都 true** ⇒ "不消费"这一面逐值同值。
+  // 我方侧静态实锤（本条真正的判据）：`filterTitle` / `selectAll` / `sortTitle` 在 src 内只有类型声明
+  //   （`src/table/compat/locale.ts:25` / `:34` / `:38`；字段清单整段 `:24-44`，
+  //   旧注释写的 `:9-23` 是它上面的文档注释，已改），无渲染落点。
+  // ⚠️ 本条**无上游同名用例**（`components/table/__tests__/` 与 `components/__tests__/` 对
+  //   `sortTitle|filterTitle` 零命中）⇒ 期望值不是"参照已提交断言"，而是**裁判自身行为**（已带版本 6.4.4）。
+  //   ⇒ 断言写成"三方一致"：三字段不出现在任何地方 ＋ 对照字段确实出现（否则就是永绿假门）。
+  it('does not apply filterTitle / sortTitle / selectAll（6.4.4 参照侧亦不消费）', async () => {
+    const columns: TableProps<RecordType>['columns'] = [
+      {
+        title: 'Name',
+        dataIndex: 'name',
+        key: 'name',
+        sorter: true,
+        filters: [
+          { text: 'a', value: 'a' },
+          { text: 'b', value: 'b' },
+        ],
+      },
+    ]
+    const data: RecordType[] = [
+      { key: '1', name: 'a', age: 1 },
+      { key: '2', name: 'b', age: 2 },
+    ]
+
+    const { container } = customRender(
+      <Table
+        columns={columns}
+        dataSource={data}
+        pagination={false}
+        rowSelection={{}}
+        locale={{
+          filterTitle: 'FT',
+          sortTitle: 'ST',
+          selectAll: 'SA',
+          // 阳性对照字段（真被消费：见上方 'consumes filterReset / filterConfirm …' 直测）。
+          filterConfirm: 'FC',
+          filterReset: 'FR',
+        }}
+      />,
+    )
+
+    // P-102：先确认筛选触发器在场并真能打开面板，否则"三字段都不出现"只是因为面板没开。
+    const trigger = container.querySelector<HTMLElement>('.dg-filter-trigger')
+    expect(trigger).toBeTruthy()
+    fireEvent.click(trigger!)
+    await waitFor(() => expect(document.body.querySelector('.dg-filter-dropdown')).toBeTruthy())
+
+    // 非空对照（阳性）：同一份 locale 里被消费的字段确实渲染出来了。
+    expect(document.body.innerHTML).toContain('FC')
+    expect(document.body.innerHTML).toContain('FR')
+
+    // 主断言：未消费的三字段在容器与 body 弹层两侧都不留痕。
+    const haystacks = [container.innerHTML, document.body.innerHTML]
+    for (const token of ['FT', 'ST', 'SA']) {
+      for (const hay of haystacks) {
+        expect(hay).not.toContain(token)
+      }
+    }
+    // 也不该以原生 `title` 属性（tooltip）的形态出现——dg 的排序 hover title 走 triggerAsc/triggerDesc/cancelSort。
+    const titleAttrs = Array.from(document.body.querySelectorAll('[title]')).map((n) => n.getAttribute('title'))
+    expect(titleAttrs.filter((v) => v === 'FT' || v === 'ST' || v === 'SA')).toEqual([])
   })
+
 })

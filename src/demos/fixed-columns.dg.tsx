@@ -67,7 +67,7 @@ export default function FixedColumnsDg({
       size={size === 'medium' ? 'middle' : 'large'}
       /* 虚拟化开关接入：ON 时在原 scroll.x 基础上叠加 virtual=true + scroll.y:true
          （CSS 自适应填满 SplitDemo 给的 400px 限高，虚拟窗口才有滚动区）；
-         OFF 时仅保留原 scroll.x:'max-content'。详见 docs/design-notes/virtualization.md */
+         OFF 时仅保留原 scroll.x:'max-content'。详见 docs/features/scrolling/virtualization.md */
       virtual={virtual}
       scroll={virtual ? { x: 'max-content', y: true } : { x: 'max-content' }}
       pagination={false}

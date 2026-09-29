@@ -70,7 +70,7 @@ export default function FixedGappedColumnsDemo() {
                 <li><strong>差异原因</strong>：data-grid <code>useStickyColumns</code> 按列顺序累加偏移
                   （start 从左扫遇 fixed=start 累加；end 从右扫遇 fixed=end 累加），不要求固定列相邻；
                   antd 原生 <code>fixed:'start'/'end'</code> 同款语义。详见
-                  <code>docs/design-notes/fixed-column.md</code>。</li>
+                  <code>docs/features/columns/fixed-column.md</code>。</li>
               </ul>
             </li>
             <li>
@@ -80,7 +80,7 @@ export default function FixedGappedColumnsDemo() {
                   （Column1 起 start 阴影 / Action1 起 end 阴影）恒显（8px 模糊 + 极淡 alpha，差异极小）。</li>
                 <li><strong>触发条件</strong>：横向滚到边缘。</li>
                 <li><strong>差异原因</strong>：antd rc-table 监听 scrollLeft 动态切换；data-grid 纯 CSS
-                  不脚本监听。详见 <code>docs/design-notes/fixed-column.md</code>。</li>
+                  不脚本监听。详见 <code>docs/features/columns/fixed-column.md</code>。</li>
               </ul>
             </li>
             <li>
@@ -91,7 +91,7 @@ export default function FixedGappedColumnsDemo() {
                 <li><strong>触发条件</strong>：含无 <code>width</code> 普通列 + <code>scroll.x:'max-content'</code>。</li>
                 <li><strong>差异原因</strong>：data-grid 列宽策略下 max-content 路径使固定列偏移稳定贴边；
                   数字 <code>scroll.x</code> + 无 width 列总和 &lt; 声明宽时可能脱离（本 demo 不命中）。
-                  详见 <code>docs/design-notes/fixed-column.md</code>。</li>
+                  详见 <code>docs/features/columns/fixed-column.md</code>。</li>
               </ul>
             </li>
           </ul>

@@ -5,7 +5,7 @@
  * （data-grid `ColumnType` vs antd `TableProps['columns']`）且 render 实现不同
  * （antd 原生 `<Table>` vs data-grid），保留在各自 demo 文件；但均引用本文件的 `RecordType`。
  *
- * 对照源：`G:\Projects\ant-design\components\table\demo\style-class.tsx`。
+ * 对照源：`{{AntDesign}}/components/table/demo/style-class.tsx`。
  */
 
 /** 记录类型。两侧共用。 */

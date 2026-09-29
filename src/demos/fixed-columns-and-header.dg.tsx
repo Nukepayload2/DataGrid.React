@@ -44,7 +44,7 @@ export default function FixedColumnsHeaderDg({
   virtual: boolean
 }) {
   return (
-    /* 数据区域模式 — 详见 docs/design-notes/layout.md
+    /* 数据区域模式 — 详见 docs/features/layout/layout.md
        父容器需有明确 height（330 ≈ antd y:55*5=275 表体 + 表头 ~55，对齐右栏可视高度）；
        scroll.y:true，表体 flex:1 填满容器剩余空间。 */
     <div style={{ height: 330 }}>

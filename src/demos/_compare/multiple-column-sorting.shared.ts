@@ -6,7 +6,10 @@
  * demo 文件，但均引用本文件的 `RecordType` 与 `data`，且列字段逐字一致（Name 不可排序 /
  * Chinese multiple:3 / Math multiple:2 / English multiple:1）。
  *
- * 与 antd `components/table/demo/multiple-sorter.tsx` 逐字一致。
+ * 形状取自 antd 官方 `components/table/demo/multiple-sorter.tsx`（列字段与这 4 行数据按该示例写），
+ * 但该 demo 源文件**不随 npm 包发布** ⇒ 无法对已安装的 antd 6.4.4 逐字核验。
+ * 可核的只有本仓这一句：`multiple-column-sorting.dg.tsx` 与 `multiple-column-sorting.antd.tsx`
+ * 都 import 本文件的 `data`，且各自的列定义逐字一致。
  */
 
 /** 记录类型。两侧共用。 */

@@ -1,4 +1,4 @@
-// 黑盒测试层渲染入口（antd tests/utils.tsx customRender 的 vitest 等价）。
+// 黑盒测试层渲染入口（antd 上游仓 tests/utils.tsx customRender 的 vitest 等价；本机 checkout 6.5.2:32，npm 包 6.4.4 不发测试件）。
 import { StrictMode, type ReactElement } from 'react'
 import { ConfigProvider, type ConfigProviderProps } from 'antd'
 import type { RenderOptions, RenderResult } from '@testing-library/react'

@@ -119,7 +119,7 @@ columnTree 提供且 maxDepth>1，或任一能力要求显式定位。表头格 
 
 多级表头下嵌套叶子的表头格 `key`（= 完整路径，如 `Other.Age`）与排序/筛选引擎匹配的 `column.key ?? dataIndex`（如 `'age'`）**不同**——若按 `key` 匹配会导致点击排序/筛选无响应（`useSorter` 按 `resolveColumnSortKey(c) === columnKey` 查找列）。
 
-`flattenHeaderCells` 在表头格上额外携带 `sortKey` / `filterKey`（解析自 `node.raw`，算法与 `column.key ?? dataIndex` 一致）：GridTable 点击排序时传 `sortKey`、应用筛选时传 `filterKey`，而非 `key`。顶层叶子（无 parentPath）两者恰好相等，零回归。仅叶子表头格有值（分组格无 sorter/filter）。
+`flattenHeaderCells` 在表头格上额外携带 `sortKey` / `filterKey`（解析自 `node.raw`，算法与 `column.key ?? dataIndex` 一致）：GridTable 点击排序时传 `sortKey`、应用筛选时传 `filterKey`，而非 `key`。顶层叶子（无 parentPath）两者恰好相等，零回归。`sortKey` 仅叶子表头格有值（分组格不消费排序）；`filterKey` 叶子格与分组格**都有值**（分组格是漏斗宿主，见 [filter-sorter.md](../interaction/filter-sorter.md)）。
 
 ## 表体合并（colSpan / rowSpan）
 

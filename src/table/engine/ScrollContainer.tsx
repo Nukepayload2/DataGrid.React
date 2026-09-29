@@ -6,16 +6,16 @@
  *    滚动容器），表头 sticky 相对外层页面/内容滚动容器固定；横向位移由虚拟 `stickyScrollLeft`
  *    + transform 驱动；底部 `StickyScrollBar`（position: sticky; bottom: offsetScroll）作为
  *    固定横向滚动条；summary 存在时提取为独立兄弟 grid（顺序 grid → StickyScrollBar → summary-grid，
- *    使横向滚动条落在 summary 上方）。详见 docs/design-notes/sticky.md。
+ *    使横向滚动条落在 summary 上方）。
  * 2. **兜底分支**（`stickyEnabled` 但理论上不会到——sticky 已在分支 1 return；保留防御）：
  *    直接渲染 grid 内容，不走 FloatingScrollBar。
  * 3. **FloatingScrollBar 分支**（非 sticky）：横向滚动统一悬浮条（`horizontal=true` 始终），
  *    原生横滚动条由 `.dg-scroll-floating` 修饰类隐藏；纵向按 `scrollYEnabled` 开关。
- *    详见 docs/design-notes/scrollbar.md。
+ *    详见 docs/features/scrolling/scrollbar.md。
  *
  * 抽取边界：本组件只负责渲染路由（三路 return + style/class 拼装）。
- * `stickyScrollLeft` state 与 `onStickyViewportWheel` callback 留在 GridTable（task43 处理），
- * 作 props 传入。
+ * 虚拟 `stickyScrollLeft` state 与 `onStickyViewportWheel` + 触摸 handler 已抽进 useGridScrollSync.ts（task43 已落地），
+ * 由 GridTable 解构后作 props 传入；只有 `stickyScrollBarUpdateThumbRef`（thumb 刷新 ref）仍由 GridTable 持有。
  */
 import {
   useCallback,
@@ -201,7 +201,7 @@ export function ScrollContainer(props: ScrollContainerProps): ReactNode {
     return () => resizeObserver.disconnect()
   }, [summaryStickyEnabled, effectiveStickySummaryOffset, summaryParsed?.count])
 
-  // === 页面级粘性表头（区别于容器内固定）— 详见 docs/design-notes/sticky.md ===
+  // === 页面级粘性表头（区别于容器内固定）— 详见 docs/features/layout/sticky.md ===
   // sticky 启用时：grid 只包一层 `overflow: clip` 视口，裁剪宽表但不创建滚动容器；
   // 横向位移由虚拟 scrollLeft + transform 驱动。表头 grid item 用 stickyHeaderOffset 驱动
   // （position: sticky; top: offsetHeader，相对 viewport 固定，已在上游 HeaderCell/ColumnCells 应用）。
@@ -224,11 +224,14 @@ export function ScrollContainer(props: ScrollContainerProps): ReactNode {
     //   时与主 grid 同宽），grid-template-rows 仅含 summary tracks（每行 'auto'）。summary Cell 的
     //   grid-row 重置为 rowIndex+1（独立 grid 第 1 track）；fixed bottom（position:sticky;bottom:0）
     //   相对页面滚动容器仍生效（与主 grid 内行为一致）。横向 sticky 通过 __leafSticky 透传同样生效。
+    //   semantic.section 宿主（sticky 路径）= 本视口 + 下方 summary 视口，两者都走 mergeSectionClass /
+    //   mergeSectionStyle（原缺陷：只挂裸类名 ⇒ classNames.section 在非 sticky 生效、sticky 静默失效）。
     return (
       <>
         <div
           ref={stickyViewportRef}
-          className="dg-sticky-scroll-viewport"
+          className={mergeSectionClass(['dg-sticky-scroll-viewport'], sectionClassName)}
+          style={mergeSectionStyle(undefined, sectionStyle)}
           onPointerDown={onStickyViewportPointerDown}
           onPointerMove={onStickyViewportPointerMove}
           onPointerUp={onStickyViewportPointerUp}
@@ -250,19 +253,16 @@ export function ScrollContainer(props: ScrollContainerProps): ReactNode {
         {extractSummary ? (
           <div
             ref={setSummaryStickyViewportNode}
-            className={[
+            className={mergeSectionClass([
               'dg-sticky-scroll-viewport',
               summaryStickyEnabled ? 'dg-sticky-summary-viewport' : undefined,
-            ].filter(Boolean).join(' ')}
-            style={
+            ], sectionClassName)}
+            style={mergeSectionStyle(
               summaryStickyEnabled
-                ? {
-                    position: 'sticky',
-                    bottom: `${effectiveStickySummaryOffset}px`,
-                    zIndex: 5,
-                  }
-                : undefined
-            }
+                ? { position: 'sticky', bottom: `${effectiveStickySummaryOffset}px`, zIndex: 5 }
+                : undefined,
+              sectionStyle,
+            )}
             onPointerDown={onStickyViewportPointerDown}
             onPointerMove={onStickyViewportPointerMove}
             onPointerUp={onStickyViewportPointerUp}
@@ -285,7 +285,7 @@ export function ScrollContainer(props: ScrollContainerProps): ReactNode {
     )
   }
 
-  // === 滚动容器路由 — 详见 docs/design-notes/scrollbar.md ===
+  // === 滚动容器路由 — 详见 docs/features/scrolling/scrollbar.md ===
   //
   // **横向滚动统一悬浮条**（用户规约：绝不出占布局的原生横滚动条）：
   //   - 非 sticky 模式一律走 FloatingScrollBar（horizontal=true）。

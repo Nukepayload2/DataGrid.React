@@ -1,5 +1,5 @@
 /**
- * 行拖拽排序纯函数簇 — 详见 docs/design-notes/drag-sort.md（「行拖」节）。
+ * 行拖拽排序纯函数簇 — 详见 docs/features/interaction/drag-sort.md。
  *
  * 从 useRowDragSort.ts 抽出的模块级纯函数：
  *   - 数组搬运：arrayMove（单行）/ arrayMoveBlock（多行成块重排）
@@ -29,7 +29,7 @@ export function arrayMove<T>(arr: Array<T>, from: number, to: number): Array<T> 
 
 /**
  * 把一组（连续的）选中行作为一块移到目标位置（multi-row block move）。
- * 详见 docs/design-notes/drag-sort.md（「行拖：多行成块重排」节）。
+ * 详见 docs/features/interaction/drag-sort.md（「行拖：多行成块重排」节）。
  *
  * 参数：
  *   - `arr`：原数组。

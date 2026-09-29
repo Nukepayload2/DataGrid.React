@@ -1,6 +1,6 @@
 // 黑盒 feature-slice 测试：排序域（Sorter.value），与 antd 自家用例逐条对齐。
 //
-// 对齐来源: G:\Projects\ant-design\components\table\__tests__\Sorter.value.test.tsx（2 个 it，全部直测）
+// 对齐来源: {{AntDesign}}/components/table/__tests__/Sorter.value.test.tsx（2 个 it，全部直测）
 //
 // 用例数对账：antd 2 条 it = 本文件直测 2 + skip 0。
 //
@@ -13,8 +13,10 @@
 //
 // 行为差异（src 实测）:
 //   - data-grid 的排序点击绑在表头格本身（src/table/engine/HeaderCell.tsx:318-343），不是 `.dg-column-sorters`。
-//   - onChange 第二参 `sorter` 形状：1 激活 → 单对象；>=2 激活 → 数组（按 multiple 升序）
-//     （src/table/engine/sorterUtils.ts:161-183）。
+//   - onChange 第二参 `sorter` 形状：1 激活 → 单对象；>=2 激活 → 数组。
+//     数组**顺序＝SortStates 原序**（非受控下被点列搬到末尾 ⇒ 顺序即点击序；
+//     受控下按列定义序）——BAT-23 23-B 已去掉旧的「按 `sorter.multiple` 升序」二次排序
+//     （src/table/engine/sorterUtils.ts:210-243；参照 `es/table/hooks/useSorter.js:216` + `:362-372`）。
 //   - `showSorterTooltip={{ target: 'sorter-icon' }}` 被简化为原生 `title`（不影响点击行为）。
 import { useState } from 'react'
 import { afterAll, describe, expect, it, vi } from 'vitest'
@@ -103,10 +105,18 @@ describe('Sorter.value.test.tsx', () => {
     const columnSorters = container.querySelectorAll('.dg-column-has-sorters')
     const fooSorterHeader = columnSorters[1]
     fireEvent.click(fooSorterHeader)
+    // ⚠ **有序**断言（步骤 59 收口 23-B 的漏网面）：`onChange` 第 3 参 `sorter` 的数组**顺序本身是判据**。
+    //   参照 antd 6.4.4：`generateSorterInfo` 按 `sorterStates` 的入队顺序产出
+    //   （`es/table/hooks/useSorter.js:216` `generateSorterInfo` 按 `sorterStates` 顺序 reduce 产出，
+    //   `:362` `triggerSorter` + `:367-370` 的 `newSorterStates = [...filter(key!==本次), 本次]`）
+    //   ⇒ 先点 Age、再点 foo ⇒ `[age, foo]`。
+    //   旧写法 `expect.arrayContaining([...])` 对**顺序**与**多余元素**双双失明
+    //   （步骤 58 实测：23-B 修复前 dg 产出 `[foo, age]`，该断言照样绿）⇒ 改成裸数组字面量：
+    //   顺序、长度、每项形状一起钉。
     expect(onChange).toHaveBeenLastCalledWith(
       expect.anything(),
       expect.anything(),
-      expect.arrayContaining([
+      [
         expect.objectContaining({
           order: 'ascend',
           field: 'age',
@@ -115,7 +125,7 @@ describe('Sorter.value.test.tsx', () => {
           order: 'ascend',
           field: 'foo',
         }),
-      ]),
+      ],
       expect.anything(),
     )
     const changeButton = container.querySelector('.change-column')
@@ -127,10 +137,12 @@ describe('Sorter.value.test.tsx', () => {
         ?.className.includes('dg-column-sorter-active'),
     ).toBeTruthy()
     fireEvent.click(container.querySelector('.dg-column-has-sorters')!)
+    // 同样**有序**：本次重点击的是 Age ⇒ 参照把该列重新入队到**末尾**（`useSorter.js:367-370`）
+    // ⇒ 顺序必为 `[foo(ascend), age(descend)]`，不是 `[age, foo]`。旧 `arrayContaining` 反序照样绿。
     expect(onChange).toHaveBeenLastCalledWith(
       expect.anything(),
       expect.anything(),
-      expect.arrayContaining([
+      [
         expect.objectContaining({
           order: 'ascend',
           field: 'foo',
@@ -139,7 +151,7 @@ describe('Sorter.value.test.tsx', () => {
           order: 'descend',
           field: 'age',
         }),
-      ]),
+      ],
       expect.anything(),
     )
     expect(

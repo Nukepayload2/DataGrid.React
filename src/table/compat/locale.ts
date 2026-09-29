@@ -1,7 +1,7 @@
 /**
  * Table 国际化文案（按业务域从 compatTypes.ts 拆出）。
  *
- * 对齐 antd v6 `TableLocale`，以及 antd 英文 locale 包 Table 段默认值常量。
+ * 对齐 antd v6 `TableLocale`（locale 的 Table 段）与 `A11yLocale`（locale 的 **global** 段播报文案），另含英文 locale 的 Table 段默认值常量。
  */
 
 import type { ReactNode } from 'react'
@@ -41,6 +41,26 @@ export interface TableLocale {
   triggerDesc?: string
   triggerAsc?: string
   cancelSort?: string
+}
+
+/**
+ * 表头无障碍播报文案（对齐 antd locale 的 **global** 段；与 `TableLocale` 互为兄弟，不是它的成员）。
+ *
+ * 参照链路（antd 6.4.4，实读）：`es/locale/en_US.js:15` `global.sortable = 'sortable'`
+ * → `es/table/InternalTable.js:121` `useLocale('global', defaultLocale.global)`
+ * （合并算法 `es/locale/useLocale.js:7-14`：默认 global 段打底、ConfigProvider 的 global 段浅覆盖）
+ * → `es/table/hooks/useSorter.js:374` 作位置实参下传、`:70` 处改名 `a11yLocale`
+ * → `:74` 的 `if (newColumn.sorter)` 门内 `:183` `cell['aria-description'] = a11yLocale?.sortable`。
+ *
+ * 不折进 `TableLocale`：`sortable` 在 antd 属 global 段（`es/locale/index.d.ts:28-34`），
+ * 塞进去会让上面「字段集合同名同义于 antd v6 TableLocale」变成假话，并让本项目公共类型
+ * 声称 antd 的 `TableLocale` 有该字段。
+ *
+ * 消费处（两条表头路径）只在 `sortable` 有值时写 `aria-description`：缺值**不写该属性**
+ * （与参照 `a11yLocale?.sortable` 同形——不写空串、不回退默认英文；**禁止硬编码文案**）。
+ */
+export interface A11yLocale {
+  sortable?: string
 }
 
 /**

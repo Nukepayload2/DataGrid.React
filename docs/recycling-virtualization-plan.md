@@ -160,7 +160,7 @@ requested recycling 但无法满足 simple body model 时，进入 standard body
 
 - `src/table/engine/recyclingCellTypes.ts`
 - `src/table/engine/RecyclingBodyGrid.tsx`
-- `src/table/engine/useRecyclingReactSlots.tsx`
+- `src/table/engine/useRecyclingReactSlots.tsx`（拟新增，**未落地**——本方案未走 React slot 挂入路径；同组另 3 个已落地）
 - `src/table/engine/recyclingIdentity.ts`
 
 true recycling path：

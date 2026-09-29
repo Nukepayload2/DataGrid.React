@@ -3,7 +3,7 @@
  *
  * 复刻 antd 6.4.4 `.ant-table-row-expand-icon` 的 CSS 画法（容器 + `::before`/`::after` 画 +/-，
  * 三态 collapsed/expanded/spaced），由 CSS 驱动；本组件只切类名 + 透传 disabled/expanded。
- * 详见 [docs/design-notes/expand.md](../../../docs/design-notes/expand.md)。
+ * 详见 [docs/features/interaction/expand.md](../../../docs/features/interaction/expand.md)。
  *
  * 用户可通过 `expandable.expandIcon` 自定义替换。
  */
@@ -42,7 +42,18 @@ export function ExpandIcon(props: ExpandIconProps) {
       disabled={disabled}
       aria-label={ariaLabel}
       aria-expanded={expanded}
-      onClick={onExpand}
+      // 图标点击**不冒泡到行**——无条件阻断，与参照同形（BAT-26）：
+      //   参照 `node_modules/antd/es/table/ExpandIcon.js:17-20` 的默认图标 onClick 是
+      //   `e => { onExpand(record, e); e.stopPropagation() }`，**不看** `expandRowByClick`；
+      //   `expandRowByClick` 那层条件在参照里挂在**另一个位置**——`@rc-component/table/es/hooks/useColumns/index.js:144-147`
+      //   只给展开列的图标产物外面再包一层条件 span（树形 nest 走 `Body/BodyRow.js:34-45`，连那层 span 都没有）。
+      //   所以「图标层无条件 + 展开列层按 expandRowByClick 条件」两道才是参照的完整形状；
+      //   实测反证见步骤 40 探针 A1/A3/A5/A6/T1/T2（`expandRowByClick:false` 时参照侧用户 `onRow.onClick` 也是 0 次）。
+      //   注：参照的阻断是**整条冒泡链**——连 `document` 上的监听都收不到，不只是行上的 React onClick。
+      onClick={(e) => {
+        onExpand(e)
+        e.stopPropagation()
+      }}
       style={style}
     >
       {/* 内部标记由 CSS ::before/::after 画（与 antd 同款），无子 DOM。 */}

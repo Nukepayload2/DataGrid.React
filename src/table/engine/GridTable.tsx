@@ -16,19 +16,19 @@
  *    - 关闭 `grid-auto-flow:column`（用默认 row 流，配显式定位最稳）。
  *
  * 关键能力对应主题文件（机制 / 算法 / 易踩坑详见对应 md）：
- * - 列宽 track 策略（auto/fixed/minmax/百分比）→ docs/design-notes/column-width.md
- * - 滚动容器路由 + 横向悬浮条 → docs/design-notes/scrollbar.md
- * - 固定列 sticky + 边缘阴影 + z-index 层叠 → docs/design-notes/fixed-column.md
- * - 多级表头 + 表头分割竖线 → docs/design-notes/header.md
- * - 隐藏列（0fr track + dg-cell-hidden）→ docs/design-notes/hidden-column.md
- * - 行高（有界模型 / rowSpan 豁免）→ docs/design-notes/row-height.md
- * - 虚拟滚动（AATree/offsetTree/动态行高/FillerRow/虚拟窗口）→ docs/design-notes/virtualization.md
- * - 行展开（0fr↔1fr track 过渡）→ docs/design-notes/expand.md
- * - 整体容器结构与修饰类 → docs/design-notes/layout.md
- * - 页面级 sticky（grid 不包 overflow 容器）→ docs/design-notes/sticky.md
- * - 行 hover / 行选中 / 行 className → docs/design-notes/layout.md + selection.md
+ * - 列宽 track 策略（auto/fixed/minmax/百分比）→ docs/features/columns/column-width.md
+ * - 滚动容器路由 + 横向悬浮条 → docs/features/scrolling/scrollbar.md
+ * - 固定列 sticky + 边缘阴影 + z-index 层叠 → docs/features/columns/fixed-column.md
+ * - 多级表头 + 表头分割竖线 → docs/features/layout/header-and-span.md
+ * - 隐藏列（0fr track + dg-cell-hidden）→ docs/features/columns/hidden-column.md
+ * - 行高（有界模型 / rowSpan 豁免）→ docs/features/layout/row-height.md
+ * - 虚拟滚动（AATree/offsetTree/动态行高/FillerRow/虚拟窗口）→ docs/features/scrolling/virtualization.md
+ * - 行展开（0fr↔1fr track 过渡）→ docs/features/interaction/expand.md
+ * - 整体容器结构与修饰类 → docs/features/layout/layout.md
+ * - 页面级 sticky（grid 包 `overflow: clip` 视口，不建滚动容器）→ docs/features/layout/sticky.md
+ * - 行 hover / 行选中 / 行 className → docs/features/layout/layout.md + docs/features/interaction/selection.md + docs/features/api/components-and-row-hooks.md
  *
- * 整行 hover — 详见 docs/design-notes/layout.md：
+ * 整行 hover — 详见 docs/features/layout/layout.md：
  * 显式定位下纯 CSS 无法关联整行；
  * 用 JS 方案——根组件持有 hoveredRowIndex state，命中行所有 body cell 加 `dg-row-hover` 类。
  */
@@ -96,7 +96,7 @@ function toResizablePixelWidth(value: number | string | undefined): number | und
 }
 
 /**
- * 自定义组件渲染（components.body.cell / components.body.row）— 详见 docs/design-notes/header.md 与 selection.md。
+ * 自定义组件渲染（components.body.cell / components.body.row）— 详见 docs/features/api/components-and-row-hooks.md。
  *
  * data-grid 用 div 渲染单元格（`.dg-cell`，非 antd 的 `<td>`），components 机制做如下适配：
  *
@@ -179,10 +179,10 @@ function GridTableInner<RecordType = any>(
     rowClassName,
     getPopupContainer,
     rowHoverable,
-    // 行选中态判定 → 加 dg-row-selected 类（详见 docs/design-notes/selection.md）。
+    // 行选中态判定 → 加 dg-row-selected 类（详见 docs/features/interaction/selection.md）。
     isRowSelected,
-    // Table 级 locale（FilterDropdown 消费 filterConfirm/Reset/EmptyText/SearchPlaceholder/CheckAll）。
-    filterLocale,
+    // Table 级 locale（FilterDropdown 消费 filterConfirm/Reset/…）+ a11y locale（表头 aria-description）。
+    filterLocale, a11yLocale,
   } = props
 
   // rowHeight / headerHeight / resizable* 全部从 gridOptions 读取（顶层无 alias）。
@@ -391,7 +391,7 @@ function GridTableInner<RecordType = any>(
     [columnResizeMaxByKey],
   )
 
-  // === 列宽拖拽调整 — 详见 docs/design-notes/column-width.md ===
+  // === 列宽拖拽调整 — 详见 docs/features/columns/column-width.md ===
   // columnResizeMode 显式配置时优先；未配置时保留 resizable=true 的旧行为（ResizeLeft）。
   // 只有右侧存在下一列的可见叶子列才渲染手柄，所以最后一列右边不可 resize。
   const effectiveColumnResizeMode: ColumnResizeMode =
@@ -405,7 +405,7 @@ function GridTableInner<RecordType = any>(
       maxWidth: resolveResizeMaxWidth,
     })
 
-  // === 固定列 sticky 偏移 — 详见 docs/design-notes/fixed-column.md ===
+  // === 固定列 sticky 偏移 — 详见 docs/features/columns/fixed-column.md ===
   // useStickyColumns 用 ResizeObserver 监听叶子表头格宽度变化重算。
   const { leafSticky, headerSticky } = useStickyColumns(
     leafColumns,
@@ -420,7 +420,7 @@ function GridTableInner<RecordType = any>(
     [leafColumns, dataSource],
   )
 
-  // === 行高系统 — 详见 useRowHeightSystem.ts 与 docs/design-notes/virtualization.md / row-height.md ===
+  // === 行高系统 — 详见 useRowHeightSystem.ts 与 docs/features/scrolling/virtualization.md / docs/features/layout/row-height.md ===
   // 阶段 1：派生 gridRowHeightOpt/minRowHeight/maxRowHeight/resolvedRowHeight/boundedRowHeight +
   // getRowHeight（每行调用，useVirtualList offset/totalSize 唯一行高来源）。
   // 虚拟滚动核心，铁律：只搬编排不重写不优化，引用稳定。
@@ -493,7 +493,7 @@ function GridTableInner<RecordType = any>(
     [virtualEnabled, virtualState],
   )
 
-  // === 行展开布局信息 — 详见 docs/design-notes/expand.md ===
+  // === 行展开布局信息 — 详见 docs/features/interaction/expand.md ===
   // 为每个可见数据行计算其在 grid 中的 row line（含展开 track 偏移）+ 该行展开 track 的 row line。
   // expandLayout: Map<rowIndex, { rowLine, expandTrackLine? }>。
   //   - rowLine：该数据行 track 的起始线（1-based grid row line）。
@@ -558,8 +558,8 @@ function GridTableInner<RecordType = any>(
         } as CSSProperties)
       : null),
     // `.dg-grid` 恒定 `width:100%`（对齐 antd `<table>` CSS `.ant-table table{width:100%}`）。
-    // 详见 docs/design-notes/column-width.md 的「.dg-grid { width: 100% } 配合」一节。
-    // sticky 模式例外：sticky 下不加 width:100%（保留 width:auto）——详见 docs/design-notes/sticky.md。
+    // 详见 docs/features/columns/column-width.md 的「.dg-grid { width: 100% } 配合」一节。
+    // sticky 模式例外：sticky 下不加 width:100%（保留 width:auto）——详见 docs/features/layout/sticky.md。
     ...(!stickyEnabled ? { width: '100%' } : null),
   }
 
@@ -622,7 +622,7 @@ function GridTableInner<RecordType = any>(
       return (
         <div className={gridClassName} style={gridFinalStyleWithSemantic} ref={setGridNode}>
           {/* 虚拟模式下渲染独立 FillerRow grid item 撑 paddingTop（替代原 grid-template-rows 的
-              `${paddingTop}px` track）— 详见 docs/design-notes/virtualization.md 的「占位 track / FillerRow」一节。
+              `${paddingTop}px` track）— 详见 docs/features/scrolling/virtualization.md 的「占位 track / FillerRow」一节。
               grid-template-rows 该 track 改 'auto'，FillerRow 用 height 撑高（auto track 包裹子元素高）。
               FillerRow 不打 data-row-index，useRowMeasurements 跳过它。grid-column:1/-1 跨整行
               不影响固定列/合并 cell 的列定位；grid-row 显式定位到 paddingTopLine。 */}
@@ -637,7 +637,7 @@ function GridTableInner<RecordType = any>(
               }}
             />
           ) : null}
-          {/* 表头区：显式定位的表头格（sticky 信息来自 headerSticky）— 详见 docs/design-notes/header.md 与 fixed-column.md。
+          {/* 表头区：显式定位的表头格（sticky 信息来自 headerSticky）— 详见 docs/features/layout/header-and-span.md 与 docs/features/columns/fixed-column.md。
               跳过 covered 表头格（被前面的 colSpan>1 表头覆盖，不渲染 DOM）。
               虚拟 / 非虚拟 scroll.y：表头格额外 position:sticky; top:0（z-index 4），
               相对滚动容器顶部固定（由 headerStickyTop 标志统一驱动）。 */}
@@ -666,12 +666,12 @@ function GridTableInner<RecordType = any>(
                 onHeaderRow={onHeaderRow}
                 getPopupContainer={getPopupContainer}
                 headerColumns={headerColumns}
-                // Table 级 locale 透传到表头格内的 FilterDropdown。
-                filterLocale={filterLocale}
+                // Table 级 locale 透传到表头格：filterLocale→FilterDropdown/排序 title，a11yLocale→aria-description。
+                filterLocale={filterLocale} a11yLocale={a11yLocale}
               />
             )}
           />
-          {/* 数据区：按数据行 × 叶子列显式定位（sticky 来自 leafSticky[colIdx]）— 详见 docs/design-notes/fixed-column.md。
+          {/* 数据区：按数据行 × 叶子列显式定位（sticky 来自 leafSticky[colIdx]）— 详见 docs/features/columns/fixed-column.md。
               当 components.body.row 提供时，按**行**优先遍历，每行用 body.row 组件包裹该行所有单元格
               （body.row 不产生 DOM 或产生不影响 grid 的 DOM——典型 EditableRow 用 antd Form + Context.Provider，
               Provider 不渲染真实 DOM，单元格仍是 grid 直接子元素，grid 显式定位保证布局正确）。
@@ -681,7 +681,7 @@ function GridTableInner<RecordType = any>(
                   （被覆盖格不渲染，仅左上角格渲染并整体固定）。
               虚拟：只遍历 [start, end)；其余由占位 track 撑总高。
                 已知简化：若某 rowSpan>1 的左上角在可视区**外**（start 之前），其延伸到可视区内的
-                覆盖格本就不渲染（hidden），故可视区会出现"缺一块"。详见 docs/design-notes/virtualization.md。 */}
+                覆盖格本就不渲染（hidden），故可视区会出现"缺一块"。详见 docs/features/scrolling/virtualization.md。 */}
           {recyclingBodyEnabled && gridElement ? (
             <RecyclingBodyGrid<RecordType>
               gridRef={gridRef}
@@ -723,12 +723,12 @@ function GridTableInner<RecordType = any>(
             rowClassName,
             rowHoverable,
             renderRecyclingReactCells: recyclingDegradedToStandard,
-            // 行选中态判定 → 加 dg-row-selected 类（详见 docs/design-notes/selection.md）。
+            // 行选中态判定 → 加 dg-row-selected 类（详见 docs/features/interaction/selection.md）。
             isRowSelected,
-            // 首列写 data-known-size（实测闭环，详见 docs/design-notes/virtualization.md）。
+            // 首列写 data-known-size（实测闭环，详见 docs/features/scrolling/virtualization.md）。
             effectiveRowHeight,
           })}
-          {/* 行展开内容：每个可展开 + 展开中的数据行渲染一条展开内容 grid item — 详见 docs/design-notes/expand.md。
+          {/* 行展开内容：每个可展开 + 展开中的数据行渲染一条展开内容 grid item — 详见 docs/features/interaction/expand.md。
               grid-column: 1 / -1 跨整行，grid-row 指向该行下方的展开内容 track。
               track size 已由 grid-template-rows 设为 1fr（展开）/0fr（收起），这里只渲染内容容器。
               容器 overflow:hidden + min-height:0——0fr track 下被裁剪不可见，1fr track 下自然展开。
@@ -766,7 +766,7 @@ function GridTableInner<RecordType = any>(
               {emptyText}
             </div>
           ) : null}
-          {/* 汇总 summary 区：grid 末尾的 summary 行 — 详见 docs/design-notes/summary.md。
+          {/* 汇总 summary 区：grid 末尾的 summary 行 — 详见 docs/features/layout/summary.md。
               summaryParsed.rows 为解析得到的 Summary.Row 元素列表；引擎对每个 Row cloneElement
               注入 __rowLine（grid-row 起始线号 = summaryStartLine + rowIndex）+ __fixed（sticky bottom）
               + __leafSticky（固定列横向 sticky 信息，与表体固定列同源 leafSticky）。
@@ -821,7 +821,7 @@ function GridTableInner<RecordType = any>(
         key={`${keyPrefix}-${column.key}`}
         column={column}
         colIdx={colIdx}
-        // 表头分隔线排除：单层末列标记（对齐 antd `thead th:not(:last-child)::before`）— 详见 docs/design-notes/header.md。
+        // 表头分隔线排除：单层末列标记（对齐 antd `thead th:not(:last-child)::before`）— 详见 docs/features/layout/header-and-span.md。
         //   单层无分组，仅需末列排除；多级路径由 columnTree.markLastLeaves 算 data-group-last。
         isLastLeaf={colIdx === leafColumns.length - 1}
         dataSource={dataSourceOverride}
@@ -850,14 +850,14 @@ function GridTableInner<RecordType = any>(
         rowHoverable={rowHoverable}
         getPopupContainer={getPopupContainer}
         headerColumns={headerColumns}
-        // 行选中态判定 → 加 dg-row-selected 类（详见 docs/design-notes/selection.md）。
+        // 行选中态判定 → 加 dg-row-selected 类（详见 docs/features/interaction/selection.md）。
         isRowSelected={isRowSelected}
         // 实测闭环：flat 路径表体首列写 data-known-size（与 multi 路径 BodyCell 同款）。
         effectiveRowHeight={effectiveRowHeight}
         bodyRowIndex={bodyRowIndex}
         bodyGridRowOffset={flatBodyGridRowOffset}
-        // Table 级 locale 透传到表头格内的 FilterDropdown。
-        filterLocale={filterLocale}
+        // Table 级 locale 透传到表头格：filterLocale→FilterDropdown/排序 title，a11yLocale→aria-description。
+        filterLocale={filterLocale} a11yLocale={a11yLocale}
       />
     )
     return (
@@ -895,7 +895,7 @@ function GridTableInner<RecordType = any>(
   const sectionStyle = semantic?.section?.style
 
   // === 滚动容器路由 — 由 ScrollContainer 组件负责三路 return（sticky / 兜底 / FloatingScrollBar）===
-  //   详见 docs/design-notes/sticky.md（sticky 分支）与 docs/design-notes/scrollbar.md（FloatingScrollBar 分支）。
+  //   详见 docs/features/layout/sticky.md（sticky 分支）与 docs/features/scrolling/scrollbar.md（FloatingScrollBar 分支）。
   //   stickyScrollLeftRef + onStickyViewportWheel 由 useGridScrollSync（task43）派生，
   //   作 props 传入 ScrollContainer。
   return (
@@ -935,7 +935,7 @@ function GridTableInner<RecordType = any>(
 }
 
 /**
- * 行展开内容渲染（multi 路径专用；flat 路径不启用展开——展开强制 multi）。详见 docs/design-notes/expand.md。
+ * 行展开内容渲染（multi 路径专用；flat 路径不启用展开——展开强制 multi）。详见 docs/features/interaction/expand.md。
  *
  * 遍历可视区（虚拟）或全集（非虚拟）数据行，对"可展开 + 展开中"的行渲染一个展开内容 grid item：
  *   - grid-row：该行展开内容 track 的起始线（来自 expandLayout）。

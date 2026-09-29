@@ -24,6 +24,7 @@ import {
   type SortOrder,
   type TableProps,
 } from './types'
+import { devWarnOnce } from './devWarn'
 import { toEngineColumns } from './columnAdapter'
 import {
   applyFilterToNode,
@@ -39,6 +40,18 @@ export interface UseColumnTreeBuilderOptions<RecordType> {
   selectionNode: EngineColumnNode<RecordType> | null
   expandNode: EngineColumnNode<RecordType> | null
   showSorterTooltip: TableProps<RecordType>['showSorterTooltip']
+  /**
+   * Table 级 `sortDirections`（antd 同名 prop）。列级 `column.sortDirections` 优先，未配时用本字段
+   * ——合并判据**只在 `columnAdapter.toEngineColumns` 里写一份**（见其函数头），本层只负责将值传进去，
+   * 与相邻的 `showSorterTooltip` 完全同形（同为"表级默认喂列树构建"的既有先例）。
+   *
+   * ⚠ 本棒（步骤 59）**禁写 `src/table/Table.tsx`** ⇒ 调用点 `Table.tsx:590-598` 还没把它传进来
+   * （那里已有 `showSorterTooltip`，只差一行 `defaultSortDirections: sortDirections,`，
+   * `sortDirections` 在 `Table.tsx:248` 已解构）。缺该行时本字段恒 `undefined` ⇒
+   * 表级配置只影响点击循环（`engine/useSorter.ts:255`）、不影响箭头节点——
+   * 已用临时补丁实测该行了断（`tmp/59-evidence-TL-oneliner-green.log`），补丁字节级回退验证见 §8。
+   */
+  defaultSortDirections?: TableProps<RecordType>['sortDirections']
   sortOrderMap: Map<string, SortOrder>
   sortPriorityMap: Map<string, number>
   filteredValueMap: Map<string, Array<FilterValue>>
@@ -56,14 +69,21 @@ export function useColumnTreeBuilder<RecordType>(
     selectionNode,
     expandNode,
     showSorterTooltip,
+    defaultSortDirections,
     sortOrderMap,
     sortPriorityMap,
     filteredValueMap,
   } = options
 
+  // Table 级方向是**数组**：直接进依赖会让 `sortDirections={['descend']}`（行内字面量，每次渲染新引用）
+  // 把整棵 columnTree 拖成每渲染重建。用**内容键**替代身份键——内容相同 ⇒ 复用同一棵树（消费方只读
+  // 数组值/includes，节点上挂的是上一批数组引用也语义等价）；内容变化 ⇒ 必然重建。
+  const defaultSortDirectionsKey = defaultSortDirections?.join(',')
+
   const columnTree = useMemo(() => {
     // 遍历 columns（含哨兵）：哨兵位置插入对应列节点；普通列走 toEngineColumns 单元素构建。
     // 收集哨兵命中信息——若未命中，按默认位置在最前插入。
+    // 同一类哨兵只保留**首个**命中（重复命中查重 + 告警，见循环内注释）。
     let seenSelectionSentinel = false
     let seenExpandSentinel = false
     const result: Array<EngineColumnNode<RecordType>> = []
@@ -73,19 +93,59 @@ export function useColumnTreeBuilder<RecordType>(
     const anonCounter = { seq: 0 }
     for (const item of visibleColumns as Array<ColumnOrSentinel<RecordType>>) {
       if (item === SELECTION_COLUMN) {
+        // 重复 SELECTION_COLUMN 查重（对齐 antd `es/table/hooks/useSelection.js:495-496`：
+        //   命中多次时只保留 `indexOf` 首个，其余丢弃并告警）。缺这层校验的后果是同一个
+        //   `selectionNode` **引用被推入两次** → 同层兄弟 React key 重复（选择列 key 恒为
+        //   `SELECTION_COLUMN_KEY`，落点 `engine/GridTable.tsx` 的 `key={`h-${cell.key}`}` 与
+        //   flat 路径 `key={`${keyPrefix}-${column.key}`}`）→ React duplicate-key 报错 + 渲染两套选择列。
+        // 告警走 `[data-grid]` 唯一出口 `devWarnOnce`（环境门、前缀、去重三件事都在
+        //   `./devWarn.ts` 里判一次，本文件不写第二份）。
+        if (seenSelectionSentinel) {
+          devWarnOnce(
+            'Multiple `SELECTION_COLUMN` exist in `columns`. ' +
+              'Only the first one takes effect; remove the duplicated sentinel.',
+          )
+          continue
+        }
         seenSelectionSentinel = true
         if (selectionNode) result.push(selectionNode)
         continue
       }
       if (item === EXPAND_COLUMN) {
+        // 重复 EXPAND_COLUMN 查重（同 SELECTION_COLUMN：同一 `expandNode` 引用推两次 → 重复 key）。
+        if (seenExpandSentinel) {
+          devWarnOnce(
+            'Multiple `EXPAND_COLUMN` exist in `columns`. ' +
+              'Only the first one takes effect; remove the duplicated sentinel.',
+          )
+          continue
+        }
         seenExpandSentinel = true
         if (expandNode) result.push(expandNode)
         continue
       }
       // 普通列：单元素构建（与 toEngineColumns 内部一致）；共享 anonCounter 保证全局唯一。
       const col = item as ColumnType<RecordType>
-      const node = toEngineColumns<RecordType>([col], anonCounter, showSorterTooltip)[0]
+      // 第 4 参＝Table 级 sortDirections（生效方向的"表级"那一半；列级优先的合并判据在 columnAdapter 内）。
+      const node = toEngineColumns<RecordType>(
+        [col],
+        anonCounter,
+        showSorterTooltip,
+        defaultSortDirections,
+      )[0]
       if (node) result.push(node)
+    }
+    // 「出现 EXPAND_COLUMN 却渲染不出展开列」告警（对齐 rc-table `@rc-component/table/es/hooks/
+    //   useColumns/index.js:163-165`）：此前 `expandNode` 为空时静默丢弃哨兵，用户拿不到任何提示。
+    // 判据是 `expandNode === null`（而非只看 `expandable` 是否传入）——`Table.tsx:490-492` 里
+    //   `expandEnabled = !treeEnabled && expand.expandEnabled`、`showExpandColumn` 可为 false，
+    //   这三种「哨兵写了但展开列不渲染」的姿势都该被提示，措辞按可观测结果给。
+    if (seenExpandSentinel && !expandNode) {
+      devWarnOnce(
+        '`EXPAND_COLUMN` exists in `columns` but no expand column is rendered ' +
+          '(`expandable` not configured, or expanding disabled by tree data / `expandable.showExpandColumn: false`). ' +
+          'The sentinel is ignored.',
+      )
     }
     // 默认位置：未命中哨兵的列插在最前（选择列在前，展开列随后）。
     if (!seenSelectionSentinel && selectionNode) result.unshift(selectionNode)
@@ -129,7 +189,13 @@ export function useColumnTreeBuilder<RecordType>(
     // selection / expand state 变化时重建（捕获最新勾选/展开态）；columns 变化时重建。
     // visibleColumns 是 columns 经 responsive 过滤后的结果，依赖项改用 visibleColumns
     //   （screens 变化时 visibleColumns 重算 → columnTree 重建 → 引擎按新列树渲染）。
-  }, [visibleColumns, selectionNode, expandNode, showSorterTooltip])
+  }, [
+    visibleColumns,
+    selectionNode,
+    expandNode,
+    showSorterTooltip,
+    defaultSortDirectionsKey,
+  ])
 
   // 把 useSorter 派生的 sortOrderMap 回填到 columnTree 的叶子节点（引擎据此渲染排序图标 +
   // dg-column-sort 类）。回填按"原始 antd column"匹配：每个叶子引擎节点的 raw 字段保留原始列引用，
@@ -165,17 +231,23 @@ export function useColumnTreeBuilder<RecordType>(
     //   filters 非空 || filterDropdown 存在 || onFilter 存在）。修复「纯 filters 无 onFilter」列
     //   （如 ajax demo Gender）激活态不回填：此前门用 (filters && onFilter) || filterDropdown，
     //   漏掉纯 filters 列 → hasAnyFilter=false → applyFilterToNode 跳过 → filteredValue 恒 null → 漏斗不变蓝。
-    //   注：EngineColumnNode 无 filterable 字段（仅 EngineHeaderCell 有），故此处用内联条件复刻 isFilterable。
-    let hasAnyFilter = false
-    for (const node of tree) {
-      if (
-        !hasChildren(node) &&
-        isNodeFilterable(node)
-      ) {
-        hasAnyFilter = true
-        break
+    //   注：EngineColumnNode 无 filterable 字段（仅 EngineHeaderCell 有），故此处用 isNodeFilterable 复刻。
+    // ★ 19-A：这个「有没有筛选」的判定**必须遍历整棵树**（含分组节点自身与其任意深度后代）。
+    //   旧实现只扫顶层且用 `!hasChildren(node)` 排除分组 ⇒ 只要顶层全是分组，整段回填就被跳过，
+    //   嵌套叶子列的 defaultFilteredValue/filteredValue 激活态拿不到（探针 C2：dg 激活漏斗 0 / antd 1），
+    //   分组列自身的激活态更不用说。参照 antd@6.4.4 `useFilter/index.js:151-156 + :36-38`
+    //   本来就是逐层收集，没有"只看顶层"这一层门。
+    //   ⚠ 上方第一步的 hasAnySorter 是**同形状的缺陷**（顶层全是分组时嵌套叶子的 sortOrder 不回填），
+    //   但本批不动排序面（工单禁改 `engine/sorterUtils.ts`/`useSorter.ts`，且 `Table.sorter.test.tsx`
+    //   是 BAT-20 地盘）⇒ 已作为新发现缺陷交回，见步骤 49 日志 §7。
+    const anyFilterable = (nodes: typeof columnTree): boolean => {
+      for (const node of nodes) {
+        if (isNodeFilterable(node)) return true
+        if (node.children && node.children.length > 0 && anyFilterable(node.children)) return true
       }
+      return false
     }
+    const hasAnyFilter = anyFilterable(columnTree)
     if (hasAnyFilter) {
       tree = tree.map((node) => applyFilterToNode(node, filteredValueMap))
     }

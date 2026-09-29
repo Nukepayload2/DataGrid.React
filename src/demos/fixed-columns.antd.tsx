@@ -68,7 +68,7 @@ export default function FixedColumnsAntd({
          （antd 不认 true；本 demo 无分页故扣除表头~55 → 约 340 才能塞进 ~400px pane）。
          antd virtual 要求 scroll.x 必须为数字（字符串 'max-content' 会抛 "scroll.x must be number"），
          故 ON 时改传数字 2000（按列宽估算取保险值足够触发横滚）；OFF 时回原 'max-content'。
-         data-grid 左栏不受此限（保持 'max-content'）。详见 docs/design-notes/virtualization.md */
+         data-grid 左栏不受此限（保持 'max-content'）。详见 docs/features/scrolling/virtualization.md */
       virtual={virtual}
       scroll={virtual ? { x: 2000, y: 340 } : { x: 'max-content' }}
       pagination={false}

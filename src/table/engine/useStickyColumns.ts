@@ -1,7 +1,7 @@
 /**
  * 固定列（fixed columns）sticky 偏移计算（M2）。
  *
- * 算法移植自 lun `packages/core/src/composable/table/useSticky.ts` 的
+ * 算法移植自外部库 lun（本仓未安装，给不出可核版本号）里 packages/core 下的 composable/table/useSticky.ts 的
  * `useStickyTable` / `useStickyColumn`（Vue 实现），**用纯 React + TS 重写**，
  * 不引 Web Component、不抄 lun 代码。
  *

@@ -1,5 +1,5 @@
 /**
- * 筛选下拉纯函数簇 — 详见 docs/design-notes/filter-sorter.md。
+ * 筛选下拉纯函数簇 — 详见 docs/features/interaction/filter-sorter.md。
  *
  * 从 FilterDropdown.tsx 抽出的模块级纯函数：
  *   - flattenFilterItems（扁平化筛选项含 children）

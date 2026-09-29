@@ -4,13 +4,13 @@ data-grid 用自研的 `FloatingScrollBar` 组件替代原生滚动条（macOS �
 
 ## 三处原生条来源全消除
 
-data-grid 不让任何原生横/纵滚动条出现，横向滚动统一由 `FloatingScrollBar`（或页面滚动）承接：
+data-grid 不让任何原生横/纵滚动条出现，横向滚动统一由 `FloatingScrollBar`（非 sticky）或 sticky 视口的虚拟 scrollLeft + grid transform（sticky）承接：
 
 | 来源 | 处理 |
 |---|---|
-| `.dg-wrapper` | `overflow-x: hidden`（line 39）—— wrapper 自身永不出横条，仅保留圆角裁剪 |
-| `.dg-wrapper.dg-data-area` | `overflow-x: hidden`（line 158）—— 数据区域模式显式抑制 wrapper 横条，把横滚交给内部 `.dg-scroll`（FloatingScrollBar 包装） |
-| `.dg-wrapper.dg-content-scrolled` | `overflow-x: hidden`（line 260）—— 有 pagination/footer 时把横滚交给内部 `.dg-scroll`（Table 组装层） |
+| `.dg-wrapper` | `overflow-x: hidden`（line 10）—— wrapper 自身永不出横条，仅保留圆角裁剪 |
+| `.dg-wrapper.dg-data-area` | `overflow-x: hidden`（line 82）—— 数据区域模式显式抑制 wrapper 横条，把横滚交给内部 `.dg-scroll`（FloatingScrollBar 包装） |
+| `.dg-wrapper.dg-content-scrolled` | `overflow-x: hidden`（line 103）—— 有 pagination/footer 时把横滚交给内部 `.dg-scroll`（Table 组装层） |
 
 纵向滚动条来源（非 sticky 模式）：`.dg-scroll`（`.dg-scroll-floating` 修饰类下）隐藏原生纵条（见下），由 `.dg-floating-scrollbar-v` 接管。
 
@@ -71,14 +71,16 @@ color-mix(in srgb, var(--ant-table-scroll-thumb-bg-hover) 25%, transparent)
 
 ## 页面级 sticky 的 fake scrollbar
 
-`.dg-sticky-scroll-bar-thumb`（GridTable 的 StickyScrollBar thumb）：hover 以 `--ant-table-scroll-thumb-bg-hover` 为底色派生 `--dg-scrollbar-thumb-active-bg`。仅 sticky 启用时渲染。
+sticky 模式的横向宿主是 `.dg-sticky-scroll-viewport`（table.css 同名规则：`overflow: clip` + `overscroll-behavior-x/-inline: contain` + `touch-action: pan-y pinch-zoom`）：`clip` 裁剪宽表但**不建立滚动容器**，视口 `scrollLeft` 恒为 0，所以既没有原生横条，也没有可滚的容器。横向位置由虚拟 `stickyScrollLeft` 经 `--dg-sticky-scroll-left` 驱动 grid 上的 `.dg-sticky-scroll-translated` `translate3d(...)`。
+
+`.dg-sticky-scroll-bar-thumb`（ScrollContainer sticky 分支渲染的 StickyScrollBar thumb，GridTable 不直接 import）：hover 以 `--ant-table-scroll-thumb-bg-hover` 为底色派生 `--dg-scrollbar-thumb-active-bg`。条本身 `position: sticky; bottom: offsetScroll`，几何按 `virtualScrollLeft / (grid.scrollWidth − viewport.clientWidth)` 换算，拖动回写同一份虚拟 scrollLeft。仅 sticky 启用时渲染。
 
 ## 与 antd 差异
 
 | | data-grid | antd |
 |---|---|---|
 | 纵向滚动条 | 自研 FloatingScrollBar（细线 + hover 变粗） | 原生条 或 `setScrollSticky` fake scrollbar |
-| 横向滚动条 | 原生条永不出现（3 处来源全消除）+ FloatingScrollBar | `.ant-table-content` 内原生条 |
+| 横向滚动条 | 原生条永不出现（3 处 wrapper 来源全消除 + sticky 的 `overflow: clip` 视口）+ FloatingScrollBar | `.ant-table-content` 内原生条 |
 | 出现条件 | 永远占位（细线），hover 变粗 | 溢出时才出现 |
 
 ## 特殊情况
@@ -176,21 +178,22 @@ caller 在 pointerdown 入口从 `geometryRef.clientSize` 与 `trackInsetRef` �
 
 ## 关联源码
 
-- [`src/table/style/table.css`](../../../src/table/style/table.css) — `.dg-wrapper` / `.dg-wrapper.dg-data-area` / `.dg-wrapper.dg-content-scrolled` 的 `overflow-x: hidden`；`.dg-scroll-floating .dg-scroll` 隐藏原生条；`.dg-floating-scrollbar*` 全套悬浮条规则。
-- [`src/table/engine/FloatingScrollBar.tsx`](../../../src/table/engine/FloatingScrollBar.tsx) — 悬浮条组件，注入 thumb 高度/位置。
-- [`src/table/engine/GridTable.tsx`](../../../src/table/engine/GridTable.tsx) — 渲染 `.dg-scroll-wrap` + StickyScrollBar。
+- [`src/table/style/table.css`](../../../src/table/style/table.css) — `.dg-wrapper` / `.dg-wrapper.dg-data-area` / `.dg-wrapper.dg-content-scrolled` 的 `overflow-x: hidden`；sticky 的 `overflow: clip` 三规则（`.dg-wrapper.dg-sticky`、`.dg-sticky-scroll-viewport`、`.dg-sticky-scroll-translated`）；`.dg-scroll-floating .dg-scroll` 隐藏原生条；`.dg-floating-scrollbar*` 全套悬浮条规则。
+- [`src/table/engine/FloatingScrollBar.tsx`](../../../src/table/engine/FloatingScrollBar.tsx) — 悬浮条组件，渲染包装层 `.dg-scroll-wrap` 并注入 thumb 高度/位置。
+- [`src/table/engine/ScrollContainer.tsx`](../../../src/table/engine/ScrollContainer.tsx) — 三路滚动容器路由（sticky clip 视口 / 兜底 / FloatingScrollBar），sticky 分支渲染 `StickyScrollBar`。
+- [`src/table/engine/useGridScrollSync.ts`](../../../src/table/engine/useGridScrollSync.ts) — sticky 虚拟 `stickyScrollLeft` 与 `--dg-sticky-scroll-left` 的 RAF 写入。
 
 ## 滚动容器路由（TS 视角）
 
-`GridTable` 按模式路由滚动容器（`renderGrid()` 之后的外层包装）：
+`ScrollContainer` 按模式路由滚动容器（`renderGrid()` 之后的外层包装；三路 return 都在该组件内，GridTable 只透传 props）：
 
 ### 1. sticky 模式（`stickyEnabled`）
 
-grid **不包** overflow 容器（避免 overflow 祖先拦截表头 sticky 上下文）。grid 直接渲染 + `min-width: scrollX` 撑宽页面；表头 grid item 用 `stickyHeaderOffset` 驱动（`position: sticky; top: offsetHeader`，相对 viewport 固定）。grid 之后渲染 `StickyScrollBar` 作为底部固定横向滚动条；fixed summary 使用 `offsetSummary` 时，横向滚动条会叠加 summary 高度和偏移，继续停在 summary 上方。
+grid **包一层 `overflow: clip` 视口**（`.dg-sticky-scroll-viewport`）——`clip` 只裁剪宽表、不建立滚动容器，因此不拦截表头 sticky 上下文（换成 `overflow-x: auto` 就会：该祖先立刻成为表头纵向 sticky 的参照，页面级钉顶失效）。grid 带 `min-width: scrollX` 铺到超宽，超出视口部分被裁掉，外层文档流不被撑宽；表头 grid item 用 `stickyHeaderOffset` 驱动（`position: sticky; top: offsetHeader`，相对 viewport 固定）。视口之后渲染 `StickyScrollBar` 作为底部固定横向滚动条；fixed summary 使用 `offsetSummary` 时，横向滚动条会叠加 summary 高度和偏移，继续停在 summary 上方（summary 另起一个同款 `.dg-sticky-scroll-viewport`）。
 
-关键：grid 不包 overflow 容器 → grid 的最近可滚动祖先是 window（页面）→ 表头 sticky 相对 viewport 固定（页面纵向滚动时表头钉在视口顶部 offsetHeader 处）。这是 sticky 与容器内固定表头的本质区别（容器内固定表头相对 `.dg-fixed-header-scroll` 容器固定，容器内滚动）。
+关键：`clip` 不提供滚动机制（没有 scrollport）→ grid 的最近可滚动祖先仍是 window（页面）→ 表头 sticky 相对 viewport 固定（页面纵向滚动时表头钉在视口顶部 offsetHeader 处）。这是 sticky 与容器内固定表头的本质区别（容器内固定表头相对 `.dg-fixed-header-scroll` 容器固定，容器内滚动）。
 
-横向滚动依赖页面原生滚动条（页面横向滚动）；StickyScrollBar 额外提供"底部固定"的同步 thumb（视觉对齐 antd fake scrollbar）。
+横向滚动**不**依赖页面原生滚动条：clip 视口的 `scrollLeft` 恒为 0（不是原生滚动条读数），`useGridScrollSync` 把横向 wheel（`deltaX`，或 `shift+wheel` 的 `deltaY`）与触摸横向拖动换算成虚拟 `stickyScrollLeft`，clamp 到 `getStickyMaxScroll` 后在 RAF 里写 `--dg-sticky-scroll-left` 到 grid 与 summary grid，由 `.dg-sticky-scroll-translated` 的 `translate3d(calc(var(--dg-sticky-scroll-left, 0px) * -1), 0, 0)` 位移内容；视口 `touch-action: pan-y pinch-zoom` 只把纵向 pan 留给页面滚动，`overscroll-behavior-x/-inline: contain` 把横向越界的滚动链断在表格盒子处。`StickyScrollBar` 拖动回写同一份虚拟 scrollLeft，页面纵向滚动时该条靠 `position: sticky` 停在视口底部（视觉对齐 antd fake scrollbar）。
 
 ### 2. 非 sticky 模式（默认）— 横向滚动统一 FloatingScrollBar
 

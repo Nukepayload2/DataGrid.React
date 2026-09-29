@@ -59,7 +59,7 @@ antd `getComponentToken` 会**剪枝"默认值 === alias 同值"的 component to
 
 ## style-class demo（root classNames 注入）
 
-`.dg-style-class-root`：对齐 antd style-class demo 的 `createStaticStyles({ root })` 生成的 root class 样式（`G:\Projects\ant-design\components\table\demo\style-class.tsx:6-12`）：
+`.dg-style-class-root`：对齐 antd style-class demo 的 `createStaticStyles({ root })` 生成的 root class 样式（`{{AntDesign}}/components/table/demo/style-class.tsx:6-12`）：
 
 ```css
 .dg-style-class-root {

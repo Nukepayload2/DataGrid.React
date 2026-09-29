@@ -2,8 +2,9 @@
  * useSelectionAdapter 单测。
  *
  * 覆盖：compat/native 模式解析、受控/非受控、preserveSelectedRowKeys 过滤（树形走全树 vs 非树形扁平）、
+ * rawDataSource 契约（缺口 #12a：存在性判定与 selectedRows 都取原始全树，raw ≠ filtered 时取 raw 侧）、
  * fireSelectionChange 分发（onChange/onSelect 单行/onSelectAll/onSelectInvert/onSelectNone），
- * native onSelectedValuesChange，selectedRows 按 selectableKeys 顺序。
+ * native onSelectedValuesChange，selectedRows 按 keys 顺序。
  */
 import { describe, expect, it, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
@@ -43,6 +44,15 @@ interface RenderOpts {
   gridSelection?: GridSelectionOptions<Rec>
   flattenedDataSource?: Array<Rec>
   filteredDataSource?: Array<Rec>
+  /**
+   * 原始 dataSource（未排序 / 未筛选 / 未分页，含全树 children）。
+   *
+   * src 侧该字段是**必填**（缺口 #12a 的契约变更：存在性判定与 `selectedRows` 查表都建在这张表上，
+   * 对齐 antd `InternalTable.js:177` 的 `useLazyKVMap(rawData, …)`）。harness 只在**夹具层**把它做成
+   * 可选覆盖项，默认沿用上侧 `filteredDataSource` 的同一条回退链——即「不显式区分时 raw ≡ filtered」，
+   * 需要证契约的用例必须显式传，别靠默认值。
+   */
+  rawDataSource?: Array<Rec>
   treeEnabled?: boolean
   childrenColumnName?: string
   parentChildrenMap?: Map<React.Key, Array<React.Key>>
@@ -55,6 +65,11 @@ function renderAdapter(overrides: RenderOpts = {}) {
       gridSelection: overrides.gridSelection,
       flattenedDataSource: overrides.flattenedDataSource ?? flatData,
       filteredDataSource: overrides.filteredDataSource ?? overrides.flattenedDataSource ?? flatData,
+      rawDataSource:
+        overrides.rawDataSource ??
+        overrides.filteredDataSource ??
+        overrides.flattenedDataSource ??
+        flatData,
       treeEnabled: overrides.treeEnabled ?? false,
       childrenColumnName: overrides.childrenColumnName ?? 'children',
       rowKey: 'key',
@@ -224,7 +239,10 @@ describe('useSelectionAdapter', () => {
       expect(onChange).toHaveBeenCalledTimes(1)
       // 第一个参数是 nextKeys
       expect(onChange.mock.calls[0][0]).toEqual(['a', 'b'])
-      // 第二个参数是 rows（按 flattenedDataSource 顺序）
+      // 第二个参数是 rows（按 **nextKeys 顺序**从 rawData 的 recordByKey 查表，
+      // 对齐 src/table/useSelectionAdapter.ts:376-380 的 recordByKey 查表与 antd 6.4.4 useSelection.js:184 的 keys.map(getRecordByKey)；
+      // 步骤 54 / 29-G 起 preserve=true 那一支改读 preserveRecordsRef 缓存，本夹具 preserve=false ⇒ 走 recordByKey；
+      // 本 flat 夹具 keys=['a','b'] 与 rawData 顺序恰好同序，故 [flatData[0],flatData[1]] 成立）
       expect(onChange.mock.calls[0][1]).toEqual([flatData[0], flatData[1]])
       // 非受控：effectiveSelectedKeys 已更新
       expect(result.current.effectiveSelectedKeys).toEqual(['a', 'b'])
@@ -513,7 +531,7 @@ describe('useSelectionAdapter', () => {
       expect(onChange.mock.calls[0][0]).toEqual(['root1'])
     })
 
-    it('selectedRows 按 flattenedDataSource 顺序（折叠的子孙 record 不在 selectedRows）', () => {
+    it('selectedRows 按 nextKeys 顺序取自原始全树（折叠的子孙 record **也在** selectedRows）', () => {
       const onChange = vi.fn()
       const { result } = renderAdapter({
         rowSelection: { onChange } as TableRowSelection<Rec>,
@@ -522,10 +540,80 @@ describe('useSelectionAdapter', () => {
         treeEnabled: true,
       })
       act(() => {
-        // a1/a2 在 nextKeys 但不在 flattenedDataSource → rows 只含可见的 root1
+        // a1/a2 在 nextKeys、**不在** flattenedDataSource（折叠），但在全树里。
         result.current.fireSelectionChange(['root1', 'a1', 'a2'], 'multiple')
       })
-      expect(onChange.mock.calls[0][1]).toEqual([treeData[0]])
+      // 反 vacuous：这条用例的观测面确实区分两张表——折叠子孙不在可见行表里。
+      expect(flattenedTreeData.some((r) => r.key === 'a1' || r.key === 'a2')).toBe(false)
+      // 缺口 #12a 后的契约（对齐 antd `InternalTable.js:177` useLazyKVMap(rawData) +
+      // `useSelection.js:184` `keys.map(getRecordByKey)`）：rows **按 nextKeys 顺序**从**原始全树**
+      // 查表 ⇒ 折叠的子孙必须在。旧版这条钉的是「rows 只含可见的 root1」＝修复前的错误契约
+      // （步骤 34 交回、步骤 37 由 main 裁定翻正；同族功能片旧钉已在 BAT-6 回收）。
+      const rows = onChange.mock.calls[0][1] as Array<Rec>
+      expect(rows).toHaveLength(3)
+      expect(rows[0]).toBe(treeData[0])
+      expect(rows[1]).toBe(treeData[0].children![0])
+      expect(rows[2]).toBe(treeData[0].children![1])
+    })
+  })
+
+  describe('rawDataSource 契约（缺口 #12a：存在性判定与 selectedRows 都取原始全树）', () => {
+    // 这批用例**必须**显式传 `rawDataSource`——默认值是「raw ≡ filtered」的夹具口径，证不了契约。
+    // 依据：src/table/useSelectionAdapter.ts:122-138（recordByKey 建在 rawDataSource 上，dig 无条件
+    // 递归 children）+ :348-350（非 preserve 的存在性过滤判据源 = recordByKey）+ :376-380（rows 查
+    // recordByKey，顺序 = nextKeys 顺序）。参照 antd `InternalTable.js:177` `useLazyKVMap(rawData, …)`。
+    it('被筛掉的行（只在 raw、不在 filtered/flattened）→ key 不被丢弃，record 取 raw 侧对象', () => {
+      const onChange = vi.fn()
+      const raw: Array<Rec> = [{ key: 'a' }, { key: 'b' }, { key: 'c' }]
+      // filtered / flattened 是 raw 的子集：'b' 这一行被筛掉了，可见区只剩 a / c。
+      // ★ 可见区的 'a' 用**另一个对象**（同 key、不同引用），这样「rows[0] 到底是哪张表里的对象」
+      //   本身就可判别——不是白给的（同 key 同引用时该身份断言恒真）。
+      const visible: Array<Rec> = [{ key: 'a' }, { key: 'c' }]
+      const { result } = renderAdapter({
+        rowSelection: { onChange } as TableRowSelection<Rec>,
+        flattenedDataSource: visible,
+        filteredDataSource: visible,
+        rawDataSource: raw,
+      })
+      act(() => {
+        result.current.fireSelectionChange(['a', 'b'], 'multiple')
+      })
+      // 存在性判定源 = raw ⇒ 被筛掉的 'b' 留在 keys 里（旧口径判 visible 会把它整条清掉）。
+      expect(onChange.mock.calls[0][0]).toEqual(['a', 'b'])
+      // selectedRows 源 = raw 查表，且顺序 = nextKeys 顺序。
+      const rows = onChange.mock.calls[0][1] as Array<Rec>
+      expect(rows).toHaveLength(2)
+      expect(rows[0]).toBe(raw[0])
+      expect(rows[1]).toBe(raw[1])
+      // 身份断言不是白给的：raw 与 visible 的 'a' 确是两个不同对象。
+      expect(raw[0]).not.toBe(visible[0])
+    })
+
+    it('树形：折叠/筛掉的子孙只在 raw 全树里 → 子孙 key 保留且 record 来自 raw 侧', () => {
+      const onChange = vi.fn()
+      const raw: Array<Rec> = [{ key: 'P1', children: [{ key: 'C11' }, { key: 'C12' }] }]
+      // filtered / flattened 只带 C11（模拟该子孙被筛掉）；注意两侧 C11 也是不同对象，
+      // 以便断言「查表走的是 raw 那张表」而不是「visible 里恰好同名的那个」。
+      const visible: Array<Rec> = [{ key: 'P1', children: [{ key: 'C11' }] }]
+      const { result } = renderAdapter({
+        rowSelection: { onChange } as TableRowSelection<Rec>,
+        flattenedDataSource: visible,
+        filteredDataSource: visible,
+        rawDataSource: raw,
+        treeEnabled: true,
+        childrenColumnName: 'children',
+      })
+      act(() => {
+        result.current.fireSelectionChange(['P1', 'C12'], 'multiple')
+      })
+      expect(onChange.mock.calls[0][0]).toEqual(['P1', 'C12'])
+      const rows = onChange.mock.calls[0][1] as Array<Rec>
+      expect(rows).toHaveLength(2)
+      // ★ 身份断言：父行与子孙都取自 raw 那棵树（visible 里根本没有 C12 这个对象）。
+      expect(rows[0]).toBe(raw[0])
+      expect(rows[1]).toBe(raw[0].children![1])
+      // 反向防 vacuous：raw 与 visible 的对象确实不是同一个，否则上面两条身份断言是白给的。
+      expect(rows[1]).not.toBe(visible[0].children?.[1])
     })
   })
 

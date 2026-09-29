@@ -61,7 +61,7 @@ export default function NestTableBorderDebugDemo() {
                 <li><strong>触发条件</strong>：切换任一 Switch。</li>
                 <li><strong>差异原因</strong>：无差异。<code>bordered</code> 是每张 Table 自身 prop，
                   嵌套子表是独立 Table 实例，父子天然隔离。详见{' '}
-                  <code>docs/design-notes/bordered.md</code>。</li>
+                  <code>docs/features/layout/bordered.md</code>。</li>
               </ul>
             </li>
             <li>
@@ -73,7 +73,7 @@ export default function NestTableBorderDebugDemo() {
                 <li><strong>差异原因</strong>：data-grid 的 <code>expandedRowRender</code> 把返回内容
                   放进 <code>dg-row-expanded</code>（grid-column: 1 / -1 跨整行），嵌套的
                   <code>&lt;Table&gt;</code> 是独立实例，与主表正交。详见{' '}
-                  <code>docs/design-notes/expand.md</code>。</li>
+                  <code>docs/features/interaction/expand.md</code>。</li>
               </ul>
             </li>
           </ul>

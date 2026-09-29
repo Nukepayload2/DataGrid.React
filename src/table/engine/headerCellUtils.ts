@@ -1,5 +1,5 @@
 /**
- * 表头格纯函数簇 — 详见 docs/design-notes/fixed-column.md + sticky.md + header.md。
+ * 表头格纯函数簇 — 详见 docs/features/columns/fixed-column.md + docs/features/layout/header-and-span.md。
  *
  * 从 HeaderCell.tsx 与 FlatColumnCells.tsx 抽出的模块级纯函数（两路径同款逻辑去重）：
  *   - mergeHeaderExtraClass：cell.className + onHeaderCell.className + onHeaderRow.className 合并

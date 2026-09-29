@@ -4,8 +4,18 @@
 > 本矩阵逐项判定 data-grid 对 antd Table **全量 API** 的支持度，给出证据（`file:line`）。
 >
 > 真相源：
-> - antd：`G:\Projects\ant-design\components\table\interface.ts`（API 真相）、`InternalTable.tsx`、`node_modules\@rc-component\table\lib\*.d.ts`（rc-table 底层类型）。
-> - data-grid：`G:\Projects\trash-antd-table\data-grid\src\table\types.ts`、`engine\*.tsx`、`Table.tsx`。
+> - antd：`{{AntDesign}}/components/table/interface.ts`（API 真相）、`InternalTable.tsx`、`node_modules\@rc-component\table\lib\*.d.ts`（rc-table 底层类型）。
+> - data-grid：`src/table/types.ts`、`engine/*.tsx`、`Table.tsx`。
+
+> **对照的是哪个版本（务必先读）**：本矩阵里所有「与 antd 一致 / 不一致」的判定，**默认对照的是我们测试时实际安装的
+> antd 6.4.4**；底层组件另标版本（`@rc-component/table 1.10.2`、`@rc-component/util 1.11.1`）。
+> `peerDependencies.antd` 写的是 `^6.1.0`，npm 当前最新是 6.6.5 ⇒ **参照是有版本的依赖，结论天生带版本条件**。
+> 已确认的一例（`已实读参照源码`）：列上写 `defaultSortOrder` 且该列带 `responsive` 断点时，
+> **antd 6.5.x 起**参照改用「响应式过滤之前」的列收集排序态（上游 `components/table/InternalTable.tsx:472-476`
+> ＋ `components/table/hooks/useSorter.tsx:424`），**6.4.4 不这么做** ⇒ 装 6.5+/6.6 的用户会看到
+> "antd 排序了、我们没排序"的结果差异，我们与 6.4.4 同值。
+> 「参照版本条件性」这一整类**尚未做全量扫描**，未覆盖范围见
+> [known-limitations.md](known-limitations.md) 末尾。
 
 ## 迁移前检查
 
@@ -69,11 +79,11 @@
 |-----|------|--------|-----------|------|
 | `scroll`（整体） | TableProps | 部分兼容 | `x` 接受 `true\|number\|string`；`y` 仅 `true`（不接受 number/string 滚动区域高度）。`scrollToFirstRowOnChange` 已支持，默认开启，可设 `false` 关闭。 | rc-table `Table.d.ts:53-56`；dg `publicTypes.ts` / `Table.tsx` / `usePaginationAdapter.ts` |
 | `rowSelection`（整体） | rowSelection | 部分兼容 | 覆盖：`type/selectedRowKeys/defaultSelectedRowKeys/onChange/onSelect/onSelectMultiple/onSelectAll/onSelectInvert/onSelectNone/getCheckboxProps/getTitleCheckboxProps/columnTitle/onCell/columnWidth/fixed/hideSelectAll/align/selections/preserveSelectedRowKeys/checkStrictly/renderCell`。仍有 DOM 形态适配差异。 | antd `interface.ts:222-256`；dg `compat/selection.ts` / `selectionAdapter.tsx` / `useSelectionAdapter.ts` |
-| `expandable`（整体） | expandable | 部分兼容 | 覆盖：`expandedRowRender/expandedRowOffset/rowExpandable/expandedRowKeys/defaultExpandedRowKeys/onExpand/onExpandedRowsChange/columnWidth/expandIcon/defaultExpandAllRows/showExpandColumn/childrenColumnName/indentSize/expandRowByClick/expandedRowClassName`。缺：`columnTitle/fixed`。 | antd `ExpandableConfig`；dg `types.ts:1078-1158` |
+| `expandable`（整体） | expandable | 部分兼容 | 覆盖：`expandedRowRender/expandedRowOffset/rowExpandable/expandedRowKeys/defaultExpandedRowKeys/onExpand/onExpandedRowsChange/columnWidth/expandIcon/defaultExpandAllRows/showExpandColumn/childrenColumnName/indentSize/expandedRowClassName/columnTitle/fixed`。⚠️ **`expandRowByClick`**：树形与非树形一视同仁——点行体即切换该行／被点节点的展开态（树形下只切换含非空 `children` 的行），判据与边界见 [known-limitations.md](known-limitations.md) 的「展开」一节。`expandIcon` 同样分档：单层/树形缩进位都已支持，但只在存在展开列时生效（参照亦然，见下）。 | antd 6.4.4 `es/table/InternalTable.js`（`mergedExpandable`）；`@rc-component/table 1.10.2 es/hooks/useRowInfo.js:22-24, 32-35`（树形行也走 `expandRowByClick`）；dg `compat/expand.ts` 的 `ExpandableConfig` ＋ `expandAdapter.tsx` 的 `buildExpandColumnNode`（消费 `columnTitle`/`fixed`） |
 | `components`（整体） | components | 部分兼容 | 覆盖：`header.cell`/`body.cell`/`body.row`。缺：`table/header.table/header.wrapper/header.row/body.wrapper/body 函数形态`。语义有适配（cell/row 见「名兼义异」）。 | antd rc-table components；dg `types.ts:742-769` |
 | `sticky`（整体） | TableProps | 部分兼容 | 覆盖：`boolean \| { offsetHeader?, offsetSummary?, offsetScroll?, getContainer? }`，页面级 sticky 表头、fixed summary 偏移 + 底部 fake scrollbar。`offsetSummary` 在 fixed summary、页面级 sticky、非 `scroll.y` 数据区域模式下生效。 | antd rc-table `interface.d.ts:199`；dg `compat/sticky.ts` / `useScrollMode.ts` / `ScrollContainer.tsx` |
-| `locale`（整体） | locale | 部分兼容 | 已接入 `useLocale('Table')`，优先级为 `TableProps.locale > ConfigProvider locale.Table > 默认英文`。已消费：`emptyText`、FilterDropdown 的 `filterConfirm/filterReset/filterEmptyText/filterSearchPlaceholder/filterCheckAll`、selection 内置菜单、排序 hover title、展开按钮 aria。未完整消费：`filterTitle/selectAll/sortTitle` 等边缘字段。 | antd `interface.ts:41-63`；dg `types.ts` / `Table.tsx` / `engine\FilterDropdown.tsx` / `engine\GridTable.tsx` |
-| `filterDropdownProps` | ColumnType | 兼容支持 | 透传多数 antd Dropdown props；`open` / `onOpenChange` / 弹层内容由筛选状态机接管。 | antd `interface.ts:138-149, 178`；dg `compat/filter.ts` / `engine/FilterDropdown.tsx` |
+| `locale`（整体） | locale | 部分兼容 | 已接入 `useLocale('Table')`，优先级为 `TableProps.locale > ConfigProvider locale.Table > 默认英文`。已消费：`emptyText`、FilterDropdown 的 `filterConfirm/filterReset/filterEmptyText/filterSearchPlaceholder/filterCheckAll`、selection 内置菜单、排序 hover title、展开按钮 aria。`filterTitle` / `sortTitle` / `selectAll` **不消费，但参照同样不消费** ⇒ **不算 data-grid 的偏离**（此前登记为缺口，本轮实读参照后撤销，见 [known-limitations.md](known-limitations.md) 的撤账表）。 | antd 6.4.4 `es/table/interface.d.ts:20,31,35`（只有类型声明；`es/table/` 全目录搜这三个词只有这三处 `.d.ts` 命中）；dg `compat/locale.ts` / `Table.tsx` / `engine/FilterDropdown.tsx` |
+| `filterDropdownProps` | ColumnType | 部分兼容 | 透传多数 antd Dropdown props；`open` / `onOpenChange` / 弹层内容由筛选状态机接管。⚠️ **开合语义两处与参照分叉（登记不修）**：参照关闭应用有两道门，我们只接了"自定义面板关闭不应用草稿"那道（`!column.filterDropdown && filterOnClose`），**第一道门 `info.source === 'trigger'` 没接** ⇒ 弹层内点 `<Menu>` 项时的**开合时机**与参照不同（我们收面板、参照保持打开），数据不丢、回调不吞；连带地，用户自传 `onOpenChange` 收到的**通知集合与参照相反**（Menu 点项我们通知、参照不通知；`confirm()`／`clearFilters({closeDropdown:true})`／`close()` 这三条程序化关闭参照通知、我们不通知）。正典与绕法见 [known-limitations.md](known-limitations.md) 的「筛选与排序」一节。 | antd 6.4.4 `es/table/hooks/useFilter/FilterDropdown.js:240-249`（门 ①＋门 ②）、`:123-129`（`triggerVisible` 内同步转发 `onOpenChange`）；dg `compat/filter.ts` / `engine/FilterDropdown.tsx:354-376`（`handleOpenChange` 不看来源）、`:385-412`（三个程序化入口不经 `handleOpenChange`）；`interface.ts:138-149, 178` |
 | `dataIndex` | ColumnType | 兼容支持 | 运行时支持路径数组；类型提供有限深度 `DeepNamePath`，避免循环数据结构导致 TS 递归过深。 | antd rc-table `DeepNamePath`；dg `compat/column.ts` |
 | `ref`（Reference） | ref | 部分兼容 | antd/rc-table `Reference` 仅 `nativeElement + scrollTo`（**antd 也没有 `getColumns`**，澄清无回归）。dg 在此基础上**扩展** `scrollTo` 支持 `index/key/scrollTop/align/behavior`（超集）。 | antd rc-table `interface.d.ts:41-44`；dg `types.ts:1778-1823` |
 
@@ -104,8 +114,8 @@
 | `onRow` / `onHeaderRow` | event | dg `types.ts:1693, 1668` |
 | `rowClassName` | TableProps | dg `types.ts:1733-1739` |
 | `customRow`/`customHeaderRow`（rc-table 别名） | event | dg 走 onRow/onHeaderRow 同语义 |
-| `classNames`（TableSemanticType：header/body/cell/row/wrapper） | styles | dg `types.ts:908-917, 933+` |
-| `styles`（同上语义槽） | styles | dg `types.ts:913-917` |
+| `classNames`（TableSemanticType：root / section / content / title / footer / header.row / header.cell / body.row / body.cell / pagination.root / pagination.item） | styles | dg `types.ts`（语义槽声明）。⚠️ `header.wrapper` / `body.wrapper` **已从公共类型面删除**（无对应 DOM 宿主，传了会编译报错），替代写法见 [known-limitations.md](known-limitations.md) 的「语义样式与 DOM」一节。 |
+| `styles`（同上语义槽） | styles | dg `types.ts`（与 `classNames` 同形状、同删除面）。 |
 | `showSorterTooltip`（含 SorterTooltipProps.target） | TableProps | antd `interface.ts:67-71, 160`；dg types.ts |
 | 一对一 `.ant-table-*` 类名 | styles | 已输出稳定节点 alias：`ant-table-wrapper`、`ant-table`、`ant-table-container`、`ant-table-content`、`ant-table-title`、`ant-table-footer`、`ant-table-cell`、`ant-table-cell-fix-left/right`、排序类、`ant-table-filter-trigger`。依赖 `thead/tbody/tr/td` 层级的选择器不在此兼容面。 |
 
@@ -146,24 +156,27 @@
 
 ## 关键差异 TOP
 
-> 迁移 antd → data-grid 时最易踩坑的 10 项（务必逐项核对）。
+> 迁移 antd → data-grid 时最易踩坑的几项（务必逐项核对）。
 
 1. **`scroll.y` 仅 `true\|undefined`**（antd 接受 number/string 滚动区域高度）。dg 不把 number/string 当滚动区域高度，需要表体限高请用容器约束。`scroll.scrollToFirstRowOnChange` 已支持，默认开启，可设 `false` 关闭。
 
-2. **`locale` 为部分兼容**（antd 18 字段）。已接入：`emptyText`、FilterDropdown 的 `filterConfirm/filterReset/filterEmptyText/filterSearchPlaceholder/filterCheckAll`、selection 内置菜单 `selectionAll/selectInvert/selectNone`、排序 hover title `triggerDesc/triggerAsc/cancelSort`、展开按钮 aria `expand/collapse`。未消费字段仍有 `filterTitle/selectAll/sortTitle` 等。证据：dg `Table.tsx`、`engine\FilterDropdown.tsx`、`engine\GridTable.tsx`、`types.ts:1027-1058`；antd `interface.ts:41-63`。
+2. **树形数据下 `expandable.expandRowByClick` 与单层表格同形**（点行体会展开/收起被点节点，`src/table/Table.tsx` 的 `treeRowClickExpandEnabled` 走树的 `expandableKeySet` / `toggleExpand`）。它列在这里只因为最容易被读成"data-grid 不支持、要自己接管行点击"⇒ 迁移时**不要**再加一层手动展开。参照侧树形行同样走该判据（`@rc-component/table 1.10.2 es/hooks/useRowInfo.js:22-24, 32-35`）。`读码`
 
-3. **`rowSelection` 仍为部分兼容**。常用字段已覆盖，包括 `columnTitle/onCell/getTitleCheckboxProps/onSelectMultiple`；剩余风险主要来自 data-grid 无原生 `<tr>` 行层级，选择列 cell/header props 的实际挂载点与 antd 有 div-grid 适配差异。
+3. **函数式 `column.title` 未移植**：参照把它当公开能力（`antd 6.4.4 es/table/interface.d.ts:72` ＋ `es/table/util.js:14-19`），我们只收 `ReactNode`。实测形状是**标题渲染为空、不抛错**，开 `ellipsis` 时**连原生 `title` 悬浮提示也一起丢**；TypeScript 用户会被类型面拦住。现值：**开发态会按列发一条 `console.warn`**（消息点名是哪一列，并写明这三条后果），因此 JS 用户不再只能靠文档发现——但**渲染行为未变**（仍为空）。能力保持不移植（属功能移植）。`探针实测`
 
-4. **`expandable` 缺 `columnTitle/fixed`**。证据：antd `ExpandableConfig`；dg `types.ts:1084-1085, 1107-1158`。
+4. **`locale` 为部分兼容**。已接入：`emptyText`、FilterDropdown 的 `filterConfirm/filterReset/filterEmptyText/filterSearchPlaceholder/filterCheckAll`、selection 内置菜单 `selectionAll/selectInvert/selectNone`、排序 hover title `triggerDesc/triggerAsc/cancelSort`、展开按钮 aria `expand/collapse`。`filterTitle` / `sortTitle` / `selectAll` 我们不消费，但 **antd 6.4.4 同样只在 `es/table/interface.d.ts:20,31,35` 声明、实现零引用** ⇒ 这不是 data-grid 的偏离（此前登记为缺口，本轮撤销）。证据：dg `compat/locale.ts`、`Table.tsx`、`engine/FilterDropdown.tsx`；antd 6.4.4 `es/table/interface.d.ts:17-38`。
 
-5. **`components` 缺 `table/header.table/header.wrapper/header.row/body(wrapper)/body 函数形态`**。`body.cell`/`body.row` 已通，但语义有适配（见「名兼义异」）。证据：dg `types.ts:742-769`。
+5. **`rowSelection` 仍为部分兼容**。常用字段已覆盖，包括 `columnTitle/onCell/getTitleCheckboxProps/onSelectMultiple`；剩余风险主要来自 data-grid 无原生 `<tr>` 行层级，选择列 cell/header props 的实际挂载点与 antd 有 div-grid 适配差异。另注意两处**同名同义但优先级跟参照走**的判据：`getTitleCheckboxProps().indeterminate` 会被内部计算值**覆盖**（参照的 spread 顺序如此，`antd 6.4.4 es/table/hooks/useSelection.js:357, 359`），而 `['aria-label']` 用户值仍可覆盖参照的硬编码默认名。
+
+6. **`expandable.columnTitle` / `expandable.fixed` 已支持**（此前记为"缺"，本轮按实读改记）。两者都被展开列的构造函数消费：见 `src/table/expandAdapter.tsx` 的 `buildExpandColumnNode`（`title: columnTitle ?? null`、`fixed: normalizeFixed(fixed)`）。字段声明在 `src/table/compat/expand.ts` 的 `ExpandableConfig`。`读码`
+
+7. **`components` 缺 `table/header.table/header.wrapper/header.row/body(wrapper)/body 函数形态`**。`body.cell`/`body.row` 已通，但语义有适配（见「名兼义异」）。证据：dg `types.ts`（`TableComponents`）。
 
    `.ant-table-*` 类名不是整体缺口：能映射到稳定节点的 alias 已输出；只有依赖原生 table 结构的选择器需要迁移。
 
-6. **RTL（`direction`）未支持**。通过 ConfigProvider 注入，dg 未消费。证据：dg types.ts 全仓无 `direction`/`RTL`。
+8. **RTL（`direction`）未支持**。通过 ConfigProvider 注入，dg 未消费。证据：dg types.ts 全仓无 `direction`/`RTL`。
 
-
-8. **`ColumnType` 缺 `rowSpan`(独立字段,仅 onCell props)/`filterDropdownOpen`/`onFilterDropdownOpenChange`**。证据：antd `interface.ts`；dg `compat/column.ts`。
+9. **`ColumnType` 缺 `rowSpan`(独立字段,仅 onCell props)/`filterDropdownOpen`/`onFilterDropdownOpenChange`**。证据：antd `interface.ts`；dg `compat/column.ts`。
 
 ---
 
@@ -171,8 +184,9 @@
 
 按「迁移影响面 × 实现成本」排序：
 
-1. **P1：`components` 缺槽位补齐**（TOP #5）—— 至少 `header.row`/`body.wrapper` 可以提供 data-grid 语义下的适配；完整 table DOM 替换仍受架构限制。
-2. **P2：RTL**（TOP #7）—— 长尾，按需。
+1. **P1：`components` 缺槽位补齐**（见上面「`components` 缺 table / header.* / body.wrapper」那条）—— 至少 `header.row`/`body.wrapper` 可以提供 data-grid 语义下的适配；完整 table DOM 替换仍受架构限制。
+2. **P1：树形 `expandRowByClick`——已收口，不属待对齐项**（见上面「树形数据下 `expandable.expandRowByClick` 与单层表格同形」那条）—— 树形与非树形一视同仁地点行体切换展开态。
+3. **P2：RTL**（见上面「RTL（`direction`）未支持」那条）—— 长尾，按需。
 
 明确不作为迁移优先项：
 
@@ -199,7 +213,7 @@
 | `gridOptions.rowHeight` / `minRowHeight` / `maxRowHeight` | 表级 | 行高约定：非虚拟路径作 grid track（不测）；虚拟路径作 RO 测量的未测兜底/初值（measured-first，antd 行高随内容）。 | 无 |
 | `gridOptions.virtualizationMode` | 表级 | 虚拟渲染模式：`standard` / `recycling`。仅在 `virtual` + `scroll.y=true` 时生效。 | 无 |
 | `gridOptions.headerHeight` | 表级 | 表头高度约定。 | 无 |
-| `gridOptions.resizable` / `columnResizeMode` / `resizableMinWidth` / `resizableMaxWidth` | 表级 | 列宽拖拽调整（antd v6 核查无 resizable）。 | 无 |
+| `gridOptions.resizable` / `columnResizeMode` / `resizableMinWidth` / `resizableMaxWidth` | 表级 | 列宽拖拽调整。**参照侧没有这个宿主**（见下方注）：手柄的 `role="separator"` 与 `aria-label="Resize column"` 属我们**超出参照的自有无障碍增强**，并且**不走 locale**——参照的规矩是「有 locale 键就走键，没键就写英文字面量」。 | 无 |
 | `gridOptions.scrollBarFoldMode` | 表级 | data-grid 悬浮滚动条显示/折叠策略。 | 无 |
 | `gridOptions.selection` | 表级 | data-grid 原生选择行为：`selectionMode/showSelectionColumn/selectedValues/getSelectionValue` 等；优先级高于 antd 兼容层 `rowSelection`，但不污染兼容 API。 | 无 |
 | `gridOptions.rowDragSort` / `columnDragSort` | 表级 | data-grid 行/列拖拽排序公开入口，通过回调提交新顺序。 | 无 |
@@ -208,3 +222,12 @@
 | `gridColumnOptions.renderCellElement` / `renderCellReact` / `disposeCellElement` | 列级 | recycling 虚拟化的低层 cell 渲染/清理 hook。普通业务优先使用 `render`、`onCell` 和 `components.body.cell`。 | 无 |
 
 > 注：`dragToPinColumn` / `hideColumnOnDragAway` / `rowDropTargets` / `dragPreview` / `cellDragSource` 等名称仍属于候选扩展，放在 [ag-grid-drag-candidates.md](ag-grid-drag-candidates.md) 作为外部能力参考，不计入当前兼容矩阵。
+
+> **「参照侧没有列宽拖拽宿主」是怎么证的**（本轮亲跑，含真阴性对照）：
+> ① `antd 6.4.4` 的整个 `es/table` 目录里搜 `resiz`（大小写不敏感）**返回「无匹配」**——连这个词都不出现；
+> ② `@rc-component/table 1.10.2` 里 `onColumnResize` 的全部命中都是宽度测量：`es/Body/MeasureCell.js:13`
+> 把 `cellRef.current.offsetWidth` 报上去，`es/` 整棵树搜 `separator` **0 命中**、`es/Header/` 目录搜 `role` **0 命中**；
+> ③ 同一把搜索刷子能命中我们自己注入的手柄 ⇒ 上面那两个 0 是**真阴性**、不是查找式失效。
+> 因此这组字段是纯 data-grid 增强，没有"与 antd 对齐"的义务；那句英文 `aria-label` 被仓库里两条既有测试钉住，
+> **改文案要连带翻测试**，不是随手可改的措辞。`已实读参照源码`
+

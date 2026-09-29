@@ -24,7 +24,7 @@ export const EXPAND_COLUMN_KEY = '__dg_expand__'
  *
  * 展开图标点击 → expand.toggleExpand(key, record) → useRowExpand 更新展开态 + 触发 onExpand/onExpandedRowsChange。
  *
- * 详见 `docs/design-notes/expand.md`。
+ * 详见 `docs/features/interaction/expand.md` 的「展开列单元格」与「可展开性判定」两节。
  */
 export function buildExpandColumnNode<RecordType>(
   expandable: Expandable<RecordType>,
@@ -37,6 +37,10 @@ export function buildExpandColumnNode<RecordType>(
   locale: TableLocale,
 ): EngineColumnNode<RecordType> {
   const { columnTitle, columnWidth, expandIcon, fixed } = expandable
+  // 参照同形的条件阻断判据（`@rc-component/table/es/hooks/useColumns/index.js:144-147`）：
+  // 展开列只有在 `expandRowByClick` 为真时才给**图标产物**外面再包一层阻断冒泡的 span。
+  // 与 `useExpandRowBinding.ts:71` 同款严格比较（该处只在 expandEnabled 时被调用，等价）。
+  const expandRowByClick = expandable.expandRowByClick === true
   // 列宽默认：antd 展开列默认宽度 48px（token tableExpandColumnWidth）。用户传 columnWidth 覆盖。
   const width = columnWidth ?? 48
   // 展开列固定居中（与 antd 一致：展开图标居中；antd expandable 无 align 字段）。
@@ -57,7 +61,7 @@ export function buildExpandColumnNode<RecordType>(
       // 不可展开行：渲染禁用图标（视觉占位，与 antd expand demo "Not Expandable" 行一致）。
       // 可展开行：渲染可点击展开图标。
       if (customIcon) {
-        return customIcon({
+        const icon = customIcon({
           expanded,
           record,
           onExpand: (_rec, _e) => {
@@ -65,6 +69,12 @@ export function buildExpandColumnNode<RecordType>(
             expand.toggleExpand(key, record)
           },
         })
+        // 参照 `useColumns/index.js:144-147`：`expandRowByClick` 为真 ⇒ 外面包一层阻断冒泡的 span；
+        // 为假 ⇒ 原样返回（参照此刻**刻意不**阻断，自定义图标点击照样触发用户 `onRow.onClick`）。
+        // 默认图标这一支不需要包 span：`ExpandIcon.tsx:53-56` 已自带 stopPropagation（同参照默认图标），
+        // 包了是重复阻断，只会给快照多塞一个无行为差异的节点。
+        if (!expandRowByClick) return icon
+        return <span onClick={(e) => e.stopPropagation()}>{icon}</span>
       }
       return (
         <ExpandIcon

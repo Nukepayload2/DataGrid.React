@@ -71,7 +71,7 @@ export default function App() {
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：两侧一致——locale.emptyText = <code>&lt;Empty description="No Data"&gt;</code>（含 Toggle Data 按钮），空数据态两栏均显示「No Data」。</li>
                 <li><strong>触发条件</strong>：dataSource 为空或筛选无结果。</li>
-                <li><strong>差异原因</strong>：两侧均消费 Table 级 <code>locale.emptyText</code>，'Table' 语义对齐（data-grid 已对齐 antd 源码）。详见 <code>docs/design-notes/filter-sorter.md</code>。</li>
+                <li><strong>差异原因</strong>：两侧均消费 Table 级 <code>locale.emptyText</code>，'Table' 语义对齐（data-grid 已对齐 antd 源码）。详见 <code>docs/features/interaction/filter-sorter.md</code>。</li>
               </ul>
             </li>
             <li>
@@ -79,7 +79,7 @@ export default function App() {
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：两侧一致——空数据态点 Age 漏斗，下拉均显示「No Filter(Custom)」（ConfigProvider.renderEmpty('Table.filter')，SIMPLE 图标）。</li>
                 <li><strong>触发条件</strong>：Age 列 filters 为 []（空数据态），点开 filter 下拉。</li>
-                <li><strong>差异原因</strong>：两侧均消费 ConfigProvider.renderEmpty，'Table.filter' 语义对齐（与 'Table' 区分：前者是 filter 下拉内 filters 空时的占位，后者是表体空）。详见 <code>docs/design-notes/filter-sorter.md</code>。</li>
+                <li><strong>差异原因</strong>：两侧均消费 ConfigProvider.renderEmpty，'Table.filter' 语义对齐（与 'Table' 区分：前者是 filter 下拉内 filters 空时的占位，后者是表体空）。详见 <code>docs/features/interaction/filter-sorter.md</code>。</li>
               </ul>
             </li>
             <li>

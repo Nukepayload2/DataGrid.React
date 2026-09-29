@@ -1,9 +1,19 @@
 // 黑盒 feature-slice 测试：与 antd 自家 Table rowSelection 测试用例逐条对齐（antd-style 黑盒层）。
 //
-// 对齐来源: G:\Projects\ant-design\components\table\__tests__\Table.rowSelection.test.tsx（2188 行）
+// 对齐来源: {{AntDesign}}/components/table/__tests__/Table.rowSelection.test.tsx（2188 行）
 //   antd 74 个 it（含 describe('preset selection options') 3 条、describe('supports children') >
 //   describe('supports checkStrictly') 9 条、describe('cache with selected keys') 8 条）
-//   = 本文件 直测 49 + skip 25。每个 skip 均带紧邻注释写明依据（src 文件:行号）。
+//   = 本文件 antd 对齐项 直测 66 + skip 8 = 74（步骤 54 / BAT-29 第 2 片把 2 条 skip 转直测：
+//   `reset last select key after bulk operations`＝29-C、`selectedRows ant selectedKeys should
+//   keep sync in initial state`＝29-G；对齐项总数 74 不变，只搬了拆分口径）。
+//   每个 skip 均带紧邻注释写明依据（src 文件:行号或符号）。
+//   非 antd 对齐补测：步骤 34 / BAT-6 返工 **3 条**（F-4 两方向各 1 + 表头全选框默认无障碍名 1）
+//   ＋步骤 50 / 29-E·29-F **2 条** ＋步骤 80 / E-158 **5 条**（shift 区间判据 3 条：表头批量后／菜单批量后／
+//   选中集清空后回单行，＋ checkStrictly=false 不做区间 1 条，＋ NONE 保留「当页 disabled 已选」对照 1 条）
+//   ⇒ 14 条（步骤 82 / E-158 再 ＋ **4 条**：选择列宽随组件 token / 随派生 controlHeight /
+//   无覆盖仍是缺省 32 / 显式 columnWidth 优先于 token）；步骤 54 **0 新增用例、0 新增 skip**（只转直测）。
+//   ⇒ 运行时总数 88（＝直测 80 ＋ skip 8）。⚠️ 这条恒等式**没有版本锚**：它只对
+//   「本文件工作树态 ＋ antd 6.4.4（本机 installed）」成立，引用它时必须同时写这两项。
 //
 // 选择器重映射（data-grid 无语义化 table DOM，行不是容器元素，以 data-row-index 标识）:
 //   - antd `th` / `td` → `div.dg-cell.dg-cell-header` / `.dg-cell-body`（带 `data-column-key` /
@@ -17,7 +27,9 @@
 //   - antd `tr.ant-table-row-selected` → 该行全部格带 `.dg-cell-body.dg-row-selected`
 //     （src/table/engine/BodyGrid.tsx:183-184；src/table/style/table.css:366）
 //   - antd `.ant-checkbox-indeterminate` 落在 `.ant-checkbox`（= 选择 input 的父元素）上；
-//     表体半选来自树形联动 `selection.isIndeterminate`（src/table/selectionAdapter.tsx:299）
+//     表体半选有两个来源：树形联动 `selection.isIndeterminate` 与缺口 #9 起支持的
+//     `getCheckboxProps().indeterminate`（均见 src/table/selectionAdapter.tsx render 的
+//     `indeterminate` 计算 + pickFromCheckboxProps）
 //   - 选择菜单（selections）走 antd Dropdown：触发器 `.dg-selection-dropdown-trigger`
 //     （同元素带 `.ant-dropdown-trigger`，src/table/selectionAdapter.tsx:97-115），菜单 portal 到
 //     document.body，且用 trigger=['click']（不是 hover），故 antd 的 mouseEnter + runAllTimers 改写为 click
@@ -26,40 +38,48 @@
 //
 // 与 antd 的实测行为差异（保留 antd 用例名，断言按 data-grid 实测值写，逐条注释）:
 //   a) 回调顺序：data-grid 先 `onChange` 再 `onSelect` / `onSelectAll` / `onSelectInvert` /
-//      `onSelectNone`（src/table/useSelectionAdapter.ts:286-316）；antd 反之。
-//   b) `onChange` 第 2 参数 selectedRows 只含**当前 dataSource 可见行**（src/table/useSelectionAdapter.ts:268-273），
-//      preserveSelectedRowKeys 缓存的跨数据源 record 不进入 selectedRows。
+//      `onSelectNone`（src/table/useSelectionAdapter.ts 的 `fireSelectionChange` 派发段，按符号定位——
+//      原写 `:286-316` 的行号已随 #12a / 29-G 的上方插入漂移）；antd 反之。
+//   b) `onChange` 第 2 参数 selectedRows：缺口 #12a 已修，按 **keys 数组顺序**查表——
+//      preserve=false 走**原始 dataSource 全树**（useSelectionAdapter.ts 的 recordByKey，对齐 antd
+//      useLazyKVMap(rawData)），被筛掉 / 折叠 / 翻页移出可见区的已选行都在；
+//      preserve=true 走**参照那样的记录缓存**（步骤 54 / 29-G 补，antd **6.4.4**
+//      useSelection.js:71-88/:159-162）⇒ 连「已从 dataSource 彻底消失」的 key 也仍带 record。
+//      唯一有意偏离＝该 key **从未**在任何数据源出现过（受控灌入的幽灵键）时，参照把 `undefined`
+//      塞进 rows（探针 G6：antd rows=[undefined,'Lucy']），我方按 `Array<RecordType>` 类型面剔除。
+//      （旧版这条钉的是「rows 只含当前可见行」，随 #12a 回收；「我们没有 preserve 缓存」随 29-G 回收。）
 //   c) 选择列固定类名是 `dg-cell-fixed-start`（antd 为 `ant-table-cell-fix-start`）。
 //   d) `rowSelection.onCell` 返回 rowSpan 时走 cellMerge：4 行合并为 1 个可见格 + `aria-rowspan`，
 //      antd 是每行 td 都带 rowspan 属性。
 //   e) antd 顶层 `defaultExpandAllRows` 由 rc-table legacyExpandableConfig 合并生效；
 //      data-grid 只在 `expandable.*` 消费（src/table/compat/expand.ts:86），故本文件放进 expandable。
 //      `expandedRowKeys` 同理（antd 顶层 → data-grid `expandable.expandedRowKeys`）。
-//   f) 选择菜单项文案取自 locale（默认 'Select all data' / 'Invert current page' / 'Clear all data'，
-//      见 src/table/selectionAdapter.tsx:172-183）。
+//   f) 选择菜单项**文案**取自 locale（默认 'Select all data' / 'Invert current page' / 'Clear all data'，见
+//      selectionAdapter.tsx 的 resolvedSelections 映射）；表头全选框的无障碍名**不**取 locale（步骤 34）。
+//   g) **未修的分叉（步骤 54 实测并交回 main，见 tmp/vortex-logs/fix-real-bugs/54-implementer-bat29-selection.md）**：
+//      表头全选框与菜单 INVERT 的**范围**。参照 antd **6.4.4** 把这两档限定在当前页
+//      （useSelection.js:92 `flattenData(childrenColumnName, pageData)` → :271-277 recordKeys、:217 invert 遍历 pageData），
+//      我方 `engine/useRowSelection.ts` 的 selectableKeys 建在 `useSelectionAdapter.ts` 的 selectionDataSource
+//      ＝**筛选后的全量所有页**（Table.tsx:535-546 喂 filteredDataSource）。探针读数（pageSize 2／5 行）：
+//      表头全选 dg keys=[1,2,3,4,5] vs antd [1,2]；菜单 INVERT dg [2,3,4,5] vs antd [2]；
+//      菜单 ALL 两侧都是全量（参照 :201 用 data）⇒ ALL 同形、上面两档分叉。
+//      更严重的一面：我方菜单仍显示 locale 原文案 **'Invert current page' / '反选当页'** 却反选所有页
+//      ＝文案与行为互相打脸。不在本步修的理由＝修法要把当前页切片喂进选择 hook，而 `pagedDataSource`
+//      出自 `Table.tsx:783-799` 的 usePaginationAdapter（在选择 hook `:535-546` **之后**），必须动
+//      `Table.tsx` 的 hook 顺序——本步红线禁改该文件。本文件**不**为现状行为补断言（那等于把缺陷焊成规格）。
 import { cloneElement, type Key } from 'react'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 import { fireEvent } from '@testing-library/react'
 
 import { Table, type RowCheckboxProps, type TableProps } from '../../../src/table/index'
-import { customRender } from '../../shared/render'
+import { customRender, renderWithConfig } from '../../shared/render'
 
 type Row = { key: number; name: string; disabled?: boolean }
 
-/**
- * antd `getCheckboxProps` 实际返回的形状（antd `CheckboxProps` 子集）与 data-grid 的差集。
- *
- * data-grid 的 `RowCheckboxProps` 只声明 `disabled` / `name`
- * （src/table/nativeOptions.ts:23-27；运行时消费处 src/table/selectionAdapter.tsx:300,405 也只取 name），
- * antd 则接受 `onClick` / `onChange` / `indeterminate` / `aria-label`（事件统一由 antd Checkbox 合并）。
- * 本文件对齐 antd 用例的传参形状时把它交叉到 `RowCheckboxProps` 上——运行时原样传递、断言不变。
- */
-type AntdExtraCheckboxProps = RowCheckboxProps & {
-  indeterminate?: boolean
-  'aria-label'?: string
-  onClick?: () => void
-  onChange?: () => void
-}
+// 旧版在此声明过 `AntdExtraCheckboxProps = RowCheckboxProps & { indeterminate/aria-label/
+// onClick/onChange }`，用来绕开「data-grid 的 RowCheckboxProps 只有 disabled/name」。
+// 缺口 #9 已把这四个字段并入单点定义（src/table/nativeOptions.ts 的 RowCheckboxProps），
+// 该交叉类型不再有存在理由，随本批删除。
 
 describe('Table.rowSelection', () => {
   const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -186,10 +206,14 @@ describe('Table.rowSelection', () => {
   })
 
   // antd L126
-  // 实测：`name` / `disabled` 透传到底层 input（src/table/selectionAdapter.tsx:300,355-356），
-  // 但 `indeterminate` 不在 getCheckboxProps 的消费字段内（RowCheckboxProps 只有 disabled/name，
-  // src/table/engine/useRowSelection.ts:55-59；表体 indeterminate 只来自树形联动
-  // src/table/selectionAdapter.tsx:299），故不写 antd 的 getIndeterminateSelection 断言。
+  // 缺口 #9 已修：`getCheckboxProps` 的返回值不再只取 disabled/name——`indeterminate` /
+  // `aria-label` / `title` / `id` / `className` / `onClick` / `onChange` 都由适配层转传到
+  // `<SelectionInput>`（src/table/selectionAdapter.tsx 的 pickFromCheckboxProps），
+  // 落点 src/table/engine/SelectionInput.tsx（antd `{...checkboxProps}` 全展开，
+  // es/table/hooks/useSelection.js:411-419 同款）。
+  // ⇒ 本用例的半选断言按 antd 原值 `toEqual([2])` 直测（旧版钉的是「字段被丢弃」的 dg 分叉）。
+  // 注：树形父子联动（checkStrictly=false）下 antd 让**计算值覆盖** custom indeterminate
+  //   （useSelection.js:404-410 的 nest 分支），本库同规则；本用例是非树形 → custom 生效。
   it('pass getCheckboxProps to checkbox', () => {
     const rowSelection = {
       getCheckboxProps: (record: any) => ({
@@ -207,14 +231,19 @@ describe('Table.rowSelection', () => {
     expect(checkboxes[2].disabled).toBe(true)
     expect(checkboxes[2].name).toBe(data[1].name)
 
-    expect(getIndeterminateSelection(container)).toEqual([])
+    expect(getIndeterminateSelection(container)).toEqual([2])
   })
 
   // antd L146
-  // skip 依据：data-grid 表体选择框默认不带 aria-label。src/table/selectionAdapter.tsx:357 只在
-  // `getCheckboxProps(record).name` 为非空字符串时才传 aria-label，其余为 undefined（实测
-  // 表体 input.getAttribute('aria-label') === null）。表头全选框另有默认 aria-label
-  // （'Select all data'，src/table/selectionAdapter.tsx:202-205），但本用例只查表体。
+  // skip 依据（**不是** #9 的字段丢弃，#9 已修）：本用例要的是「无 getCheckboxProps 时的默认
+  // aria-label = 'Select row N'」。该默认值是 antd **6.5.2** 才加的
+  // （参照源码仓库 `{{AntDesign}}`（其 package.json 的 version＝6.5.2）
+  //  components/table/hooks/useSelection.tsx:538 `Select row ${index + 1}`），
+  // 本仓参照是已安装的 node_modules/antd@6.4.4：实读 es/table/hooks/useSelection.js:395-419
+  // 表体 Checkbox/Radio 都**没有**默认 aria-label，只有表头有（`:356` 'Select all'/'Custom selection'）。
+  // 实测并排（tmp/probe-bat6b.test.tsx P5，读数存 tmp/vortex-logs/fix-real-bugs/22-evidence-bat6b-probe.log）：
+  // 不传 getCheckboxProps 时 dg 与 antd@6.4.4 的表体
+  // input aria-label 都是 null → 与本用例期望不符，属「参照新版本能力」，不在本批移植范围。
   it.skip('should have default aria-label', () => {
     const { container } = customRender(createTable({ rowSelection: {} }))
     const checkboxes = container.querySelectorAll<HTMLInputElement>('tbody input[type="checkbox"]')
@@ -223,28 +252,29 @@ describe('Table.rowSelection', () => {
   })
 
   // antd L156
-  // skip 依据：getCheckboxProps 的返回值只消费 `disabled` / `name`
-  // （src/table/engine/useRowSelection.ts:55-59），`aria-label` 字段不透传（实测全为 null）。
-  it.skip('should support custom aria-label from getCheckboxProps', () => {
-    // 真实 API 偏差：data-grid 的 RowCheckboxProps 只有 `disabled` / `name`
-    // （src/table/nativeOptions.ts:23-27；运行时消费处 src/table/selectionAdapter.tsx:300,405 只取 name），
-    // antd 的 getCheckboxProps 返回 `CheckboxProps` 全集（含 aria-label / indeterminate / onClick / onChange）。
-    // 本用例对齐 antd 用例语义（照 antd 的传参形状传 aria-label），故把该字段挂在 data-grid 声明的
-    // rowSelection 类型上（断言 `as TableProps<any>['rowSelection']`，运行时原样传递、assertion 不改）。
+  // 缺口 #9 已修：`getCheckboxProps` 返回的 `aria-label` 现在会转传到 input
+  //   （src/table/selectionAdapter.tsx 的 pickFromCheckboxProps → engine/SelectionInput.tsx 的
+  //   ariaLabel 槽位，antd 侧同样在 `{...checkboxProps}` 展开里给，es/table/hooks/useSelection.js:411-419）。
+  //   实测 dg 与已安装 antd@6.4.4 并排：两侧 input 的 aria-label 都是 'Select Jack' / 'Select Lucy'。
+  // 选择器重映射：antd 用 `tbody input`，data-grid 无 tbody 元素 → 用本文件 bodyInputs。
+  it('should support custom aria-label from getCheckboxProps', () => {
     const rowSelection = {
       getCheckboxProps: (record: any) => ({
         'aria-label': `Select ${record.name}`,
       }),
-    } as TableProps<any>['rowSelection']
+    }
     const { container } = customRender(createTable({ rowSelection }))
-    const checkboxes = container.querySelectorAll<HTMLInputElement>('tbody input[type="checkbox"]')
+    const checkboxes = bodyInputs(container)
 
     expect(checkboxes[0].getAttribute('aria-label')).toBe('Select Jack')
+    expect(checkboxes[1].getAttribute('aria-label')).toBe('Select Lucy')
   })
 
   // antd L169
-  // skip 依据：同 `should have default aria-label`（radio 走同一 SelectionInput，
-  // src/table/engine/SelectionInput.tsx:66-80 只在 name 非空时给 aria-label）。
+  // skip 依据：同 `should have default aria-label` —— 默认 'Select row N' 是参照 **6.5.2**
+  // （useSelection.tsx:538/578）的能力，已安装的 antd@6.4.4 对 radio 分支同样不发默认 aria-label
+  // （radio 分支 es/table/hooks/useSelection.js:373-395 只有 `{...checkboxProps}` 展开，不发默认名）。
+  // 实测并排（探针 P5）：dg 与 antd@6.4.4 的表体 input aria-label 都是 null。
   it.skip('should have default aria-label for radio type', () => {
     const { container } = customRender(createTable({ rowSelection: { type: 'radio' } }))
     const radios = container.querySelectorAll<HTMLInputElement>('tbody input[type="radio"]')
@@ -253,8 +283,13 @@ describe('Table.rowSelection', () => {
   })
 
   // antd L178
-  // skip 依据：data-grid 无「Row N selected」态文案（aria-label 完全由 getCheckboxProps().name
-  // 决定，src/table/selectionAdapter.tsx:357）。
+  // skip 依据：'Row N selected' 这个**选中态默认标签**同样是参照 6.5.2 才有的
+  // （参照源码仓库 `{{AntDesign}}`（package.json version＝6.5.2）
+  //  components/table/hooks/useSelection.tsx:578
+  // `selected ? 'Row N selected' : 'Select row N'`）；已安装的 antd@6.4.4
+  // （es/table/hooks/useSelection.js:395-419）选中与否都不写默认 aria-label。
+  // 本库口径：无用户值时回退 `getCheckboxProps().name`（src/table/selectionAdapter.tsx
+  // pickFromCheckboxProps），与 6.4.4 一致 → 本用例期望的字符串两侧都不存在。
   it.skip('should have selected aria-label when row is selected', () => {
     const { container } = customRender(
       createTable({ rowSelection: { defaultSelectedRowKeys: [0, 1] } }),
@@ -265,9 +300,11 @@ describe('Table.rowSelection', () => {
   })
 
   // antd L187
-  // skip 依据：getCheckboxProps 的 `indeterminate` 不被消费（src/table/engine/useRowSelection.ts:55-59
-  // 只声明 disabled/name；src/table/selectionAdapter.tsx:296-300 只取这两个），实测勾选态不回退。
-  it.skip("make getCheckboxProps's `indeterminate` override selectedRowKeys' effect", () => {
+  // 缺口 #9 已修：非树形时 `getCheckboxProps().indeterminate` 覆盖计算值
+  //   （src/table/selectionAdapter.tsx render 的 `checkboxProps?.indeterminate ?? computedIndeterminate`，
+  //   对齐 antd es/table/hooks/useSelection.js:404-410 的非 nest 分支）。
+  // 实测（探针 P5 + 本用例）：selectedRowKeys=[2] 且 Tom 返回 indeterminate:true → 第 2 行半选。
+  it("make getCheckboxProps's `indeterminate` override selectedRowKeys' effect", () => {
     const rowSelection: TableProps<any>['rowSelection'] = {
       getCheckboxProps: (record) => ({
         disabled: record.name === 'Lucy',
@@ -282,10 +319,13 @@ describe('Table.rowSelection', () => {
   })
 
   // antd L201
-  // skip 依据：data-grid 的全选/半选统计基于**全量数据**而非当前页——useSelectionAdapter 传
-  // `dataSource: flattenedDataSource`（src/table/useSelectionAdapter.ts:203-212），而
-  // flattenedDataSource 是未分页的全量（src/table/Table.tsx:444，只有 renderedDataSource 才分页）。
-  // 实测：第 1 页点全选后翻到第 2 页，表头仍为 checked（antd 期望 false，因为 antd 用 pageData 统计）。
+  // skip 依据：data-grid 的全选/半选统计基于**全量筛选后数据**而非当前页——
+  // src/table/useSelectionAdapter.ts 把 `selectionDataSource`（由 `filteredDataSource` 全树扁平
+  // 而来）喂给 useRowSelection，而 `filteredDataSource` 在 src/table/Table.tsx 里早于分页
+  // （分页只作用于 `pagedDataSource`/`renderedDataSource`）；antd 的 checkboxPropsMap 建在
+  // `flattenData(pageData)` 上（es/table/hooks/useSelection.js:92），是**当前页**。
+  // 实测：第 1 页点全选后翻到第 2 页，表头仍为 checked（antd 期望 false）。
+  // （缺口 #12a 修的是「存在性/rows 用 rawData」，与本条「全选统计范围」是两件事，未受影响。）
   it.skip('works with pagination', () => {
     const { container } = customRender(createTable({ pagination: { pageSize: 2 } }))
 
@@ -304,7 +344,8 @@ describe('Table.rowSelection', () => {
 
   // antd L225
   // skip 依据：data-grid 不产生任何 getCheckboxProps 校验 warning（全 src 无该 warning 分支；
-  // RowCheckboxProps 里根本没有 checked/defaultChecked 字段，src/table/engine/useRowSelection.ts:55-59）。
+  // 单点定义的 RowCheckboxProps（src/table/nativeOptions.ts）里根本没有 checked/defaultChecked
+  // 字段，antd 侧同理，只是额外发了这条告警）。
   it.skip('handles defaultChecked', () => {
     const rowSelection = {
       getCheckboxProps: (record: any) => ({
@@ -333,8 +374,9 @@ describe('Table.rowSelection', () => {
   })
 
   // antd L250
-  // 回调顺序实测：data-grid 先 onChange 再 onSelect（src/table/useSelectionAdapter.ts:286-296），
-  // antd 相反；其余参数（含 onSelect 第 4 参 nativeEvent 为 MouseEvent）一致。
+  // 回调顺序实测：data-grid 先 onChange 再 onSelect（src/table/useSelectionAdapter.ts 的
+  // `fireSelectionChange` 派发段，现为 :398-427；antd 相反；其余参数（含 onSelect 第 4 参 nativeEvent 为 MouseEvent）一致。
+  // 旧注释写的 `:286-296` 在本步之前就已对不上（该段原本在 :352 起），29-G 又在上方插入，故改按符号定位。
   it('fires change & select events', () => {
     const order: string[] = []
     const handleChange = vi.fn().mockImplementation(() => {
@@ -364,8 +406,9 @@ describe('Table.rowSelection', () => {
 
   // antd L277
   // 回调顺序实测按 data-grid：onChange → onSelect → onChange → onSelect → onSelectMultiple
-  // （src/table/useSelectionAdapter.ts:286-313；antd 是 onSelect/onChange 交替）。
-  // shiftKey 范围选的取值与 antd 一致（anchor = 上一次勾选行，src/table/selectionAdapter.tsx:311-328）。
+  // （src/table/useSelectionAdapter.ts 的 fireSelectionChange 派发段，现 :398-427；antd 是 onSelect/onChange 交替）。
+  // shiftKey 范围选的取值与 antd 一致（anchor = 上一次勾选行，src/table/selectionAdapter.tsx 的
+  // resolveSelectionRangeKeys 分支，表体格 onChange 内 useRange 判定）。
   it('fires selectMulti event', () => {
     const order: string[] = []
     const handleSelectMulti = vi.fn().mockImplementation(() => {
@@ -453,11 +496,13 @@ describe('Table.rowSelection', () => {
   })
 
   // antd L376
-  // skip 依据：data-grid 只在表体勾选时更新范围锚点 selectionAnchorKey
-  // （src/table/selectionAdapter.tsx:324,371；useSelectionAdapter.ts:176），表头全选与选择菜单
-  // 批量操作都不重置锚点，因此「全选后再 shift 点首行」得到范围 [0,1,2,3] 而非 antd 的 [0]。
-  // 实测：全选一次 → 再全选清空 → shift 点首行 → onChange [0,1,2,3]（antd 期望 [0]）。
-  it.skip('reset last select key after bulk operations', () => {
+  // 步骤 54 / 29-C 转直测：表头全选与选择菜单**每一项**（含自定义项）操作后都清 shift 范围锚点
+  //   （src/table/selectionAdapter.tsx 表头框 onChange 与 SelectionsDropdown onSelect 两处
+  //    `setSelectionAnchorKey(null)`，对齐 antd **6.4.4** useSelection.js:297-298 与 :251-257）。
+  // 修前的实测（同一条序列）：全选清空后 shift 点首行 → onChange [0,1,2,3]（从陈旧锚点拉了一整段），
+  //   antd 期望 [0]；双侧读数见探针 PR-C 的 C2（dg [4] vs antd [1,2,4]）与 C3（dg [2,3]/multiple
+  //   vs antd [3]/single）。锚点由「单点勾选」建立这一维两侧本就同形（参照 :463；探针 C1 读数一致）。
+  it('reset last select key after bulk operations', () => {
     const onChange = vi.fn()
 
     const { container } = customRender(
@@ -488,10 +533,116 @@ describe('Table.rowSelection', () => {
     expect(onChange).toHaveBeenLastCalledWith([])
     fireEvent.click(first(), { shiftKey: true })
     expect(onChange).toHaveBeenLastCalledWith([0])
+
+    // antd L423-436 的第三段：**菜单批量**（本夹具唯一项＝SELECTION_NONE）之后同样要清锚点。
+    // 本库选择下拉 trigger=['click']（见文件头 :30-32），故 antd 的 mouseEnter + runAllTimers 改写为 click。
+    // 这一段单独给「SelectionsDropdown onSelect 处的 setSelectionAnchorKey(null)」成门：
+    // 缺那句时锚点停在末行 key3，shift 点首行会拉成 [0,1,2,3]。
+    fireEvent.click(last())
+    expect(onChange).toHaveBeenLastCalledWith([0, 3])
+    openSelectionMenu(container)
+    expect(menuItems().map((item) => item.textContent)).toEqual(['Clear all data'])
+    fireEvent.click(menuItems()[0])
+    expect(onChange).toHaveBeenLastCalledWith([])
+    fireEvent.click(first(), { shiftKey: true })
+    expect(onChange).toHaveBeenLastCalledWith([0])
+  })
+
+  // 步骤 80 / E-158 缺陷 1（双臂探针 A1，裁判 **antd 6.4.4**，读数 tmp/80-probe-readings-before.txt）：
+  // 「是不是 shift 区间」的判据从旧树的**锚点存在维**（`type==='checkbox' && shiftKey && selectionAnchorKey !== null`）
+  // 改成参照的**已有选中项维**（`src/table/selectionAdapter.tsx` 的 `isCheckboxRangeSelect`，
+  // 逐字对齐 antd 6.4.4 `es/table/hooks/useSelection.js:428-429`
+  // `isMultiple = derivedSelectedKeySet.size > 0 && recordKeys.some(k => derivedSelectedKeySet.has(k))`
+  // ＋ `if (shiftKey && checkStrictly && isMultiple)`）。
+  // 修前实测（同一条序列）：dg `info.type='single'`、`onSelectMultiple` **0 次**；
+  //   antd `'multiple'`、`onSelectMultiple` **1 次** `(false, [Jack,Lucy,Jerry], [Tom])`。
+  //   键集 `[0,1,3]` 两侧本就同值（＝步骤 79 的 C2「巧合同值」那一面）⇒ 缺陷只在**标签＋回调派发面**，
+  //   用户挂了 `onSelectMultiple` 的话参照会响、我方永不响。
+  // ⇒ 本条钉的是**回调派发面**，与上面 29-C 那条钉的**键集面**互补（摘掉任一处判据各有红：见批次日志 §7）。
+  it('reports type=multiple and fires onSelectMultiple for shift click after header select-all', () => {
+    const onChange = vi.fn()
+    const onSelectMultiple = vi.fn()
+    const { container } = customRender(
+      createTable({ rowSelection: { onChange, onSelectMultiple } }),
+    )
+    const inputs = bodyInputs(container)
+    expect(inputs.length).toBe(4)
+
+    fireEvent.click(inputs[0])
+    expect(onChange).toHaveBeenLastCalledWith([0], [data[0]], { type: 'single' })
+    fireEvent.click(headerInput(container)!)
+    expect(onChange).toHaveBeenLastCalledWith([0, 1, 2, 3], data, { type: 'all' })
+
+    // 锚点已被 29-C 清成 null ⇒ 区间退化成「只动被点行」（参照 useMultipleSelect.js:9）；
+    // 但 method 必须是 multiple（选中集非空）。
+    fireEvent.click(inputs[2], { shiftKey: true })
+    expect(onChange).toHaveBeenLastCalledWith([0, 1, 3], [data[0], data[1], data[3]], {
+      type: 'multiple',
+    })
+    expect(onSelectMultiple).toHaveBeenCalledTimes(1)
+    expect(onSelectMultiple).toHaveBeenCalledWith(
+      false,
+      [data[0], data[1], data[3]],
+      [data[2]],
+    )
+  })
+
+  // 步骤 80 缺陷 1 的第二条边（探针 A4）：批量出自**选择菜单**（SELECTION_ALL）时同一判据同样错。
+  // 修前 dg 也是 `single` / `onSelectMultiple` 0 次 ⇒ 这一格与上面那条**不同源**（清锚站点不同），
+  // 摘掉 `SelectionsDropdown` 那处 `setSelectionAnchorKey(null)` 会让本条的**键集**变成 `[0,1,2]`（区间从陈旧锚点拉起）。
+  it('reports type=multiple and fires onSelectMultiple for shift click after menu select-all', () => {
+    const onChange = vi.fn()
+    const onSelectMultiple = vi.fn()
+    const { container } = customRender(
+      createTable({
+        rowSelection: { onChange, onSelectMultiple, selections: [Table.SELECTION_ALL] },
+      }),
+    )
+    const inputs = bodyInputs(container)
+    expect(inputs.length).toBe(4)
+
+    fireEvent.click(inputs[0])
+    openSelectionMenu(container)
+    expect(menuItems().map((item) => item.textContent)).toEqual(['Select all data'])
+    fireEvent.click(menuItems()[0])
+    expect(onChange).toHaveBeenLastCalledWith([0, 1, 2, 3], data, { type: 'all' })
+
+    fireEvent.click(inputs[2], { shiftKey: true })
+    expect(onChange).toHaveBeenLastCalledWith([0, 1, 3], [data[0], data[1], data[3]], {
+      type: 'multiple',
+    })
+    expect(onSelectMultiple).toHaveBeenCalledTimes(1)
+  })
+
+  // 步骤 80 缺陷 1 的反向形状（探针 A5＝步骤 54 遗交 #2「单行取消后仍走区间」那一面）：
+  // 选中集为空时参照**必须**走单行支（`isMultiple` 要求「已有选中项」），锚点在不在都一样。
+  // 修前实测：dg `[0,1,2]`/`multiple`/onSelectMultiple 1 次 vs antd `[2]`/`single`/0 次。
+  // ⇒ 这条钉的是**键集**面：判据退回「锚点存在维」就红（摘码反证见批次日志 §7 CF-2）。
+  it('falls back to single select for shift click once nothing is selected anymore', () => {
+    const onChange = vi.fn()
+    const onSelect = vi.fn()
+    const onSelectMultiple = vi.fn()
+    const { container } = customRender(
+      createTable({ rowSelection: { onChange, onSelect, onSelectMultiple } }),
+    )
+    const inputs = bodyInputs(container)
+    expect(inputs.length).toBe(4)
+
+    fireEvent.click(inputs[0])
+    expect(onChange).toHaveBeenLastCalledWith([0], [data[0]], { type: 'single' })
+    fireEvent.click(inputs[0])
+    expect(onChange).toHaveBeenLastCalledWith([], [], { type: 'single' })
+
+    fireEvent.click(inputs[2], { shiftKey: true })
+    expect(onChange).toHaveBeenLastCalledWith([2], [data[2]], { type: 'single' })
+    expect(onSelectMultiple).not.toHaveBeenCalled()
+    // 三次点击都是单行支 ⇒ onSelect 每次都派发（回调顺序维见文件头 a) 条）
+    expect(onSelect).toHaveBeenCalledTimes(3)
   })
 
   // antd L438
-  // 回调顺序实测：onChange 先于 onSelectAll（src/table/useSelectionAdapter.ts:286-298），
+  // 回调顺序实测：onChange 先于 onSelectAll（src/table/useSelectionAdapter.ts 的 fireSelectionChange
+  // 派发段，现 :398-427；onChange :398、onSelectAll :410），
   // 参数一致：全选 (true, 全部行, 变化行=全部行)；清空 (false, [], 变化行=全部行)。
   it('fires selectAll event', () => {
     const order: string[] = []
@@ -538,7 +689,8 @@ describe('Table.rowSelection', () => {
   // antd L483
   // antd 此处对 `.ant-dropdown` 做快照；data-grid 的菜单 portal 到 document.body 且类名体系不同，
   // 故改为直测「默认 selections 渲染出三个内置项 + 文案取自 locale」
-  // （src/table/selectionAdapter.tsx:172-183、useRowSelection.ts:367-373）。
+  // （src/table/selectionAdapter.tsx 的 resolvedSelections locale 映射、useRowSelection.ts 的
+  // resolvedSelections 内置三项列表）。
   it('render with default selection correctly', () => {
     // `selections: true` 需字面量类型（src/table/compat/selection.ts:100），标注同 `works with selectAll`。
     const rowSelection: TableProps<any>['rowSelection'] = {
@@ -558,7 +710,7 @@ describe('Table.rowSelection', () => {
 
   // antd L497
   // 回调顺序实测按 data-grid：onChange → onChange → onSelectInvert
-  // （src/table/useSelectionAdapter.ts:286,299-301）。
+  // （src/table/useSelectionAdapter.ts 的 fireSelectionChange 派发段，现 :398-427；onChange :398、onSelectInvert :412）。
   it('fires selectInvert event', () => {
     const order: string[] = []
     const handleSelectInvert = vi.fn().mockImplementation(() => {
@@ -656,7 +808,7 @@ describe('Table.rowSelection', () => {
 
     // antd L607
     // SELECTION_ALL 实测：结果是「已选集合 + 全部可勾选行」，故已选 key 2 排在新增 key 0 之前
-    // （src/table/engine/useRowSelection.ts:403-407）→ [2, 0]；antd 按数据源顺序给 [0, 2]。
+    // （src/table/engine/useRowSelection.ts:407-411）→ [2, 0]；antd 按数据源顺序给 [0, 2]。
     it('SELECTION_ALL', () => {
       const onChange = vi.fn()
       const { container } = customRender(
@@ -720,6 +872,40 @@ describe('Table.rowSelection', () => {
 
       expect(onChange).toHaveBeenCalledWith([1], expect.anything(), { type: 'none' })
     })
+
+    // 步骤 80 / E-158 缺陷 2 的**对照面**（双臂探针 B2，裁判 antd 6.4.4，读数 tmp/80-probe-readings.txt）：
+    // NONE 的保留面＝「已选 ∧ disabled」，这一维在**不分页**（上面那条）与**该 disabled 行就在当前页**
+    // （本条新增的分母维）两种形状下两侧**同值**（dg `[1]` ＝ antd `[1]`）。
+    // ⇒ 本条的作用是把「干脆让 NONE 清空一切」这种错修当场钉红。
+    //   缺陷 2 本体（**跨页**的 disabled 已选行清不掉＝探针 B1／步骤 79 的 B4c：dg `[3]` vs antd `[]`）
+    //   本轮**未修并交回**：参照的 `checkboxPropsMap` 建在 `pageData`
+    //   （antd 6.4.4 `useSelection.js:92` `flattenData(childrenColumnName, pageData)` ＋ `:115-124`），
+    //   NONE 的保留判据在 `:236-247`（`filter(key => checkboxPropsMap.get(key)?.disabled)`）；
+    //   我方 `engine/useRowSelection.ts` 的 NONE 保留面读 `changeableRowKeys`
+    //   ＝ `selectableKeys`，而建在**未分页**的 `selectionDataSource`（`useSelectionAdapter.ts:147-161`
+    //   收 `Table.tsx:535-546` 喂的 `filteredDataSource`）。要对齐就得把当前页切片喂进选择层，
+    //   而 `pagedDataSource` 出自 `Table.tsx:783-799` 的 usePaginationAdapter（在选择 hook **之后**）
+    //   ⇒ 与文件头 g) 条（29-B）同一堵墙、同一个待裁的产品形状，本棒红线禁改 `Table.tsx`（日志 §9）。
+    it('keeps a disabled selected row that is on the current page when SELECTION_NONE is used', () => {
+      const onChange = vi.fn()
+      const { container } = customRender(
+        createTable({
+          pagination: { pageSize: 2 },
+          rowSelection: {
+            onChange,
+            selections: [Table.SELECTION_NONE],
+            selectedRowKeys: [0, 1],
+            getCheckboxProps: (record: Row) => ({ disabled: record.key === 1 }),
+          },
+        }),
+      )
+      // P-102 同型硬闸：当前页只渲染 2 行（key0 / key1），其中 key1 disabled 且已选
+      expect(bodyInputs(container).length).toBe(2)
+
+      openSelectionMenu(container)
+      fireEvent.click(menuItems()[0])
+      expect(onChange).toHaveBeenLastCalledWith([1], [data[1]], { type: 'none' })
+    })
   })
 
   // antd L685
@@ -770,11 +956,10 @@ describe('Table.rowSelection', () => {
   })
 
   // antd L730
-  // skip 依据：本用例断言「数据源全部 disabled 时所有 input 都 disabled」，其中表头全选框的
-  // disabled 只取 getTitleCheckboxProps().disabled（src/table/selectionAdapter.tsx:211），
-  // antd 还叠加 `flattedData.length === 0 || allDisabled`（antd useSelection.tsx:514）。
-  // 实测：dataSource 全 disabled 时表头 input.disabled === false。
-  it.skip('handles disabled checkbox correctly when dataSource changes', () => {
+  // 缺口 #10 已修：表头全选的 disabled 由「无可选行」推导（engine/useRowSelection.ts 的
+  // allDisabled + selectionAdapter.tsx 的 titleDisabled 兜底），故数据源全 disabled 时
+  // 表头与表体 input 一起 disabled（实测 headerInput(container)!.disabled === true）。
+  it('handles disabled checkbox correctly when dataSource changes', () => {
     const rowSelection: TableProps<any>['rowSelection'] = {
       getCheckboxProps: (record) => ({ disabled: record.disabled }),
     }
@@ -785,6 +970,9 @@ describe('Table.rowSelection', () => {
     ]
 
     rerender(createTable({ rowSelection, dataSource: newData }))
+    // 数量前置（E-024 F-3）：下面的 forEach 在**空集合**上恒真 ⇒ 先钉住遍历面真的有内容。
+    // 实测（探针 C1）：rerender 前 5 个 input（表头 + 4 行），rerender 后 3 个（表头 + 2 行）。
+    expect(container.querySelectorAll('input')).toHaveLength(3)
     container.querySelectorAll('input').forEach((checkbox) => {
       expect(checkbox.disabled).toBe(true)
     })
@@ -1010,10 +1198,11 @@ describe('Table.rowSelection', () => {
 
   // antd L943
   // skip 依据：columnTitle 函数收到的 node 是 data-grid 自绘的 `<SelectionInput>`
-  // （src/table/selectionAdapter.tsx:206-222），该组件只消费白名单 props，不透传 children 与
-  // 其余 rest props（src/table/engine/SelectionInput.tsx:42-52），因此 cloneElement 注入的
-  // children / data-testid 都丢失（实测表头 textContent === ''、input 无 data-testid）；
-  // antd 的 node 是 `<Checkbox>`，会渲染 children。
+  // （src/table/selectionAdapter.tsx headerContent 里构造的 `checkbox`），该组件按 props 名单消费
+  // （src/table/engine/SelectionInput.tsx 的 SelectionInputProps）——缺口 #9 把名单扩到
+  // title/id/className/onClick/onChange 等，但**仍不透传 children 与任意 rest props**，
+  // 所以 cloneElement 注入的 children / data-testid 都丢失（实测表头 textContent === ''、
+  // input 无 data-testid）；antd 的 node 是 `<Checkbox>`，会渲染 children。
   it.skip('columnTitle for rowSelection to be renderProps', () => {
     const { container } = customRender(
       <Table
@@ -1035,15 +1224,30 @@ describe('Table.rowSelection', () => {
   })
 
   // antd L971
-  // skip 依据：data-grid 在非 preserve 模式下用**筛选后**的数据源做存在性判定
-  // （src/table/useSelectionAdapter.ts:237-255 的 existenceSource = flattenedDataSource，
-  // 非树形时即 filteredDataSource），被筛掉的行 key 会在下一次勾选时被丢弃；
-  // antd 的 setSelectedKeys 用 getRecordByKey 反查**全量原始** dataSource
-  // （antd InternalTable.tsx:403 useLazyKVMap(rawData) + useSelection.tsx:130-150），
-  // 故能「keep item even if in filter」。
-  // 实测：筛到 Jack 勾选 → [0]；再切到只筛 Lucy 勾选 → onChange keys = [1]（antd 期望 [0, 1]）。
-  it.skip('should keep item even if in filter', () => {
-    const filterColumns: TableProps['columns'] = [
+  // 缺口 #12a 已修：非 preserve 分支的存在性判定改为查 **rawData key→record 表**
+  //   （src/table/useSelectionAdapter.ts 的 recordByKey，对齐 antd
+  //   es/table/InternalTable.js:177 useLazyKVMap(rawData,...) + es/table/hooks/useSelection.js:161-178），
+  //   不再用「排序+筛选后的可见行」→ 被筛掉的已选 key 不会被下一次勾选删掉。
+  // 实测（探针 P1/P1c，tmp/probe-bat6b.test.tsx）：筛到 Jack 勾选 → keys [0]/rows ["Jack"]；
+  //   切到只筛 Lucy 再勾选 → keys [0,1]/rows ["Jack","Lucy"]，与 antd@6.4.4 **逐值相同**
+  //   （修复前 dg 是 [1] / ["Lucy"]，即丢数据）。rows 顺序＝keys 数组顺序（antd `:184` `keys.map`）。
+  // ★ 与参照原用例的写法差异（有意为之，别改回去）：参照
+  //   `{{AntDesign}}/components/table/__tests__/Table.rowSelection.test.tsx:971-1031`
+  //   靠列级 **`filterDropdownOpen: true`** 让面板常开，再 `clickFilter([0,1])`（取消 Jack + 勾 Lucy）
+  //   ⇒ 可见行数仍是 1（只有 Lucy），于是「已选的 Jack 被筛出可见区」，点 Lucy 得 keys 长度 2。
+  //   而 `filterDropdownOpen` 是 antd **已废弃**字段、本库**刻意不实现**（`docs/reference/compat-matrix.md`
+  //   的「未实现」行、`docs/reference/deprecated-antd-table-members.md`、本仓
+  //   `Table.filter.test.tsx:395-405` 已把它登记为 skip），所以参照那条序列在本仓**无法逐字镜像**。
+  //   探针实测（`tmp/probe-bat6b-filter.test.tsx` D1–D5，读数存
+  //   `tmp/vortex-logs/fix-real-bugs/22-evidence-bat6b-filter-diag.log`）：用「点触发器开面板」去镜像时，
+  //   dg 第二轮对「已勾选那一项」的取消点击不生效（点击前后面板项的 checked 态完全一致），
+  //   而 antd 侧同序列（无 filterDropdownOpen）第二轮 onChange 也是 `keys=[]`
+  //   ⇒ 「2」属于 `filterDropdownOpen` 那条序列，不属于镜像出来的这条。
+  //   故本用例改用**受控 `filteredValue` + rerender**，直接表达参照序列的语义前提与结论
+  //   （第 2 轮可见行＝1 且已不含被选中的 Jack ⇒ keys 与 rows 都仍留着 Jack），
+  //   同时避开正被 BAT-1/BAT-18 在飞编辑的筛选面板 DOM。
+  it('should keep item even if in filter', () => {
+    const makeFilterColumns = (filteredValue: Array<string>): TableProps['columns'] => [
       {
         title: 'Name',
         dataIndex: 'name',
@@ -1057,6 +1261,7 @@ describe('Table.rowSelection', () => {
             value: 'Lucy',
           },
         ],
+        filteredValue,
         onFilter: (value: any, record: any) => record.name.indexOf(value) === 0,
       },
     ]
@@ -1066,34 +1271,27 @@ describe('Table.rowSelection', () => {
       onChange,
     }
 
-    const { container } = customRender(
-      <Table columns={filterColumns} dataSource={data} rowSelection={rowSelection} />,
+    const { container, rerender } = customRender(
+      <Table columns={makeFilterColumns(['Jack'])} dataSource={data} rowSelection={rowSelection} />,
     )
 
-    fireEvent.click(container.querySelector('.dg-filter-trigger')!)
-    fireEvent.click(
-      document.body.querySelectorAll('[class*="dg-filter"] .ant-checkbox-wrapper')[0],
-    )
-    fireEvent.click(
-      document.body.querySelector(
-        '.dg-filter-dropdown-btns .ant-btn-color-primary.ant-btn-variant-solid',
-      )!,
-    )
-    expect(container.querySelectorAll('.dg-cell-body[data-column-key="name"]').length).toBe(1)
+    // 第 1 轮：只见 Jack，勾选它。
+    expect(renderedNames(container)).toEqual(['Jack'])
     fireEvent.click(bodyInputs(container)[0])
     expect(onChange.mock.calls[0][0].length).toBe(1)
+    expect(onChange.mock.calls[0][0]).toEqual([0])
+    expect((onChange.mock.calls[0][1] as Array<Row>).map((r) => r.name)).toEqual(['Jack'])
 
-    fireEvent.click(container.querySelector('.dg-filter-trigger')!)
-    fireEvent.click(
-      document.body.querySelectorAll('[class*="dg-filter"] .ant-checkbox-wrapper')[1],
+    // 第 2 轮：把 Jack 筛出可见区（受控切成只筛 Lucy），再勾选 Lucy。
+    rerender(
+      <Table columns={makeFilterColumns(['Lucy'])} dataSource={data} rowSelection={rowSelection} />,
     )
-    fireEvent.click(
-      document.body.querySelector(
-        '.dg-filter-dropdown-btns .ant-btn-color-primary.ant-btn-variant-solid',
-      )!,
-    )
+    expect(renderedNames(container)).toEqual(['Lucy'])
     fireEvent.click(bodyInputs(container)[0])
+    // ★ 被筛出可见区的 Jack（key 0）必须还在——这就是 #12a 的验收点。
     expect(onChange.mock.calls[1][0].length).toBe(2)
+    expect(onChange.mock.calls[1][0]).toEqual([0, 1])
+    expect((onChange.mock.calls[1][1] as Array<Row>).map((r) => r.name)).toEqual(['Jack', 'Lucy'])
   })
 
   // antd L1035
@@ -1140,8 +1338,10 @@ describe('Table.rowSelection', () => {
 
   // antd L1075
   // 适配：antd 顶层 `expandedRowKeys` 在 data-grid 需放进 `expandable`（见文件头注释 e）。
-  // 实测差异：selectedRows 按 dataSource 顺序给出 [父, 子]，antd 按 key 顺序给出 [子, 父]；
-  // selectedRowKeys 与 antd 一致。
+  // 缺口 #12a 已修：selectedRows 改为**按 keys 数组顺序**从 rawData 查表给出
+  // （src/table/useSelectionAdapter.ts 的 recordByKey + rows 构造），与 antd 逐值一致
+  // （es/table/hooks/useSelection.js:184 `keys.map(getRecordByKey)`）
+  // ⇒ 旧版「dg 按 dataSource 顺序给 [父, 子]、antd 给 [子, 父]」的分叉消失，本用例回归 antd 原断言。
   it('should get selectedRows correctly when set childrenColumnName', () => {
     const onChange = vi.fn()
     const newData = [
@@ -1173,7 +1373,7 @@ describe('Table.rowSelection', () => {
 
     fireEvent.click(checkboxes[1])
     const item0 = newData[0]
-    expect(onChange).toHaveBeenLastCalledWith([11, 1], [item0, newData[0].list[0]], {
+    expect(onChange).toHaveBeenLastCalledWith([11, 1], [newData[0].list[0], item0], {
       type: 'single',
     })
   })
@@ -1237,13 +1437,18 @@ describe('Table.rowSelection', () => {
   })
 
   // antd L1152
-  // skip 依据：表头全选框的 disabled 只取 getTitleCheckboxProps().disabled
-  // （src/table/selectionAdapter.tsx:211），antd 额外叠加 `flattedData.length === 0 || allDisabled`
-  // （antd useSelection.tsx:514）。实测 dataSource 全 disabled 时表头 input.disabled === false。
-  it.skip('all disabled should not make select all checked', () => {
+  // 缺口 #10 已修：selectionAdapter 表头段 disabled 兜底 = 「无可选行」（对齐 antd
+  // `disabled ?? (flattedData.length === 0 || allDisabled)`），且 onChange 用同一个合并后的
+  // disabled 做守卫 —— 实测：全 disabled 数据源下点表头，onChange / onSelectAll 各 0 次
+  // （修复前会收到一次 `onChange([], [], {type:'all'})` + `onSelectAll(true, [], [])`）。
+  it('all disabled should not make select all checked', () => {
+    const onChange = vi.fn()
+    const onSelectAll = vi.fn()
     const { container } = customRender(
       createTable({
         rowSelection: {
+          onChange,
+          onSelectAll,
           getCheckboxProps: () => ({ disabled: true }),
         },
       }),
@@ -1251,13 +1456,16 @@ describe('Table.rowSelection', () => {
 
     expect(headerInput(container)?.disabled).toBeTruthy()
     expect(headerInput(container)?.checked).toBeFalsy()
+
+    fireEvent.click(headerInput(container)!)
+    expect(onChange).not.toHaveBeenCalled()
+    expect(onSelectAll).not.toHaveBeenCalled()
   })
 
   // antd L1169
-  // skip 依据：同上（表头 disabled 不随全 disabled 数据源推导）；且 checked 也不成立——
-  // data-grid 的 allSelected 基于 selectableKeys（已排除 disabled，全 disabled 时为空集，
-  // src/table/engine/useRowSelection.ts:229-239），antd 另有 allDisabledAndChecked 分支。
-  it.skip('should make select all checked when each item is checked and disabled', () => {
+  // 缺口 #10 已修：全 disabled 且每行都选中 → 表头为 checked（对齐 antd
+  // allDisabledAndChecked；引擎侧 allCheckedDisabled，useRowSelection.ts）。
+  it('should make select all checked when each item is checked and disabled', () => {
     const { container } = customRender(
       createTable({
         rowSelection: {
@@ -1274,9 +1482,9 @@ describe('Table.rowSelection', () => {
   })
 
   // antd L1189
-  // skip 依据：同上（antd 有 allDisabledSomeChecked 推导；
-  // data-grid 的 intermediate 要求 selectableKeys 非空，src/table/engine/useRowSelection.ts:230）。
-  it.skip('should make select all indeterminate when each item is disabled and some item is checked', () => {
+  // 缺口 #10 已修：全 disabled 且只有部分行选中 → 表头为半选（对齐 antd
+  // allDisabledSomeChecked；引擎侧 someDisabledChecked）。
+  it('should make select all indeterminate when each item is disabled and some item is checked', () => {
     const { container } = customRender(
       createTable({
         rowSelection: {
@@ -1308,6 +1516,8 @@ describe('Table.rowSelection', () => {
 
     expect(headerInput(container)?.disabled).toBeFalsy()
     expect(headerInput(container)?.checked).toBeTruthy()
+    // 未全 disabled → 半选态只取 intermediate（antd `!allDisabled` 分支）；已全选故非半选。
+    expect(isIndeterminate(headerInput(container))).toBe(false)
   })
 
   // antd L1232
@@ -1329,12 +1539,13 @@ describe('Table.rowSelection', () => {
   })
 
   // antd L1253
-  // skip 依据：data-grid 不阻断行选择控件的点击冒泡——SelectionInput 未 stopPropagation
-  // （src/table/engine/SelectionInput.tsx:59-64），而 onRow 的事件 props 会分发到该行所有格
-  // （src/table/engine/BodyGrid.tsx:226-237），故点击勾选框会触发 onRow.onClick；
-  // antd 在 Checkbox onClick 里 stopPropagation（antd useSelection.tsx:589-592）。
-  // 实测：点击勾选框后 onRowClick 被调用 1 次（antd 期望 0 次）。
-  it.skip('should onRowClick not called when checkbox clicked', () => {
+  // 缺口 #12b 已修：`<SelectionInput>` 的 Radio / Checkbox 两条分支都在控件上
+  //   `e.stopPropagation()`（src/table/engine/SelectionInput.tsx 的 handleClick），
+  //   与 antd 一致（es/table/hooks/useSelection.js:398-401 / :418-421 都是
+  //   `onClick: e => { e.stopPropagation(); checkboxProps?.onClick?.(e) }`）。
+  //   用户的 getCheckboxProps().onClick 仍在 stopPropagation **之后**被调用。
+  // 实测（探针 P3）：点勾选框 → onRow.onClick 0 次（修复前 1 次）；点行本体仍照常 1 次。
+  it('should onRowClick not called when checkbox clicked', () => {
     const onRowClick = vi.fn()
 
     const { container } = customRender(
@@ -1351,14 +1562,21 @@ describe('Table.rowSelection', () => {
   })
 
   // antd L1269
-  // skip 依据：选择菜单 Dropdown 不接受 getPopupContainer（src/table/selectionAdapter.tsx:97
-  // 只传 menu/trigger），Table 级 getPopupContainer 仅透传到表头格内的筛选下拉
-  // （src/table/engine/GridTable.tsx:667,851）。实测：打开选择菜单后 getPopupContainer 调用 0 次。
-  it.skip('should support getPopupContainer', () => {
+  // 缺口 #12c 已修：Table 级 `getPopupContainer` 现在透传给选择列表头下拉的 `<Dropdown>`
+  //   （src/table/Table.tsx 调用 buildSelectionColumnNode 时传入 → src/table/selectionAdapter.tsx
+  //   SelectionsDropdown 的 `getPopupContainer`），antd 在同一处也传了
+  //   （es/table/hooks/useSelection.js:326-329）。
+  // 实测（探针 P4）：打开选择菜单 → getPopupContainer 调用 7 次、菜单落在返回容器内
+  //   （修复前 dg 调用 0 次、菜单挂到 document.body），与 antd@6.4.4 逐值相同。
+  // 参照写法逐点对齐：mock 用 `(node) => node`（返回触发节点本身，参照同款），
+  //   触发方式本仓是 `trigger={['click']}`（参照该处走 Dropdown 默认 hover）——这一条是
+  //   **已登记差异**（台账 E-011：两侧都可用），故这里点触发器而不是 mouseEnter。
+  //   参照另有一次 `expect(container.firstChild).toMatchSnapshot()`，本仓由 demo 快照层承担，不重复。
+  it('should support getPopupContainer', () => {
     const rowSelection: TableProps<any>['rowSelection'] = {
       selections: true,
     }
-    const getPopupContainer = vi.fn((node) => node)
+    const getPopupContainer = vi.fn((node: HTMLElement) => node)
     const { container } = customRender(
       createTable({
         rowSelection,
@@ -1367,11 +1585,23 @@ describe('Table.rowSelection', () => {
     )
     openSelectionMenu(container)
     expect(getPopupContainer).toHaveBeenCalled()
+    // 菜单挂在 getPopupContainer 返回的容器（下拉触发器）里，而触发器在表头选择格内
+    //   ⇒ 等价于参照要证的「没挂到 document.body 根下」。
+    const selectionHeader = container.querySelector(
+      '.dg-cell-header[data-column-key="__dg_selection__"]',
+    )
+    expect(selectionHeader?.querySelector('.ant-dropdown-menu')).toBeTruthy()
   })
 
   // antd L1289
-  // skip 依据：同上（选择菜单不消费 getPopupContainer）；且 ConfigProvider 的 table 配置只消费
-  // locale（src/table/Table.tsx:289-298）。
+  // skip 依据（**与 #12c 不是同一件事**，#12c 已修）：本用例要的是 antd 的
+  //   `getPopupContainer: getPopupContainer || getContextPopupContainer` 回退
+  //   （es/table/InternalTable.js:244/308，getContextPopupContainer 取自 ConfigContext，`:91`）。
+  //   data-grid 只把 Table 级 prop 接到选择菜单（src/table/Table.tsx → selectionAdapter.tsx），
+  //   ConfigContext 目前仅消费 `locale`（src/table/Table.tsx 的 mergedLocale useMemo），
+  //   没有读 context 的 getPopupContainer → 该回退链缺失，属另一个未登记缺口。
+  // 另：本文件的这条用例体从未渲染 ConfigProvider（antd 原用例是 `<ConfigProvider getPopupContainer=…>`
+  //   包裹），断言的 spy 也不会被任何路径调用 → 需要连同 ConfigProvider 接线一起做，本批不动。
   it.skip('should support getPopupContainer from ConfigProvider', () => {
     const rowSelection: TableProps<any>['rowSelection'] = {
       selections: true,
@@ -1499,6 +1729,41 @@ describe('Table.rowSelection', () => {
         expect(onChange.mock.calls[1][0]).toEqual([4, 5])
       })
 
+      // 步骤 80（缺陷 1 判据的第四个合取项，探针 C2 双臂实测）：参照的门是
+      // `shiftKey && checkStrictly && isMultiple`（antd 6.4.4 useSelection.js:429）
+      // ⇒ **父子联动模式下参照根本不做区间**，走 `conductCheck` 的单行支。
+      // 旧门（`shiftKey && 锚点存在`）没有这一项 ⇒ 联动模式下会走「不传导父子」的区间支。
+      // 修前/不挂这一项时的实测差：本条序列会得 `[0,1,2]`/`multiple`（区间、无传导），
+      //   参照得 `[0,2]`/`single`。摘码反证＝日志 §7 CF-3（摘掉 checkStrictly 项 ⇒ 恰本条红）。
+      it('does not range-select on shift click when checkStrictly is false', () => {
+        const onChange = vi.fn()
+        const onSelectMultiple = vi.fn()
+        const table = createTable({
+          dataSource: dataWithChildren,
+          expandable: { defaultExpandAllRows: true },
+          rowSelection: {
+            checkStrictly: false,
+            onChange,
+            onSelectMultiple,
+          },
+        })
+        const { container } = customRender(table)
+        const inputs = bodyInputs(container)
+        expect(inputs.length).toBe(10)
+
+        fireEvent.click(inputs[0])
+        expect(onChange).toHaveBeenLastCalledWith([0], [{ key: 0, name: 'Jack' }], {
+          type: 'single',
+        })
+
+        // 已有选中项（key0）＋ shift ⇒ 若判据漏掉 checkStrictly，这里会拉成 [0,1,2]／multiple
+        fireEvent.click(inputs[2], { shiftKey: true })
+        expect(onChange).toHaveBeenLastCalledWith([0, 2], [{ key: 0, name: 'Jack' }, { key: 2, name: 'Tom' }], {
+          type: 'single',
+        })
+        expect(onSelectMultiple).not.toHaveBeenCalled()
+      })
+
       // antd L1401
       it('use function rowkey', () => {
         const onChange = vi.fn()
@@ -1600,13 +1865,12 @@ describe('Table.rowSelection', () => {
       })
 
       // antd L1495
-      // skip 依据：data-grid 的父子联动不排除 disabled 子树——conductTreeCheck 只按
-      // parentChildrenMap 传播（src/table/engine/selectionTreeConduction.ts），
-      // 未消费 getCheckboxProps().disabled；antd 把 isCheckboxDisabled 作为参数传给
-      // rc-tree 的 conductCheck（antd useSelection.tsx:199-224、622-626），会跳过 disabled 行及其子孙。
-      // 实测：先点 key 9 再点 key 3（key 6 = 'Jerry Tom' 已 disabled）→ 选中 [3,4,5,6,7,8,9]，
-      // antd 期望 [3,4,5,9]。
-      it.skip('works with disabled checkbox', () => {
+      // skip 依据（缺口 #11，已修）：conductTreeCheck / toggleTreeKey 现在接收 isDisabled 谓词
+      // （antd 亦把 isCheckboxDisabled 传给 rc-tree 的 conductCheck）——填充子孙跳过 disabled
+      // 行且不穿过它；父行「全选/半选」的分母只算可选子行。
+      // 实测：先点 key 9 再点 key 3（key 6 = 'Jerry Tom' 已 disabled）→ 选中 [3,4,5,9]、
+      // onChange = [9,3,4,5]，与 antd 一致。
+      it('works with disabled checkbox', () => {
         const onChange = vi.fn()
 
         const table = createTable({
@@ -1629,12 +1893,26 @@ describe('Table.rowSelection', () => {
         fireEvent.click(checkboxes[10])
         fireEvent.click(checkboxes[4])
 
+        // 以下断言面按**参照已提交用例**逐条对齐（`{{AntDesign}}/components/table/__tests__/
+        // Table.rowSelection.test.tsx:1495-1526`）。keys 用 `Array.from(...).sort()`——参照**刻意不钉**
+        // 这个数组的顺序（本批 keys 顺序的验收点在 `should get selectedRows correctly when set
+        // childrenColumnName` 与 `should keep item even if in filter`，那两处参照自己钉了顺序）。
+        // 实测原序（探针 P8，dg 与已安装 antd@6.4.4 逐值相同）：[9] → [9,3,4,5] → [9]。
         expect(getSelections(container, flatKeys).sort()).toEqual([3, 4, 5, 9])
+        expect(getIndeterminateSelection(container, flatKeys)).toEqual([])
+        expect(Array.from(onChange.mock.calls[1][0] as Array<any>).sort()).toEqual([3, 4, 5, 9])
+
+        // 参照的第三击：再点 key 3 取消。disabled 行（key 6 'Jerry Tom'）挡住传导，
+        // 其已单独选中的子行 key 9 保持选中。
+        fireEvent.click(checkboxes[4])
+        expect(getSelections(container, flatKeys)).toEqual([9])
+        expect(getIndeterminateSelection(container, flatKeys)).toEqual([])
+        expect(onChange.mock.calls[2][0]).toEqual([9])
       })
 
       // antd L1527
-      // skip 依据：同 `works with disabled checkbox`（联动不排除 disabled 子树）。
-      it.skip('works with disabled checkbox and function rowkey', () => {
+      // 缺口 #11 已修：同 `works with disabled checkbox`（联动排除 disabled 子树）。
+      it('works with disabled checkbox and function rowkey', () => {
         const onChange = vi.fn()
 
         const table = createTable({
@@ -1662,11 +1940,25 @@ describe('Table.rowSelection', () => {
           'Jerry Lucy',
           'Jerry Tom Tom',
         ])
+        // ↓ 补齐参照已提交用例（:1554-1567）的断言面：indeterminate 为空 + keys（sort 形式）
+        //   + 参照的第三击（取消 'Jerry' → 只剩 disabled 子树里已选的 'Jerry Tom Tom'）。
+        expect(getIndeterminateSelection(container, flatNames)).toEqual([])
+        expect(Array.from(onChange.mock.calls[1][0] as Array<any>).sort()).toEqual([
+          'Jerry',
+          'Jerry Jack',
+          'Jerry Lucy',
+          'Jerry Tom Tom',
+        ])
+
+        fireEvent.click(checkboxes[4])
+        expect(getSelections(container, flatNames)).toEqual(['Jerry Tom Tom'])
+        expect(getIndeterminateSelection(container, flatNames)).toEqual([])
+        expect(onChange.mock.calls[2][0]).toEqual(['Jerry Tom Tom'])
       })
 
       // antd L1568
-      // skip 依据：同 `works with disabled checkbox`（联动不排除 disabled 子树）。
-      it.skip('works with disabled checkbox and string rowkey', () => {
+      // 缺口 #11 已修：同 `works with disabled checkbox`（联动排除 disabled 子树）。
+      it('works with disabled checkbox and string rowkey', () => {
         const onChange = vi.fn()
 
         const table = createTable({
@@ -1694,6 +1986,19 @@ describe('Table.rowSelection', () => {
           'Jerry Lucy',
           'Jerry Tom Tom',
         ])
+        // ↓ 补齐参照已提交用例（:1594-1605）的断言面（同上，rowKey 换成字符串字段）。
+        expect(getIndeterminateSelection(container, flatNames)).toEqual([])
+        expect(Array.from(onChange.mock.calls[1][0] as Array<any>).sort()).toEqual([
+          'Jerry',
+          'Jerry Jack',
+          'Jerry Lucy',
+          'Jerry Tom Tom',
+        ])
+
+        fireEvent.click(checkboxes[4])
+        expect(getSelections(container, flatNames)).toEqual(['Jerry Tom Tom'])
+        expect(getIndeterminateSelection(container, flatNames)).toEqual([])
+        expect(onChange.mock.calls[2][0]).toEqual(['Jerry Tom Tom'])
       })
 
       // antd L1610
@@ -1729,10 +2034,93 @@ describe('Table.rowSelection', () => {
       })
     })
 
+    // 29-E / Y-5（原步骤 42 验证者交回）：`children: []` 退化表项的**生产路径**在真实渲染里可构造——
+    // 一个父行 + 两个 **无 `key`（rowKey 不可解析）** 的子行 ⇒ `engine/useTreeData.ts:181-188`
+    // 给父行登记 `parentChildrenMap.set(root, [])`（子行 key 全 undefined，被 `childKey !== undefined` 过滤掉）。
+    // 摘掉 BAT-16 的 16-B（`selectionTreeConduction.ts:211` 的 `if (!hasSelectableChild) continue`）后，
+    // 空 children 的父行会**空转落到 `allChecked=true`** ⇒ 无任何勾选却把 root 判成已勾选（rootChecked 翻 true）。
+    // 本条是**功能层**（走 Table 组件真实渲染，读父行 checkbox DOM 态），非纯函数白盒。
+    // 反证（摘 src 必红）见批次日志 `50-evidence-CFE-*`。
+    it('children 全部 rowKey 不可解析时父行不得显示已勾选（16-B 空 children 退化表项，功能层）', () => {
+      const { container } = customRender(
+        createTable({
+          dataSource: [
+            {
+              key: 'root',
+              name: 'Root',
+              children: [{ name: 'NoKey1' }, { name: 'NoKey2' }],
+            },
+          ],
+          expandable: { defaultExpandAllRows: true },
+          rowSelection: { checkStrictly: false },
+          rowKey: 'key',
+        }),
+      )
+
+      const inputs = bodyInputs(container)
+      // 反 vacuous：两条 keyless 子行确被渲染（否则 3 行只剩父行，父行判据面测不到）。
+      expect(renderedNames(container)).toEqual(['Root', 'NoKey1', 'NoKey2'])
+      expect(inputs).toHaveLength(3)
+
+      const rootInput = inputs[0]
+      // 未勾选任何行 ⇒ 父行既不应 checked、也不应半选（16-B 让空 children 的父行不参与判定）。
+      expect(rootInput.checked).toBe(false)
+      expect(isIndeterminate(rootInput)).toBe(false)
+    })
+
+    // 29-F / PR-6（取消勾选方向的树形级联）：此前**取消方向无门**。
+    // 构造 root(可选) > C(disabled) > k(可选)，受控 selectedRowKeys={root,k}，取消 k ⇒
+    // 参照（antd 6.4.4 useSelection.js:440-455 的 cleanConductCheck）保留可选祖先 root ⇒ nextKeys=['root']；
+    // 旧产品码的向上清在 root「无可选子（唯一子 C 被 disabled）」时空转误删 root ⇒ nextKeys=[]。
+    // 这是勾选/取消不对称的 A 类数据结果，功能层可构造、可观测（探针 RFORK 双侧实测 dg=[] / antd=[root]）。
+    it('取消隔着 disabled 中间层的深叶时保留可选祖先（PR-6 cleanConductCheck 方向，功能层）', () => {
+      const onChange = vi.fn()
+      const { container } = customRender(
+        createTable({
+          dataSource: [
+            {
+              key: 'root',
+              name: 'Root',
+              children: [{ key: 'C', name: 'C', children: [{ key: 'k', name: 'K' }] }],
+            },
+          ],
+          expandable: { defaultExpandAllRows: true },
+          rowSelection: {
+            checkStrictly: false,
+            selectedRowKeys: ['root', 'k'],
+            onChange,
+            getCheckboxProps: (record: any) => ({ disabled: record.key === 'C' }),
+          },
+          rowKey: 'key',
+        }),
+      )
+
+      const inputs = bodyInputs(container)
+      // 行序：root(0) / C(1) / k(2)——反 vacuous 三条都在。
+      expect(renderedNames(container)).toEqual(['Root', 'C', 'K'])
+      expect(inputs).toHaveLength(3)
+      // 初始：root 与 k 已勾选，C disabled 不可勾。
+      expect(inputs[0].checked).toBe(true)
+      expect(inputs[2].checked).toBe(true)
+
+      // 取消叶子 k（可选），其祖先链隔着 disabled 的 C。
+      fireEvent.click(inputs[2])
+
+      expect(onChange).toHaveBeenCalledTimes(1)
+      // 参照语义：只移除 k，保留可选祖先 root（不因「root 无可选中」而误删）。
+      expect([...(onChange.mock.calls[0][0] as Key[])].sort()).toEqual(['root'])
+    })
+
     // antd L1641
-    // skip 依据：data-grid 不产生该 warning（全 src 无「set `indeterminate` …  tree structured」
-    // 校验分支；getCheckboxProps().indeterminate 本身也不被消费，
-    // src/table/engine/useRowSelection.ts:55-59）。
+    // skip 依据（**不是** #9 的字段丢弃，#9 已修）：本用例断言的是 antd 的 **dev warning**
+    //   「set `indeterminate` using `rowSelection.getCheckboxProps` is not allowed with tree
+    //   structured dataSource.」（es/table/hooks/useSelection.js:404-408 的 nest 分支 warning）。
+    //   data-grid 全 src 无 antd 式 dev-warning 通道（最接近的先例是
+    //   src/table/engine/usePagination.ts:175 的裸 console.warn，且文案前缀不是 `[antd: Table]`），
+    //   复制 antd 的 `[antd: Table]` 前缀会误导调用方 → 本批不发该 warning。
+    //   行为侧已对齐：树形父子联动下 `getCheckboxProps().indeterminate` 被**计算值覆盖**
+    //   （src/table/selectionAdapter.tsx 的 selection.treeLinkEnabled 分支），与 antd 渲染结果一致，
+    //   差的只有这条告警。
     it.skip('warns when set `indeterminate` using `rowSelection.getCheckboxProps` is not allowed with tree structured data.', () => {
       customRender(
         createTable({
@@ -1740,12 +2128,9 @@ describe('Table.rowSelection', () => {
           expandable: { defaultExpandAllRows: true },
           rowSelection: {
             checkStrictly: false,
-            // data-grid 的 `RowCheckboxProps` 只有 `disabled` / `name`
-            // （src/table/nativeOptions.ts:23-27；运行时消费处 src/table/selectionAdapter.tsx:300,405 也只取 name），
-            // antd 的 getCheckboxProps 返回 `CheckboxProps` 全集（含 indeterminate）。
-            // 本用例对齐 antd 用例语义（照 antd 传参形状传 indeterminate），故把该字段交叉到 data-grid
-            // 声明的 RowCheckboxProps 上（运行时原样返回、不被消费；与文件头 AntdExtraCheckboxProps 同源）。
-            getCheckboxProps(): AntdExtraCheckboxProps {
+            // 缺口 #9 修完后 `indeterminate` 已是 RowCheckboxProps 的正式字段
+            // （单点定义 src/table/nativeOptions.ts）。
+            getCheckboxProps(): RowCheckboxProps {
               return {
                 indeterminate: true,
               }
@@ -1781,8 +2166,11 @@ describe('Table.rowSelection', () => {
     })
 
     // antd L1683
-    // 实测差异：selectedRowKeys 保留跨数据源的 'light'（与 antd 一致），但 selectedRows 只含当前
-    // dataSource 可见行（src/table/useSelectionAdapter.ts:268-273），antd 会带上缓存的 record。
+    // 步骤 54 / 29-G：selectedRowKeys 与 selectedRows **都**保留跨数据源的 'light'——
+    //   `src/table/useSelectionAdapter.ts` 现按参照那样缓存 preserve 记录（antd **6.4.4**
+    //   useSelection.js:71-88/:159-162），rows 顺序＝keys 顺序。裁判读数＝探针 G3/G7 双侧并排。
+    //   旧注释写的「selectedRows 只含当前可见行（useSelectionAdapter.ts:268-273）」随 #12a 与 29-G
+    //   双双失效（结论与行号都是假话），已回收。
     it('cache with preserveSelectedRowKeys', () => {
       const onChange = vi.fn()
       const { container, rerender } = customRender(
@@ -1804,7 +2192,7 @@ describe('Table.rowSelection', () => {
         />,
       )
       fireEvent.click(bodyInputs(container)[0])
-      expect(onChange).toHaveBeenLastCalledWith(['light', 'bamboo'], [{ name: 'bamboo' }], {
+      expect(onChange).toHaveBeenLastCalledWith(['light', 'bamboo'], [{ name: 'light' }, { name: 'bamboo' }], {
         type: 'single',
       })
     })
@@ -1831,14 +2219,18 @@ describe('Table.rowSelection', () => {
         />,
       )
       fireEvent.click(bodyInputs(container)[0])
-      expect(onChange).toHaveBeenLastCalledWith(['light', 'bamboo'], [{ name: 'bamboo' }], {
+      expect(onChange).toHaveBeenLastCalledWith(['light', 'bamboo'], [{ name: 'light' }, { name: 'bamboo' }], {
         type: 'single',
       })
     })
 
     // antd L1739
-    // 实测差异同 `cache with preserveSelectedRowKeys`：第二次 onChange 的 keys 与 antd 一致
-    // （[12, 121, 2]），selectedRows 少了缓存的 {key: 2}。
+    // 步骤 54 / 29-G 起与 antd 原用例**逐字同形**：`src/table/useSelectionAdapter.ts` 补了参照的
+    //   `preserveRecordsRef` 等价缓存（对齐 antd **6.4.4** useSelection.js:71-88/:159-162），
+    //   第二次 onChange 的 selectedRows 会带上「已从 dataSource 消失」的 {key:2}。
+    // 裁判读数＝探针 G7 双侧并排（antd 6.4.4 与 data-grid 同为 keys [12,121,2] / rows c,d,e）。
+    // 旧版这里曾把 rows 写成缺 {key:2} 的样子并注「实测差异（useSelectionAdapter.ts:268-273）」，
+    //   那行号与结论都随 #12a/29-G 失效，已回收。
     it('treeData cache with preserveSelectedRowKeys and checkStrictly false', () => {
       const onChange = vi.fn()
       const treeDataColumns = [
@@ -1929,6 +2321,7 @@ describe('Table.rowSelection', () => {
         [
           { key: 12, name: 'c', children: [{ key: 121, name: 'd' }] },
           { key: 121, name: 'd' },
+          { key: 2, name: 'e' },
         ],
         { type: 'single' },
       )
@@ -2015,12 +2408,13 @@ describe('Table.rowSelection', () => {
     })
 
     // antd L1936
-    // skip 依据：本用例断言 selectedRows 与 selectedRowKeys 在「跨数据源 + preserveSelectedRowKeys」
-    // 下保持同步；data-grid 的 selectedRows 只从当前 flattenedDataSource 构造
-    // （src/table/useSelectionAdapter.ts:268-273），缓存的 {name:'Jack'} 不在其中。
-    // 实测：第 2 页勾选后 onChange = (['Jack','Lucy'], [{name:'Lucy'}], {type:'single'})
-    // （antd 期望 selectedRows = [{Jack},{Lucy}]）。
-    it.skip('selectedRows ant selectedKeys should keep sync in initial state', () => {
+    // 步骤 54 / 29-G 转直测，**期望值＝读到的参照**（不是我方旧行为）：
+    //   探针 G3 双侧并排（裁判 antd **6.4.4**）——受控 selectedRowKeys=['Jack'] 且 Jack 已不在
+    //   当前 dataSource 时，antd onChange 第 2 参仍含 Jack 的 record（preserveRecordsRef 兜底，
+    //   useSelection.js:71-88/:159-162），修前我方缺席。现已同形（keys 与 rows 都含 Jack）。
+    //   旧 skip 依据写的「selectedRows 只从当前 flattenedDataSource 构造（useSelectionAdapter.ts:268-273）」
+    //   在 #12a 后就是假话（真实取值面是 rawDataSource 全树），行号也已漂移，一并回收。
+    it('selectedRows ant selectedKeys should keep sync in initial state', () => {
       const dataSource = [{ name: 'Jack' }, { name: 'Tom' }, { name: 'Lucy' }, { name: 'John' }]
       const onChange = vi.fn()
       const rowSelection = {
@@ -2062,15 +2456,18 @@ describe('Table.rowSelection', () => {
   })
 
   // antd L1976
-  // skip 依据：getCheckboxProps 的返回值只消费 disabled/name
-  // （src/table/engine/useRowSelection.ts:55-59；消费处 src/table/selectionAdapter.tsx:300），
-  // `onClick` / `onChange` 不透传。实测：两个 mock 调用次数均为 0。
-  it.skip('should trigger both custom and internal checkbox events', () => {
+  // 缺口 #9 已修：`getCheckboxProps().onClick` / `.onChange` 现在都会调用
+  //   （src/table/engine/SelectionInput.tsx：handleClick 先 stopPropagation 再 onClick，
+  //   handleCheckboxChange 先内部 onChange 再 userOnChange），
+  //   对齐 antd es/table/hooks/useSelection.js:411-419（`{...checkboxProps}` 展开 +
+  //   `onClick`/`onChange` 内部再各调一次 `checkboxProps?.onXxx?.(e)`）。
+  // 实测（探针 P5）：点勾选框 → onClick / onChange 各 1 次；同时缺口 #12b 保证 onRow.onClick 0 次。
+  it('should trigger both custom and internal checkbox events', () => {
     const onClickMock = vi.fn()
     const onChangeMock = vi.fn()
 
-    // 照 antd 传参形状返回 onClick/onChange（data-grid 不消费，见 AntdExtraCheckboxProps 注释）。
-    const getCheckboxProps = (): AntdExtraCheckboxProps => ({
+    // 照 antd 传参形状返回 onClick/onChange（缺口 #9 修完后这些字段已在 RowCheckboxProps 里）。
+    const getCheckboxProps = (): RowCheckboxProps => ({
       onClick: onClickMock,
       onChange: onChangeMock,
     })
@@ -2086,21 +2483,33 @@ describe('Table.rowSelection', () => {
       />,
     )
 
-    fireEvent.click(bodyInputs(container)[0])
+    const firstRowCheckbox = bodyInputs(container)[0]
+    expect(firstRowCheckbox).toBeTruthy()
+    fireEvent.click(firstRowCheckbox)
 
     expect(onClickMock).toHaveBeenCalled()
+    // 恰好 1 次：#12b 的 stopPropagation 若缺位，勾选点击会另走一条路径把回调次数放大。
+    expect(onClickMock.mock.calls.length).toBe(1)
+
     expect(onChangeMock).toHaveBeenCalled()
+    expect(onChangeMock.mock.calls.length).toBe(1)
+
+    // userOnChange 收到的是 antd 原始事件对象（有 target.checked）。
+    const changeEvent = onChangeMock.mock.calls[0][0] as { target?: { checked?: boolean } }
+    expect(changeEvent).toHaveProperty('target')
+    expect(changeEvent.target).toHaveProperty('checked')
   })
 
   // antd L2012
-  // skip 依据：同 `should trigger both custom and internal checkbox events`
-  // （radio 走同一 SelectionInput，src/table/engine/SelectionInput.tsx:66-80）。
-  it.skip('should trigger both custom and internal radio events', () => {
+  // 缺口 #9 已修（radio 分支同款）：src/table/engine/SelectionInput.tsx 的 Radio 分支也传
+  //   onClick={handleClick}（先 stopPropagation）+ handleRadioChange 内调用 userOnChange，
+  //   对齐 antd es/table/hooks/useSelection.js:373-395 的 Radio 分支（onClick :382-385、onChange :386-391）。
+  it('should trigger both custom and internal radio events', () => {
     const onClickMock = vi.fn()
     const onChangeMock = vi.fn()
 
     // 同 `should trigger both custom and internal checkbox events`（radio 走同一 SelectionInput）。
-    const getCheckboxProps = (): AntdExtraCheckboxProps => ({
+    const getCheckboxProps = (): RowCheckboxProps => ({
       onClick: onClickMock,
       onChange: onChangeMock,
     })
@@ -2116,19 +2525,32 @@ describe('Table.rowSelection', () => {
       />,
     )
 
-    fireEvent.click(container.querySelector('input[type="radio"]')!)
+    const firstRowRadio = container.querySelector('input[type="radio"]')
+    expect(firstRowRadio).toBeTruthy()
+    fireEvent.click(firstRowRadio!)
 
     expect(onClickMock).toHaveBeenCalled()
+    expect(onClickMock.mock.calls.length).toBe(1)
+
     expect(onChangeMock).toHaveBeenCalled()
+    expect(onChangeMock.mock.calls.length).toBe(1)
+
+    // 参照（:2040-2042）还断言事件对象形状：radio 分支同样把 antd RadioChangeEvent 原样给 userOnChange。
+    const changeEvent = onChangeMock.mock.calls[0][0] as { target?: { checked?: boolean } }
+    expect(changeEvent).toHaveProperty('target')
+    expect(changeEvent.target).toHaveProperty('checked')
   })
 
   // antd L2048
-  // skip 依据：末段断言「勾选过的父行展开后，其 disabled 子行仍未选中」依赖 antd 的联动跳过
-  // disabled 子树（antd useSelection.tsx:199-224、622-626 把 isCheckboxDisabled 传给 conductCheck）；
-  // data-grid 的 conductTreeCheck 不消费 disabled（src/table/engine/selectionTreeConduction.ts），
-  // 会把 age<=10 的 disabled 子行一起勾上。
+  // 缺口 #12a 的后半（BAT-5 实测交下来）已修：喂给 `useRowSelection` 的数据源改成
+  //   **筛选后数据的全树扁平视图**（src/table/useSelectionAdapter.ts 的 selectionDataSource），
+  //   折叠子孙的 `getCheckboxProps().disabled` 在勾选那一刻取得到 → conduction 能排除它。
+  //   antd 侧同口径：checkboxPropsMap 建在 flattenData(pageData) 全树上
+  //   （es/table/hooks/useSelection.js:23-31/92/115-124），折叠态也判得到 disabled。
+  // 实测（探针 P2）：折叠态点父行 key1 → dg onChange keys = [1,121]（修复前 [1,12,121]），
+  //   与 antd 逐值相同；展开后 age=9 的 disabled 子行保持未选。
   // 另：data-grid 无 `tr[data-row-key]`，行定位改用 name 列文本。
-  it.skip('work with pagination and checkStrictly false', async () => {
+  it('work with pagination and checkStrictly false', async () => {
     const treeDataColumns = [
       { title: 'Name', dataIndex: 'name', key: 'name' },
       { title: 'Age', dataIndex: 'age', key: 'age' },
@@ -2213,5 +2635,157 @@ describe('Table.rowSelection', () => {
     const checkbox = headerInput(container)
     expect(checkbox).toBeDisabled()
     expect(checkbox).toHaveAttribute('aria-label', 'Custom label')
+  })
+
+  // ===== 本批（步骤 34 / BAT-6 返工）新增补测：3 条，非 antd 对齐项 ⇒ 总数 74 → 77，skip 不增加 =====
+
+  // F-4（ledger E-024 已裁定）方向 A：**计算值覆盖 `getTitleCheckboxProps().indeterminate`**。
+  // 参照依据（本轮亲读 `node_modules/antd/es/table/hooks/useSelection.js:352-359`）：
+  // `{...customCheckboxProps}` 在前、`indeterminate: <计算>` 在后 ⇒ custom 抢不过计算值。
+  // 本库实现：`src/table/selectionAdapter.tsx` 把 `indeterminate` 排除出 `pickFromCheckboxProps`，
+  // 表头恒取 `titleIndeterminate = intermediate || someDisabledChecked`。
+  // 步骤 31 验证者实测行为正确但「全仓零直测」（F-31-B）⇒ 这条把方向 A 钉住；
+  // 期望值取 34 号探针 PR8 的 dg≡antd 逐值读数（4 行只选 1 行 ⇒ 计算=半选 ⇒ `true`）。
+  it('header checkbox: computed indeterminate overrides getTitleCheckboxProps false', () => {
+    const getTitleCheckboxProps = vi.fn(() => ({ indeterminate: false }))
+    const { container } = customRender(
+      <Table
+        columns={columns}
+        dataSource={data}
+        rowSelection={{ selectedRowKeys: [0], getTitleCheckboxProps }}
+      />,
+    )
+    // 观测面①：custom 确实被消费（否则「覆盖」无从谈起）。次数不钉——同一次挂载内被调 2 次
+    // （PR8 读数 dg/antd 两侧皆 2），钉次数会把无关的重渲染量焊成规格。
+    expect(getTitleCheckboxProps).toHaveBeenCalled()
+    // 观测面②：DOM 半选类在（计算值赢），且勾选框本身仍是未全选态。
+    expect(isIndeterminate(headerInput(container))).toBe(true)
+    expect(headerInput(container)?.checked).toBe(false)
+  })
+
+  // F-4 方向 B（反方向）：计算值 = 全选 ⇒ custom 的 `indeterminate: true` 必须被压成 `false`。
+  // 只钉一个方向会漏掉「实现改成 custom 优先」的另一半（步骤 31 探针 P9 双向读数：
+  // dg `B:false` = antd `B:false`），故两条各一。
+  it('header checkbox: computed full selection overrides getTitleCheckboxProps true', () => {
+    const getTitleCheckboxProps = vi.fn(() => ({ indeterminate: true }))
+    const { container } = customRender(
+      <Table
+        columns={columns}
+        dataSource={data}
+        rowSelection={{ selectedRowKeys: [0, 1, 2, 3], getTitleCheckboxProps }}
+      />,
+    )
+    expect(getTitleCheckboxProps).toHaveBeenCalled()
+    // 具体布尔：计算=全选 ⇒ 半选必须为 false。
+    expect(isIndeterminate(headerInput(container))).toBe(false)
+    expect(headerInput(container)?.checked).toBe(true)
+  })
+
+  // 表头全选框的**默认无障碍名**（R-34-3，A 类缺陷修复）。
+  // 判据 = 参照硬编码两分支 `useSelection.js:356`
+  // `aria-label: customizeSelections ? 'Custom selection' : 'Select all'`（在 `...customCheckboxProps`
+  // 之前 ⇒ 用户显式 `aria-label` 仍可覆盖，那条已由上方 antd L2171 用例钉住）；
+  // 参照**不消费任何 locale 键**——旧实现挪用了 `locale.selectionAll`（antd 里那是**下拉菜单项文案**
+  // 键，en_US 值 `'Select all data'`），于是默认名恒成 `'Select all data'`。
+  // 我方「存在下拉菜单」的对应布尔 = `selectionAdapter.tsx` 的 `showSelectionDropdown`。
+  // 期望值按 34 号探针 PR1/PR2 实测填（PR1 dg 旧值 'Select all data' vs antd 'Select all'；
+  // PR2 antd 'Custom selection'）。⚠️ 别按菜单文案查——菜单项仍是 'Select all data'（`selections` 文案
+  // 走 locale，与无障碍名是两个面，antd 也从不同时落在同一元素上）。
+  it('header checkbox: default accessible name matches reference branches', () => {
+    // 无选择下拉 ⇒ 'Select all'
+    const plain = customRender(createTable({ rowSelection: {} }))
+    expect(plain.container.querySelector('.dg-selection-dropdown-trigger')).toBeNull()
+    expect(headerInput(plain.container)).toHaveAttribute('aria-label', 'Select all')
+    plain.unmount()
+
+    // 有选择下拉 ⇒ 'Custom selection'（参照的 `customizeSelections` 分支对应物）
+    const withMenu = customRender(
+      // `selections: true` 需字面量类型（src/table/compat/selection.ts:100），同 `works with selectAll`。
+      createTable({ rowSelection: { selections: true } as TableProps<any>['rowSelection'] }),
+    )
+    expect(withMenu.container.querySelector('.dg-selection-dropdown-trigger')).toBeTruthy()
+    expect(headerInput(withMenu.container)).toHaveAttribute('aria-label', 'Custom selection')
+    withMenu.unmount()
+  })
+
+  // ===== 本批（步骤 82 / E-158）新增补测：4 条，非 antd 对齐项 ⇒ 总数 74 不变（本文件 antd 对齐项口径），
+  //       运行时总数 84 → 88，skip 不增加 =====
+  // 钉的是「选择列**列宽**随主题 token」——参照依据（本轮亲读裁判 **antd 6.4.4** 产物）：
+  //   ① `node_modules/antd/es/table/InternalTable.js:126-131`
+  //      `mergedRowSelection = { columnWidth: token.Table?.selectionColumnWidth, ...customizeRowSelection }`
+  //      ⇒ 组件 token 给缺省列宽、用户显式 `rowSelection.columnWidth` 后置覆盖（④ 钉这一档优先级，
+  //      形状照参照 spread 顺序，不发明新规则）。
+  //   ② `node_modules/antd/es/table/style/index.js:226` `selectionColumnWidth: controlHeight`
+  //      ＋ `node_modules/antd/es/table/style/selection.js:23`
+  //      `.ant-table-selection-col{width:tableSelectionColumnWidth}`
+  //      ⇒ token 没被用户覆盖时，缺省值仍**派生自全局 `controlHeight`**（默认主题实测 32，见
+  //      `tmp/82-probe-readings.txt` 臂 `P2.derived`）⇒ ② 钉派生档。
+  // 我方观测面：dg 无 `.ant-table-selection-col`（实测计数 0，探针 `selColFound:false`），
+  //   选择列宽体现在 `.dg-grid` 内联 `grid-template-columns` 的**第 1 条轨**（specified value 层，
+  //   就是浏览器实际吃到的宽度声明——jsdom 无布局，量不到 rect，故不假装量了 rect）。
+  //   同时断 `.dg-wrapper` 上 `--ant-table-selection-column-width` 与轨道**同源**（同一个值），
+  //   这正是缺陷本体：改前变量 200px / 轨道恒 32px。
+  /** `.dg-grid` 内联 `grid-template-columns` 的第 1 条轨（选择列轨）；按括号深度切，兼容 `minmax(a, b)` 内的空格。 */
+  const firstGridTrack = (container: HTMLElement) => {
+    const grid = container.querySelector('.dg-grid') as HTMLElement
+    const value = grid.style.gridTemplateColumns
+    let depth = 0
+    for (let index = 0; index < value.length; index += 1) {
+      const char = value[index]
+      if (char === '(') depth += 1
+      else if (char === ')') depth -= 1
+      else if (char === ' ' && depth === 0) return value.slice(0, index)
+    }
+    return value
+  }
+
+  /** `.dg-wrapper` 内联的选择列宽 CSS 变量值（token 桥产物）。 */
+  const wrapperSelectionColumnVar = (container: HTMLElement) =>
+    (container.querySelector('.dg-wrapper') as HTMLElement).style.getPropertyValue(
+      '--ant-table-selection-column-width',
+    )
+
+  // 82-①：`theme.components.Table.selectionColumnWidth` ⇒ 选择列轨随它动（**改前必红**：轨恒 32px）。
+  it('selection column width follows theme token selectionColumnWidth', () => {
+    const { container } = renderWithConfig(createTable(), {
+      theme: { components: { Table: { selectionColumnWidth: 200 } } },
+    })
+    // 变量与列轨同源：两个观测面都得是 200px（缺陷本体＝变量 200px 而轨道 32px）。
+    expect(wrapperSelectionColumnVar(container)).toBe('200px')
+    expect(firstGridTrack(container)).toBe('minmax(200px, max-content)')
+    // 选择列格确实在第 1 列（轨道归属这一列，不是别的列）。
+    const selectionHeaderCell = container.querySelector<HTMLElement>(
+      '[data-column-key="__dg_selection__"].dg-cell-header',
+    )
+    expect(selectionHeaderCell).toBeTruthy()
+    expect(selectionHeaderCell?.style.gridColumn).toBe('1')
+  })
+
+  // 82-②：派生档——token 未被用户覆盖时缺省仍来自 `controlHeight`（参照 style/index.js:226）。
+  //   **改前必红**：轨恒 32px，而变量已是 48px。
+  it('selection column width follows derived controlHeight token', () => {
+    const { container } = renderWithConfig(createTable(), {
+      theme: { token: { controlHeight: 48 } },
+    })
+    expect(wrapperSelectionColumnVar(container)).toBe('48px')
+    expect(firstGridTrack(container)).toBe('minmax(48px, max-content)')
+  })
+
+  // 82-③：没有任何覆盖 ⇒ 仍是缺省值（防过度修：不许把 32 改成"别的常量"）。
+  //   期望值来源＝参照默认主题下 `controlHeight`＝32（探针 `P2.derived` 读数），非本仓自创。
+  it('selection column width keeps default 32px without theme override', () => {
+    const { container } = customRender(createTable())
+    expect(wrapperSelectionColumnVar(container)).toBe('32px')
+    expect(firstGridTrack(container)).toBe('minmax(32px, max-content)')
+  })
+
+  // 82-④：用户显式 `rowSelection.columnWidth` **优先于 token**（参照 spread 后置 ⇒ 用户赢）。
+  it('explicit rowSelection.columnWidth wins over theme token', () => {
+    const { container } = renderWithConfig(createTable({ rowSelection: { columnWidth: 50 } }), {
+      theme: { components: { Table: { selectionColumnWidth: 200 } } },
+    })
+    expect(firstGridTrack(container)).toBe('minmax(50px, max-content)')
+    // token 值不得漏进列轨（CSS 变量本身仍是 200px——它由参照的 CSS 规则侧消费，与本档无关）。
+    expect(wrapperSelectionColumnVar(container)).toBe('200px')
   })
 })

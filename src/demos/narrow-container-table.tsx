@@ -65,7 +65,7 @@ export default function NarrowDemo() {
                   <code>tableLayout:'fixed'</code> 时。</li>
                 <li><strong>差异原因</strong>：data-grid CSS Grid 走 auto 语义（每列 track 取
                   max-content），与 antd <code>&lt;table&gt;</code> 默认 <code>table-layout:fixed</code>
-                  不同。详见 <code>docs/design-notes/column-width.md</code>。</li>
+                  不同。详见 <code>docs/features/columns/column-width.md</code>。</li>
               </ul>
             </li>
             <li>

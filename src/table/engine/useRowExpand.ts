@@ -1,5 +1,5 @@
 /**
- * 行展开状态管理 hook — 详见 docs/design-notes/expand.md（引擎状态机 useRowExpand）
+ * 行展开状态管理 hook — 详见 docs/features/interaction/expand.md（引擎状态机 useRowExpand）
  *
  * 受控/非受控 expandedRowKeys 管理；可展开行判定（rowExpandable + expandedRowRender）；
  * 展开 toggle 生成新数组 + 触发回调。本 hook 不感知虚拟滚动（展开内容 track 在渲染层插入）。
@@ -32,7 +32,7 @@ export interface UseRowExpandResult<RecordType> {
 }
 
 /**
- * 计算"某行是否真正可展开"（对齐 antd 语义，不重复调用 expandedRowRender）— 详见 docs/design-notes/expand.md
+ * 计算"某行是否真正可展开"（对齐 antd 语义，不重复调用 expandedRowRender）— 详见 docs/features/interaction/expand.md
  *
  * 必须提供 expandedRowRender（否则整表无展开）；rowExpandable 若提供返回 false 的行不可展开。
  * 不调用 expandedRowRender 来探测可展开性（避免重复渲染 + 副作用）——与 antd 一致：

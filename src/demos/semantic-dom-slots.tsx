@@ -230,7 +230,8 @@ export default function SemanticDomDemo() {
         }}
       >
         <strong>Semantic DOM：</strong> 左侧 data-grid 使用与 antd Semantic DOM 示例同名的
-        <code> semantic-mark-*</code> classNames 标记 13 个槽位；右侧列表说明每个槽位在
+        <code> semantic-mark-*</code> classNames 标记 11 个槽位（antd 的 header.wrapper /
+        body.wrapper 本库不提供——无 thead/tbody 容器）；右侧列表说明每个槽位在
         data-grid DOM 中的落点。data-grid 已支持可排序表头的 <code>aria-sort</code>：
         点击 <strong>Age</strong> 表头时输出 <code>ascending</code> / <code>descending</code>，
         未排序时不输出该属性。

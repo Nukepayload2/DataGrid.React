@@ -65,7 +65,7 @@ export default function ColumnDefaultsDemo() {
                 <li><strong>差异原因</strong>：data-grid 有 ellipsis 列即派生
                   <code>tableLayout:'fixed'</code> + <code>minmax(width,1fr)</code> 限 track 宽，
                   与 antd <code>table-layout:fixed</code> 等效。详见
-                  <code>docs/design-notes/column-width.md</code>。</li>
+                  <code>docs/features/columns/column-width.md</code>。</li>
               </ul>
             </li>
           </ul>

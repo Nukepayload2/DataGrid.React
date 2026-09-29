@@ -129,7 +129,7 @@ antd [#49445](../../feedbacks/issues/issue-49445.md)（34 评）只有 `scroll.y
 - **行覆盖率 ≥ 90%**：`pnpm test:coverage`，新代码不允许低于门槛
 - **类型必须过**：`pnpm run tsc`（vitest **不**做类型检查，曾因此漏过 27 错，见 [`vitest-no-typecheck` 记忆]——写测试 worker 必须额外跑 tsc）
 - **CSS 兼容不回归**：`pnpm test:css-compat` 通过
-- **设计阶段纯逻辑/渲染分离**：engine 层逻辑抽成纯函数单测（延续 Stage3 hook 拆分模式，见 [`engineering-refactor-table-hooks.md`](engineering-refactor-table-hooks.md)），渲染走集成测试
+- **设计阶段纯逻辑/渲染分离**：engine 层逻辑抽成纯函数单测（延续 Stage3 hook 拆分模式，见 [`engineering-refactor-table-hooks.md`](../engineering-refactor-table-hooks.md)），渲染走集成测试
 - **行为兜底**：subagent 无法跑交互 Bash 时，靠 grep + 静态分析 + 行为验证三重兜底（见 [`contributing/verification-guide.md`](../contributing/verification-guide.md)）
 
 ### 执行约束

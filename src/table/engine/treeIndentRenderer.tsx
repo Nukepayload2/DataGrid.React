@@ -47,13 +47,14 @@ export function renderTreeIndent<RecordType>({
           onExpand={() => treeState.toggleExpand(key)}
         />
       ) : (
-        // 无 children 行渲染 disabled ExpandIcon（spaced 态），对齐 antd `.ant-table-row-expand-icon-spaced`
-        // （antd BodyRow 对 rowExpandable=false / 无 children 的行也渲染一个 disabled button，加 -spaced 类，
-        // visibility:hidden 占位）。antd expand.ts 第 102-110 行：`&-spaced { &::before/::after { display:none;
-        // content:none }, background:transparent, border:0, visibility:hidden }`。容器尺寸同展开图标
-        // （17×17 + scale(0.9412)），故占位宽度与 collapsed/expanded 态一致，缩进对齐。
-        // 用 disabled ExpandIcon 让 DOM 与 antd 同构（disabled button），尺寸/visibility 由
-        //   .dg-expand-icon-spaced CSS 接管（table.css 第 714-720 行），与 antd spaced 态一致。
+        // 无 children 行渲染 disabled ExpandIcon（spaced 态）占位，与参照的 `.ant-table-row-expand-icon-spaced`
+        // **视觉**对齐（`antd 6.4.4` `es/table/style/expand.js:85` 起的 `&-spaced`：`visibility:hidden`、`border:0`
+        // 占位）。⚠️ 参照的 `es/table/ExpandIcon.js:15-28` **从不写 `disabled` 属性** —— 它靠纯 CSS 隐藏；
+        // 我方这里写 `disabled` 是一处**已登记的机制分叉**（后果：React 不为 disabled button 跑 `onClick`，
+        // 故对它派发点击时**冒泡会打到行上的 `onRow.onClick`**、`onExpand` 不回调；参照那颗没有 `disabled`，
+        // handler 跑得到 ⇒ `onExpand` 回调、冒泡被参照自己阻断）。容器尺寸同展开图标（17×17 + scale(0.9412)），
+        // 占位宽度与 collapsed/expanded 态一致，缩进对齐；`disabled` 与 `-spaced` 的取舍理由见
+        // `docs/reference/known-limitations.md`「展开」节。
         <ExpandIcon
           expanded={false}
           disabled

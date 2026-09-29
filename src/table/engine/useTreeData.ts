@@ -1,5 +1,5 @@
 /**
- * 树形数据扁平化 + 展开状态 hook — 详见 docs/design-notes/tree-data.md
+ * 树形数据扁平化 + 展开状态 hook — 详见 docs/features/interaction/tree-data.md
  *
  * 树形检测（detectTreeData）+ DFS 扁平化（按展开状态过滤未展开父行的子孙）+ 展开状态机
  * （受控/非受控）。参考 rc-table `useFlattenRecords` + `useExpand` 语义。树形模式与 expandedRowRender
@@ -68,7 +68,7 @@ export interface UseTreeDataResult<RecordType> {
 
 /**
  * 判定 dataSource 是否含树形数据：任一 record 的 `record[childrenColumnName]` 是非空数组。
- * 仅看顶层（与 antd `useExpand` 一致）— 详见 docs/design-notes/tree-data.md（树形检测）
+ * 仅看顶层（与 antd `useExpand` 一致）— 详见 docs/features/interaction/tree-data.md（树形检测）
  *
  * 与 rc-table `useExpand.expandableType === 'nest'` 判定同语义（`mergedData.some(record =>
  * record[mergedChildrenColumnName])`）。若顶层无 children 但深层有 → 视为非树形（与 antd 一致），
@@ -89,7 +89,7 @@ export function detectTreeData<RecordType>(
 }
 
 /**
- * 递归扁平化：DFS 遍历，仅展开的父行的 children 才被递归扁平化（其余只 push 自身）— 详见 docs/design-notes/tree-data.md（扁平化）
+ * 递归扁平化：DFS 遍历，仅展开的父行的 children 才被递归扁平化（其余只 push 自身）— 详见 docs/features/interaction/tree-data.md（扁平化）
  *
  * 返回扁平化后的 record 数组 + 同序的 rowInfo 数组（一一对应）。与 rc-table
  * `useFlattenRecords.fillRecords` 同语义：先 push 自身（无论是否展开）；若该 record 含非空
@@ -158,7 +158,7 @@ export function flattenTreeData<RecordType>(
 }
 
 /**
- * 递归收集所有 key（不论展开）+ parent→children 映射 + 所有含 children 的 key 集合 — 详见 docs/design-notes/tree-data.md（全树结构）
+ * 递归收集所有 key（不论展开）+ parent→children 映射 + 所有含 children 的 key 集合 — 详见 docs/features/interaction/tree-data.md（全树结构）
  *
  * 用于 checkStrictly=false 父子联动：需要全树结构（不受展开状态影响）。与 antd
  * `convertDataToEntities`（rc-tree）同语义——构建全树 keyEntities 结构。
@@ -258,7 +258,7 @@ export function useTreeData<RecordType>(
       // onExpand 第二参 record：toggleExpand 在引擎层只传 key（无 record 引用）——这里改用 key 查
       // dataSource 取 record。对齐 antd `onExpand(expanded, record)`。
       // 实测 antd tree-data demo 不消费 onExpand（仅 onChange/onSelect），故 record 缺失不影响 demo，
-      // 这里仍尽力回填（从 dataSource 递归查找）。— 详见 docs/design-notes/tree-data.md（onExpand 回填 record）
+      // 这里仍尽力回填（从 dataSource 递归查找）。— 详见 docs/features/interaction/tree-data.md（onExpand 回填 record）
       if (expandable?.onExpand) {
         const rec = findRecordByKey(dataSource, childrenColumnName, rowKey, key)
         expandable.onExpand(willExpand, rec as RecordType)

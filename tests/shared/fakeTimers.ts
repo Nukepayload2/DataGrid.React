@@ -1,4 +1,4 @@
-// fake timers 封装（antd tests/utils.tsx waitFakeTimer 的 vitest 等价）。
+// fake timers 封装（antd 上游仓 tests/utils.tsx waitFakeTimer 的 vitest 等价；本机 checkout 6.5.2:77，npm 包 6.4.4 不发测试件）。
 import { act } from '@testing-library/react'
 import { afterEach, beforeEach, vi } from 'vitest'
 

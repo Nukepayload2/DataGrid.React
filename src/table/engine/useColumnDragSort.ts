@@ -1,5 +1,5 @@
 /**
- * 列拖拽排序 hook — 详见 docs/design-notes/drag-sort.md。
+ * 列拖拽排序 hook — 详见 docs/features/interaction/drag-sort.md。
  *
  * 采用事件委托（命中 `[data-leaf-index]` 叶子表头格）+ setPointerCapture + 水平 hit-test +
  * overlay 跟手 + 离散让位 + 垂直指示线 + arrayMove。不引入 @dnd-kit/*（CSS Grid 渲染下 dnd-kit

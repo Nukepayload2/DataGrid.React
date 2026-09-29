@@ -6,7 +6,7 @@
  */
 
 export type {
-  Align,
+  EngineAlign,
   FixedSide,
   EngineFilterItem,
   EngineSortOrder,

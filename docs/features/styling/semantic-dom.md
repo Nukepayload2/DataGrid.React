@@ -1,6 +1,6 @@
 # Semantic DOM 兼容性分析（data-grid vs antd v6）
 
-对应 demo：`src/demos/semantic-dom.tsx`。
+对应 demo：`src/demos/semantic-dom-slots.tsx`。
 
 data-grid 用 **div + CSS Grid** 渲染（非真 `<table>`）。Semantic DOM 兼容分两层：
 **逻辑槽位（classNames/styles）** 与 **DOM 结构语义（role / aria-* / a11y）**。
@@ -20,15 +20,16 @@ antd v6 `TableProps.classNames` / `styles` 共 13 个槽位。data-grid 的兼�
 | 5 | `footer` | `.ant-table-footer` | `.dg-footer` | ✅ 完全兼容 |
 | 6 | `header.cell` | `<th>` | `.dg-cell-header` | ✅ 完全兼容 |
 | 7 | `header.row` | `<tr>`（thead 内） | 透传到表头行所有 `.dg-cell-header` | ✅ 已支持（多路径 HeaderCell + flat 路径，详见 `src/table/engine/HeaderCell.tsx` 与 `FlatColumnCells.tsx`） |
-| 8 | `header.wrapper` | `.ant-table-thead` | **❌ 架构不兼容**（dg 无 thead 容器） | 🚫 仅有逻辑槽位接口，渲染层无对应 DOM |
+| 8 | `header.wrapper` | `.ant-table-thead` | **❌ 架构不兼容**（dg 无 thead 容器） | 🚫 **已从公共类型面删除**：`classNames.header.wrapper` / `styles.header.wrapper` 现在传了会**编译报错**（曾有接口无宿主＝静默不生效，改成显式报错）。整区样式改挂 `root` / `section` / `content`，整行改挂 `header.row` |
 | 9 | `body.cell` | `<td>` | `.dg-cell-body` | ✅ 完全兼容 |
 | 10 | `body.row` | `<tr>`（tbody 内） | 透传到表体行所有 `.dg-cell-body` | ✅ 完全兼容 |
-| 11 | `body.wrapper` | `.ant-table-tbody` | **❌ 架构不兼容**（dg 无 tbody 容器） | 🚫 仅有逻辑槽位接口，渲染层无对应 DOM |
-| 12 | `pagination.root` | `.ant-pagination` | `.dg-pagination` | ✅ 完全兼容 |
-| 13 | `pagination.item` | `.ant-pagination-item` | 透传到 antd Pagination | ✅ 完全兼容（复用 antd Pagination） |
+| 11 | `body.wrapper` | `.ant-table-tbody` | **❌ 架构不兼容**（dg 无 tbody 容器） | 🚫 **已从公共类型面删除**，同上；表体整区改挂 `content` / `section`，整行改挂 `body.row` |
+| 12 | `pagination.root` | `.ant-pagination`（分页器 `<ul>` 自身） | **`.dg-pagination`（我们多包的一层布局 div）** | ⚠️ **部分兼容（结构级差异）**：语义落点比参照多一层 div；且我们的 `<ul>` 上没有 `ant-table-pagination` 与 `ant-table-pagination-<placement>` 这两组布局类。按 `.ant-table-pagination` 写选择器需改挂 `.dg-pagination` 或自己的容器 |
+| 13 | `pagination.item` | `.ant-pagination-item` | 透传给分页组件的**逐项**槽（每个页码/前后翻页项都收到） | ✅ 完全兼容（逐项分发，与参照同形） |
 
-**兼容度判定**：13 槽中 **9 完全兼容** + **1 (`header.row`) 已补齐** + **2 架构不兼容
-（header.wrapper / body.wrapper）+ **1 (pagination.item) 通过复用 antd Pagination 等价**。
+**兼容度判定**：13 槽中 **9 完全兼容** ＋ **1（`header.row`）本轮补齐** ＋ **2（`header.wrapper` / `body.wrapper`）已从公共
+类型面删除**（无渲染宿主，保留字段只会静默不生效，改成编译期报错）＋ **1（`pagination.root`）结构级部分兼容**
+（落点比参照多一层布局 div）。
 
 ### `header.row` 的处理方式
 
@@ -60,8 +61,13 @@ data-grid 的渲染结构：
 
 **无 `.ant-table-thead` / `.ant-table-tbody` 对应的中间容器**——表头 cell 与表体 cell 共享
 同一个 `.dg-grid`，靠 `grid-row` 显式定位区分表头行与表体行。强行加 thead/tbody 中间容器
-会破坏 CSS Grid 的显式定位模型（grid item 的直接父级必须是 grid 容器）。**故 header.wrapper
-/ body.wrapper 仅有逻辑槽位接口（types 层支持，不报错），渲染层不注入 DOM**。这是兼容天花板，
+会破坏 CSS Grid 的显式定位模型（grid item 的直接父级必须是 grid 容器）。
+
+**当前处置**：`classNames.header.wrapper` / `classNames.body.wrapper`（及对应 `styles` 槽）
+**已从公共类型面删除**——保留一个没有宿主的字段只会让调用方以为样式已生效。删除后传这两个字段
+是**编译报错**而不是静默不生效。替代写法：整区样式挂 `root` / `section` / `content`，
+整行样式挂 `header.row` / `body.row`（它们分发到该行每个格子）。
+这条选择的是"删除字段"而不是"保留字段 + 运行时告警"，属**可推翻**的取舍，不是技术定论；
 补容器需重构 grid 布局（未来架构工作）。
 
 ---
@@ -110,9 +116,10 @@ data-grid 的渲染结构：
 | `role="columnheader"`（th） | 天然（`<th>`） | 缺失 | **不加**（需父级 role=row） |
 | `role="gridcell"`（td） | 天然（`<td>`） | 缺失 | **不加**（需父级 role=row） |
 | `role="rowheader"`（rowScope 列） | 天然（`<th scope="row">`） | 缺失 | **不加**（需父级 role=row） |
-| `aria-sort`（可排序列表头） | 显式（`useSorter.tsx:246-248`） | ✅ 已补 | ✅ 已补 |
-| `aria-expanded`（展开行） | 显式（`ExpandIcon.tsx`） | ✅ 已有（`engine/ExpandIcon.tsx:60-61`） | ✅ 已有 |
-| `aria-label`（表头/控件） | 部分（select-all 等） | 部分（selection aria、resize separator role） | 部分（同 antd） |
+| `aria-sort`（可排序列表头） | 显式（参照 `useSorter` 里 `if (sortOrder)` 才设；`antd 6.4.4 es/table/hooks/useSorter.js`） | ✅ 已补 | ✅ 已补 |
+| `aria-expanded`（展开行） | 显式（`antd 6.4.4 es/table/ExpandIcon.js`） | ✅ 已有（`src/table/engine/ExpandIcon.tsx` 里 `ExpandIcon` 渲染按钮时写 `aria-expanded`，**按符号引用，不写行号**） | ✅ 已有 |
+| `aria-description`（可排序列表头「可排序」描述） | 显式，值取自 locale 的**全局段**（`antd 6.4.4 es/locale/en_US.js:15` `sortable: 'sortable'`，经 `es/table/hooks/useSorter.js` 的 `a11yLocale` 透传） | ✅ 已补（两条表头路径都接，值走全局 locale、**不硬编码英文字面量**） | ✅ 已补（计算值覆盖用户 `onHeaderCell` 传的同名值，与参照的落点顺序同形） |
+| `aria-label`（表头/控件） | 部分（select-all 等；参照把它落在 `<th>` / 具名控件上） | 部分（选择列控件、展开按钮、列宽拖拽手柄） | 部分。**排序表头不补 `aria-label`**：参照落在 `<th>` 上合法，我们的格子是**无 role 的 div**，该属性在无 role 元素上会被无障碍检查判成「不得使用」；要合法化需先补整条表格 ARIA 链（受本页「行容器调查结论」那条架构边界约束）。列宽拖拽手柄的 `role="separator"` ＋ 英文 `aria-label` 是**超出参照的自有增强**（参照侧没有该宿主），因此**不走 locale** |
 | `aria-colspan`（合并数据格） | 天然（`<td colspan>`） | ✅ 已补 | ✅ 已补 |
 | `aria-rowspan`（合并数据格） | 天然（`<td rowspan>`） | ✅ 已补 | ✅ 已补 |
 
@@ -122,7 +129,7 @@ data-grid 的渲染结构：
 
 ### `aria-sort`
 
-**对齐 antd 行为**（`G:\Projects\ant-design\components\table\hooks\useSorter.tsx:246-248`）：
+**对齐 antd 行为**（`{{AntDesign}}/components/table/hooks/useSorter.tsx:246-248`）：
 仅当列表头格可排序且 `sortOrder` 非 null 时设 `aria-sort`（`ascending` / `descending`）；
 未排序时**不设**（与 antd 一致——antd 也是 `if (sortOrder)` 才设）。
 
@@ -167,13 +174,14 @@ HeaderCell 的 className 数组 + style 合并各补一行 `semanticHeader?.clas
 | P0 | 表格结构 role 缺失 | 🚫 受架构限制（需补行容器，未来工作） |
 | P1 | `header.row` 槽位未注入 | ✅ 已补 |
 | P2 | `aria-colspan` / `aria-rowspan` 缺失 | ✅ 已补 |
-| — | `header.wrapper` / `body.wrapper` 槽位 | 🚫 架构天花板（无 thead/tbody 容器） |
+| — | `header.wrapper` / `body.wrapper` 槽位 | 🚫 架构天花板（无 thead/tbody 容器）⇒ **已从公共类型面删除**（见上方「架构天花板」一节的替代写法，属可推翻的取舍） |
+| — | `pagination.root` 落点 | ⚠️ 结构级部分兼容：语义落在我们多包的一层布局 div 上，`<ul>` 缺参照的两组布局类。**维持不改**（收益不完整），同属可推翻的取舍 |
 
 ---
 
 ## 6. 验证 demo
 
-**demo 路径**：`src/demos/semantic-dom.tsx`（注册于 `src/demos/index.ts`，category
+**demo 路径**：`src/demos/semantic-dom-slots.tsx`（注册于 `src/demos/index.ts`，category
 「尺寸响应与样式」，name `semantic-dom`）。
 
 **验证内容**：

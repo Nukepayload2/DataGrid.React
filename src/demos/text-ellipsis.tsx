@@ -56,7 +56,7 @@ export default function EllipsisDemo() {
                 <li><strong>触发条件</strong>：容器宽度不足以容纳所有列时。</li>
                 <li><strong>差异原因</strong>：两侧列宽策略不同——data-grid 用 minmax(0,1fr) 收缩
                   （min:0 允许列收缩触发省略），antd 用 width + flex fill。详见
-                  <code>docs/design-notes/column-width.md</code>。</li>
+                  <code>docs/features/columns/column-width.md</code>。</li>
               </ul>
             </li>
           </ul>

@@ -58,6 +58,25 @@ data-grid 复刻：
 
 与选择列类似，居中。`.dg-cell[data-align='center']` 已提供 `justify-content: center`。
 
+## 点击行体展开（`expandable.expandRowByClick`）
+
+**生效范围**：
+
+| 场景 | 行为 | 核验状态 |
+|------|------|----------|
+| 单层（非树形）表格 + `expandedRowRender` | **已支持**：点击行体即切换该行的展开态，与 `onRow.onClick` 共存（不互斥）。 | `探针实测` |
+| **树形数据**（record 带非空 `children`） | **同样生效**：点击行体切换**被点节点**的展开态；无子节点的行点行体不切换。 | `读码` |
+
+树形与非树形共用同一条行点击绑定，差别只在展开状态源：
+
+- 参照对树形行**同样生效**——`@rc-component/table 1.10.2 es/hooks/useRowInfo.js:22-24` 把
+  `expandableType === 'nest'` 并入 `mergedExpandable`，`:32-35` 的行点击判据是
+  `expandRowByClick && mergedExpandable`，与展开类型无关。
+- 我方树形下的行点击展开绑定由 `treeRowClickExpandEnabled` 决定是否组装（`src/table/Table.tsx`；符号引用）：
+  判据＝树形模式 ＋ `expandable.expandRowByClick === true` ＋ 该树存在含非空 `children` 的行；
+  状态源换成树的 `expandableKeySet` / `toggleExpand`，零新增 DOM（仍走既有 `onRow` 通道）。
+- 边界与登记见 [`known-limitations.md`](../../reference/known-limitations.md) 的「展开」一节。
+
 ## 与 antd 差异
 
 | | data-grid | antd |

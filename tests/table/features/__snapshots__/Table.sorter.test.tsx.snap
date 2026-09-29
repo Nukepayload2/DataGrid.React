@@ -26,11 +26,13 @@ exports[`Table.sorter > renders custom sort icon correctly 3`] = `
 
 exports[`Table.sorter > renders sorter icon correctly 1`] = `
 <div
+  aria-description="sortable"
   class="dg-cell ant-table-cell dg-cell-header dg-column-has-sorters ant-table-column-has-sorters"
   data-column-key="name"
   data-leaf-index="0"
   data-leaf-last=""
   style="grid-column: 1; grid-row: 1;"
+  tabindex="0"
   title="Click to sort ascending"
 >
   <div
@@ -116,6 +118,7 @@ exports[`Table.sorter > should support defaultOrder in Column 1`] = `
           style="display: grid; grid-template-rows: auto auto; grid-template-columns: minmax(min-content, 1fr); width: 100%;"
         >
           <div
+            aria-description="sortable"
             aria-sort="ascending"
             class="dg-cell ant-table-cell dg-cell-header dg-column-has-sorters ant-table-column-has-sorters dg-column-sort ant-table-column-sort"
             data-column-key="age"
@@ -123,6 +126,7 @@ exports[`Table.sorter > should support defaultOrder in Column 1`] = `
             data-leaf-last=""
             data-sorter-order="ascend"
             style="grid-column: 1; grid-row: 1;"
+            tabindex="0"
             title="Click to sort descending"
           >
             <div

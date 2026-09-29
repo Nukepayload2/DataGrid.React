@@ -45,7 +45,7 @@
  *      所有 thumb 几何直接写 DOM。
  *
  * 仅 scroll.y/scroll.x 启用时渲染（GridTable 显式调用本组件）；无 scroll 路径完全不渲染本组件。
- * 详见 [docs/design-notes/scrollbar.md](../../../docs/design-notes/scrollbar.md)。
+ * 详见 [docs/features/scrolling/scrollbar.md](../../../docs/features/scrolling/scrollbar.md)。
  */
 import {
   useCallback,

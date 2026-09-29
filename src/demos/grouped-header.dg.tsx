@@ -100,7 +100,7 @@ export default function GroupingColumnsDg({
   data: DataType[]
 }) {
   return (
-    /* 父容器固定像素高 473px — 详见 docs/design-notes/layout.md
+    /* 父容器固定像素高 473px — 详见 docs/features/layout/layout.md
        = 表头 4 行 medium(~47×4 ≈ 188) + 表体 235 + 分页条 ~50，对齐 antd scroll.y:47*5=235。
        须用固定像素而非 height:100%（SplitDemo body 无视口约束会无限高）。表头高随 size 变，
        切 large 需重测。 */

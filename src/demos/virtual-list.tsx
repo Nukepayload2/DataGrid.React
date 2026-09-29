@@ -154,7 +154,7 @@ export default function VirtualListDemo() {
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：左栏 data-grid 合并组左上角滚出可视区上边界后，其延伸到可视区的覆盖部分不补画（视觉「缺一块」）；右栏 antd 无此问题。</li>
                 <li><strong>触发条件</strong>：开启合并 + 虚拟滚动，且合并组被「Scroll To index 999」拉到边界时。</li>
-                <li><strong>差异原因</strong>：data-grid 虚拟窗口按行测量逐行渲染，未实现跨行合并组的边界补画（antd 的 extraRender 机制）。详见 <code>docs/design-notes/virtualization.md</code>。</li>
+                <li><strong>差异原因</strong>：data-grid 虚拟窗口按行测量逐行渲染，未实现跨行合并组的边界补画（antd 的 extraRender 机制）。详见 <code>docs/features/scrolling/virtualization.md</code>。</li>
               </ul>
             </li>
             <li>
@@ -162,7 +162,7 @@ export default function VirtualListDemo() {
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：左栏 data-grid 展开内容直接渲染但<strong>不计入虚拟窗口</strong>（窗口按收起态 rowHeight=40 算）；右栏 antd 展开内容参与测量。</li>
                 <li><strong>触发条件</strong>：开启 Expandable 并展开任意行。</li>
-                <li><strong>差异原因</strong>：data-grid 为保证展开后滚动稳定，虚拟窗口尺寸只按收起态行高推导。详见 <code>docs/design-notes/virtualization.md</code>。</li>
+                <li><strong>差异原因</strong>：data-grid 为保证展开后滚动稳定，虚拟窗口尺寸只按收起态行高推导。详见 <code>docs/features/scrolling/virtualization.md</code>。</li>
               </ul>
             </li>
             <li>
@@ -170,7 +170,7 @@ export default function VirtualListDemo() {
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：左栏 data-grid 用 macOS 风格自定义悬浮滚动条（2px 半透明细线，hover hit 区变 8px 实色 + 拖动同步）；右栏 antd 用浏览器原生滚动条。</li>
                 <li><strong>触发条件</strong>：任意滚动操作（滚轮/拖动/键盘/程序 scrollTop）。</li>
-                <li><strong>差异原因</strong>：data-grid 用 FloatingScrollBar 替代原生滚动条，视觉更轻；滚动行为与原生等价。详见 <code>docs/design-notes/scrollbar.md</code>。</li>
+                <li><strong>差异原因</strong>：data-grid 用 FloatingScrollBar 替代原生滚动条，视觉更轻；滚动行为与原生等价。详见 <code>docs/features/scrolling/scrollbar.md</code>。</li>
               </ul>
             </li>
             <li>

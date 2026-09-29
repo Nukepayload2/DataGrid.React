@@ -1,5 +1,5 @@
-// 黑盒 demo 遍历层（a11y），对齐 antd tests/shared/accessibilityTest.tsx 机制：
-//   G:\Projects\ant-design\tests\shared\accessibilityTest.tsx
+// 黑盒 demo 遍历层（a11y），对齐 antd 上游仓 tests/shared/accessibilityTest.tsx（本机 checkout 6.5.2，非实装的 6.4.4）机制：
+//   {{AntDesign}}/tests/shared/accessibilityTest.tsx
 //   - antd accessibilityDemoTest：glob 组件 demo/*.tsx 逐个 axe.run + toHaveNoViolations，
 //     支持 disabledRules（convertRulesToAxeFormat 转 axe rules 配置）；
 //   - data-grid 版由 tests/shared/demoHarness.tsx 的 axeAll() 承担：逐 demo 渲染后

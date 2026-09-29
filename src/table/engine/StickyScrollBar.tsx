@@ -26,7 +26,7 @@ function getStickyMaxScroll(
 }
 
 /**
- * 页面级 sticky 的底部横向滚动条（对齐 antd `StickyScrollBar`）。详见 docs/design-notes/sticky.md。
+ * 页面级 sticky 的底部横向滚动条（对齐 antd `StickyScrollBar`）。详见 docs/features/layout/sticky.md。
  *
  * 背景：sticky 模式下不能用普通 `overflow-x:auto` 包住 grid，否则该 overflow 祖先会拦截表头
  * sticky 的纵向参照。这里用 `overflow: clip` 只裁剪宽表，再用 transform 模拟横向位移。
@@ -41,7 +41,7 @@ function getStickyMaxScroll(
  * - 拖动 thumb（pointer 事件）：按 pointer 移动量换算虚拟 scrollLeft。
  * - 旧的非视口分支保留给 window/HTMLElement 同步场景。
  *
- * 仅 sticky 启用时渲染（GridTable 在 sticky 分支调用）；其余路径不渲染。
+ * 仅 sticky 启用时渲染（渲染宿主是 ScrollContainer 的 sticky 分支，GridTable 不直接 import 本件）；其余路径不渲染。
  */
 export function StickyScrollBar({
   offsetScroll,

@@ -49,7 +49,7 @@ interface ColumnCellsProps<RecordType> {
   /** 叶子列索引（用于 ResizeObserver 测量标记与 sticky 取值）。 */
   colIdx: number
   /**
-   * 表头分隔线排除：该列是否为全局末列（单层路径）。详见 docs/design-notes/header.md。
+   * 表头分隔线排除：该列是否为全局末列（单层路径）。详见 docs/features/layout/header-and-span.md。
    * 多级路径不传（由 columnTree.markLastLeaves 算 cell.isLastLeaf → data-leaf-last）。
    * CSS 用 `:not([data-leaf-last])` 排除末列表头格的右侧分隔线。
    */
@@ -106,16 +106,16 @@ interface ColumnCellsProps<RecordType> {
   rowHoverable?: boolean
   /** onHeaderRow(columns, index) 的 columns 参数（顶层列 raw 数组）。 */
   headerColumns?: Array<unknown>
-  /** Table 级 locale（透传到本表头格内的 FilterDropdown）。 */
-  filterLocale?: import('./types').EngineTableProps['filterLocale']
+  /** Table 级 locale（FilterDropdown/排序 title）+ a11y locale（global 段 → aria-description）。 */
+  filterLocale?: import('./types').EngineTableProps['filterLocale']; a11yLocale?: import('./types').EngineTableProps['a11yLocale']
   /**
-   * 行选中态判定回调。详见 docs/design-notes/selection.md。
+   * 行选中态判定回调。详见 docs/features/interaction/selection.md。
    * 引擎在命中选中行的所有 body cell 上加 `dg-row-selected` 类（CSS 消费 antd token）。
    * 未提供（undefined）时不加类。详见 EngineTableProps.isRowSelected。
    */
   isRowSelected?: (record: RecordType) => boolean
   /**
-   * 取第 index 行的最终/实测高（用于首列 cell 写 data-known-size，实测闭环）。详见 docs/design-notes/virtualization.md。
+   * 取第 index 行的最终/实测高（用于首列 cell 写 data-known-size，实测闭环）。详见 docs/features/scrolling/virtualization.md。
    * flat 路径与 multi 路径 BodyCell 同款。undefined 时不写 data-known-size。
    */
   effectiveRowHeight?: (index: number) => number
@@ -168,8 +168,8 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
     effectiveRowHeight,
     bodyRowIndex,
     bodyGridRowOffset = showHeader ? 1 : 0,
-    // Table 级 locale（透传到本表头格内的 FilterDropdown）。
-    filterLocale,
+    // Table 级 locale（FilterDropdown/排序 title）+ a11y locale（表头 aria-description）。
+    filterLocale, a11yLocale,
   } = props
   const bodyRows = bodyRowIndex === undefined
     ? dataSource.map((record, localIndex) => ({ record, index: localIndex }))
@@ -207,10 +207,15 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
     onHeaderRowProps?.style,
   )
   const headerEventPropsFlat = mergeHeaderEventProps([onHeaderCellProps, onHeaderRowProps])
+  // 用户注入的 onKeyDown（onHeaderCell / onHeaderRow）。可排序格 Enter 触发排序时链式调用、
+  //   不覆盖（antd useSorter.js:155 + :173 同款）。与 HeaderCell.tsx 的 userHeaderKeyDown 成对。
+  const userHeaderKeyDownFlat = headerEventPropsFlat.onKeyDown as
+    | ((e: React.KeyboardEvent<HTMLElement>) => void)
+    | undefined
 
   // 合并 sticky 样式：横向（左/右）+ 纵向（容器内 top:0 或页面级 top:offsetHeader）。
   //   与 HeaderCell 同款逻辑（含 corner cell 双 sticky 取最高 z-index=5 修复 + 逐行偏移 headerStickyTopOffset），
-  //   详细语义详见 headerCellUtils.ts:mergeHeaderStickyStyle + docs/design-notes/fixed-column.md + sticky.md。
+  //   详细语义详见 headerCellUtils.ts:mergeHeaderStickyStyle + docs/features/columns/fixed-column.md + docs/features/layout/sticky.md。
   const mergedHeaderSticky = mergeHeaderStickyStyle(
     sticky,
     stickyHeaderOffset,
@@ -234,8 +239,8 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
       typeof column.onFilter === 'function')
   // 表头格内部是否需要"右侧操作区"（sorter / filter）。
   const hasActions = sortable || filterable
-  // 表头 ellipsis（对齐 antd：长 title 省略 + hover 显示完整标题）。详见 HeaderCell 同款注释 + docs/design-notes/ellipsis.md。
-  //   showTitle:false 时不加 native title（让 render/外部 Tooltip 接管）——与表体同款门。
+  // 表头 ellipsis（对齐 antd：长 title 省略 + hover 显示完整标题；showTitle:false 时不加 native title——与表体同款门）。
+  //   详见 HeaderCell 同款注释 + docs/features/display/ellipsis.md；函数式 title 的渲染现状（传函数⇒渲染为空、不抛错、原生 title 一起丢）与告警落点也在那儿——判据在归一层 columnAdapter.warnFunctionTitleOnce，前缀/按 key 去重与环境门在出口 src/table/devWarn.ts，本层不重复发。
   const headerEllipsis = column.ellipsis === true
   const headerTitle =
     headerEllipsis && column.showTitle !== false
@@ -279,24 +284,32 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
                 ? 'descending'
                 : undefined
           }
+          // 【刻意不加】antd useSorter.js:184 的 aria-label：本格同样是**无 role 的 <div>**（探针读数
+          //   tag=DIV / role=null），aria-label 落在 div 上被 axe-core 判为 namingProhibited；补 role
+          //   会撞本轮已裁定不修的 L3 ARIA 链边界。完整四步证据见 HeaderCell.tsx 的【刻意不加】块——
+          //   两条表头路径必须同款处理，一边加一边不加就是缺口 #19 的分叉形式。
+          // 【已接线】antd useSorter.js:183 的 aria-description（本批 BAT-20）：值走 locale **global**
+          //   段的兄弟通道 a11yLocale；写入点与判据见 HeaderCell.tsx 同名注释 + 下方 spread 之后那条。
           data-align={column.align ?? undefined}
           data-leaf-index={String(colIdx)}
           data-column-key={column.key}
-          // 表头分隔线排除（单层末列，对齐 antd `thead th:not(:last-child)::before`）— 详见 docs/design-notes/header.md。
+          // 表头分隔线排除（单层末列，对齐 antd `thead th:not(:last-child)::before`）— 详见 docs/features/layout/header-and-span.md。
           //   单层无分组，仅设 data-leaf-last；多级路径在 HeaderCell 设 data-group-last。
           data-leaf-last={isLastLeaf ? '' : undefined}
           data-sorter-order={isSorted ? (sortOrder ?? undefined) : undefined}
           // showSorterTooltip hover 提示（简单 title，详见 HeaderCell 同款注释）。
           //   ellipsis 冲突处理：ellipsis 启用时 title=完整表头文案（优先），排序提示让位（详见 HeaderCell）。
+          //   文案取自 Table 级 locale（triggerDesc/cancelSort/triggerAsc），fallback 与 HeaderCell
+          //   同款表达式逐字一致——两路径同配置下必须取到同一个值（缺口 #19 的修复点）。
           title={
             headerEllipsis
               ? headerTitle
               : sortable && column.showSorterTooltip !== false
                 ? sortOrder === 'ascend'
-                  ? 'Click to sort descending'
+                  ? filterLocale?.triggerDesc ?? 'Click to sort descending'
                   : sortOrder === 'descend'
-                    ? 'Cancel sorting'
-                    : 'Click to sort ascending'
+                    ? filterLocale?.cancelSort ?? 'Click to cancel sorting'
+                    : filterLocale?.triggerAsc ?? 'Click to sort ascending'
                 : undefined
           }
           style={{
@@ -326,8 +339,28 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
                 }
               : (headerEventPropsFlat.onClick as ((e: React.MouseEvent<HTMLElement>) => void) | undefined)
           }
-          // 其余事件 props 透传（onClick 已单独合并，跳过避免重复）。
-          {...omitKey(headerEventPropsFlat, 'onClick')}
+          // 键盘可达性：**与 HeaderCell.tsx 的排序分支逐字同源**（tabIndex=0 + Enter 触发）。
+          //   两层表头路径只改一边 = 缺口 #19 的键盘版（多级可按 Enter 排序、单层不能）。
+          //   Enter 判据 `key === 'Enter' || keyCode === 13`、方向循环复用点击那条 onSorterClick
+          //   （内部走 sorterUtils.nextSortDirection）、`e.target === e.currentTarget` 门（挡住
+          //   筛选面板 portal 冒泡上来的 Enter，antd issue 38579 同类）、链式调用用户 onKeyDown、
+          //   不调 stopPropagation —— 逐条依据与探针读数见 HeaderCell.tsx 的同名注释块。
+          onKeyDown={
+            sortable && onSorterClick
+              ? (e) => {
+                  if ((e.key === 'Enter' || e.keyCode === 13) && e.target === e.currentTarget) {
+                    // 单层路径 column.key === sortKey（见上方 onClick 分支的同款说明）。
+                    onSorterClick(column.key)
+                  }
+                  userHeaderKeyDownFlat?.(e)
+                }
+              : userHeaderKeyDownFlat
+          }
+          // 其余事件 props 透传（onClick / onKeyDown 已单独合并到排序逻辑，跳过避免覆盖）。
+          {...omitKey(omitKey(headerEventPropsFlat, 'onClick'), 'onKeyDown')}
+          // 可排序格的 a11y 注入（antd useSorter.js:185 tabIndex + :183 aria-description，同 :74 门内、
+          //   盖在用户 onHeaderCell 结果之上 ⇒ 必须在 spread 之后）；值取 global 段、缺值不写。与 HeaderCell 成对。
+          {...(sortable ? { tabIndex: 0, 'aria-description': a11yLocale?.sortable } : null)}
         >
           {hasActions ? (
             <div className="dg-column-sorters ant-table-column-sorters">
@@ -343,7 +376,17 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
                   column.sortIcon ? (
                     column.sortIcon({ sortOrder })
                   ) : (
-                    <SortIndicator sortOrder={sortOrder} priority={column.sortPriority} />
+                    <SortIndicator
+                      sortOrder={sortOrder}
+                      priority={column.sortPriority}
+                      // 生效方向（23-A 端到端）：与 HeaderCell.tsx 的 `cell.sortDirections` 是**成对站点**
+                      // （本仓不变量：两条表头路径必须同形）。BAT-25 25-D 起两侧读的都是**各自对象上的同名
+                      // `sortDirections` 字段**——flat 走 collectLeaves 的 `EngineLeafColumn.sortDirections`
+                      // 透传（engine/columnTree.ts:92），multi 走 flattenHeaderCells 的
+                      // `EngineHeaderCell.sortDirections` 透传；两份值同源于 columnAdapter 的**那一个**
+                      // 合并判据（`col.sortDirections ?? tableSortDirections`），渲染层没有第二份回退。
+                      sortDirections={column.sortDirections}
+                    />
                   )
                 ) : null}
                 {filterable && onFilterApply ? (
@@ -395,7 +438,7 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
           ? column.render(text, record, index)
           : text
         const { children: rendered } = normalizeRenderedCell(rawRendered)
-        // ellipsis 列默认 title 提示（详见 BodyCell 同款注释 + docs/design-notes/ellipsis.md）。取原始 dataIndex 值文本化。
+        // ellipsis 列默认 title 提示（详见 BodyCell 同款注释 + docs/features/display/ellipsis.md）。取原始 dataIndex 值文本化。
         //   showTitle:false 时不加 native title（详见 BodyCell 同款注释）。
         const ellipsisTitle = resolveBodyCellEllipsisTitle(column.ellipsis, column.showTitle, text)
         const isHovered = isRowSpanHovered(index, 1, hoveredRowIndex)
@@ -443,11 +486,11 @@ export function ColumnCells<RecordType>(props: ColumnCellsProps<RecordType>) {
             data-align={column.align ?? undefined}
             data-row-index={index}
             // 实测闭环：写本行实测/最终高（effectiveRowHeight），仅首列（colIdx===0）写。
-            //   与 multi 路径 BodyCell 同款（详见上方注释 + docs/design-notes/virtualization.md）。
+            //   与 multi 路径 BodyCell 同款（详见上方注释 + docs/features/scrolling/virtualization.md）。
             {...(colIdx === 0 && effectiveRowHeight ? { 'data-known-size': effectiveRowHeight(index) } : null)}
             // 表体格也标 data-column-key（与上方 BodyCell 多级表头路径 + 表头格一致）。
             //   选择列（key='__dg_selection__'）专用样式定位——antd selection.ts:49-61 选择列 padding
-            //   = paddingXS(4px)，区别于普通列 cellPaddingInline。详见 BodyCell 同款注释 + docs/design-notes/selection.md。
+            //   = paddingXS(4px)，区别于普通列 cellPaddingInline。详见 BodyCell 同款注释 + docs/features/interaction/selection.md。
             data-column-key={column.key}
             style={{
               gridColumn: `${colIdx + 1}`,

@@ -1,5 +1,5 @@
 /**
- * 列树 → grid 布局信息计算（多级表头）。详见 docs/design-notes/header.md。
+ * 列树 → grid 布局信息计算（多级表头）。详见 docs/features/layout/header-and-span.md。
  *
  * 核心概念：
  *   - `depth(node)`：以该节点为根的子树高度（叶子=1，分组=1+max(children depths)）。
@@ -126,7 +126,7 @@ export function collectLeaves<RecordType>(
 
 /**
  * 把列树展开为表头格平面表（DFS 前序），每项含显式 grid-column / grid-row 范围。
- * 详见 docs/design-notes/header.md。
+ * 详见 docs/features/layout/header-and-span.md。
  *
  * 列号分配（关键：保证表头线号与表体叶子轨道共享同一套 1-based grid 线）：
  *   维护一个"下一个可用列号"游标 `state.nextCol`（1-based，初始=1）。
@@ -162,7 +162,7 @@ export function flattenHeaderCells<RecordType>(
     const leaf = isLeafColumn(node)
     // 表头格 key 直接用 node.key：由适配层 Table.tsx 在构建列树时已统一算好
     //   （叶子节点 key = 自身 key/dataIndex 或匿名 `col-N`；分组节点 key = 完整路径如 `Other.Age`）。
-    //   分组格不再二次前缀拼接——node.key 本身已是完整路径，详见 docs/design-notes/header.md。
+    //   分组格不再二次前缀拼接——node.key 本身已是完整路径，详见 docs/features/layout/header-and-span.md。
     const key = node.key
 
     // 列号分配：见函数头注释。
@@ -209,42 +209,55 @@ export function flattenHeaderCells<RecordType>(
       sortable: leaf ? !!node.sorter : false,
       sortOrder: leaf ? node.sortOrder : undefined,
       sortPriority: leaf ? node.sortPriority : undefined,
+      // BAT-25 25-D：生效 sortDirections 一并透传（**与 collectLeaves 的 `sortDirections: node.sortDirections`
+      //   是成对站点**——flat 路径落 EngineLeafColumn、multi 路径落 EngineHeaderCell，两处透传的都是
+      //   columnAdapter 合并后的**同一个节点值**，判据不在渲染层、也不在这里再写一份）。
+      //   分组格与 sortOrder/sortPriority 同口径给 undefined（分组格 sortable 恒 false，不渲染 SortIndicator）。
+      sortDirections: leaf ? node.sortDirections : undefined,
       sortIcon: leaf ? node.sortIcon : undefined,
       showSorterTooltip: leaf ? node.showSorterTooltip : undefined,
       // 嵌套叶子排序/筛选修复：表头格 key = 完整路径（如 `Other.Age`），但排序/筛选引擎按
       //   column.key ?? dataIndex（如 `'age'`）匹配。多级表头下嵌套叶子两者不同 → 点击/筛选无响应。
       //   故在表头格额外携带 sortKey/filterKey（解析自 node.raw），GridTable 点击排序/应用筛选时
       //   传 sortKey/filterKey 而非 key。顶层叶子（无 parentPath）两者恰好相等，零回归。
-      //   仅叶子表头格有值（分组格无 sorter/filter）。
+      //   19-A 之后：**sortKey 仍仅叶子表头格有值**（分组格不消费排序），
+      //   **filterKey 叶子格与分组格都有值**（分组格现在是漏斗宿主，见下方 filterKey 那条）。
       sortKey: leaf && node.raw ? resolveColumnSortKey(node.raw as any) : undefined,
-      filterKey: leaf && node.raw ? resolveFilterKey(node.raw as any) : undefined,
-      // 筛选信息透传（仅叶子表头格有值；分组表头格无筛选）。
-      //   filterable 与 useFilter.isFilterable 对齐（放宽为 antd `useFilter/index.tsx:38`）：
-      //   filters 已定义（含空数组）|| filterDropdown 存在 || onFilter 是函数——任一即 filterable
-      //   （渲染漏斗）。空数组 `filters: []` 也画漏斗，点开空面板走 renderEmpty。
+      // 筛选标识：分组表头格同样要有（19-A）——参照把分组节点本身收进筛选收集面并把它当漏斗宿主，
+      //   点击分组格漏斗时引擎按 filterKey（`column.key ?? dataIndex`）回传 setFilterValue，
+      //   缺这层就会退回 `cell.key`（列树路径键），与 useFilter 的键空间不一致。
+      filterKey: node.raw ? resolveFilterKey(node.raw as any) : undefined,
+      // 筛选信息透传（19-A：**叶子表头格与分组表头格同等携带**）。
+      //   依据：antd@6.4.4 `es/table/hooks/useFilter/index.js` 的 `getMergedColumns:151-156`
+      //   保留分组节点本身 ⇒ `collectFilterStates:8-41` 逐层收集、`injectFilter:42-85` 把漏斗挂在
+      //   **该列自己的** title 宿主上（分组表头格同样是宿主）。此前这里按 `leaf ?` 收口，
+      //   与 `columnAdapter` 的「分组列不抄筛选字段」叠成同一道丢数据的链（探针 A1/A2/A3）。
+      //   filterable 与 useFilter.isFilterable / sortFilterAdapter.isNodeFilterable **同一判据**
+      //   （filters 已定义（含空数组）|| filterDropdown 存在 || onFilter 是函数——任一即画漏斗；
+      //   这是仓库既有的放宽口径，本批只扩宿主面、**不改判据**）。
       //   自定义面板列无 filters，靠 filterDropdown 渲染放大镜 trigger；服务端筛选列有 filters 但无 onFilter。
-      filterable: leaf
-        ? !!(
-            (node.filterDropdown !== undefined && node.filterDropdown !== null) ||
-            node.filters ||
-            typeof node.onFilter === 'function'
-          )
-        : false,
-      filters: leaf ? node.filters : undefined,
-      filterMultiple: leaf ? node.filterMultiple : undefined,
-      filteredValue: leaf ? node.filteredValue : undefined,
-      filtered: leaf ? node.filtered : undefined,
-      filterOnClose: leaf ? node.filterOnClose : undefined,
-      defaultFilteredValue: leaf ? node.defaultFilteredValue : undefined,
-      filterResetToDefaultFilteredValue: leaf ? node.filterResetToDefaultFilteredValue : undefined,
+      //   ⚠ 参照的漏斗宿主判据其实是两条件（`injectFilter:52` 的 `filters || filterDropdown`，不含
+      //   `onFilter`）——「只有 onFilter 的分组列我方画漏斗、参照不画」这条差登记在步骤 49 日志 §7。
+      filterable: !!(
+        (node.filterDropdown !== undefined && node.filterDropdown !== null) ||
+        node.filters ||
+        typeof node.onFilter === 'function'
+      ),
+      filters: node.filters,
+      filterMultiple: node.filterMultiple,
+      filteredValue: node.filteredValue,
+      filtered: node.filtered,
+      filterOnClose: node.filterOnClose,
+      defaultFilteredValue: node.defaultFilteredValue,
+      filterResetToDefaultFilteredValue: node.filterResetToDefaultFilteredValue,
       // 自定义面板三字段透传（FilterDropdown 据此渲染自定义面板 + 自定义图标 + Dropdown props）。
-      filterDropdown: leaf ? node.filterDropdown : undefined,
-      filterIcon: leaf ? node.filterIcon : undefined,
-      filterDropdownProps: leaf ? node.filterDropdownProps : undefined,
+      filterDropdown: node.filterDropdown,
+      filterIcon: node.filterIcon,
+      filterDropdownProps: node.filterDropdownProps,
       // 筛选项搜索透传（FilterDropdown 据此在内置 menu 面板顶部渲染搜索框 + 过滤 flatItems）。
       // filterMode 透传（FilterDropdown 据此切换 Tree vs Checkbox/Radio 内置面板）。
-      filterSearch: leaf ? node.filterSearch : undefined,
-      filterMode: leaf ? node.filterMode : undefined,
+      filterSearch: node.filterSearch,
+      filterMode: node.filterMode,
       // column.onHeaderCell 透传（仅叶子表头格消费；分组表头格恒 undefined——antd 同款语义）。
       //   渲染层（GridTable HeaderCell）把返回值合并到表头格 div props。
       onHeaderCell: leaf ? node.onHeaderCell : undefined,
@@ -276,7 +289,7 @@ export function flattenHeaderCells<RecordType>(
 
 /**
  * 标记末列与分组最右叶子（表头分隔线排除用，对齐 antd）。
- * 详见 docs/design-notes/header.md「表头分割竖线」节。
+ * 详见 docs/features/layout/header-and-span.md「表头分割竖线」节。
  *
  * data-grid 因 grid 容器扁平（表头格与表体格同为 `.dg-grid` 直接子节点），
  * `:last-child` 恒指最后一个表体格，无法用 CSS 排除末列。故由引擎在叶子表头格上打两个标记，

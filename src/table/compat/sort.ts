@@ -41,6 +41,11 @@ export type ColumnSorter<RecordType = any> =
  * 点击表头切换排序的循环顺序。
  * 默认 `['ascend', 'descend']`；末尾隐式 `null`（取消排序）回退。
  * 对齐 antd `sortDirections`：值为 `'ascend'`/`'descend'`（不含 null，null 是循环到末尾的隐式回退）。
+ *
+ * **两级共用同一类型**：列级 `column.sortDirections` 与 Table 级 `TableProps.sortDirections`
+ * （后者为前者的默认值）。优先级解析式见 `engine/useSorter.ts` 的
+ * `column.sortDirections ?? defaultSortDirections ?? DEFAULT_SORT_DIRECTIONS`
+ * （对齐 antd `useSorter.js:75` 的 `column.sortDirections || defaultSortDirections`）。
  */
 export type SortDirections = Array<'ascend' | 'descend'>
 

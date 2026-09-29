@@ -24,7 +24,7 @@ export function hasChildren<RecordType>(
  *
  * 返回**浅拷贝**的节点（不改原引用），避免原 columnTree 被污染（每次 sortOrder 变化都应产生新树）。
  *
- * 详见 `docs/design-notes/filter-sorter.md`。
+ * 详见 `docs/features/interaction/filter-sorter.md` 的「排序状态模型」与「多列排序优先级徽标」两节。
  */
 export function applySortOrderToNode<RecordType>(
   node: EngineColumnNode<RecordType>,
@@ -78,33 +78,40 @@ export function isNodeFilterable<RecordType>(
 /**
  * 把 useFilter 派生的 filteredValueMap 回填到列树节点。
  *
- * 规则：
- *   - 叶子节点（无 children）：从其 raw（原始 antd column）算出 filterKey（与 sortKey 同算法：
- *     column.key ?? dataIndex），查 filteredValueMap；命中 → 设 filteredValue；
- *     未命中但该列可筛选（isNodeFilterable）→ 设 null（确保漏斗为 Outlined 灰态）；
- *     不可筛选列保持 undefined。
- *   - 分组节点：递归处理 children。
+ * 规则（19-A 之后，叶子与分组**同一套**）：
+ *   - 任一节点（叶子或分组）：若 `isNodeFilterable(node)`，从其 raw（原始 antd column）算出
+ *     filterKey（与 sortKey 同算法：column.key ?? dataIndex），查 filteredValueMap；
+ *     命中 → 设 filteredValue；未命中但可筛选 → 设 null（确保漏斗为 Outlined 灰态）；
+ *     不可筛选节点保持 undefined。
+ *   - 分组节点：回填**自己之后**再递归处理 children（参照 antd@6.4.4
+ *     `es/table/hooks/useFilter/index.js` 的 `getMergedColumns:151-156`——分组节点本身既进筛选
+ *     收集面、又是漏斗宿主；此前只递归子层 ⇒ 分组格的激活态永远拿不到）。
+ *   - 跳过条件与 `useFilter.isFilterable` 字面一致（filters 非空 || filterDropdown 存在 ||
+ *     onFilter 存在），单一真理源见本文件 `isNodeFilterable`。
  *
  * 返回**浅拷贝**的节点（不改原引用）。
  *
- * 详见 `docs/design-notes/filter-sorter.md`。
+ * 详见 `docs/features/interaction/filter-sorter.md` 的「筛选状态模型」一节。
  */
 export function applyFilterToNode<RecordType>(
   node: EngineColumnNode<RecordType>,
   filteredValueMap: Map<string, Array<FilterValue>>,
 ): EngineColumnNode<RecordType> {
-  if (hasChildren(node)) {
-    const newChildren = node.children!.map(
+  // 回填本节点（叶子与分组**同一套规则**，19-A：分组节点自身也在参照的筛选收集面内）。
+  let next = node
+  if (isNodeFilterable(node)) {
+    const raw = node.raw as ColumnType<RecordType> | undefined
+    const filterKey = raw ? resolveFilterKey(raw) : undefined
+    const key = filterKey !== undefined ? String(filterKey) : undefined
+    const value = key !== undefined ? filteredValueMap.get(key) : undefined
+    next = { ...node, filteredValue: value ?? null }
+  }
+  if (hasChildren(next)) {
+    const newChildren = next.children!.map(
       (child) => applyFilterToNode(child, filteredValueMap),
     )
-    return { ...node, children: newChildren }
+    return { ...next, children: newChildren }
   }
   // 不可筛选列：filteredValue 保持 undefined。
-  // 跳过条件与 useFilter.isFilterable 字面一致（filters 非空 || filterDropdown 存在 || onFilter 存在）。
-  if (!isNodeFilterable(node)) return node
-  const raw = node.raw as ColumnType<RecordType> | undefined
-  const filterKey = raw ? resolveFilterKey(raw) : undefined
-  const key = filterKey !== undefined ? String(filterKey) : undefined
-  const value = key !== undefined ? filteredValueMap.get(key) : undefined
-  return { ...node, filteredValue: value ?? null }
+  return next
 }

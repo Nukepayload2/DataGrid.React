@@ -2,7 +2,22 @@
  * data-grid 原生类型层：选择/对齐/固定列方向/滚动条折叠等枚举与 props 类型。
  */
 
-export type Align = 'start' | 'center' | 'end'
+import type { CSSProperties, MouseEventHandler } from 'react'
+import type { CheckboxChangeEvent } from 'antd/es/checkbox'
+import type { RadioChangeEvent } from 'antd/es/radio'
+
+/**
+ * 对齐方式（**输入面**双取值，仿 `FixedInput` 先例）：
+ * 逻辑值 `start|center|end`（data-grid 落点）与 antd 物理值 `left|center|right`
+ * （`es/table/interface.d.ts` 的 `ColumnType.align` / `rowSelection.align`）都接受。
+ *
+ * 物理值在适配层由 `columnAdapter.normalizeAlign` 归一为逻辑值（`left→start`、
+ * `right→end`），引擎侧的落点类型是 `engine/engineTypes/atomic.ts` 里那份三值 `EngineAlign`
+ * （原名 `Align`，与本文件公共宽面重名；BAT-25 25-B 只给引擎侧改名，两侧取值面均未动。
+ * `data-align` 属性 + `table.css` 只有 `[data-align='center'|'end']` 两条规则）。
+ * 不归一时 `align:'right'` 会直通成没有 CSS 规则匹配的 `data-align="right"`（缺口 #13）。
+ */
+export type Align = 'start' | 'center' | 'end' | 'left' | 'right'
 
 /** 固定列方向输入；布尔值在内部归一化。 */
 export type FixedInput = 'left' | 'right' | 'start' | 'end' | boolean
@@ -17,13 +32,44 @@ export type GridSelectionValue = string | number | boolean | symbol
 export type GridSelectionMode = 'disabled' | 'single' | 'multiple' | 'extended'
 
 /**
- * getCheckboxProps 返回的勾选相关 props 子集（antd `CheckboxProps` 子集，
- * 去掉 `checked`/`defaultChecked`——这两个由状态机驱动）。
+ * `rowSelection.getCheckboxProps(record)`（以及 `getTitleCheckboxProps()`）返回的勾选控件 props。
+ *
+ * **单点定义**：适配层 / 引擎 / 公开类型都引用这一份（旧版在 `nativeOptions.ts` 与
+ * `engine/useRowSelection.ts` 各声明了一份，字段已经漂移）。
+ *
+ * 对齐 antd：antd 的签名是 `Partial<Omit<CheckboxProps, 'checked' | 'defaultChecked'>>`
+ * （`es/table/interface.d.ts`），运行时用 `{...checkboxProps}` **全展开**到 antd
+ * `<Checkbox>` / `<Radio>`（`es/table/hooks/useSelection.js:411-419`）。本库按已接线的槽位
+ * 显式列出这些字段；`checked` / `defaultChecked` 刻意不在列（选中态由 `selectedRowKeys`
+ * 状态机驱动，antd 侧同样禁止并在 dev 下 warning）。
  */
 export interface RowCheckboxProps {
+  /** 禁用该行勾选框（不参与全选 / 树形 conduction）。 */
   disabled?: boolean
-  /** antd 透传到底层 input 的 name 属性。 */
+  /** 透传到底层 input 的 name 属性。 */
   name?: string
+  /** 透传到底层 input 的 id。 */
+  id?: string
+  /** 原生 title（antd 经 rc-checkbox 落在 `.ant-checkbox` span 上）。 */
+  title?: string
+  /**
+   * 半选态。
+   * - 非树形数据：覆盖计算值（antd `mergedIndeterminate = checkboxProps?.indeterminate ?? indeterminate`）。
+   * - 树形父子联动（checkStrictly=false）：由联动计算值给出，本字段被忽略并触发 antd dev warning。
+   */
+  indeterminate?: boolean
+  /** 无障碍标签（antd 全展开时直达 input）。 */
+  'aria-label'?: string
+  /** 追加类名（与内部 `dg-selection-input*` 合并，不覆盖）。 */
+  className?: string
+  style?: CSSProperties
+  /**
+   * 点击回调。`<SelectionInput>` 先 `e.stopPropagation()`（缺口 #12b：勾选点击不该冒泡到
+   * `onRow.onClick`），**之后**再调用本回调——顺序与 antd `onClick` 实现逐字一致。
+   */
+  onClick?: MouseEventHandler<HTMLElement>
+  /** change 回调（antd 原始事件对象），在库内部选中态处理完成之后调用。 */
+  onChange?: (event: CheckboxChangeEvent | RadioChangeEvent) => void
 }
 
 /**

@@ -1,5 +1,5 @@
 /**
- * 排序状态机（单列 + 多列） — 详见 docs/design-notes/filter-sorter.md
+ * 排序状态机（单列 + 多列） — 详见 docs/features/interaction/filter-sorter.md
  *
  * 维护 `SortState[]`（每可排序叶子列一条）；sortDirections 循环点击切换；多列按 multiple
  * 优先级叠加（稳定排序链）；受控/非受控都调 getSortData 排序；onChange 经 generateSorterInfo 分发。
@@ -12,6 +12,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import type {
   ColumnType,
+  FilterValue,
   SorterResult,
   SortOrder,
   TableCurrentDataSource,
@@ -27,6 +28,7 @@ import {
   getSortData,
   isSortable,
   nextSortDirection,
+  resolveControlledStatesExclusively,
 } from './sorterUtils'
 
 export {
@@ -54,10 +56,30 @@ export interface UseSorterOptions<RecordType> {
    */
   onChange?: (
     pagination: TablePaginationState,
-    filters: Record<string, Array<string | number> | null>,
+    filters: Record<string, Array<FilterValue> | null>,
     sorter: SorterResult<RecordType> | Array<SorterResult<RecordType>>,
     extra: TableCurrentDataSource<RecordType>,
   ) => void
+  /**
+   * 取**当前**筛选状态（onChange 第二参）。由适配层（`Table.tsx`）注入 `useFilter` 的
+   * `getFiltersArg`。
+   *
+   * 对齐 antd：`InternalTable.js` 把 `changeEventInfo.filters`（由 useFilter 维护）与
+   * `changeEventInfo.sorter` 合并进**每一次** onChange（`triggerOnChange` 的
+   * `{...changeEventInfo, ...info}`），所以排序动作也带着当前 filters。
+   * 本 hook 不持有筛选态，故由调用方以取值器传入；未提供时回退 `{}`（无筛选列的场景）。
+   */
+  getFilters?: () => Record<string, Array<FilterValue> | null>
+  /**
+   * Table 级默认排序方向（`TableProps.sortDirections`）。
+   * 仅对**未**自带 `column.sortDirections` 的列生效（列级优先）。
+   *
+   * 对齐 antd：`InternalTable.js:223` 把 `sortDirections || ['ascend','descend']` 当
+   * `defaultSortDirections` 传给排序 hook，`useSorter.js:75` 取
+   * `column.sortDirections || defaultSortDirections`。未提供时回退引擎默认
+   * `DEFAULT_SORT_DIRECTIONS`（＝antd 的那个字面量默认值）。
+   */
+  defaultSortDirections?: Array<'ascend' | 'descend'>
 }
 
 export interface UseSorterResult<RecordType> {
@@ -70,7 +92,7 @@ export interface UseSorterResult<RecordType> {
   /**
    * 多列模式下，激活列（order != null）的"优先级序号"映射（sort key → 1-based 序号）。
    * 序号按 multiple 降序分配（multiple 最大=最高优先级=序号 1）。供表头显示优先级数字。
-   * 单列模式下空 Map（不显示序号）。— 详见 docs/design-notes/filter-sorter.md（多列优先级叠加）
+   * 单列模式下空 Map（不显示序号）。— 详见 docs/features/interaction/filter-sorter.md（多列优先级叠加）
    */
   sortPriorityMap: Map<string, number>
   /**
@@ -100,12 +122,12 @@ export interface UseSorterResult<RecordType> {
 }
 
 /**
- * 排序状态机 hook（单列 + 多列）— 详见 docs/design-notes/filter-sorter.md
+ * 排序状态机 hook（单列 + 多列）— 详见 docs/features/interaction/filter-sorter.md
  */
 export function useSorter<RecordType>(
   options: UseSorterOptions<RecordType>,
 ): UseSorterResult<RecordType> {
-  const { columns, dataSource, onChange } = options
+  const { columns, dataSource, onChange, getFilters, defaultSortDirections } = options
 
   // === 受控 / 非受控判定 ===
   // 受控列：带 `sortOrder`（含 null 显式受控）。
@@ -142,9 +164,15 @@ export function useSorter<RecordType>(
   )
 
   // === 合并后的当前生效状态 ===
-  const mergedStates: Array<SortState<RecordType>> = isControlled
-    ? controlledStates
-    : prunedUncontrolled
+  // 受控分支要过一遍**互斥折叠**（#14e）：外部同时给了「单列排序器 + 多列排序器」的受控
+  // sortOrder 时，首个激活的列定型模式，其余不符的列被置 null —— 对齐 antd
+  // `useSorter.js:305-345`（`mergedSorterStates` 的 `validate`/`multipleMode` 环）。
+  // 非受控分支不动（其互斥由点击逻辑 resetToSingle 保证，与参照 triggerSorter 同构）。
+  // useMemo：折叠是纯函数，保持引用稳定（改前受控分支直接用 memo 过的 controlledStates）。
+  const mergedStates: Array<SortState<RecordType>> = useMemo(
+    () => (isControlled ? resolveControlledStatesExclusively(controlledStates) : prunedUncontrolled),
+    [isControlled, controlledStates, prunedUncontrolled],
+  )
 
   // === sortOrderMap（sort key → order）===
   const sortOrderMap = useMemo(() => {
@@ -168,7 +196,7 @@ export function useSorter<RecordType>(
   // 编号随 multiple 递减递增（如 multiple=3→1，multiple=2→2，multiple=1→3）。
   // 非多列（false）在多列模式下不会共存（triggerSorter 保证），这里把 false 当
   // +Infinity（最高优先级=编号 1）以保持语义一致。
-  // — 详见 docs/design-notes/filter-sorter.md（多列优先级叠加）
+  // — 详见 docs/features/interaction/filter-sorter.md（多列优先级叠加）
   const sortPriorityMap = useMemo(() => {
     const map = new Map<string, number>()
     if (!isMultipleMode) return map
@@ -221,7 +249,10 @@ export function useSorter<RecordType>(
       // 当前 mergedStates 中该列的状态（可能不存在——首次点击）。
       const existing = mergedStates.find((s) => s.key === columnKey)
       const currentOrder: SortOrder = existing ? existing.sortOrder : null
-      const directions = column.sortDirections ?? DEFAULT_SORT_DIRECTIONS
+      // 排序方向循环：列级 → Table 级（`props.sortDirections`）→ 引擎默认。
+      // 对齐 antd `useSorter.js:75`（`column.sortDirections || defaultSortDirections`，
+      // 后者的默认值在 `InternalTable.js:223` 就是 ['ascend','descend']）。
+      const directions = column.sortDirections ?? defaultSortDirections ?? DEFAULT_SORT_DIRECTIONS
       const nextOrder = nextSortDirection(directions, currentOrder)
       const priority = getMultiplePriority(column)
 
@@ -266,13 +297,15 @@ export function useSorter<RecordType>(
         const currentDataSource = getSortData(dataSource, nextStates)
         // pagination 占位 `{}`：适配层包装 onChange 时会替换为实际分页状态，
         // useSorter 内部不持有分页态，故传占位（类型断言绕过——适配层忽略此参数）。
-        onChange({} as TablePaginationState, {}, sorter, {
+        // filters：取调用方注入的**当前**筛选状态（对齐 antd：排序动作的 onChange 同样带
+        // changeEventInfo.filters）；未注入 getFilters（无筛选列/独立使用引擎）时回退 `{}`。
+        onChange({} as TablePaginationState, getFilters?.() ?? {}, sorter, {
           currentDataSource,
           action: 'sort',
         })
       }
     },
-    [columns, mergedStates, dataSource, onChange],
+    [columns, mergedStates, dataSource, onChange, getFilters, defaultSortDirections],
   )
 
   // === 当前 sorter 结果（useFilter 的 onFilterChange 注入 onChange.sorter 用）===

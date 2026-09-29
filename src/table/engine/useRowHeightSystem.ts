@@ -1,5 +1,5 @@
 /**
- * 行高系统 hook — 详见 docs/design-notes/virtualization.md 与 row-height.md。
+ * 行高系统 hook — 详见 docs/features/scrolling/virtualization.md 与 docs/features/layout/row-height.md。
  *
  * 集中行高派生 + 行级 callback，对齐 react-virtuoso 的动态行高模型（AATree/offsetTree + gridOptions
  * 的 min/max 有界约束）。从 GridTable.tsx 抽出，仅搬位置不改逻辑（铁律：先移动不重写）。
@@ -69,9 +69,9 @@ export function useRowHeightSystem<RecordType>(
 ): UseRowHeightSystemResult {
   const { gridOptions, dataSource, virtualEnabled } = options
 
-  // === 虚拟滚动：约定行高 + 有界行高模型 — 详见 docs/design-notes/virtualization.md 与 row-height.md ===
+  // === 虚拟滚动：约定行高 + 有界行高模型 — 详见 docs/features/scrolling/virtualization.md 与 docs/features/layout/row-height.md ===
   // getRowHeight 是 useVirtualList 算 offset/totalSize 的唯一行高来源。
-  // 此处只用"收起态"约定行高，不感知展开态（详见 useVirtualList 注释 + docs/design-notes/virtualization.md）。
+  // 此处只用"收起态"约定行高，不感知展开态（详见 useVirtualList 注释 + docs/features/scrolling/virtualization.md）。
   //
   // rowHeight 仅来自 `gridOptions.rowHeight`。优先级：`gridOptions.rowHeight` > 虚拟默认 56
   //   （对齐 antd virtual-list 表观行高，antd large ≈ 55）。
@@ -163,7 +163,7 @@ export function useEffectiveRowHeight(options: UseEffectiveRowHeightOptions): (i
     maxRowHeight,
   } = options
 
-  // === effectiveRowHeight：body track 行高取值 — 详见 docs/design-notes/virtualization.md ===
+  // === effectiveRowHeight：body track 行高取值 — 详见 docs/features/scrolling/virtualization.md ===
   //   - 有界模型（minRowHeight/maxRowHeight 均设）：实测优先（sizeOf 闭环），未测回退 getRowHeight；
   //     clamp 到 [min,max]；body track 取该值（min-height/max-height 同样约束行容器，二者一致保对齐）。
   //   - 固定模型（默认）：取 getRowHeight(i)（= resolvedRowHeight 数值化）。

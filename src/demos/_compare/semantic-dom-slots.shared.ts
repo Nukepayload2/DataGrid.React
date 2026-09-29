@@ -1,12 +1,12 @@
 /**
  * Semantic DOM 左右对比 demo 的共享数据 + 类型。
  *
- * 用于 `src/demos/semantic-dom.tsx` 左右对比 demo（data-grid vs antd）。
+ * 用于 `src/demos/semantic-dom-slots.tsx` 左右对比 demo（data-grid vs antd）。
  * 数据/列形状对齐 antd `_semantic.tsx` 官方 demo（Personal Info 分组表头 + 6 行），
  * 但额外：
  *   - 给 Age 列加 `sorter: true`（演示 aria-sort 专项：点击排序时两侧表头 aria-sort 同步）。
  *   - 给 Name 列加 `rowScope: 'row'`（演示 rowScope → 行表头语义；aria-rowheader 受 dg
- *     无行容器架构限制，详见 docs/semantic-dom-compat.md）。
+ *     无行容器架构限制，详见 docs/features/styling/semantic-dom.md）。
  *
  * 两侧（data-grid / antd）共用同一份字面量数据；列定义因类型差异（ColumnType vs
  * TableProps['columns']）各自在 demo 文件内声明，但字段逐字一致。

@@ -15,7 +15,7 @@
  *     + RAF DOM 同步全部返回。
  *   - `getStickyMaxScroll` 仍由 `StickyScrollBar.tsx` 提供，本 hook 只调用不改。
  *
- * 详见 docs/design-notes/sticky.md（页面级 sticky 的虚拟横向滚动）。
+ * 即「页面级 sticky 的虚拟横向滚动」：sticky 视口是 `overflow: clip`（不创建滚动容器），故本 hook 维护的 scrollLeft 是虚拟值，不是原生滚动条读数。
  */
 import {
   useCallback,

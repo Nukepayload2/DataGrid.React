@@ -19,7 +19,7 @@
  *     `minmax(0, width-fr)` 纯 CSS 复刻，不需要 JS 测量列宽。
  *   - 否则 → 'auto'（默认，维持 max-content；basic 等无 fixed/ellipsis/scroll 的 demo 走此路径）。
  *
- * antd 源码依据：`react-component/table/src/Table.tsx:613-627`：
+ * 参照件依据（本仓实装 `@rc-component/table` 1.10.2，antd 6.4.4 的依赖）：其 `es/Table.js:411-427`：
  *   ```
  *   if (tableLayout) return tableLayout;
  *   if (fixColumn) return mergedScrollX === 'max-content' ? 'auto' : 'fixed';
@@ -40,7 +40,7 @@
  * ellipsis/fixed 判定：基于已过滤哨兵的 visibleColumns（与渲染一致）。哨兵（SELECTION/EXPAND）
  *   不是 ColumnType，不带 ellipsis/fixed，跳过。
  *
- * 详见 `docs/design-notes/column-width.md`。
+ * 详见 `docs/features/columns/column-width.md` 的「colTracks 算法（TS 视角）」一节。
  */
 import {
   EXPAND_COLUMN,

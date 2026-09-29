@@ -1,7 +1,7 @@
 // 黑盒 feature-slice 测试：与 antd 自家 Table.virtual 测试用例逐条对齐（antd-style 黑盒层）。
 //
-// 对齐来源: G:\Projects\ant-design\components\table\__tests__\Table.virtual.test.tsx
-//   antd 6 个 it → 本文件对齐 6 条（直测 4 + skip 2），另加 7 条补充直测（data-grid 独有：滚动窗口/占位/
+// 对齐来源: {{AntDesign}}/components/table/__tests__/Table.virtual.test.tsx
+//   antd 6 个 it → 本文件对齐 6 条（直测 5 + skip 1），另加 7 条补充直测（data-grid 独有：滚动窗口/占位/
 //   scrollTo/回收模式/scroll.x 正交/分页+筛选组合/无 scroll.y 降级）= 共 13 个 it。
 //
 // data-grid 不是 rc-virtual-list（无 `.ant-table-tbody-virtual*` / `.ant-table-row` / `components.body.row|cell`
@@ -14,12 +14,15 @@
 //   - 虚拟占位（rc-virtual-list 内部 padding）→ `.dg-filler-row.dg-filler-top` / `.dg-filler-bottom`
 //   - `.ant-table-expanded-row` → `.dg-row-expanded`（src/table/engine/expandLayerUtils.tsx:46-58）
 //   - `.ant-table-selection-col`（antd 选择列宽类）→ 不存在；选择列宽体现为 `.dg-grid` 的
-//     grid-template-columns track（`minmax(50px, max-content)`，src/table/selectionAdapter.tsx:167-168）
+//     grid-template-columns **第 1 条轨**：取值 `src/table/selectionAdapter.tsx:263` →叶子列 `width`
+//     （同文件 :400）→ track `computeColumnTrack`（src/table/engine/gridTemplateColumnsUtils.ts:79-111）。缺省宽度走主题
+//     token（`theme.components.Table.selectionColumnWidth`，步骤 82 起列轨消费）；实测形态＝普通档
+//     `minmax(200px, max-content)`、`scroll.y:true` 数据区档 `200px minmax(0, 1fr)`。
 //   - `.ant-table-row` 的 `display: flex` 断言 → 无对应（data-grid 行不是 flex 容器）
 //
 // 关键前置事实（读 src 确认，不猜）:
-//   - `virtual` 只有与 `scroll.y === true` 同时成立才启用（src/table/engine/useScrollMode.ts:85）；
-//     `scroll.y` 仅支持 `true`，不支持数字（src/table/publicTypes.ts:175）。
+//   - `virtual` 只有与 `scroll.y === true` 同时成立才启用（src/table/engine/useScrollMode.ts:84-85）；
+//     `scroll.y` 仅支持 `true`，不支持数字（src/table/publicTypes.ts:176；步骤 81 改实，旧写 `:175`）。
 //   - jsdom 无布局：滚动容器 clientHeight/clientHeight 恒 0 → `computeVirtualRange` 走
 //     `viewportSize <= 0` 分支，窗口 = min(itemCount, overscan*2+1) = 17 行
 //     （src/table/engine/virtualListUtils.ts:123-126）。故只断言"窗口行数 > 0 且 < 总行数"，
@@ -73,9 +76,26 @@ function stubScrollElement(el: HTMLElement, viewport = 400, total = 4000): Array
   return sets
 }
 
+/**
+ * `.dg-grid` 内联 `grid-template-columns` 的**第 1 条轨**（＝选择列轨）的指定值。
+ * 按括号深度切空格，兼容 `minmax(200px, max-content)` 里的空格；jsdom 无布局 ⇒ 只能量
+ * specified value（这也是缺陷本体所在的那一层：浏览器实际吃到的宽度声明）。
+ */
+function firstGridTrack(container: HTMLElement): string {
+  const value = (container.querySelector('.dg-grid') as HTMLElement).style.gridTemplateColumns
+  let depth = 0
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index]
+    if (char === '(') depth += 1
+    else if (char === ')') depth -= 1
+    else if (char === ' ' && depth === 0) return value.slice(0, index)
+  }
+  return value
+}
+
 describe('Table.Virtual', () => {
   // antd L8：virtual + scroll（antd 用 { x: 100, y: 100 }）。
-  // 重映射：data-grid 的 scroll.y 仅支持 true（src/table/publicTypes.ts:175），数字形态不启用虚拟
+  // 重映射：data-grid 的 scroll.y 仅支持 true（src/table/publicTypes.ts:176），数字形态不启用虚拟
   // （useScrollMode.ts:85），故改传 y: true；断言改到 .dg-virtual-scroll + .dg-cell-body。
   it('should work', () => {
     const { container } = customRender(
@@ -95,15 +115,29 @@ describe('Table.Virtual', () => {
     expect(cells[0].textContent).toBe('bamboo')
   })
 
-  // antd L32：`virtual` 且无 `scroll.y` 时报 rc-component/table 的 warning
-  // （'Warning: `scroll.y` in virtual table must be number.'）。
-  // skip 依据（实测 + src）：data-grid 不产生任何该 warning —— 全 src/table 仅 usePagination.ts:177 有
-  // console.warn，虚拟路径无 warning；`useScrollMode.ts:85` 要求 `scroll.y === true` 才启用虚拟，
-  // 缺失时**静默降级为非虚拟**。该 antd 断言的"警告"行为在 data-grid 不存在，无法直测；
-  // 真实降级行为由下方补充用例 'degrades to non-virtual when scroll.y is absent' 覆盖。
+  // antd L32（规约源 6.5.2 `Table.virtual.test.tsx:32`）：`virtual` 且无 `scroll.y` 时报
+  //   'Warning: `scroll.y` in virtual table must be number.'（走 **console.error**）。
+  // skip 依据（**结论仍真**）：data-grid 在该场景**不产生任何告警** ⇒ 与裁判不同值，不可直测。
+  //   - 本仓告警出口只有一条：`src/table/devWarn.ts:84` 的 `console.warn`（前缀 `[data-grid]`，
+  //     判据在 `devWarn.ts`，NODE_ENV 门与去重也在那一层）。
+  //     ⚠️ 旧依据写「全 src/table 仅 `usePagination.ts:177` 有 console.warn」是**假锚点**：
+  //     `grep -rn "console\.(warn|error|log)" src/table/` 实测**只命中 1 处 = `devWarn.ts:84`**，
+  //     `usePagination.ts` 内根本没有裸 console.warn（它调 `devWarnOnce(`，在 `:224`）；`:177` 附近是 `resetPagination`。
+  //     ⇒ 结论（虚拟路径零告警）不变，理由改按实测出口写。
+  //   - 启用判据：`src/table/engine/useScrollMode.ts:84` `scrollYEnabled = scrollY === true`，
+  //     `:85` `virtualEnabled = !stickyEnabled && virtual === true && scrollYEnabled`
+  //     ⇒ 缺 `scroll.y` 时**静默降级为非虚拟**（真实降级行为由下方补充用例
+  //     'degrades to non-virtual when scroll.y is absent' 覆盖）。
+  //   - 裁判 6.4.4 产物：该告警**不在 antd 包内**，出处在 rc 层——
+  //     `node_modules/.pnpm/@rc-component+table@1.10.2__5ed06d265599b1c93676808b1b611f55/node_modules/@rc-component/table/es/VirtualTable/index.js:50`
+  //     `warning(false, '`scroll.y` in virtual table must be number.')`（`:41` 另有一条 `scroll.x` 版）。
+  //   - 双臂实测（探针 `tmp/81-probe-readings.txt` 臂 `A10.dg` / `A10.ref`）：
+  //     dg `console.error` **0** 条、`console.warn` **0** 条 ↔ 裁判 `console.error` **1** 条、原文命中
+  //     （`scroll.x` 那条 0）⇒ **不同值**，留 skip。
   it.skip('warning if no scroll', () => {
     // 占位：data-grid 无 rc-virtual-list 的 scroll.y 类型警告（见上方依据）。
   })
+
 
   // antd L40：virtual + components.body.row/cell（EditableRow/EditableCell）。
   // 重映射：data-grid **消费** components.body.row（每行包裹层）与 components.body.cell
@@ -199,21 +233,50 @@ describe('Table.Virtual', () => {
     ).toEqual(['d0', 'n0'])
   })
 
-  // antd L130：ConfigProvider 组件 token `Table.selectionColumnWidth` 决定选择列宽。
-  // skip 依据：data-grid 只消费 ConfigProvider 的 locale（src/table/Table.tsx:289-298，无 useToken /
-  // theme components 读取）；实测在 <ConfigProvider theme={{components:{Table:{selectionColumnWidth:200}}}}>
-  // 下 `.dg-wrapper` 的 `--ant-table-selection-column-width` 仍为 32px（tokenBridge.ts:131 由 controlHeight
-  // 派生，不读用户覆盖），选择列 track 也不含 200px；且 data-grid 无 `.ant-table-selection-col` 元素。
-  // 见 docs/pages/known-limitations（ConfigProvider 组件 token）。
-  it.skip('should support columnWidth from token', () => {
-    // 占位：ConfigProvider 组件级 token 不参与选择列宽（见上方依据）。
+  // antd L130（规约源 6.5.2 `Table.virtual.test.tsx:130`）：ConfigProvider 组件 token
+  //   `theme.components.Table.selectionColumnWidth` 决定选择列宽（上游断 `.ant-table-selection-col`
+  //   的 `width: 200px`）。
+  // 重映射：dg 没有 `.ant-table-selection-col`（实测计数 0）⇒ 可观测等价物＝`.dg-grid` 内联
+  //   `grid-template-columns` 的**第 1 条轨**（选择列轨）。本档 `scroll.y:true` 走定值 track，
+  //   实测 `200px minmax(0, 1fr)`（探针读数 `tmp/83-probe-readings.txt` 臂 `A.virtual.y.token200`；
+  //   无覆盖臂 `B.virtual.y.default` 仍是 `32px`）。
+  // 性质说明：本条**原为 `it.skip`**，旧依据是"选择列轨不消费组件 token"；步骤 82 让列轨读 token
+  //   （`src/table/useSelectionAdapter.ts:477-479` 注入缺省宽度）后该依据被实测否证 ⇒ 转直测。
+  it('should support columnWidth from token', () => {
+    const { container } = renderWithConfig(
+      <Table
+        columns={[{ dataIndex: 'key' }]}
+        dataSource={[{ key: '0' }]}
+        rowSelection={{}}
+        virtual
+        scroll={{ y: true }}
+      />,
+      { theme: { components: { Table: { selectionColumnWidth: 200 } } } },
+    )
+
+    // 轨道面＝缺陷本体（改前该轨恒 `32px`，不随 token 动）。
+    expect(firstGridTrack(container)).toBe('200px')
+    // `.dg-wrapper` 的 CSS 变量面与轨道面同源（改前只有这一侧跟手，两侧各说各话）。
+    expect(
+      (container.querySelector('.dg-wrapper') as HTMLElement).style.getPropertyValue(
+        '--ant-table-selection-column-width',
+      ),
+    ).toBe('200px')
+    // 随之变宽的是选择列本身（该格占第 1 列），不是别的列跟着挪。
+    const selectionCell = container.querySelector<HTMLElement>(
+      '.dg-cell-body[data-column-key="__dg_selection__"]',
+    )
+    expect(selectionCell).toBeTruthy()
+    expect(selectionCell?.style.gridColumn).toBe('1')
   })
 
   // antd L153：自定义 `rowSelection.columnWidth` 优先于 token（token: 200 → 自定义 50）。
-  // 重映射：antd 断言 `.ant-table-selection-col` width:50px → data-grid 无该类，
-  // 选择列宽体现在 `.dg-grid` 的 grid-template-columns track（src/table/selectionAdapter.tsx:167-168）。
-  // 注：data-grid 不消费 theme token（见上方 skip 依据），故"优先于 token"在 data-grid 退化为
-  // "自定义宽度生效且 token 不产生任何影响"——本用例直测该可观测事实。
+  // 重映射：antd 断言 `.ant-table-selection-col` width:50px → data-grid 无该类，选择列宽体现在
+  // `.dg-grid` 的第 1 条 track（取值链见本文件头「选择器重映射」那条）。
+  // 注：data-grid 的**选择列轨确实读 theme token**（步骤 82 起，见上方 `should support columnWidth
+  // from token`），但只在用户没给 `columnWidth` 时填缺省档——参照靠 spread 后置
+  // （`node_modules/antd/es/table/InternalTable.js:126-131`），我方靠 `??`
+  // （`src/table/useSelectionAdapter.ts:477-479`）⇒ 用户显式值优先这条优先级两边同形。
   it('should support custom columnWidth priority over token', () => {
     const { container } = renderWithConfig(
       <Table
@@ -229,7 +292,8 @@ describe('Table.Virtual', () => {
     // scroll.y 数据区域模式下列宽走定值 track（实测 '50px minmax(0, 1fr)'）。
     const grid = container.querySelector('.dg-grid') as HTMLElement
     expect(grid.style.gridTemplateColumns.startsWith('50px')).toBe(true)
-    // token 值 200 不得出现在列轨里（data-grid 不消费该 token）。
+    // 列轨上不得出现 token 值 200：用户显式 `columnWidth` 赢过 token 缺省档（token 仍会落进
+    // `.dg-wrapper` 的 `--ant-table-selection-column-width`，那是参照 CSS 规则侧的消费面）。
     expect(grid.style.gridTemplateColumns).not.toContain('200px')
     // 选择列的数据格存在且定位为第一列。
     const selectionCell = container.querySelector(

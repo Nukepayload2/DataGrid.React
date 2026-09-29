@@ -44,7 +44,7 @@ export default function ExpandDg({
       dataSource={data}
       pagination={{}}
       /* ON 时 virtual=true + scroll.y:true（CSS 自适应填满 SplitDemo 限高）。
-         展开内容直接渲染但不参与虚拟窗口大小—详见 docs/design-notes/virtualization.md */
+         展开内容直接渲染但不参与虚拟窗口大小—详见 docs/features/scrolling/virtualization.md */
       virtual={virtual}
       scroll={virtual ? { y: true } : undefined}
     />

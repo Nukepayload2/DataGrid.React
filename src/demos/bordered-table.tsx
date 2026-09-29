@@ -49,7 +49,7 @@ export default function BorderedDemo() {
                   <li><strong>差异原因</strong>：无差异。antd <code>.ant-table-footer</code> 在有 footer 时
                     去掉自身顶圆角、补底圆角配合 <code>.ant-table</code> 顶圆角实现四角圆；data-grid 用
                     <code>.dg-wrapper:has(.dg-footer)</code> 整框四角圆对齐。详见{' '}
-                    <code>docs/design-notes/bordered.md</code>。</li>
+                    <code>docs/features/layout/bordered.md</code>。</li>
                 </ul>
               </li>
               <li>
@@ -61,7 +61,7 @@ export default function BorderedDemo() {
                   <li><strong>触发条件</strong>：始终。</li>
                   <li><strong>差异原因</strong>：无差异。antd Table 未定义 <code>.column-money</code> CSS
                     规则，该 className 是演示 <code>column.className</code> 透传机制的 placeholder，antd 自身
-                    不消费；data-grid 同样只透传不消费。详见 <code>docs/design-notes/bordered.md</code>。</li>
+                    不消费；data-grid 同样只透传不消费。详见 <code>docs/features/layout/bordered.md</code>。</li>
                 </ul>
               </li>
             </ul>
@@ -90,7 +90,7 @@ export default function BorderedDemo() {
                   <li><strong>触发条件</strong>：bordered 开启 + 横滚到固定列边界。</li>
                   <li><strong>差异原因</strong>：无差异。data-grid 主动给 fixed-end 边界格补
                     <code>border-inline-start</code>（修正 sticky 列缺左 border 的情形），antd 原生即正确。
-                    两侧均边界完整。详见 <code>docs/design-notes/bordered.md</code>。</li>
+                    两侧均边界完整。详见 <code>docs/features/layout/bordered.md</code>。</li>
                 </ul>
               </li>
               <li>

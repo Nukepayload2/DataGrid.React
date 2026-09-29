@@ -1,5 +1,5 @@
 /**
- * 单元格合并计算。详见 docs/design-notes/header.md「表体合并」节。
+ * 单元格合并计算。详见 docs/features/layout/header-and-span.md「表体合并」节。
  *
  * 思路：合并区域左上角格设 span，被覆盖格自动隐藏。
  *

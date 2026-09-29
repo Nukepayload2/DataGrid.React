@@ -67,7 +67,7 @@ export default function ExpandStickyDemo() {
                 <li><strong>触发条件</strong>：点击任一行的展开图标。</li>
                 <li><strong>差异原因</strong>：data-grid 用 CSS Grid 渲染展开行（track 高度直接可动画插值），
                   antd 用 JS 测量+动画。视觉时机略有差异。详见{' '}
-                  <code>docs/design-notes/expand.md</code>。</li>
+                  <code>docs/features/interaction/expand.md</code>。</li>
               </ul>
             </li>
             <li>

@@ -16,7 +16,7 @@ interface CompatRow {
 const compatRows: CompatRow[] = [
   { key: 'base', api: 'dataSource / columns / rowKey', status: '完全兼容', detail: '基础数据、列定义和行 key 沿用 antd 使用习惯。' },
   { key: 'selection', api: 'rowSelection', status: '部分兼容', detail: '常用选择、受控键、自定义选择项和 renderCell 已覆盖；自定义样式和事件绑定的位置与 antd 略有差异。过时成员 onSelectMultiple 的处理见下方特例。' },
-  { key: 'expandable', api: 'expandable', status: '部分兼容', detail: '展开行、默认展开、expandRowByClick、columnTitle、fixed 已覆盖；expandedRowOffset 的处理见下方特例。' },
+  { key: 'expandable', api: 'expandable', status: '部分兼容', detail: '展开行、默认展开、columnTitle、fixed 已覆盖。expandRowByClick 对单层与树形数据一视同仁：点行体即切换该行／被点节点的展开态，树形下只切换含非空 children 的行，叶子行点行体不切换。迁移时不要再自己接管行点击做展开，否则会和这条叠加。expandIcon 只在存在展开列时生效（与 antd 6.4.4 同形）；只经 ConfigProvider 给 expandable.expandIcon、props 完全没给 expandable 时我们不渲染图标（参照会把图标内联进每行第一个既有格）。expandedRowOffset 的处理见下方特例。' },
   { key: 'scroll', api: 'scroll', status: '部分兼容', detail: 'x 支持常用形态；y 只接受 true（数据区域模式，高度由父容器驱动）。' },
   { key: 'components', api: 'components', status: '部分兼容', detail: '支持 body.cell、body.row；header.cell、wrapper / table 级替换暂未开放。可替换的组件位置见 Semantic DOM 页。' },
   { key: 'locale', api: 'locale', status: '部分兼容', detail: '表体空态、筛选下拉、选择菜单、排序和展开文案已接入 antd locale 链路；filterCheckall 兼容别名见下方特例。' },

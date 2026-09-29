@@ -149,9 +149,17 @@ export interface Expandable<RecordType = any> {
  *
  * 详见 demo `order-column`。
  *
- * 同名同义于 antd `Table.EXPAND_COLUMN`。
+ * 与 antd `Table.EXPAND_COLUMN` **同名同位同用法**；类型面有意强于 antd——见下。
+ *
+ * @internal `__dgExpandColumn` 是**纯类型 brand**，只为让 `ColumnOrSentinel`（见本文件末尾）
+ * 的哨兵成员不再是空对象类型 `{}`。antd 侧 `SELECTION_COLUMN`/`EXPAND_COLUMN` 都是 `{}`
+ * （`antd/es/table/hooks/useSelection.js:18`），而 `{}` 在 `ColumnType` 全字段可选的前提下
+ * 会让 columns 元素写错字段名时编译器完全不拦。运行时识别哨兵**一律按引用相等**
+ * （`c === EXPAND_COLUMN`：`columnAdapter.ts` 的 `applyColumnDefaults`、
+ * `tableLayoutResolver.ts` 的列遍历、`useColumnTreeBuilder.ts` 的哨兵分支），
+ * **消费者不得读取该字段**，也不得依赖其存在做判定。
  */
-export const EXPAND_COLUMN = {} as const
+export const EXPAND_COLUMN = { __dgExpandColumn: true } as const
 
 /**
  * 选择列占位哨兵。
@@ -160,12 +168,19 @@ export const EXPAND_COLUMN = {} as const
  * 未插入时，若 `rowSelection` 传入，选择列默认插在最前（零回归）。
  * 与 `EXPAND_COLUMN` 类似机制。
  *
- * 同名同义于 antd `Table.SELECTION_COLUMN`。
+ * 与 antd `Table.SELECTION_COLUMN` **同名同位同用法**；类型面有意强于 antd。
+ *
+ * @internal `__dgSelectionColumn` 是**纯类型 brand**，作用与约束同 `EXPAND_COLUMN`：
+ * 仅用于收紧 `ColumnOrSentinel` 的类型，运行时一律按引用相等识别（`c === SELECTION_COLUMN`），
+ * **消费者不得读取该字段**。
  */
-export const SELECTION_COLUMN = {} as const
+export const SELECTION_COLUMN = { __dgSelectionColumn: true } as const
 
 /**
  * 列定义或哨兵：columns 数组可混入 EXPAND_COLUMN / SELECTION_COLUMN 占位对象，
  * 用于控制展开列 / 选择列的位置（用法等价 antd `Table.EXPAND_COLUMN`）。
+ *
+ * @internal 两个哨兵成员带必需 brand 字段，故本联合不含 `{}` 成员：columns 元素写错
+ * 字段名会被编译器拒绝（见 `tests/table/features/type.test-d.tsx`）。
  */
 export type ColumnOrSentinel<RecordType = any> = ColumnType<RecordType> | typeof EXPAND_COLUMN | typeof SELECTION_COLUMN

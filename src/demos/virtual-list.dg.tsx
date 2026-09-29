@@ -137,7 +137,7 @@ export default function VirtualListDg({
     return merged && !expanded ? dgMergedColumns : dgPlainColumns
   }, [fixed, merged, expanded])
 
-  // 展开内容不计入虚拟窗口（窗口按收起态 rowHeight 算）—详见 docs/design-notes/virtualization.md
+  // 展开内容不计入虚拟窗口（窗口按收起态 rowHeight 算）—详见 docs/features/scrolling/virtualization.md
   const dgExpandable = useMemo(() => {
     if (!expanded) return undefined
     return {

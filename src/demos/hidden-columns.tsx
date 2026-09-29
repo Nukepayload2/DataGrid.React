@@ -62,7 +62,7 @@ export default function HiddenColumnsDemo() {
                 <li><strong>触发条件</strong>：取消勾选某列（<code>column.hidden = true</code>）。</li>
                 <li><strong>差异原因</strong>：data-grid 用 CSS Grid，需保持 track 线号稳定（多级表头列范围 /
                   固定列偏移 / 合并格区间依赖线号），故保留 <code>0fr</code> track 占位而非删除；antd 原生
-                  <code>&lt;table&gt;</code> 无此约束。详见 <code>docs/design-notes/hidden-column.md</code>。</li>
+                  <code>&lt;table&gt;</code> 无此约束。详见 <code>docs/features/columns/hidden-column.md</code>。</li>
               </ul>
             </li>
             <li>

@@ -3,7 +3,7 @@
  *
  * 对齐 antd v6 `TableProps.sticky`。
  */
-// 按业务域从 compatTypes.ts 拆出；实现参考 antd `react-component/table/src/hooks/useSticky.ts`
+// 按业务域从 compatTypes.ts 拆出；实现参考本仓实装的 `@rc-component/table` 1.10.2 `es/hooks/useSticky.js:7-26`
 // + `components/table/style/sticky.ts`。
 
 /**
@@ -27,7 +27,7 @@
  *   - summary fixed：页面级 sticky 且非数据区域滚动时，`offsetSummary` 作为 fixed summary 的
  *     bottom 偏移；横向滚动条仍保持在 summary 上方。
  *   - 虚拟 / 容器内固定：与 sticky 互斥（sticky 是页面级，容器内是页面级优先；同时传时 sticky 优先，
- *     因为 sticky 不包 overflow 容器，容器内滚动不生效）。
+ *     因为 sticky 把 grid 包进 `overflow: clip` 视口——clip 不建滚动容器，容器内滚动无从发生）。
  *
  * **getContainer 说明**：对齐 antd，允许自定义"判定 sticky 生效的滚动容器"。默认 `() => window`。
  *

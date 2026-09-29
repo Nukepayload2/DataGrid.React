@@ -55,6 +55,11 @@ antd 行为：tree-data（record.children 嵌套）与 `expandable.expandedRowRe
 | 扁平化 | 自研 DFS（`flattenTree`） | rc-table `useFlattenRecords` |
 | 父子映射 | `parentChildrenMap`（全树，供联动用） | rc-tree `convertDataToEntities` |
 | 树形 × expandedRowRender | 树形优先（互斥） | 同款（warning） |
+| 树形 × `expandRowByClick` | **生效**：点行体切换被点节点的展开态（状态源走树的 `expandableKeySet`/`toggleExpand`；无子节点的行点行体不切换） | **生效**：`@rc-component/table 1.10.2 es/hooks/useRowInfo.js:22-24, 32-35` 对 `nest` 类型同样按 `expandRowByClick` 触发展开 |
+
+⇒ 这一点树形与非树形同形，不属有意差异；生效范围与判据见
+[`expand.md`](expand.md) 的「点击行体展开」一节，边界登记见
+[`known-limitations.md`](../../reference/known-limitations.md)。`读码`
 
 ## 关联源码
 

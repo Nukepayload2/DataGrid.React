@@ -1,5 +1,5 @@
 /**
- * 拖拽中自动滚动容器（autoScrollOnDrag）— 详见 docs/design-notes/drag-sort.md（「auto-scroll」节）。
+ * 拖拽中自动滚动容器（autoScrollOnDrag）— 详见 docs/features/interaction/drag-sort.md（「auto-scroll」节）。
  *
  * 行拖 / 列拖的 hit-test 实时遍历已渲染的 `[data-row-index]` / `[data-leaf-index]` 单元格算 over index。
  * 虚拟列表下只渲染可视区行；当用户把行拖到容器底部边缘下方时，可视区外的行没有 DOM，hit-test 会
@@ -31,7 +31,7 @@ export interface PointerPositionRef {
 }
 
 /**
- * 定位滚动容器。详见 docs/design-notes/drag-sort.md（「auto-scroll」节）。
+ * 定位滚动容器。详见 docs/features/interaction/drag-sort.md（「auto-scroll」节）。
  *
  * 优先级：
  *   1. `root.querySelector('.dg-scroll')`：data-grid 的标准滚动容器（GridTable 在 scroll.x /

@@ -5,11 +5,13 @@
  * 自定义（`column.filterDropdown`）。
  *
  * 语义要点：
- * - **filterOnClose**：true（默认）关闭即应用草稿；false 仅"确定"按钮才应用（关闭丢弃）。
+ * - **filterOnClose**：true（默认）**内置面板**关闭即应用草稿；**自定义面板（`column.filterDropdown`）
+ *   从不因关闭而应用**（对齐 antd 6.4.4 `useFilter/FilterDropdown.js:247` 的 `!column.filterDropdown` 门，
+ *   详见 `handleOpenChange` 上方注释）；false 仅"确定"按钮才应用（关闭丢弃）。
  * - **localSelected**：面板内勾选是本地草稿，与外部 filteredValue 解耦；打开时重置为 filteredValue。
  * - **重置**：默认清空草稿；filterResetToDefaultFilteredValue=true 时恢复默认筛选值。
  *
- * 详见 [docs/design-notes/filter-sorter.md](../../../docs/design-notes/filter-sorter.md)。
+ * 详见 [docs/features/interaction/filter-sorter.md](../../../docs/features/interaction/filter-sorter.md)。
  */
 
 import { useCallback, useContext, useEffect, useMemo, useState } from 'react'
@@ -17,6 +19,20 @@ import { ConfigProvider, Dropdown, Empty } from 'antd'
 // filter 图标用 `@ant-design/icons` 的 FilterFilled（与 antd Table 默认 filterIcon 一致）。
 // 默认/激活态都用同一个 FilterFilled——激活视觉差异由 `.dg-filter-trigger-active`（color）驱动，不切换图标。
 import { FilterFilled } from '@ant-design/icons'
+// === 自定义面板的 Menu 可选中修复（缺口 #3）所需件 ===
+// antd Dropdown 会把弹出层内容整个包进它自己的 `OverrideProvider` 并注入 `selectable: false`
+//   （antd `es/dropdown/dropdown.js:179` + `:190`），于是用户在 `column.filterDropdown` 里放的
+//   `<Menu>` 被连带判为「不可选中」。参照侧的反向抵消件正是这个 Provider：antd 自家筛选面板用
+//   `OverrideProvider selectable={undefined}` 包住自定义内容
+//   （antd `es/table/hooks/useFilter/FilterDropdown.js:413-417`，注释
+//   "We should not block customize Menu with additional props"）。
+// 该件在运行时存在（antd `es/menu/OverrideContext.js:8` 的命名导出），但它的 `.d.ts`
+//   只导出 `OverrideContextProps` 与 default，**没有**导出 `OverrideProvider` ⇒ 直接 import 撞类型错误。
+//   这里用 `@ts-expect-error` 而非 `declare module`（不把 antd 内部面写进本包类型层）
+//   也非 `as any`（不连带吃掉本文件其它真实类型错误）。它自带自清式引线：若 antd 日后把该导出
+//   补进类型声明，下一行会因 `TS2578 Unused '@ts-expect-error'` 变红，提醒我们撤掉。
+// @ts-expect-error antd 的 es/menu/OverrideContext.d.ts 未导出 OverrideProvider（运行时导出见 OverrideContext.js:8）
+import { OverrideProvider } from 'antd/es/menu/OverrideContext'
 import type { EngineFilterItem } from './types'
 import type {
   ColumnFilterDropdownProps,
@@ -38,9 +54,27 @@ import { FilterBuiltinPanel } from './FilterBuiltinPanel'
 
 const { ConfigContext } = ConfigProvider
 // renderEmpty 签名：`(componentName) => ReactNode`。
-type RenderEmptyHandler = (componentName: string) => React.ReactNode
+//
+// ⚠️ 这是**引擎内部**那一份，与兼容侧 `emptyLoadingAdapter.tsx` 的同名局部类型**只是曾经同名**：
+// 兼容侧那份服务表体空态（`renderEmpty('Table')`），名字镜像 antd 自己的导出型
+// （`antd/es/config-provider` 的 `RenderEmptyHandler`）；本处只服务 filter 下拉内
+// `column.filters` 为空数组时的占位（`renderEmpty('Table.filter')`）——**两个 componentName
+// 是两条独立语义**（见 `emptyLoadingAdapter.tsx` 与 `types.ts` 的 locale 注释），
+// 因此两份不该共享一个名字。BAT-25 25-D 把内部这份改名 `EngineRenderEmptyHandler`
+// （对齐 25-B `EngineAlign` 的先例：公共/兼容名不动，引擎侧加 `Engine` 前缀），
+// 兼容侧名字保持不动 ⇒ 各自单一声明，不再需要人肉同步。
+type EngineRenderEmptyHandler = (componentName: string) => React.ReactNode
 
-export interface FilterDropdownProps {
+/**
+ * 引擎内部 `<FilterDropdown>` 组件的 props。
+ *
+ * ⚠️ 与公共兼容形状 `compat/filter.ts` 的 `FilterDropdownProps`（`prefixCls`/`selectedKeys`/
+ * `setSelectedKeys`/`confirm`/`clearFilters`…，即 `column.filterDropdown` 回调收到的那一份）
+ * **字段面毫不相干**，只是曾同名（BAT-25 25-C 把内部这份改名 `FilterDropdownInternalProps`，
+ * 公共名保持不动 ⇒ 用户按名字 import 的既有写法零影响）。本文件内部把公共那份按
+ * `DgFilterDropdownProps` 引用（见上方 import 别名）。
+ */
+export interface FilterDropdownInternalProps {
   /** 该列筛选项列表（来自列树 EngineHeaderCell.filters）。 */
   filters: Array<EngineFilterItem>
   /** 是否多选（默认 true）。true → Checkbox.Group；false → Radio.Group。 */
@@ -139,7 +173,7 @@ export function FilterDropdown({
   filterMode = 'menu',
   getPopupContainer,
   locale,
-}: FilterDropdownProps) {
+}: FilterDropdownInternalProps) {
   // 自定义面板模式（column.filterDropdown 存在且非 null）。
   const isCustom = customDropdown !== undefined && customDropdown !== null
   // 树形内置面板模式（仅非自定义面板时生效）。
@@ -288,7 +322,7 @@ export function FilterDropdown({
   // 默认文案 "No filters"（antd en_US 默认 filterEmptyText；data-grid 暂未透传 Table locale 到此）。
   const { renderEmpty } = useContext(ConfigContext)
   const filterEmptyNode = useMemo<React.ReactNode>(() => {
-    const custom = (renderEmpty as RenderEmptyHandler | undefined)?.('Table.filter')
+    const custom = (renderEmpty as EngineRenderEmptyHandler | undefined)?.('Table.filter')
     if (custom !== undefined && custom !== null && custom !== false) return custom
     return (
       <Empty
@@ -324,6 +358,17 @@ export function FilterDropdown({
   }, [defaultFilteredValue, filterResetToDefaultFilteredValue])
 
   // Dropdown onOpenChange：关闭时处理 filterOnClose 语义。
+  //
+  // 参照（antd **6.4.4** `es/table/hooks/useFilter/FilterDropdown.js:240-251`）的关闭应用有**两道门**：
+  //   门 ① `info.source === 'trigger'`（`:241`）、门 ② `!newVisible && !column.filterDropdown && filterOnClose`（`:247`）。
+  // 这里只接**门 ②**（`!isCustom`）：**自定义面板（`column.filterDropdown`）从不因"关闭"而应用草稿**——
+  //   面板内的值是用户的私有草稿，只有他自己调 `confirm()` / `clearFilters({confirm:true})` 才算应用。
+  //   ⇒ 与本文件旧行为（无门 ②）的差别是可被用户看见的数据结果：修复前"没点确定的值"会被应用、
+  //     甚至把已生效的筛选**顶掉/清空**（探针 57：V-1a/V-1b/V-1d/V-2c 四条双侧分叉）。
+  // 门 ① **本处不接**（已运行探针 57 V-4a：`info.source` 在我方同一个 `onOpenChange` 槽位上运行时可得，
+  //   取值只有 `'trigger'`（点触发器/点面板外/ESC）与 `'menu'`（弹层内 antd `<Menu>` 点项））：
+  //   它区分的不是"用户 vs 程序化"关闭，而是"Menu 点项不算关闭"⇒ 会影响**开合态**
+  //   （V-1e：我方 Menu 点项关面板、参照保持打开），属独立待裁边界，不在本批改（交回 main 裁定）。
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
       setOpen(nextOpen)
@@ -331,18 +376,21 @@ export function FilterDropdown({
       dropdownProps?.onOpenChange?.(nextOpen)
       if (!nextOpen) {
         // 关闭下拉。
-        if (filterOnClose) {
+        if (filterOnClose && !isCustom) {
           // 关闭即应用：把草稿应用为 filteredValue（空草稿 = 清除筛选）。
+          //   仅**内置面板**消费这条语义；自定义面板见上方门 ② 注释。
           onApply(localSelected.slice())
         } else {
-          // 仅确定才应用：关闭丢弃草稿，恢复到当前 filteredValue（下次打开重新初始化）。
+          // 关闭丢弃草稿，恢复到当前 filteredValue（下次打开重新初始化）。触发条件有两种：
+          //   - `filterOnClose === false`（必须点"确定"才应用）；
+          //   - `isCustom === true`（自定义面板：关闭**从不**应用）。
           // useEffect[open] 会在下次打开时重置草稿，这里无需额外处理；但为避免"关闭时草稿残留
           // 被误用"，显式重置一次。
           setLocalSelected((filteredValue ?? []).slice())
         }
       }
     },
-    [filterOnClose, localSelected, onApply, filteredValue, dropdownProps],
+    [filterOnClose, isCustom, localSelected, onApply, filteredValue, dropdownProps],
   )
 
   // === 自定义面板 antd 兼容 props ===
@@ -452,13 +500,22 @@ export function FilterDropdown({
   ])
 
   const panel = isCustom ? (
-    <div
-      className="dg-filter-dropdown dg-filter-dropdown-custom"
-      onClick={(e) => e.stopPropagation()}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      {customPanel}
-    </div>
+    // 抵消 antd Dropdown 注入的 `selectable: false`（见文件头 OverrideProvider 的引入注释），
+    // 否则自定义面板里用户自己的 `<Menu>` 点不中：实测改前 onSelect 调用 0 次、无 selected 类，
+    // 参照侧 antd 同场景为 1 次 + `.ant-dropdown-menu-item-selected`。
+    // 只抵消 `selectable` 这一项：Dropdown 注入的 prefixCls（`ant-dropdown-menu`）等其余覆盖项照旧生效
+    // ——与 antd 自家筛选面板的口径一致，故选中态类名是 `.ant-dropdown-menu-item-selected` 而非 `.ant-menu-item-selected`。
+    // 层级顺序也对齐 antd：Provider 在面板包裹 div **之外**（antd 是先包 Provider 再套 FilterDropdownMenuWrapper）。
+    // 该 Provider 不产出任何 DOM 节点（内部只有 ContextIsolator → NoCompactStyle），故渲染结构零变化。
+    <OverrideProvider selectable={undefined}>
+      <div
+        className="dg-filter-dropdown dg-filter-dropdown-custom"
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {customPanel}
+      </div>
+    </OverrideProvider>
   ) : (
     builtinPanel
   )

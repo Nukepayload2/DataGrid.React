@@ -56,18 +56,18 @@ export default function MultipleSorterDemo() {
                   即 Chinese 激活时显示 1）；antd multiple-sorter demo 不渲染此徽标。</li>
                 <li><strong>触发条件</strong>：两列及以上同时激活。</li>
                 <li><strong>差异原因</strong>：属 data-grid 增强（排序样式自带徽标），非 antd 对齐项。
-                  详见 <code>docs/design-notes/filter-sorter.md</code>。</li>
+                  详见 <code>docs/features/interaction/filter-sorter.md</code>。</li>
               </ul>
             </li>
             <li>
               <strong>onChange sorter 数组顺序</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：antd 按列定义顺序输出激活列（Chinese, Math, English）；
-                  data-grid 按 multiple 升序输出（English, Math, Chinese）。数组元素集合相同，顺序不同。</li>
+                <li><strong>差异行为</strong>：两侧一致——非受控多列激活时 <code>sorter</code> 数组按**状态集原序**输出激活项
+                  （被点列搬到末尾 ⇒ 数组顺序＝点击顺序），元素集合与顺序都相同。</li>
                 <li><strong>触发条件</strong>：多列激活，<code>onChange</code> 的 <code>sorter</code> 为数组时。</li>
-                <li><strong>差异原因</strong>：两侧 <code>generateSorterInfo</code> 排序键不同
-                  （antd 列定义插入顺序 / data-grid multiple 升序），属引擎实现取舍，非 demo 可修。
-                  详见 <code>docs/design-notes/filter-sorter.md</code>。</li>
+                <li><strong>差异原因</strong>：无差异。两侧 <code>generateSorterInfo</code> 都对状态集**原序**收集激活项、
+                  <strong>不做二次排序</strong>（antd 6.4.4 <code>es/table/hooks/useSorter.js:216-239</code>）；
+                  <code>sorter.multiple</code> 只决定比较次序。详见 <code>docs/features/interaction/filter-sorter.md</code>。</li>
               </ul>
             </li>
           </ul>

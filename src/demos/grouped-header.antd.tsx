@@ -109,7 +109,7 @@ export default function GroupingColumnsAntd({
          分页条~50 塞进 split pane 限高）。
          antd virtual 要求 scroll.x 必须为数字（calc 字符串会抛 "scroll.x must be number"），
          故 ON 时 x 改传数字 2000（按列宽估算取保险值足够触发横滚）；
-         OFF 时回原 {x:'calc(700px+50%)', y:47*5}。详见 docs/design-notes/virtualization.md */
+         OFF 时回原 {x:'calc(700px+50%)', y:47*5}。详见 docs/features/scrolling/virtualization.md */
       virtual={virtual}
       scroll={virtual ? { x: 2000, y: 300 } : { x: 'calc(700px + 50%)', y: 47 * 5 }}
     />

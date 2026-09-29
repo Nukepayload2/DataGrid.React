@@ -50,7 +50,7 @@ export default function StyleClassDemo() {
                 <li><strong>触发条件</strong>：传 <code>classNames.body.row</code> /
                   <code> styles.body.row</code> 时。</li>
                 <li><strong>差异原因</strong>：data-grid 用 CSS Grid，行＝多 cell 直接铺在 grid 上
-                  无行容器，故行级样式分散到 cell。详见 <code>docs/design-notes/layout.md</code>。</li>
+                  无行容器，故行级样式分散到 cell。详见 <code>docs/features/layout/layout.md</code>。</li>
               </ul>
             </li>
             <li>

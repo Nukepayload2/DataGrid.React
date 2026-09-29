@@ -1,5 +1,5 @@
 /**
- * 行测量 hook（动态行高）— 详见 docs/design-notes/row-height.md（「动态行高测量」节）。
+ * 行测量 hook（动态行高）— 详见 docs/features/layout/row-height.md（「动态行高测量」节）。
  *
  * 用单个 ResizeObserver 观察 body 内容容器，遍历行级子元素实测高度，与
  * `data-known-size` 对比去重 + 相邻同高段合并，回填 SizeRange 给上层。

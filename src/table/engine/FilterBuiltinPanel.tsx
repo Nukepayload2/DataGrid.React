@@ -5,10 +5,10 @@
  * + filters 空 / 搜索无匹配占位 + 底部 Reset/OK 按钮。所有状态/派生值/回调由父 FilterDropdown
  * 通过 props 传入；本组件为**纯展示组件**（不持有 state、不派生值），便于独立单测。
  *
- * 行为与原 builtinPanel 内联 JSX byte-for-byte 一致（含 onClick/onMouseDown stopPropagation
- * 防御冒泡、空占位 renderEmpty('Table.filter') 语义、tree 全选 Checkbox、menu 搜索无匹配分支）。
+ * 行为与原 builtinPanel 内联 JSX 一致（onClick/onMouseDown stopPropagation 防御冒泡、空占位
+ * renderEmpty('Table.filter') 语义、tree 全选 Checkbox、menu 搜索无匹配分支）；唯一例外是缺口 #2。
  *
- * 详见父组件 [FilterDropdown.tsx](./FilterDropdown.tsx) + [docs/design-notes/filter-sorter.md](../../../docs/design-notes/filter-sorter.md)。
+ * 详见父组件 [FilterDropdown.tsx](./FilterDropdown.tsx) + [docs/features/interaction/filter-sorter.md](../../../docs/features/interaction/filter-sorter.md)。
  */
 
 import type { ReactNode } from 'react'
@@ -216,8 +216,15 @@ export function FilterBuiltinPanel({
                 className="dg-filter-checkbox-group"
               >
                 <div className="dg-filter-menu-list">
-                  {visibleItems.map((item) => (
-                    <div key={String(item.value)} className="dg-filter-menu-item">
+                  {/* key = value + 索引组合，而非裸 `String(item.value)`：
+                      flattenFilterItems（filterDropdownUtils.ts:21-31）把父项与其 children **一起平铺**，
+                      同 value 的筛选项（antd 官方用例 L2272 就故意含两个 value='456' 的项）必然撞 key →
+                      React duplicate-key 警告 + 搜索过滤后 DOM 残留多余节点、文案与项错位。
+                      勾选态由 `<Checkbox value={item.value}>` 承载、与 React key 解耦，故加索引不参与业务语义。
+                      （参照侧 antd 同样用 `String(filter.value)`，见 es/table/hooks/useFilter/FilterDropdown.js:55；
+                      本改动属**超越 antd** 的健壮性修，不是对齐。） */}
+                  {visibleItems.map((item, idx) => (
+                    <div key={`${String(item.value)}-${idx}`} className="dg-filter-menu-item">
                       <Checkbox value={item.value}>{item.text}</Checkbox>
                     </div>
                   ))}
@@ -233,8 +240,9 @@ export function FilterBuiltinPanel({
                 className="dg-filter-radio-group"
               >
                 <div className="dg-filter-menu-list">
-                  {visibleItems.map((item) => (
-                    <div key={String(item.value)} className="dg-filter-menu-item">
+                  {/* key 口径与上面 Checkbox 分支一致（value + 索引，规避同 value 撞 React key）。 */}
+                  {visibleItems.map((item, idx) => (
+                    <div key={`${String(item.value)}-${idx}`} className="dg-filter-menu-item">
                       <Radio value={item.value}>{item.text}</Radio>
                     </div>
                   ))}

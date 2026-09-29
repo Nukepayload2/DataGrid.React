@@ -71,7 +71,7 @@ export default function FixedColumnsHeaderDemo() {
                   <code>'end'</code> + 中间 Column 8-20 无 width（max-content）。</li>
                 <li><strong>差异原因</strong>：无 width 列在 data-grid 下按 max-content 取内容宽度，
                   与 antd 的 width + flex fill 列宽策略不同，边界宽度下计算结果偏移。详见
-                  <code>docs/design-notes/fixed-column.md</code>。</li>
+                  <code>docs/features/columns/fixed-column.md</code>。</li>
               </ul>
             </li>
           </ul>

@@ -1,7 +1,7 @@
 /**
  * rowSizeSystem — 行尺寸纯函数系统（动态行高前缀和）。
  *
- * 核心数据结构与查询 API 的详细说明见 docs/design-notes/virtualization.md
+ * 核心数据结构与查询 API 的详细说明见 docs/features/scrolling/virtualization.md
  * （「rowSizeSystem」节）。
  *
  * 核心数据结构：

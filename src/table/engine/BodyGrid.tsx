@@ -46,7 +46,7 @@ import type {
 } from './types'
 
 /**
- * 单个数据单元格渲染（multi 路径，显式 grid 定位）。详见 docs/design-notes/layout.md + header.md。
+ * 单个数据单元格渲染（multi 路径，显式 grid 定位）。详见 docs/features/layout/layout.md + docs/features/layout/header-and-span.md。
  *
  * 封装 dg-cell div（含 gridColumn/gridRow/sticky/hover/align）+ 内部内容渲染（含
  * components.body.cell + 树形缩进）。multi 路径的每个数据单元格都用此组件渲染，
@@ -76,9 +76,9 @@ function BodyCell<RecordType>({
   rowClassName,
   rowHoverable = true,
   renderRecyclingReactCells = false,
-  // 行选中态判定 → 加 dg-row-selected 类（详见 docs/design-notes/selection.md）。
+  // 行选中态判定 → 加 dg-row-selected 类（详见 docs/features/interaction/selection.md）。
   isRowSelected,
-  // 首列 cell 写 data-known-size（实测闭环，详见 docs/design-notes/virtualization.md）。
+  // 首列 cell 写 data-known-size（实测闭环，详见 docs/features/scrolling/virtualization.md）。
   effectiveRowHeight,
 }: {
   column: EngineLeafColumn<RecordType>
@@ -137,7 +137,7 @@ function BodyCell<RecordType>({
       ? column.render(text, record, index)
       : text
   const { children: rendered } = normalizeRenderedCell(rawRendered)
-  // ellipsis 列默认 title 悬浮提示（对齐 antd 默认行为）。详见 docs/design-notes/ellipsis.md。
+  // ellipsis 列默认 title 悬浮提示（对齐 antd 默认行为）。详见 docs/features/display/ellipsis.md。
   //   - 仅 ellipsis 列加 title（非 ellipsis 列不加，避免多余 tooltip）。
   //   - 取原始 dataIndex 值文本化（string/number）——对齐 antd 默认 title 来源（cellValue 文本化）。
   //   - 自定义 render 返回 JSX 时 antd 默认行为不显示 title（用户应自行 Tooltip）：
@@ -169,7 +169,7 @@ function BodyCell<RecordType>({
         'dg-cell-body',
         column.rowScope === 'row' ? 'dg-cell-rowscope' : undefined,
         // rowSpan>1 的合并格标记，CSS 据此在有界行高模型下排除 min/max-height
-        //   （合并格需跨多 track，被 max-height 截断会破坏 rowSpan 对齐——见 docs/design-notes/row-height.md）。
+        //   （合并格需跨多 track，被 max-height 截断会破坏 rowSpan 对齐——见 docs/features/layout/row-height.md）。
         rowSpanTracks > 1 ? 'dg-cell-rowspan' : undefined,
         fixedClass(column.fixed),
         shadowClass(info),
@@ -199,7 +199,7 @@ function BodyCell<RecordType>({
       {...(colIdx === 0 && effectiveRowHeight ? { 'data-known-size': effectiveRowHeight(index) } : null)}
       // 表体格也标 data-column-key（与表头格对齐）。用于选择列（key='__dg_selection__'）专用样式定位
       //   ——antd selection.ts:49-61 给选择列单元格单独设 paddingInlineStart/End = paddingXS(4px)
-      //   （区别于普通列的 cellPaddingInline），CSS 需精确命中。详见 docs/design-notes/selection.md。
+      //   （区别于普通列的 cellPaddingInline），CSS 需精确命中。详见 docs/features/interaction/selection.md。
       data-column-key={column.key}
       // aria-colspan/rowspan：合并的数据格补 aria 属性（对齐 antd 真实 td 的 colSpan/rowSpan 属性——
       //   antd td 直接渲染 HTML colspan/rowspan，屏幕阅读器据此合并播报）。
@@ -259,7 +259,7 @@ function BodyCell<RecordType>({
 }
 
 /**
- * 数据区单元格批量渲染（multi 路径）。详见文件头 components 机制说明 + docs/design-notes/layout.md。
+ * 数据区单元格批量渲染（multi 路径）。详见文件头 components 机制说明 + docs/features/layout/layout.md + docs/features/api/components-and-row-hooks.md。
  *
  * - 当 `components.body.row` 提供时：按**行**优先遍历，每行用 body.row 组件包裹该行所有
  *   BodyCell（body.row 不产生 grid DOM——典型 EditableRow 用 antd Form + Context.Provider，
@@ -291,9 +291,9 @@ export function renderBodyCells<RecordType>({
   rowClassName,
   rowHoverable = true,
   renderRecyclingReactCells = false,
-  // 行选中态判定 → 加 dg-row-selected 类（详见 docs/design-notes/selection.md）。
+  // 行选中态判定 → 加 dg-row-selected 类（详见 docs/features/interaction/selection.md）。
   isRowSelected,
-  // 首列 cell 写 data-known-size（实测闭环，详见 docs/design-notes/virtualization.md）。
+  // 首列 cell 写 data-known-size（实测闭环，详见 docs/features/scrolling/virtualization.md）。
   effectiveRowHeight,
 }: {
   leafColumns: Array<EngineLeafColumn<RecordType>>

@@ -1,7 +1,8 @@
-/** 行选择状态机。详见 docs/design-notes/selection.md。 */
+/** 行选择状态机。详见 docs/features/interaction/selection.md。 */
 
 import { useCallback, useMemo } from 'react'
 import type { Key } from 'react'
+import type { RowCheckboxProps } from '../types'
 
 /**
  * 树形联动 conduction 纯函数簇 + 内置哨兵常量已抽出到 selectionTreeConduction.ts。
@@ -24,7 +25,6 @@ import {
   SELECTION_INVERT,
   SELECTION_NONE,
   collectAncestors,
-  collectDescendants,
   conductTreeCheck,
   resolveKey,
 } from './selectionTreeConduction'
@@ -34,14 +34,15 @@ import type { SelectionItem } from './selectionTreeConduction'
 export type SelectionType = 'checkbox' | 'radio'
 
 /**
- * 行选择回调用"操作类型"（引擎内部用；与对外 `types.ts` 的 `RowSelectMethod` 同义）。
- * - 'all'：多选全选（SELECTION_ALL）。
- * - 'none'：多选全不选（SELECTION_NONE）。
- * - 'invert'：反选（SELECTION_INVERT）。
- * - 'single'：单次勾选。
- * - 'multiple'：多选连续操作。
+ * 行选择回调用"操作类型"：**单点定义在 `nativeOptions.ts`**（BAT-25 25-A）。
+ * 旧版本 `nativeOptions.ts`（公共真身：`types.ts` → `index.ts` 对外导出）与本文件各声明了一份
+ * **逐字相同**的 `RowSelectMethod`，两处真相需要人肉同步；现在只留公共那一份，本文件转发。
+ * 写法与本文件 `RowCheckboxProps`（缺口 #9）一致：`import type` 供本文件内部使用 +
+ * `export type ... from` 维持历史 `from './useRowSelection'` 引用面不破。
  */
-export type RowSelectMethod = 'all' | 'none' | 'invert' | 'single' | 'multiple'
+import type { RowSelectMethod } from '../nativeOptions'
+
+export type { RowSelectMethod } from '../nativeOptions'
 
 // 内置 selections 用哨兵对象承载，真正行为由 applySelection 按 key 分支处理。
 
@@ -51,12 +52,12 @@ export type RowSelectMethod = 'all' | 'none' | 'invert' | 'single' | 'multiple'
  */
 export type BuiltinSelectionKey = 'all' | 'invert' | 'none'
 
-/** 透传给底层 input 的"勾选相关 props"子集（antd getCheckboxProps 返回值子集）。 */
-export interface RowCheckboxProps {
-  disabled?: boolean
-  /** antd getCheckboxProps 可返回 name；透传到底层 input。 */
-  name?: string
-}
+/**
+ * `getCheckboxProps` 返回类型：**单点定义在 `nativeOptions.ts`**（缺口 #9 的①）。
+ * 旧版本文件与 `nativeOptions.ts` 各声明了一份（两份都只有 disabled/name，字段已经漂移），
+ * 现在引擎只引用那份唯一定义；此处 re-export 维持历史 `from './useRowSelection'` 引用面不破。
+ */
+export type { RowCheckboxProps } from '../types'
 
 export interface UseRowSelectionOptions<RecordType> {
   /** 'checkbox'（多选，默认）/ 'radio'（单选）。 */
@@ -77,7 +78,7 @@ export interface UseRowSelectionOptions<RecordType> {
    * - `true`：用默认 `[SELECTION_ALL, SELECTION_INVERT, SELECTION_NONE]`。
    * - 数组：自定义项列表（可混用内置哨兵 + 自定义 `{ key, text, onSelect }`）。
    * - undefined：不渲染表头下拉菜单。
-   * — 详见 docs/design-notes/selection.md（selections 自定义选择项）
+   * — 详见 docs/features/interaction/selection.md（selections 自定义选择项）
    */
   selections?: true | Array<SelectionItem>
   /**
@@ -86,7 +87,7 @@ export interface UseRowSelectionOptions<RecordType> {
    * - false：父子联动（树形模式）。详见对外 `types.ts` TableRowSelection.checkStrictly 注释。
    *
    * 仅当同时提供 `parentChildrenMap`（树形 parent→children 映射）时有意义；非树形下本字段无效。
-   * — 详见 docs/design-notes/selection.md（树形父子联动）
+   * — 详见 docs/features/interaction/selection.md（树形父子联动）
    */
   checkStrictly?: boolean
   /**
@@ -94,7 +95,7 @@ export interface UseRowSelectionOptions<RecordType> {
    * key → 该父行的直接子行 keys 数组（含所有层级，不论展开）。
    *
    * 仅树形模式（非空 Map）+ checkStrictly=false 时参与父子联动；否则忽略。
-   * — 详见 docs/design-notes/selection.md（树形父子联动）
+   * — 详见 docs/features/interaction/selection.md（树形父子联动）
    */
   parentChildrenMap?: Map<Key, Array<Key>>
 }
@@ -112,17 +113,48 @@ export interface UseRowSelectionResult<RecordType> {
   allSelected: boolean
   /** 半选态（仅多选有意义；单选恒 false）。 */
   intermediate: boolean
+  /**
+   * 数据源非空且**每一行**都被 `getCheckboxProps().disabled` 禁用（对齐 antd `allDisabled`，
+   * antd `useSelection.js` 表头段）。单选模式恒 false（radio 无全选框）。
+   * — 详见 docs/features/interaction/selection.md（表头全选 disabled 推导）
+   */
+  allDisabled: boolean
+  /**
+   * `allDisabled` 且全部 disabled 行都已选中（对齐 antd `allDisabledAndChecked`）：
+   * 此时表头全选框应显示为 checked（虽自身已 disabled 不可点）。
+   */
+  allCheckedDisabled: boolean
+  /**
+   * `allDisabled` 且只有部分 disabled 行被选中（对齐 antd `allDisabledSomeChecked`）：
+   * 此时表头全选框应显示为半选。
+   */
+  someDisabledChecked: boolean
   /** 某 key 是否选中。 */
   isSelected: (key: Key) => boolean
   /**
    * 某 key 是否半选（仅 checkStrictly=false 树形模式有意义）。
    * 半选 = 该 key 是父行，且其子行中**部分**（至少 1 个但非全部）被选中。
    * checkStrictly=true 或非树形 → 恒 false。
-   * — 详见 docs/design-notes/selection.md（树形父子联动）
+   * — 详见 docs/features/interaction/selection.md（树形父子联动）
    */
   isIndeterminate: (key: Key) => boolean
   /** 某 record 是否 disabled（不可勾选）。 */
   isDisabled: (record: RecordType) => boolean
+  /**
+   * 解析后的 `checkStrictly`（缺省 true）。
+   *
+   * 暴露给适配层的唯一原因：参照的 shift 区间门（antd **6.4.4** `es/table/hooks/useSelection.js:429`
+   * `if (shiftKey && checkStrictly && isMultiple)`）里就有这一项——**父子联动模式下参照根本不做区间**
+   * （走 `conductCheck` 的单行支）。适配层的区间判据要逐字对齐参照，就必须能从同一处读到该布尔，
+   * 而不是自己再去猜 `treeLinkEnabled`（后者还额外要求 `parentChildrenMap` 非空，两者不同集）。
+   */
+  checkStrictly: boolean
+  /**
+   * 是否真的启用了树形父子联动（`!radio && checkStrictly===false && parentChildrenMap 非空`）。
+   * 适配层据此决定 `getCheckboxProps().indeterminate` 与计算值的先后（antd 的 expandType==='nest'
+   * 分支：nest 时计算值覆盖 custom，非 nest 时 custom 覆盖计算值）。
+   */
+  treeLinkEnabled: boolean
   /**
    * 切换某行的勾选态（checkbox 与 radio 共用入口）。
    * - checkbox：在 Set 中 add/delete。
@@ -147,7 +179,7 @@ export interface UseRowSelectionResult<RecordType> {
   /**
    * 解析后的 selections 列表（`true` → 默认三项；数组 → 原样；undefined → null）。
    * null 表示不渲染表头下拉菜单。
-   * — 详见 docs/design-notes/selection.md（selections 自定义选择项）
+   * — 详见 docs/features/interaction/selection.md（selections 自定义选择项）
    */
   resolvedSelections: Array<SelectionItem> | null
   /**
@@ -157,7 +189,7 @@ export interface UseRowSelectionResult<RecordType> {
    *   引擎不改变 selectedRowKeys（与 antd 一致——自定义 onSelect 自行控制受控 state）。
    * 返回值：内置项返回新 selectedRowKeys 数组（供调用方走 onChange）；自定义项返回 undefined
    *   （调用方据此不触发 onChange——因为 demo 自行 setState 后受控回填会刷新 UI）。
-   * — 详见 docs/design-notes/selection.md（selections 自定义选择项）
+   * — 详见 docs/features/interaction/selection.md（selections 自定义选择项）
    */
   applySelection: (
     item: SelectionItem,
@@ -185,22 +217,40 @@ export function useRowSelection<RecordType>(
   // - conductCheck（派生）：从受控 selectedRowKeys（可能含父但缺子孙）派生完整 checked 集合
   //   （填充子孙 + 补全父），与 antd conductCheck(checked=true) 同语义。
   // - conductUncheck（生成新数组 on toggle）：取消某 key 时同步清子孙 + 移除不再是全选的祖先。
-  // — 详见 docs/design-notes/selection.md（树形父子联动）
+  // — 详见 docs/features/interaction/selection.md（树形父子联动）
   const treeLinkEnabled =
     !isRadio && !checkStrictly && !!parentChildrenMap && parentChildrenMap.size > 0
 
   // === 全集可勾选 key/record（排除 disabled）===
-  const { selectableKeys, selectableRecords } = useMemo(() => {
+  // 顺带产出 disabledKeySet（供树形联动判定「哪些子行不参与 conduction」）与 allDisabled
+  // （供表头全选框推导 disabled/checked/半选，对齐 antd allDisabled*）。
+  const { selectableKeys, selectableRecords, disabledKeySet, allDisabled } = useMemo(() => {
     const keys: Array<Key> = []
     const records: Array<RecordType> = []
+    const disabledKeys = new Set<Key>()
     for (const record of dataSource) {
       const disabled = getCheckboxProps?.(record)?.disabled === true
-      if (disabled) continue
-      keys.push(resolveKey(record, rowKey))
+      const key = resolveKey(record, rowKey)
+      if (disabled) {
+        disabledKeys.add(key)
+        continue
+      }
+      keys.push(key)
       records.push(record)
     }
-    return { selectableKeys: keys, selectableRecords: records }
+    return {
+      selectableKeys: keys,
+      selectableRecords: records,
+      disabledKeySet: disabledKeys,
+      allDisabled: dataSource.length > 0 && keys.length === 0,
+    }
   }, [dataSource, rowKey, getCheckboxProps])
+
+  /** 某 key 是否属于当前数据源里的 disabled 行（不在数据源里的 key 视为可选）。 */
+  const isKeyDisabled = useCallback(
+    (key: Key) => disabledKeySet.has(key),
+    [disabledKeySet],
+  )
 
   // === 当前选中 Set（去重；受控源 selectedRowKeys）===
   // 注意：selectedRowKeys 可能含 selectableKeys 之外的 key（如 disabled 行之前被选中、
@@ -210,24 +260,38 @@ export function useRowSelection<RecordType>(
   // 树形联动（checkStrictly=false）：从受控 selectedRowKeys 派生"完整 checked 集合"——
   //   填充子孙 + 补全父（与 antd conductCheck 同语义）。isSelected/isIndeterminate/toggleRow
   //   全部基于派生集合；toggleRow 生成的新数组也已是完整 conduced 集合（存回受控源）。
-  // — 详见 docs/design-notes/selection.md（树形父子联动）
+  // — 详见 docs/features/interaction/selection.md（树形父子联动）
   const { selectedKeySet, halfCheckedKeySet } = useMemo(() => {
     if (treeLinkEnabled && parentChildrenMap) {
-      const { checkedKeys, halfCheckedKeys } = conductTreeCheck(selectedRowKeys, parentChildrenMap)
+      const { checkedKeys, halfCheckedKeys } = conductTreeCheck(
+        selectedRowKeys,
+        parentChildrenMap,
+        isKeyDisabled,
+      )
       return { selectedKeySet: checkedKeys, halfCheckedKeySet: halfCheckedKeys }
     }
     return {
       selectedKeySet: new Set<Key>(selectedRowKeys),
       halfCheckedKeySet: new Set<Key>(),
     }
-  }, [treeLinkEnabled, parentChildrenMap, selectedRowKeys])
+  }, [treeLinkEnabled, parentChildrenMap, selectedRowKeys, isKeyDisabled])
 
   // === 全选 / 半选（仅 checkbox）===
   //   - allSelected：selectableKeys 全部在 selectedKeySet 中。
   //   - intermediate：selectableKeys 中至少 1 个在 selectedKeySet 中、且未全选。
   // 单选（radio）下恒为 false（无全选概念）。
-  const { allSelected, intermediate } = useMemo(() => {
-    if (isRadio || selectableKeys.length === 0) return { allSelected: false, intermediate: false }
+  // 全 disabled（allDisabled）时 selectableKeys 为空 → allSelected/intermediate 都立不起来，
+  // 表头三态改由 allCheckedDisabled / someDisabledChecked 承载（对齐 antd
+  // allDisabledAndChecked / allDisabledSomeChecked）。
+  const { allSelected, intermediate, allCheckedDisabled, someDisabledChecked } = useMemo(() => {
+    if (isRadio) {
+      return {
+        allSelected: false,
+        intermediate: false,
+        allCheckedDisabled: false,
+        someDisabledChecked: false,
+      }
+    }
     let inCount = 0
     for (const k of selectableKeys) {
       if (selectedKeySet.has(k)) inCount += 1
@@ -235,8 +299,27 @@ export function useRowSelection<RecordType>(
     const all = inCount === selectableKeys.length && inCount > 0
     // 有选中但未全选 → intermediate。
     const inter = !all && inCount > 0
-    return { allSelected: all, intermediate: inter }
-  }, [isRadio, selectableKeys, selectedKeySet])
+    if (!allDisabled) {
+      return {
+        allSelected: all,
+        intermediate: inter,
+        allCheckedDisabled: false,
+        someDisabledChecked: false,
+      }
+    }
+    // 全 disabled：按 disabled 行的选中情况推导体头三态。
+    let disabledCheckedCount = 0
+    for (const k of disabledKeySet) {
+      if (selectedKeySet.has(k)) disabledCheckedCount += 1
+    }
+    const allDisabledChecked = disabledCheckedCount === disabledKeySet.size
+    return {
+      allSelected: all,
+      intermediate: inter,
+      allCheckedDisabled: allDisabledChecked,
+      someDisabledChecked: !allDisabledChecked && disabledCheckedCount > 0,
+    }
+  }, [isRadio, selectableKeys, selectedKeySet, allDisabled, disabledKeySet])
 
   const isSelected = useCallback(
     (key: Key) => selectedKeySet.has(key),
@@ -269,10 +352,12 @@ export function useRowSelection<RecordType>(
   )
 
   /**
-   * 树形联动 toggle（checkStrictly=false 时使用）— 详见 docs/design-notes/selection.md（toggleTreeKey）
+   * 树形联动 toggle（checkStrictly=false 时使用）— 详见 docs/features/interaction/selection.md（toggleTreeKey）
    *
-   * 选中 key：加入 key + 其全部子孙 keys；向上传播（祖先全部子 checked → 加入祖先，递归向上）。
-   * 取消 key：移除 key + 其全部子孙 keys；向上移除不再是全选的祖先（半选态由 conductCheck 派生）。
+   * 选中 key：交给 `conductTreeCheck` 做「填充子孙 + 向上补全父」，disabled 行不参与
+   * （点父行不会把明确禁用的子行选上，对齐 antd `conductCheck(…, isCheckboxDisabled)`）。
+   * 取消 key：移除 key + 其**可选**子孙（遇 disabled 子树即停，保留其自身显式选中态）；
+   * 再向上移除「可选子行已不全选」的祖先（半选态由 conductCheck 派生）。
    * 返回完整 conduced 数组（含父+子孙）。
    */
   const toggleTreeKey = useCallback(
@@ -281,32 +366,50 @@ export function useRowSelection<RecordType>(
       const nextSet = new Set<Key>(selectedKeySet)
       if (select) {
         nextSet.add(key)
-        for (const d of collectDescendants(key, parentChildrenMap)) nextSet.add(d)
-        // 向上补全父（迭代直到稳定）。
-        let changed = true
-        while (changed) {
-          changed = false
-          for (const [parent, children] of parentChildrenMap) {
-            if (nextSet.has(parent)) continue
-            let cnt = 0
-            for (const c of children) if (nextSet.has(c)) cnt += 1
-            if (cnt === children.length) {
-              nextSet.add(parent)
-              changed = true
-            }
+        const { checkedKeys } = conductTreeCheck(
+          Array.from(nextSet),
+          parentChildrenMap,
+          isKeyDisabled,
+        )
+        return Array.from(checkedKeys)
+      }
+      nextSet.delete(key)
+      // 向下清：只清可选子行，disabled 子树整支保留（它自己的选中态由用户显式负责）。
+      const stack: Array<Key> = [key]
+      while (stack.length > 0) {
+        const k = stack.pop()!
+        const children = parentChildrenMap.get(k)
+        if (!children) continue
+        for (const c of children) {
+          if (isKeyDisabled(c)) continue
+          nextSet.delete(c)
+          stack.push(c)
+        }
+      }
+      // 向上清：祖先的「可选子行」不再全选 → 移出祖先。
+      // 对齐 rc-tree@1.3.2 cleanConductCheck 自底向上段（conductUtil.js:134-149）：allChecked 初值
+      // true、仅遍历非 disabled 子行；**无可选子行**（全 disabled 或空 children）时 forEach 空转 ⇒
+      // allChecked 保持 true ⇒ 不删祖先。旧写法 `if (hasSelectableChild && allChecked) continue` 会在
+      // hasSelectableChild===false 时误删「子行全 disabled 但自身已勾选」的可选祖先——当被取消行的祖先链
+      // 上隔着一条全 disabled 中间层时（探针 3WAY-fork / RFORK：dg 误删 root，antd 保留）＝勾选/取消
+      // 不对称的 A 类数据结果。故删仅当 `!allChecked`（无可选子即 continue）。
+      for (const ancestor of collectAncestors(key, parentChildrenMap)) {
+        const children = parentChildrenMap.get(ancestor)
+        if (!children) continue
+        let allChecked = true
+        for (const c of children) {
+          if (isKeyDisabled(c)) continue
+          if (!nextSet.has(c)) {
+            allChecked = false
+            break
           }
         }
-      } else {
-        nextSet.delete(key)
-        for (const d of collectDescendants(key, parentChildrenMap)) nextSet.delete(d)
-        // 向上移除不再是全选的父（其自身 key 也清，半选由派生）。
-        for (const ancestor of collectAncestors(key, parentChildrenMap)) {
-          nextSet.delete(ancestor)
-        }
+        if (allChecked) continue
+        nextSet.delete(ancestor)
       }
       return Array.from(nextSet)
     },
-    [parentChildrenMap, selectedKeySet, toggleKey],
+    [parentChildrenMap, selectedKeySet, toggleKey, isKeyDisabled],
   )
 
   const toggleRow = useCallback(
@@ -355,7 +458,7 @@ export function useRowSelection<RecordType>(
 
   // === 自定义选择项 selections ===
   // changeableRowKeys = selectableKeys（所有非 disabled 行 key，对齐 antd `recordKeys`）。
-  // — 详见 docs/design-notes/selection.md（selections 自定义选择项）
+  // — 详见 docs/features/interaction/selection.md（selections 自定义选择项）
   const changeableRowKeys = selectableKeys
 
   // 解析 selections 配置：
@@ -421,17 +524,22 @@ export function useRowSelection<RecordType>(
         }
         method = 'invert'
       }
-      // 树形联动：补全父（若所有子选中 → 父也选中），使存回的数组完整。
+      // 树形联动：补全父（若所有可选子选中 → 父也选中），使存回的数组完整。
+      // disabled 行不参与传导（与 toggleTreeKey 同一条 conduction 路径）。
       let nextKeys: Array<Key>
       if (treeLinkEnabled && parentChildrenMap) {
-        const { checkedKeys } = conductTreeCheck(Array.from(nextSet), parentChildrenMap)
+        const { checkedKeys } = conductTreeCheck(
+          Array.from(nextSet),
+          parentChildrenMap,
+          isKeyDisabled,
+        )
         nextKeys = Array.from(checkedKeys)
       } else {
         nextKeys = Array.from(nextSet)
       }
       return { nextKeys, method }
     },
-    [changeableRowKeys, selectedKeySet, treeLinkEnabled, parentChildrenMap],
+    [changeableRowKeys, selectedKeySet, treeLinkEnabled, parentChildrenMap, isKeyDisabled],
   )
 
   return {
@@ -441,9 +549,14 @@ export function useRowSelection<RecordType>(
     selectedKeySet,
     allSelected,
     intermediate,
+    allDisabled,
+    allCheckedDisabled,
+    someDisabledChecked,
     isSelected,
     isIndeterminate,
     isDisabled,
+    checkStrictly,
+    treeLinkEnabled,
     toggleRow,
     toggleAll,
     selectRow,
