@@ -18,11 +18,14 @@
 //
 // 自证（BAT-0 0-C，改前红 / 删后绿，见 96 报告 §4）：
 //   · 无注释 skip ⇒ 红；`tests/shared/**` 下 skip ⇒ 红；删除探针 ⇒ 绿。
+// @ts-expect-error TS2591：本仓无 @types/node，'node:fs' 无类型声明（运行时可用）
 import { readFileSync, readdirSync, statSync } from 'node:fs'
+// @ts-expect-error TS2591：本仓无 @types/node，'node:path' 无类型声明（运行时可用）
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 // vitest 以仓库根为 cwd 运行（与 tests/docs-reference.test.ts 同口径）。
+// @ts-expect-error TS2591：本仓无 @types/node，'process' 无类型声明（运行时可用）
 const repoRoot = process.cwd()
 const testsDir = join(repoRoot, 'tests')
 
@@ -41,7 +44,6 @@ function collectFiles(dir: string, out: string[] = []): string[] {
  *  注释行整体排除（文档里提到 `it.skip(` 不算 skip）。 */
 const SKIP_RE = /(^|\s)(it|test|describe)\.skip\s*\(|(^|\s)(xit|xdescribe)\s*\(/
 const COMMENT_LINE_RE = /^(\/\/|\/\*|\*)/
-const COMMENT_END_RE = /\*\//
 
 /** 锚点：① 文件路径:行号；② antd 参照测试行。 */
 const FILE_LINE_RE = /[\w@./-]+\.(tsx?|js|mjs|css|json|md|snap):\d+/g
@@ -75,7 +77,7 @@ function scanFile(file: string): SkipViolation[] {
   const rel = file.slice(repoRoot.length + 1).split(/[\\/]/).join('/')
   const lines = readFileSync(file, 'utf8').split(/\r?\n/)
   const violations: SkipViolation[] = []
-  lines.forEach((line, i) => {
+  lines.forEach((line: string, i: number) => {
     const trimmed = line.trim()
     if (COMMENT_LINE_RE.test(trimmed)) return
     if (!SKIP_RE.test(line)) return

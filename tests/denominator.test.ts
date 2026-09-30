@@ -29,10 +29,13 @@
 //   node_modules/antd/es/**（6.4.4）。已知假阴性：`sorter:182` 的 `baseColumns` 在
 //   6.5.2 上游真实存在（InternalTable.tsx:472-476），「任一侧命中即可」会放过版本混标。
 
+// @ts-expect-error TS2591：本仓无 @types/node，'node:fs' 无类型声明（运行时可用）
 import { readFileSync, existsSync } from 'node:fs'
+// @ts-expect-error TS2591：本仓无 @types/node，'node:path' 无类型声明（运行时可用）
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 
+// @ts-expect-error TS2591：本仓无 @types/node，'process' 无类型声明（运行时可用）
 const REPO = process.cwd()
 const FIXTURE = path.join(REPO, 'tests', 'fixtures', 'antd-denominator.json')
 
@@ -54,7 +57,8 @@ const VERSIONS = ['6.4.4', '6.5.2']
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 
 interface FixtureSlice {
-  [version: string]: string[]
+  /** 版本 → 用例名清单；refSkips 是 Record，故索引签名取并集（读取处用 Array.isArray 收窄）。 */
+  [version: string]: string[] | Record<string, number> | undefined
   refSkips?: Record<string, number>
 }
 interface LedgerSlice {
@@ -82,8 +86,9 @@ describe('分母恒等式门（G-2 静态侧）', () => {
       const entry = fixture.cases?.[ref]
       expect(entry, `${slice}：fixture 缺参照件 ${ref}`).toBeTruthy()
       for (const v of VERSIONS) {
+        const list = entry?.[v]
         expect(
-          Array.isArray(entry?.[v]) && entry[v].length > 0,
+          Array.isArray(list) && list.length > 0,
           `${slice}：${ref} 的 ${v} 名单缺失或为空（版本双写强制，P-088）`,
         ).toBe(true)
       }
@@ -109,13 +114,19 @@ describe('分母恒等式门（G-2 静态侧）', () => {
   for (const [slice, ref] of Object.entries(MAP)) {
     it(`ledger 恒等式：${slice}`, () => {
       const fixture = JSON.parse(readFileSync(FIXTURE, 'utf8')) as Fixture
-      const entry = fixture.cases?.[ref]
-      const ledger = fixture.ledger?.[slice]
+      // 直接索引（本仓未开 noUncheckedIndexedAccess ⇒ 类型非 undefined）；toBeTruthy 是运行时守卫（fixture 缺行即红）。
+      const entry = (fixture.cases ?? {})[ref]
+      const ledger = (fixture.ledger ?? {})[slice]
       expect(entry, 'fixture 缺该参照件').toBeTruthy()
       expect(ledger, 'ledger 缺该片的台账行').toBeTruthy()
       const installed = fixture.versions?.installed ?? '6.4.4'
-      const aligned = entry[installed].length
-      const extra652 = entry['6.5.2'].filter((n) => !entry[installed].some((x) => norm(x) === norm(n)))
+      const alignedList = entry[installed]
+      const extraList = entry['6.5.2']
+      if (!Array.isArray(alignedList) || !Array.isArray(extraList)) {
+        throw new Error(`${slice}：fixture 的 ${installed}/6.5.2 名单不是数组`)
+      }
+      const aligned = alignedList.length
+      const extra652 = extraList.filter((n) => !alignedList.some((x) => norm(x) === norm(n)))
       const splitsExtra = Object.values(ledger.splits ?? {}).reduce((n, v) => n + Math.max(0, v.length - 1), 0)
       // S4：aligned 由 fixture 重算（人手写不符即红）
       expect(ledger.aligned, `aligned 人手写 ${ledger.aligned} ≠ fixture 重算 ${aligned}（${installed}）`).toBe(aligned)
@@ -130,7 +141,7 @@ describe('分母恒等式门（G-2 静态侧）', () => {
         `total=${ledger.total} ≠ aligned ${aligned} + extra652 ${extra652.length} + supplements ${ledger.supplements} + splits ${splitsExtra}`,
       ).toBe(aligned + extra652.length + (ledger.supplements ?? 0) + splitsExtra)
       // S6：反停车场
-      const refSet = new Set([...entry[installed], ...extra652].map(norm))
+      const refSet = new Set([...alignedList, ...extra652].map(norm))
       for (const [ours, refName] of Object.entries(ledger.renames ?? {})) {
         expect(refSet.has(norm(refName)), `renames「${ours}」挂靠的参照名「${refName}」不在参照名单里（停车场）`).toBe(true)
       }

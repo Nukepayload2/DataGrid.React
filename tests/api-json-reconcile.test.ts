@@ -18,13 +18,17 @@
  * 无副作用：不写文件（`extractPayload()` 只读 AST）；唯一耗时是打开
  *   `tsconfig.lib.json` 项目（实测 ~1s，故单测超时放宽到 60s 防重负载 flake）。
  */
+// @ts-expect-error TS2591：本仓无 @types/node，'node:fs' 无类型声明（运行时可用）
 import { readFileSync } from 'node:fs'
+// @ts-expect-error TS2591：本仓无 @types/node，'node:path' 无类型声明（运行时可用）
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
+// @ts-expect-error TS7016：scripts/extract-api.mjs 为 .mjs 无类型声明（运行时可用；自校验：日后补声明则因「抑制未被使用」TS2578 翻红）
 import { extractPayload } from '../scripts/extract-api.mjs'
 
 const committedRaw = readFileSync(
+  // @ts-expect-error TS2591：本仓无 @types/node，'process' 无类型声明（运行时可用）
   join(process.cwd(), 'src/docs/generated/api.json'),
   'utf8',
 )

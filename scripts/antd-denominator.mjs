@@ -135,7 +135,7 @@ function collect(src, file) {
   }
   // F2：语句级 .forEach( 且体内有声明行
   lines.forEach((l, i) => {
-    if (!/^\s*(?:[^\n\[]*\[)?[^\n]*\]\.forEach\s*\(/.test(l) && !/^\s*\.forEach\s*\(/.test(l)) return
+    if (!/^\s*(?:[^\n[]*\[)?[^\n]*\]\.forEach\s*\(/.test(l) && !/^\s*\.forEach\s*\(/.test(l)) return
     const end = bodyEnd(lines, i)
     let template = null
     for (let j = i + 1; j < end; j += 1) {
@@ -216,7 +216,7 @@ function regen(clone) {
   const fixture = JSON.parse(readFileSync(FIXTURE, 'utf8'))
   const versions = {}
   const describe = execFileSync('git', ['-C', clone, 'describe', '--tags'], { encoding: 'utf8' }).trim()
-  for (const [slice, ref] of Object.entries(MAP)) {
+  for (const ref of Object.values(MAP)) {
     const cur = readFileSync(path.join(clone, REF_DIR, ref), 'utf8')
     const old = execFileSync('git', ['-C', clone, 'show', `6.4.4:${REF_DIR}/${ref}`], { encoding: 'utf8' })
     const c652 = collect(cur, ref)

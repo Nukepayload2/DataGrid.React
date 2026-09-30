@@ -633,3 +633,39 @@ e2e 自 Round K（2026-09-28 19:50、130 截图全绿）以来**一直没人跑�
    （各标 TS2591，日后装上 `@types/node` 立即翻红 TS2578 ⇒ 不会静默失效，零新依赖）。it-count 118→118、skips 0→0、
    零删断言；`pnpm test:types` 129 files／1802 passed、Type Errors none。见 `93-implementer-typecheck-blindspot.md`、**E-168**。
 
+## 七之三、BAT-0 五门全量 battery（2026-09-30，**本节的当前有效快照**）
+
+> 本节**取代**上面七之二表（七之二表保留为过程快照）。口径：全部 main 独占窗口串行执行（零子代理），日志落
+> `tmp/bat0-final-*.log`；全量 `pnpm test` 共 4 次，**最后 2 次在最终代码态连续 2 次全绿**。
+
+| 门 | 命令 | 读数 |
+|---|---|---|
+| 全量 | `pnpm test` **连跑两次（最终态）** | 两次均 **EXIT=0**；`Test Files 131 passed (131)`、`Tests 1845 passed \| 49 skipped (1894)`、`Test timed out` 命中 **0**、`CSS compatibility check passed for Chrome >= 105.`（日志 `tmp/bat0-final-test-run{3,4}.log`；前 2 次 run{1,2} 同读数。较七之二 +3 文件／+56 测试＝BAT-0 新门全部，delta 已逐条归因） |
+| 类型 | `pnpm test:types` | **EXIT=0**；`132 files / 1851 passed \| 49 skipped (1900)`、`Type Errors no errors`（首跑红＝与 tsc 并发引发的 30s 超时 flake，干净重跑转绿，`tmp/bat0-final-types2.log`） |
+| 类型 | `npx tsc -b`／`tsconfig.test.json`／`tsconfig.lib.json` | 各 **EXIT=0**（3 个新文件 27 条类型错顺手修复：TS2591 自校验抑制约定＋接口并集＋直接索引） |
+| 静态 | `npx oxlint . --ignore-path=.oxlintignore` | `Found 0 warnings and 0 errors.`（559 files / 99 rules；新文件 5 警告顺手修复） |
+| 构建 | `pnpm build` | **EXIT=0**；`dist/index.cjs` 195.15 kB、`dist/style.css` 29.04 kB（与七之二基线同形无漂移；test.alias 为 test 作用域，站点构建面零影响） |
+| 构建 | `pnpm build:docs` | **EXIT=0**（6.86 s） |
+| 生成物 | `node scripts/extract-api.mjs` | **EXIT=0**，与重生成前抄件 `diff` **0 行**；成员 table 36／tableRef 2／gridOptions 14／column 38／gridColumnOptions 6／selection 6／virtualizationMode 3／exports 62 |
+| 计数 | `node tmp/check-skips.mjs` | `skip 总数=39 无注释=0 文件数=47`（**−1**＝0-B #3 的 skip 转直测） |
+| 计数 | `node tmp/anchor-audit.mjs` | 扫描 **708**／指针 **1557**（本仓 1521＋参照 36）／悬空 **14**／越界 **0**（悬空／越界＝基线未升；指针增量＝本批新文件锚点注释＋本新节引用） |
+| 静态 | `react-doctor`（**0.9.14**） | **101 条**、EXIT=0（基线未动，`tmp/bat0-final-doctor.log`） |
+| e2e | `pnpm test:e2e` | **136 passed (2.8 m)、EXIT=0**（与基线同数，`tmp/bat0-final-e2e.log`） |
+
+**BAT-0 落地内容（+56 测试增量全部由此）**：五道插桩门全落地——0-A 快照缺键 `update: 'none'`（静默写入改红，
+`-u` 写回保留）、0-B antd 双实例 test 作用域 alias（`antd`→`antd/es`，站点构建零影响）＋#3 skip 转直测、
+0-C skip 纪律常驻门（递归扫 `tests/**`，覆盖旧盲点）、0-D api.json 对账门（生成器与门共用 `extractPayload()`，
+假 prop 自证红→装回绿）、0-E 分母恒等式门（独立 fixture 11 片 × 双版本 6.4.4/6.5.2＋静态 24/24＋运行期 11 片全绿
+384 用例，7 行版本差集全部入账 `extra652`；G-1 按 51 §4.1 否决）。新门文件＋27 测试、14 片 snapshot 计数断言
++14、a11y skip 注册 7＋1 计数断言、api-json 3→9。`src/**` 零改动（0-D 假 prop 已装回、sha1 逐字节一致）、
+`tsconfig*.json`／`docs/**`／`package.json`／`e2e/**` 未动。详见 `96-implementer-bat0-testgates.md` §6 与 **E-170**。
+
+**遗交项（本批不动，待用户裁定）**：`docs/reference/known-limitations.md:319-325` 的「非 CI 裸包名解析到 lib/」
+一句已被 test.alias 全口径作废（需改一行，但 `docs/**` 属禁写面 ⇒ 待后续文档批）；Z-4 表头全选/反选页面范围；
+29-D grouped-column `hidden`；peer `^6.1.0` vs 实装 6.4.4；PoolBucket 两个同名声明；item-14 PNG 重基线清单；
+lib→ES2022；git：停机维护期间用户已自行提交 4 个 `add tests` 提交（最新 `fedeb7e`，2026-09-30 21:17），
+`AD` 索引残件（旧路径 devWarn 测试文件，见本文件 :483 既有登记）与未跟踪 `tmpv53-final2-progress.txt` 均已随提交处置
+（旧路径出索引、进度件已入库）；**当前未提交面＝本批 §6.1 类型/lint 修复 4 文件＋本 七之三 节**
+（`scripts/antd-denominator.mjs`、`tests/api-json-reconcile.test.ts`、`tests/denominator.test.ts`、
+`tests/skip-discipline.test.ts`、`TASK_STATUS.md`），提交时机仍由用户定。
+
