@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest'
 import {
   useColumnDragSort,
   type UseColumnDragSortOptions,
@@ -119,7 +119,7 @@ function renderHarness(
   props: Partial<HarnessProps> = {},
 ): ReturnType<typeof render> & {
   columns: ColumnRecord[]
-  onSort: ReturnType<typeof vi.fn>
+  onSort: Mock<(next: ColumnRecord[]) => void>
 } {
   const columns = props.columns ?? [
     { key: 'a' },
@@ -127,7 +127,10 @@ function renderHarness(
     { key: 'c' },
     { key: 'd' },
   ]
-  const onSort = vi.fn()
+  // 必须给 `vi.fn` 标出真实签名：裸 `vi.fn()` 的类型是 `Mock<Constructable | Procedure>`，
+  // 既赋不进 `HarnessProps.onSort: (next: ColumnRecord[]) => void`，其 `mock.calls` 也退化成
+  // `any[][]`、让 `.map((column) => …)` 的 `column` 变成隐式 any（TS7006）。
+  const onSort = vi.fn<(next: ColumnRecord[]) => void>()
   ;(globalThis as unknown as {
     __columnDragContainerRef?: React.RefObject<HTMLDivElement | null>
   }).__columnDragContainerRef = { current: null }

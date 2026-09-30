@@ -4,7 +4,7 @@
  * 从 HeaderCell.tsx 与 FlatColumnCells.tsx 抽出的模块级纯函数（两路径同款逻辑去重）：
  *   - mergeHeaderExtraClass：cell.className + onHeaderCell.className + onHeaderRow.className 合并
  *   - mergeHeaderExtraStyle：cell.style + onHeaderCell.style + onHeaderRow.style 合并（后者覆盖前者同名字段）
- *   - mergeHeaderEventProps：onHeaderCell + onHeaderRow 事件 handler 合并（行级优先；跳过 className/style）
+ *   - mergeHeaderEventProps：onHeaderCell + onHeaderRow 事件 handler 合并（行级优先；跳过 className/style/key）
  *   - mergeHeaderStickyStyle：横向 sticky（左/右）+ 纵向 sticky（容器内 top:0 或页面级 top:offsetHeader）
  *     + corner cell 双 sticky 取最高 z-index(5)
  *
@@ -54,7 +54,28 @@ export function mergeHeaderExtraStyle(
 /**
  * 合并 onHeaderCell + onHeaderRow 返回值中的事件 handler（onXxx 开头）。
  * 行级优先覆盖格级同名字段。className/style 已单独合并（不在此处理）。
- * 其余非事件字段也透传（与原 inline 循环一致——只跳 className/style，其它键全保留）。
+ * 其余非事件字段也透传（与原 inline 循环一致——只跳 className/style/**key**，其它键全保留）。
+ *
+ * 剔除集 = `className` / `style`（另有专用合并通道）+ **`key`**（与表体通道
+ * `bodyCellUtils.ts` 的 `extractRestElementProps` 同形，见该文件 JSDoc 的完整依据）：
+ *   - `key` 不是 HTML 属性，而是 **React 元素身份**。本仓 grid 布局表头**没有** `<tr>`，
+ *     `onHeaderRow` 的返回值会被 spread 到该表头行**每一个**表头格 div
+ *     （两个消费者：multi 路径 `HeaderCell.tsx:402`、flat 路径 `FlatColumnCells.tsx:360`）。
+ *   - 表头格 div 的根节点**本来就没有**引擎 `key`（`HeaderCell.tsx:234` / `FlatColumnCells.tsx:253`
+ *     的 `dg-cell-header` 那个 `<div>`），表头格的**组件身份在父层**（`GridTable.tsx:651` 的 `<HeaderCell key={`h-${cell.key}`}>`、
+ *     `GridTable.tsx:821` 的 `<ColumnCells key={`${keyPrefix}-${column.key}`}>`，表头行 keyPrefix='h' 见 `:870`）
+ *     ⇒ 用户 `key` 在这一层**没有合法落点**，只能不进袋。
+ *   - 损害面（`已运行` fiber 探针 `tmp/92-probe/header-key-detail.probe.test.tsx`，读数 `tmp/92-probe-detail-before.log`）：
+ *     父层组件 key 读数两组一致（flat `h-name`/`h-code`、multi `h-g.name`/`h-g.code`/`h-g`）⇒ **组件身份未被摧毁**；
+ *     但用户 `key` 一旦随渲染变化（`onHeaderRow` 按 `index` 返回不同 key），该表头行全部表头格 DOM 节点
+ *     会被**销毁重建**（`sameNode=false`，稳定 key / 不传 onHeaderRow 两条对照臂均为 `sameNode=true`）
+ *     ＋ React 19 dev 告警 `A props object containing a "key" prop is being spread into JSX`。
+ *   - 参照侧不存在这条通路：`@rc-component/table@1.10.2` 的 `es/Header/HeaderRow.js:28` 把 `onHeaderRow`
+ *     返回值只 spread 到该表头行**唯一一个** `<tr>`（`RowComponent`），表头格的 key 由 `:46` 的
+ *     `columnsKey[cellIndex]`（`:40` 处消费）独占 ⇒ 行级 `key` 碰不到任何一个表头格。裁判＝本机 antd 6.4.4。
+ *   - 只剔元素身份字段，其余字段（`onClick`／`onKeyDown`／`tabIndex`／`data-*` 等）照旧**逐格**透传，
+ *     不是「整包丢弃」（钉子见 `tests/table/engine/header/headerCellUtils.ts` 与
+ *     `tests/table/features/Table.test.tsx` 末尾的 `onHeaderRow returns a key` 两条用例）。
  */
 export function mergeHeaderEventProps(
   sources: Array<import('react').HTMLAttributes<HTMLElement> | undefined>,
@@ -63,7 +84,7 @@ export function mergeHeaderEventProps(
   for (const src of sources) {
     if (!src) continue
     for (const k of Object.keys(src)) {
-      if (k === 'className' || k === 'style') continue
+      if (k === 'className' || k === 'style' || k === 'key') continue
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       out[k] = (src as any)[k]
     }

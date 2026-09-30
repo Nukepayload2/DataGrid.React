@@ -4,5 +4,15 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
-  "include": ["src", "tests/setup.ts", "tests/shared", "tests/table/features"]
+  // include 面必须覆盖**整个测试层**（`tests/**`），否则白盒层
+  // （tests/table/engine、tests/table/selection、tests/table/hooks、tests/docs-reference.test.ts …）
+  // 落在 program 之外，`tsc -p tsconfig.test.json --noEmit` 的 EXIT=0 结构上就证明不了
+  // "测试层类型干净"（P-008 / P-010 / P-083 三次实锤同源）。
+  // `tests/setup.ts` 随 `tests` 一起进面，`@testing-library/jest-dom` 的 matcher 类型
+  // （toHaveClass / toHaveStyle / toBeDisabled …）才不会凭空消失、产出约 70 条假错误。
+  "include": ["src", "tests"],
+  // e2e/** 必须留在 program 外：它用 Playwright 的类型体系，与 vitest program 无关，
+  // 纳进来只会扩大 program 且无收益（`include` 本身已不含 e2e，这里写明是为了防回退）。
+  // 注意：显式 exclude 会覆盖 tsc 的默认值，故 node_modules 必须原样列出。
+  "exclude": ["e2e", "node_modules", "dist", "dist-docs"]
 }

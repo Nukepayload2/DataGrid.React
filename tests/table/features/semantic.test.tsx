@@ -1,7 +1,9 @@
 // 黑盒 feature-slice 测试：语义化 classNames / styles 域。
 //
 // 对齐来源: {{AntDesign}}/components/table/__tests__/semantic.test.tsx
-//   antd 源 3 个 it：
+//   antd 源 3 个 it（**6.5.2** 参照口径；已安装裁判 6.4.4 同名件 = **2**，差 1 行＝第 3 条
+//   'should follow root style priority' 仅存在于 6.5.2，该 it.skip 旁注释有 P-088 版本注记；
+//   分母由 G-2 分母门从 tests/fixtures/antd-denominator.json 重算，本行只是人类回读面）：
 //     1) 'test classNames and styles'
 //     2) 'should work with function classNames and styles'
 //     3) 'should follow root style priority'
@@ -25,7 +27,7 @@
 //
 // 选择器重映射 + 注入点（逐条读 src 确认，不猜）：
 //   root            → .dg-wrapper        src/table/Table.tsx:590（`classNamesResolved?.root`）、
-//                                        src/table/useTableThemeVars.ts:126-134（style）
+//                                        src/table/useTableThemeVars.ts:138-146（style）
 //   section         → **两条布局路径各有宿主**（同一份配置两边都要生效，见双路径直测）：
 //     · 非 sticky   → .dg-scroll-wrap    src/table/engine/ScrollContainer.tsx:341（mergeSectionClass）、
 //                                        :342（mergeSectionStyle）、src/table/engine/FloatingScrollBar.tsx:901
@@ -411,7 +413,7 @@ describe('Table semantic classNames/styles', () => {
   //   并由 `src/table/contextDefaults.ts:1-30` 归一消费 `rowKey` / `scroll` / `expandable.expandIcon` 三项
   //   （⇒ 本文件同域的两条 rowKey skip 已因此转直测，见 Table.test.tsx 文末）。
   //   仍然成立的**真判据**＝组件级配置的**那四件**（`className` / `style` / `classNames` / `styles`）
-  //   在 dg 无任何消费点：根样式只走 props 侧——`src/table/useTableThemeVars.ts:126-134` 里
+  //   在 dg 无任何消费点：根样式只走 props 侧——`src/table/useTableThemeVars.ts:138-146` 里
   //   `if (stylesResolved?.root) Object.assign(merged, style, stylesResolved.root)`，
   //   `stylesResolved` 来自 `useSemanticClassNames(props.classNames, props.styles, …)`，上下文不进这条路。
   // 双臂实测（探针 `tmp/81-probe-readings.txt` 臂 `A13.dg` / `A13.ref`，wrapper 取 `.ant-table-wrapper`
@@ -426,6 +428,8 @@ describe('Table semantic classNames/styles', () => {
   //   `components/table/InternalTable.tsx:727` 已改成 `style={mergedStyles.root}`（包内已无 `mergedStyle` 变量）
   //   ⇒ 夹具期望的 `3px` 在裁判 6.4.4 上**并不成立**（6.5.2 用例直抄到 6.4.4 会红）。
   //   将来即使 dg 补齐这四件消费，也**不能**拿 6.5.2 的期望值当裁判读数。
+  //   用例本身仅存在于 6.5.2（6.4.4 同名件 2 个 it，无 `should follow root style priority`），
+  //   分母按 P-088 双写：tests/fixtures/antd-denominator.json（G-2 分母门重算）。
   it.skip('should follow root style priority', () => {})
 
 })

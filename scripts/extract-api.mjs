@@ -9,6 +9,10 @@
  *
  * Run: `pnpm docs:api` (or `node scripts/extract-api.mjs`).
  *
+ * 导出面（BAT-0 0-D 小重构）：`extractPayload()` 导出「内存中跑完整抽取、不写文件」的
+ * 核心，供 `tests/api-json-reconcile.test.ts` 的双向对账门复用同一份解析代码
+ * （门与生成器永不漂移）；直接 `node scripts/extract-api.mjs` 运行行为不变。
+ *
  * Design notes:
  * - Source of truth = author-written JSDoc on public type declarations.
  * - `@internal <text>` paragraph markers (non-standard JSDoc tag used as a
@@ -21,7 +25,7 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 
 import { API } from 'typescript/unstable/sync'
 import * as ast from 'typescript/unstable/ast'
@@ -331,9 +335,14 @@ function extractExports(sourceFile) {
   return out
 }
 
-// --- Main ----------------------------------------------------------------
+// --- Extraction core（导出，BAT-0 0-D）------------------------------------
 
-function main() {
+/**
+ * 内存中跑完整抽取并返回 api.json payload（**不写文件**）。
+ * 与 CLI 共用同一份解析代码 ⇒ `tests/api-json-reconcile.test.ts` 的双向对账门
+ * 与 `pnpm docs:api` 的生成器永不漂移。
+ */
+export function extractPayload() {
   const api = new API({ cwd: ROOT })
   try {
     const snapshot = api.updateSnapshot({ openProjects: [TS_CONFIG] })
@@ -394,7 +403,7 @@ function main() {
     // exports: main entry (src/table/index.ts)
     const exports = extractExports(sfIndex)
 
-    const payload = {
+    return {
       table,
       tableRef,
       gridOptions,
@@ -404,18 +413,29 @@ function main() {
       virtualizationMode,
       exports,
     }
-
-    mkdirSync(dirname(OUTPUT_FILE), { recursive: true })
-    writeFileSync(OUTPUT_FILE, JSON.stringify(payload, null, 2) + '\n', 'utf8')
-
-    const counts = Object.fromEntries(
-      Object.entries(payload).map(([k, v]) => [k, Array.isArray(v) ? v.length : 0]),
-    )
-    console.log(`api.json written to ${OUTPUT_FILE}`)
-    console.log('Member counts:', counts)
   } finally {
     api.close()
   }
 }
 
-main()
+// --- CLI ------------------------------------------------------------------
+
+function main() {
+  const payload = extractPayload()
+
+  mkdirSync(dirname(OUTPUT_FILE), { recursive: true })
+  writeFileSync(OUTPUT_FILE, JSON.stringify(payload, null, 2) + '\n', 'utf8')
+
+  const counts = Object.fromEntries(
+    Object.entries(payload).map(([k, v]) => [k, Array.isArray(v) ? v.length : 0]),
+  )
+  console.log(`api.json written to ${OUTPUT_FILE}`)
+  console.log('Member counts:', counts)
+}
+
+// 直接 `node scripts/extract-api.mjs` 运行时执行 CLI；被 import（reconcile 门）时不执行。
+const isDirectRun =
+  process.argv[1] != null && import.meta.url === pathToFileURL(process.argv[1]).href
+if (isDirectRun) {
+  main()
+}

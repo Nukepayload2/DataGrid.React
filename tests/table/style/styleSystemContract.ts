@@ -1,7 +1,22 @@
+// ── `@types/node` 缺失的三处抑制（本仓既定写法，非本批首创）──────────────────────
+// 本仓刻意不装 `@types/node`：`tsconfig.lib.json` 的 `types` 只有 `vite/client`（`src/vite-env.d.ts`
+// 同款），理由见 `src/table/devWarn.ts:51`。故 `node:fs` / `node:path` / `process` 运行期存在、类型面缺声明。
+//
+// ⚠️ 已实测排除的替代方案（**别再试**）：改用 Vite 的 `?raw` 导入
+// （`import css from '…/table.css?raw'`，ledger 里 BAT-11 的计划写的是这条路）——
+// 在本仓 vitest 环境下**读回来是空串**：`?raw` 对 `.md` / `.json` 正常（实测 3419 / 3330 字节），
+// 对 `.css` 一律 0 字节，且**与是否挂 `viteSingleFile()` 插件无关**（去掉全部插件复测同读数 0）。
+// 根因：Vite 的 CSS 管线在 test/SSR 变换下先于 raw 插件吃掉 `.css` 请求并返回空串。
+// ⇒ 本件保留 `node:fs` 读盘（运行期行为与本批之前逐字相同），只把类型面的缺口显式标注出来。
+//
+// 抑制是**自校验**的：日后一旦装上 `@types/node`，这三行会因「抑制未被使用」而红（TS2578），是提醒而非隐患。
+// @ts-expect-error TS2591：本仓无 @types/node，'node:fs' 无类型声明（运行时可用）
 import { readFileSync } from 'node:fs'
+// @ts-expect-error TS2591：本仓无 @types/node，'node:path' 无类型声明（运行时可用）
 import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
+// @ts-expect-error TS2591：本仓无 @types/node，'process' 无类型声明（运行时可用）
 const root = process.cwd()
 
 function read(path: string): string {

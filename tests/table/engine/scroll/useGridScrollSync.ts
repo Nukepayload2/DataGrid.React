@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import {
   useGridScrollSync,
@@ -40,6 +40,12 @@ function makeWheel(
   }
 }
 
+/** 指针捕获两个方法的 spy 类型。`HTMLDivElement.setPointerCapture` 自带
+ *  `(pointerId: number) => void` 签名，与下面的交叉类型合成 `((pointerId: number) => void) & Mock<…>`；
+ * 裸 `vi.fn()`（`Mock<Constructable | Procedure>`）既不是可调用类型、也不带 `mock.calls` 的可用形状，
+ * 赋不过去（TS2322）。标出真实签名后两侧同型，行为逐字不变。 */
+type PointerCaptureSpy = Mock<(pointerId: number) => void>
+
 function makePointer(
   opts: Partial<{
     pointerType: string
@@ -53,8 +59,8 @@ function makePointer(
 ): React.PointerEvent<HTMLDivElement> & {
   preventDefault: ReturnType<typeof vi.fn>
   currentTarget: HTMLDivElement & {
-    setPointerCapture: ReturnType<typeof vi.fn>
-    releasePointerCapture: ReturnType<typeof vi.fn>
+    setPointerCapture: PointerCaptureSpy
+    releasePointerCapture: PointerCaptureSpy
   }
 } {
   const {
@@ -67,11 +73,11 @@ function makePointer(
     type = 'pointermove',
   } = opts
   const currentTarget = document.createElement('div') as HTMLDivElement & {
-    setPointerCapture: ReturnType<typeof vi.fn>
-    releasePointerCapture: ReturnType<typeof vi.fn>
+    setPointerCapture: PointerCaptureSpy
+    releasePointerCapture: PointerCaptureSpy
   }
-  currentTarget.setPointerCapture = vi.fn()
-  currentTarget.releasePointerCapture = vi.fn()
+  currentTarget.setPointerCapture = vi.fn<(pointerId: number) => void>()
+  currentTarget.releasePointerCapture = vi.fn<(pointerId: number) => void>()
   return {
     pointerType,
     pointerId,
@@ -85,8 +91,8 @@ function makePointer(
   } as unknown as React.PointerEvent<HTMLDivElement> & {
     preventDefault: ReturnType<typeof vi.fn>
     currentTarget: HTMLDivElement & {
-      setPointerCapture: ReturnType<typeof vi.fn>
-      releasePointerCapture: ReturnType<typeof vi.fn>
+      setPointerCapture: PointerCaptureSpy
+      releasePointerCapture: PointerCaptureSpy
     }
   }
 }

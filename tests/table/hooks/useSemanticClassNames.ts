@@ -106,14 +106,25 @@ describe('useSemanticClassNames', () => {
     })
 
     it('header：classNames.header 与 styles.header 合并', () => {
-      const cn: TableSemanticClassNames = { header: { wrapper: 'h-wrap', row: 'h-row' } }
-      const st: TableSemanticStyles = { header: { wrapper: { color: 'green' } } }
+      // ⚠️ 本条**不再**用 antd 的 `header.wrapper` 槽位，理由（真实 API 偏差，方向与「本包多出字段」相反）：
+      //   antd 6.4.4 的 `header.wrapper` 落在 `<thead class="ant-table-thead">`
+      //   （`@rc-component/table@1.10.2` `es/Header/Header.js:83-88`），而 data-grid 的表头格是
+      //   `.dg-grid` 的直接 grid item、没有 thead 中间容器 ⇒ 该槽位在本包**没有宿主**。
+      //   裁定：从公共类型面删除（`src/table/compat/semantic.ts:33-40` 的
+      //   `ComponentsSemanticClassNames` / `ComponentsSemanticStyles` 现只含 `{ cell, row }`；
+      //   删除理由与替代写法见同文件 `:14-19`、`:67-72`；裁判版本 antd 6.4.4，
+      //   用户 2026-09-29 20:55 已裁定不升版）。本次收型是步骤 30 对 `type.test-d.tsx:224-225`
+      //   同款问题的既定处置（只删 `wrapper:` 键、其余取值与断言口径不动）。
+      //   本条要验的维度是「header 部位的 classNames 与 styles 合并进 engineSemantic.header」，
+      //   改用受支持的 `row` / `cell` 槽位后该维度**逐字保留**（且 className 侧多一个槽位，覆盖更全）。
+      const cn: TableSemanticClassNames = { header: { cell: 'h-cell', row: 'h-row' } }
+      const st: TableSemanticStyles = { header: { row: { color: 'green' } } }
       const { result } = renderHook(() =>
         useSemanticClassNames(cn, st, fixedProps.size, fixedProps.bordered, fixedProps.virtual, fixedProps.scroll, fixedProps.pagination),
       )
       expect(result.current.engineSemantic?.header).toEqual({
-        className: { wrapper: 'h-wrap', row: 'h-row' },
-        style: { wrapper: { color: 'green' } },
+        className: { cell: 'h-cell', row: 'h-row' },
+        style: { row: { color: 'green' } },
       })
     })
 
@@ -140,7 +151,9 @@ describe('useSemanticClassNames', () => {
 
     it('混合：classNames 提供 section，styles 提供 header → 两部位分别写入', () => {
       const cn: TableSemanticClassNames = { section: 'sec' }
-      const st: TableSemanticStyles = { header: { wrapper: { color: 'pink' } } }
+      // 同上条：`styles.header.wrapper` 已被裁定从公共类型面删除（antd 6.4.4 的宿主是
+      // `<thead>`，本包无该容器），改用受支持的 `header.row`；本条要验的「两个部位分别写入」不变。
+      const st: TableSemanticStyles = { header: { row: { color: 'pink' } } }
       const { result } = renderHook(() =>
         useSemanticClassNames(cn, st, fixedProps.size, fixedProps.bordered, fixedProps.virtual, fixedProps.scroll, fixedProps.pagination),
       )
@@ -150,7 +163,7 @@ describe('useSemanticClassNames', () => {
       })
       expect(result.current.engineSemantic?.header).toEqual({
         className: undefined,
-        style: { wrapper: { color: 'pink' } },
+        style: { row: { color: 'pink' } },
       })
     })
   })

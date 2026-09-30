@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest'
 import {
   useRowDragSort,
   type UseRowDragSortOptions,
@@ -117,14 +117,20 @@ function setRowRects(container: HTMLElement, rowCount: number): void {
 
 function renderHarness(
   props: Partial<HarnessProps> = {},
-): ReturnType<typeof render> & { dataSource: RowRecord[]; onSort: ReturnType<typeof vi.fn> } {
+): ReturnType<typeof render> & {
+  dataSource: RowRecord[]
+  onSort: Mock<(next: RowRecord[]) => void>
+} {
   const dataSource = props.dataSource ?? [
     { key: 'a', label: 'A' },
     { key: 'b', label: 'B' },
     { key: 'c', label: 'C' },
     { key: 'd', label: 'D' },
   ]
-  const onSort = vi.fn()
+  // 裸 `vi.fn()` 的类型是 `Mock<Constructable | Procedure>`：既赋不进 `HarnessProps.onSort`，
+  // 其 `mock.calls` 也退化成 `any[][]`、让 `.map((record) => …)` 的 `record` 成为隐式 any（TS7006）。
+  // 标出真实签名即可；只改类型实参，行为逐字不变。
+  const onSort = vi.fn<(next: RowRecord[]) => void>()
   ;(globalThis as unknown as {
     __rowDragContainerRef?: React.RefObject<HTMLDivElement | null>
   }).__rowDragContainerRef = { current: null }

@@ -233,7 +233,8 @@ function BodyCell<RecordType>({
         onHoverLeave,
         bodyEventProps.onMouseLeave as ((e: React.MouseEvent<HTMLElement>) => void) | undefined,
       )}
-      // 其余 onRow 事件 props 透传（onMouseEnter/Leave 已单独合并，跳过）。
+      // 其余 onRow props 透传（onMouseEnter/Leave 已单独合并，跳过）；袋里不含 React key（剔除集见 bodyCellUtils.ts），
+      //   故上面那个引擎 key 不会被用户 onRow 的返回值覆写。
       {...omitKey(omitKey(bodyEventProps, 'onMouseEnter'), 'onMouseLeave')}
     >
       <div

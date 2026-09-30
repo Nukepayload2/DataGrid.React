@@ -26,7 +26,10 @@ describe('useRowExpand', () => {
     const { result, rerender } = renderHook(
       ({ config }: { config?: Expandable<Rec> }) =>
         useRowExpand({ expandable: config, dataSource: data, rowKey: 'key' }),
-      { initialProps: { config: undefined } },
+      // `initialProps: { config: undefined }` 会把 `Props` 推断成字面量 `{ config: undefined }`，
+      // 于是 `rerender` 只收 `undefined`（TS2322）。给字面量标上真实可选类型即可（类型实参/断言编译后擦除，
+      // 运行期仍是 `undefined`），不改判据、不改行为。
+      { initialProps: { config: undefined as Expandable<Rec> | undefined } },
     )
 
     expect(result.current.expandEnabled).toBe(false)

@@ -161,7 +161,11 @@ describe('useSorter', () => {
     expect(result.current.sortPriorityMap.get('name')).toBe(2)
     expect(result.current.activeColumnKey).toBe('age')
 
-    const sorter = onChange.mock.calls.at(-1)![2] as Array<SorterResult<Rec>>
+    // 本仓 `tsconfig.app.json` 的 `target`/`lib` 是 ES2020，而 `Array.prototype.at` 是 ES2022 才有的
+    // （TS2550）。上面已断言 `onChange` 至少被调过一次，故「取最后一次调用」写成显式下标，
+    // 语义与 `.at(-1)` 在本用例里完全等价，且不需要为一行测试去动全局 `lib`（会波及库面）。
+    const calls = onChange.mock.calls
+    const sorter = calls[calls.length - 1]![2] as Array<SorterResult<Rec>>
     expect(sorter.map((item) => item.columnKey)).toEqual(['name', 'age'])
   })
 })

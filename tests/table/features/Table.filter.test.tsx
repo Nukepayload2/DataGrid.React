@@ -8,13 +8,15 @@
 //         - L796 `it(\`${typeof value} type\`)` 位于 `[['Light',93],['Bamboo',false]].forEach` → 计 2
 //       88 − 2 + 2 + 2 = **90**。antd 源内无 `it.skip` / `it.each` / `it.only` / `xit`（实测 grep 无命中），
 //       故 N = 90（计划文档记的 90 与实测一致）。
-//   本文件：**运行时口径 `90 passed | 9 skipped (99)`**（步骤 75 收工读数；历次 delta 见文件末尾
-//     「skip 汇总」之后的 BAT-*／步骤段落，步骤 75 一条给了最近一次的对账）。
-//     文件末尾的 skip 清单同步为 **9 条 ＝ 运行时 9**（7 条静态 `it.skip(` ＋ 工厂 `test('can be controlled by …')` 2 次调用）。
+//   本文件：**运行时口径 `91 passed | 8 skipped (99)`**（BAT-0 0-B 收工读数；历次 delta 见文件末尾
+//     「skip 汇总」之后的 BAT-*／步骤段落，BAT-0 0-B 一条给了最近一次的对账）。
+//     文件末尾的 skip 清单同步为 **8 条 ＝ 运行时 8**（6 条静态 `it.skip(` ＋ 工厂 `test('can be controlled by …')` 2 次调用）。
 //     · 与 antd 逐条对齐的部分仍是 90（步骤 57 起 **76 直测 + 14 skip**：`should not trigger onChange when
 //       blurring custom filterDropdown`（antd L1083）由 skip 转直测；步骤 75 起 **78 直测 + 12 skip**：
 //       `fires pagination change event`（antd L673）与 `should keep pagination current after filter`
-//       （antd L1411）两条的原依据被实测证伪后转直测）；另有 **BAT-18 的 5 条补充直测**
+//       （antd L1411）两条的原依据被实测证伪后转直测；BAT-0 0-B 起 **79 直测 + 11 skip**：
+//       `filterDropdown should not override customize Menu selectable`（antd L2719）的双实例
+//       观测障碍被 `test.alias` 消除后转直测）；另有 **BAT-18 的 5 条补充直测**
 //       （树形递归求值顺序例，见「can filter children by defaultFilteredValue」之后一段）
 //       ＋ **BAT-23 23-D 的 2 条补充直测**（clearFilters 后果钉 + 内置面板负例钉），antd 无同名用例。
 //     · 口径提醒：静态 `grep -c "^\s*(it|test)\("` 会把工厂**调用点**双计（本文件的
@@ -23,8 +25,9 @@
 //       `CI=true npx vitest run` 的 `passed | skipped (total)` 为准。
 //   （缺口 **#2** 修复批次 BAT-1：1 条 skip 转直测 → `should supports filterSearch has type of function`
 //    （antd L2272），断言写成修复后行为；总数 95 不变。同批 src 落 `FilterBuiltinPanel.tsx` 两处 key。
-//    缺口 **#3** 的 src 修法同批落地，但那条用例**仍留 skip**——黑盒层在本仓测试环境下观测不到，
-//    依据与读数写在该 skip 的紧邻注释里。）
+//    缺口 **#3** 的 src 修法同批落地，用例当时因测试环境双实例（裸 `antd` → CJS `lib`）
+//    观测不到而留 skip；**BAT-0 0-B** 落 `test.alias` 统一 es 单图后**转直测**，
+//    依据与读数写在该用例的紧邻注释里。）
 //   （缺口 #1 / #5 / #6a 修复批次：5 条 skip 转直测 → `can filter children by
 //    defaultFilteredValue`、`should not fire change event when close [a filtered]
 //    filterDropdown without changing anything` ×2、`should not trigger onChange when
@@ -69,7 +72,7 @@
 import { isValidElement, useEffect, useState } from 'react'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 import { fireEvent, waitFor } from '@testing-library/react'
-import { Button, ConfigProvider, Input, Table as AntdTable, Tooltip } from 'antd'
+import { Button, ConfigProvider, Input, Menu, Table as AntdTable, Tooltip } from 'antd'
 
 import { Table } from '../../../src/table/index'
 import { customRender } from '../../shared/render'
@@ -421,10 +424,20 @@ describe('Table.filter', () => {
 
   describe('filterDropdownOpen & filterDropdownVisible', () => {
     function test(propName: string) {
-      // antd L309（L338/339 调用两次 → 2 条用例）：
-      // skip 依据：`column.filterDropdownOpen` / `filterDropdownVisible` 是 antd 过时字段，
-      //   data-grid 明确不提供（src/docs/pages/deprecated-antd-members.tsx:60-65「不提供」），
-      //   迁移到 `column.filterDropdownProps.open`——该受控路径由本文件
+      // antd L309（L338/339 调用两次 → 2 条名义行）：
+      // **退化重复行（BAT-0 0-E B31，据步骤 51 §2 P-D）**：上游 `Table.filter.test.tsx`
+      //   （6.5.2 与 6.4.4 两版）的 `function test(propName)` **体内从不使用 `propName`**——
+      //   两条用例除名字外逐字节相同 ⇒ 实为 **1 个行为、2 条名义行**；此处保留 2 行**不合并**
+      //   （合并会破坏名义 1:1 对齐；见 51-analyst-denominator-integrity.md §2 P-D）。
+      // **字段两版生产码都不存在（BAT-0 0-E 独立复验，勿抄旧读数）**：
+      //   已安装 antd **6.4.4** `es/**` 全库 **0 命中**（连类型声明都没有，
+      //   `Select-String -Pattern 'filterDropdownVisible'` over `node_modules/antd/es/**`）；
+      //   上游 6.5.2 工作树与 6.4.4 tag 的 `components/` 各只有**测试件自身 2 处**
+      //   （`Table.filter.test.tsx:307` describe 名 ＋ `:339` 调用行）⇒ 这两行**永远无法与
+      //   参照对齐**，只在分母里按名义 1:1 计（文件头部分母对账行）。
+      // data-grid 不提供 `column.filterDropdownOpen`（src/docs/pages/deprecated-antd-members.tsx:60-65
+      //   「不提供」；`filterDropdownVisible` 未登该表——它本来就不存在，谈不上弃用），
+      //   等价受控路径是 `column.filterDropdownProps.open`——该路径由本文件
       //   `if the filter is visible it should ignore the selectedKeys changes`（antd L342）直测覆盖。
       it.skip(`can be controlled by ${propName}`, () => {})
     }
@@ -3158,32 +3171,51 @@ describe('Table.filter', () => {
 
   // antd L2719（规约源 = 上游 checkout **6.5.2** 的 `components/table/__tests__/Table.filter.test.tsx:2719`）：
   //   自定义面板里的 antd Menu 不得被筛选逻辑接管（onSelect 正常触发）。
-  // 缺口 **#3 的 src 修法已落地**（`src/table/engine/FilterDropdown.tsx:503-518` 自定义分支外包
+  // 缺口 **#3 的 src 修法**：`src/table/engine/FilterDropdown.tsx:503-518` 自定义分支外包
   //   `OverrideProvider selectable={undefined}`，对齐裁判 6.4.4 自家筛选面板
-  //   `antd/es/table/hooks/useFilter/FilterDropdown.js:413-417`），**但本条仍留 skip**——
-  //   不是「功能没做」，是黑盒层观测不到：本仓 vitest 把裸包名 `antd` 解析到 **CJS `lib` 构建**
-  //   （探针实测 `'default' in import * as antd` = true），而 src 按仓库既有惯例取的是
-  //   `antd/es/menu/OverrideContext` ⇒ 同一份源码被加载成**两个 OverrideContext 实例**，
-  //   我们的 Provider 写进的是 Menu 不读的那一份 ⇒ 在该环境下修复不显形（onSelect 仍 0）。
-  // 三组实测读数（探针件跑完已移出 tmp 根，读数落盘 tmp/vortex-logs/fix-real-bugs/probe-bat1c-identity.log
-  //   / probe-bat1f-identity-es-flavor.log / probe-bat1g-es-flavor-real-table.log）：
-  //   · lib flavor（= 仓库测试环境）：es Provider → onSelect 0；lib Provider → onSelect 1
-  //   · es flavor（配置里 alias `^antd$` → `antd/es`，= Vite/webpack/Next 消费方）：
-  //     真表 + 现 src → onSelect **1**，且 `.ant-dropdown-menu-item-selected` 出现 1 个
-  //     （即本条转直测后应写的断言）
-  //   · 选中态类名是 `.ant-dropdown-menu-item-selected`（Dropdown 注入 prefixCls=`ant-dropdown-menu`），
-  //     dg 与 antd 两侧同名；`.ant-menu-item-selected` 在筛选面板里恒为 0，别按它断言。
-  // 步骤 75 **本棒复跑**（不继承上面 BAT-1 的读数）：`tmp/75-probe-raw4.log` E3 三臂——
-  //   仓库口径 dg `onSelect` **0**／selected **0**，裁判 6.4.4 同构造 `onSelect` **1**／selected **1**；
-  //   `tmp/75-probe-es.log`（把裸包名 alias 到 `antd/es`）dg `onSelect` **1**／selected **1**，
-  //   且该口径下 `'default' in ns` = false（证明确实换了 flavor）；
-  //   另 `antd/es/menu/OverrideContext !== antd/lib/menu/OverrideContext` = **true** ⇒ "两份实例"是可复现的事实而非推测。
-  // 前提未被证伪（改前确实丢）：p3-dg mouseDown+click 后 onSelect 0 次、无任何 selected 类；
-  //   参照侧 p4-antd 同场景 1 次 + selected 1；p5 对照（脱离 Dropdown 的裸 Menu）1 次 ⇒ 是包内 Menu 上下文覆盖。
-  // 遗交 main 二选一后本条即可转直测：① 测试环境把 root `antd` 也解析到 es（`vite.config.ts` 一行 alias，本批禁改）；
-  //   ② src 同时引 es + lib 两份、运行时按「哪份 context 非 null」挑 Provider（两份都进 bundle，代价是把 antd 的
-  //   CJS 子树拖进 ESM 消费方的包体）。
-  it.skip('filterDropdown should not override customize Menu selectable', async () => {})
+  //   `antd/es/table/hooks/useFilter/FilterDropdown.js:413-417`。
+  // **BAT-0 0-B 由 skip 转直测**：原留 skip 的唯一原因是本仓测试环境把裸包名 `antd` 解析到
+  //   CJS `lib` 实例（`require.resolve('antd') → lib/index.js`），与 src 取的
+  //   `antd/es/menu/OverrideContext` 是**两个 OverrideContext 实例** ⇒ Provider 写进 Menu 不读的那份，
+  //   修复在黑盒层不显形（onSelect 0）。BAT-0 0-B 在 `vite.config.ts` 落 `test.alias`
+  //   `{ find: /^antd$/, replacement: 'antd/es' }`（测试作用域，站点构建零影响）⇒ 测试环境统一为
+  //   es 单图（自证：裸 `Dropdown === antd/es/dropdown`；es 的 ConfigConsumer 能读到裸
+  //   ConfigProvider 注入的 direction，改前 undefined → 改后 'rtl'；读数 96 报告 §2）。
+  // 断言口径（es flavor 实测，probe-bat1g-es-flavor-real-table.log / tmp/75-probe-es.log）：
+  //   mouseDown+click 后 `onSelect` **1** 次、`.ant-dropdown-menu-item-selected` **1** 个
+  //   （选中态类名是 `.ant-dropdown-menu-item-selected`——Dropdown 注入 prefixCls=`ant-dropdown-menu`，
+  //   dg 与 antd 两侧同名；`.ant-menu-item-selected` 在筛选面板里恒为 0，别按它断言）。
+  // 历史双实例取证（BAT-1 / 步骤 75，探针读数落盘
+  //   tmp/vortex-logs/fix-real-bugs/probe-bat1c-identity.log / probe-bat1f-identity-es-flavor.log /
+  //   probe-bat1g-es-flavor-real-table.log / tmp/75-probe-raw4.log / tmp/75-probe-es.log）：
+  //   · lib flavor（旧仓库测试环境）：es Provider → onSelect 0；lib Provider → onSelect 1
+  //   · es flavor（现仓库测试环境）：真表 + 现 src → onSelect 1 ＋ selected 1
+  //   · `antd/es/menu/OverrideContext !== antd/lib/menu/OverrideContext` = true ⇒ "两份实例"是可复现的事实。
+  it('filterDropdown should not override customize Menu selectable', async () => {
+    const onSelect = vi.fn()
+    const { container } = customRender(
+      createTable({
+        columns: [
+          {
+            ...column,
+            filterDropdown: (
+              <div className="custom-filter-dropdown">
+                <Menu onSelect={onSelect} items={[{ key: '1', label: 'Item 1' }]} />
+              </div>
+            ),
+          },
+        ],
+      }),
+    )
+    const p = await openFilter(container)
+    const item = p.querySelector<HTMLElement>('.ant-dropdown-menu-item')!
+    fireEvent.mouseDown(item)
+    fireEvent.click(item)
+    await waitFor(() => {
+      expect(onSelect).toHaveBeenCalledTimes(1)
+    })
+    expect(p.querySelectorAll('.ant-dropdown-menu-item-selected')).toHaveLength(1)
+  })
 
   describe('filteredKeys should all be controlled or not controlled', () => {
     const tableData = [
@@ -3589,32 +3621,30 @@ describe('Table.filter', () => {
 })
 
 // ============================================================================
-// skip 汇总（**B = 9 ＝ 运行时 9**：7 条静态 `it.skip(` ＋ `test('can be controlled by …')` 工厂 2 次调用；
+// skip 汇总（**B = 8 ＝ 运行时 8**：6 条静态 `it.skip(` ＋ `test('can be controlled by …')` 工厂 2 次调用；
 //   每条均有紧邻注释与 src 依据。步骤 57（BAT-23 23-D）做过一次对账：本清单原先多留了 3 条
 //   **历次批次已转直测但未撤条目**的名字（`Not cache for onChange state` :1688、
 //   `Column with filter and children filters properly.` :2101、
-//   `changes to table data should not reset the filter dropdown state being changed by a user` :3148），已删。）
+//   `changes to table data should not reset the filter dropdown state being changed by a user` :3148），已删。
+//   BAT-0 0-B 再删 1 条：`filterDropdown should not override customize Menu selectable`（antd L2719）
+//   转直测（双实例观测障碍被 `test.alias` 消除，见下方 BAT-0 0-B 段落）。）
 //   1. marks filter dropdown wrapper as presentation（antd L134）
 //      → 面板根无 role="presentation" / aria-hidden（FilterBuiltinPanel.tsx:126-134）
 //   2. can be controlled by filterDropdownOpen（antd L309 ×2 之一）
 //   3. can be controlled by filterDropdownVisible（antd L309 ×2 之二）
-//      → 过时字段，明确不提供（src/docs/pages/deprecated-antd-members.tsx:60-72）
+//      → 退化重复行：1 个行为 2 条名义行（上游工厂体不用 propName，勿合并）；
+//      → 字段两版生产码都不存在（BAT-0 0-E 复验：6.4.4 es/ 0 命中；上游仅测试件自身 2 处），
+//        永远无法与参照对齐 ⇒ 只按名义 1:1 计分母；`filterDropdownOpen` 明确不提供
+//        （src/docs/pages/deprecated-antd-members.tsx:60-65）
 //   4. three levels menu（antd L721）
 //      → menu 模式扁平化，无多级子菜单 UI（filterDropdownUtils.ts:21-31；compat/filter.ts:89-92）
-//   5. filterDropdown should not override customize Menu selectable（antd L2719）
-//      → **src 已修**（FilterDropdown.tsx:503-518 自定义分支包 `OverrideProvider selectable={undefined}`），
-//        但**黑盒层观测不到**：本仓 vitest 把裸包名 `antd` 解析成 CJS `lib` 构建，而 src 取
-//        `antd/es/menu/OverrideContext` ⇒ OverrideContext 有两份实例，Provider 写进没人读的那份。
-//        实测读数见该 skip 的紧邻注释（步骤 75 已本棒复跑两 flavor：es flavor 下真表 onSelect=1
-//        ＋ `.ant-dropdown-menu-item-selected` 1）。
-//        待 main 定测试环境解析口径（vite.config.ts 属本批禁改）后即可转直测。
-//   6. part controlled（antd L2802）
+//   5. part controlled（antd L2802）
 //      → 无受控/非受控混合校验（useFilter.ts:130 与 :166 逐列独立判定，全文无 warn/validate 分支）
-//   7. can reset if filterResetToDefaultFilteredValue and filter is changing（antd L2831）
+//   6. can reset if filterResetToDefaultFilteredValue and filter is changing（antd L2831）
 //      → 重置按钮无 disabled 态（FilterBuiltinPanel.tsx:256-258）
-//   8. title render function support `filter`（antd L2886）
+//   7. title render function support `filter`（antd L2886）
 //      → column.title 仅 ReactNode（compat/column.ts:96）
-//   9. allow `false` to not render empty states（antd L3110）
+//   8. allow `false` to not render empty states（antd L3110）
 //      → renderEmpty 返回 false 时回退内置 Empty（FilterDropdown.tsx:323-331，判定行 :326）
 //
 // 步骤 75（E-156 跳过依据取证 · 筛选域片）：**转直测 2 条、留 skip 5 条并只补锚点/版本**
@@ -3690,6 +3720,21 @@ describe('Table.filter', () => {
 //     closes with default filterOnClose`（**负例**：钉住内置面板关闭照旧应用，防"修过头"）。
 //   双侧读数：探针 `tmp/probe-bat23d.test.tsx` + `tmp/vitest.probe.bat23d.config.ts`
 //     （10 例，改前 `tmp/57-probe-before.log` / 改后 `tmp/57-probe-after.log`，两侧 console.error 恒 0）。
+//
+// BAT-0 0-B：**转直测 1 条**（skip 9 → 8，运行时总数 99 不变；
+//   运行时口径 `90 passed | 9 skipped (99)` → **`91 passed | 8 skipped (99)`**，实测 EXIT=0）。
+//   - `filterDropdown should not override customize Menu selectable`（antd L2719）：
+//     原留 skip 的唯一原因是**测试环境双实例**——本仓 vitest 把裸包名 `antd` 解析到 CJS `lib` 构建
+//     （`require.resolve('antd') → lib/index.js`），而 src 取 `antd/es/menu/OverrideContext`
+//     ⇒ 两份 OverrideContext 实例，Provider 写进 Menu 不读的那份，修复黑盒不显形（onSelect 0）。
+//     本批在 `vite.config.ts` 落 `test.alias { find: /^antd$/, replacement: 'antd/es' }`
+//     （vitest 专有测试作用域别名，站点构建零影响）⇒ 测试环境统一 es 单图。
+//   - 双实例自证（探针 `tmp/probe-bat0-b.test.tsx`＋独立探针配置 `tmp/vitest.probe.bat0b.prefix.config.ts`
+//     ／ `tmp/vitest.probe.bat0b.config.ts`，不 mergeConfig 仓库配置）：
+//     改前 bare `Dropdown === antd/es/dropdown` = **false**、es 的 ConfigConsumer 读裸
+//     ConfigProvider 注入的 direction = **undefined**；改后 = **true** ／ **'rtl'**。
+//   - 断言口径取自 es flavor 实测（probe-bat1g-es-flavor-real-table.log / tmp/75-probe-es.log）：
+//     onSelect 1 次 ＋ `.ant-dropdown-menu-item-selected` 1 个。
 //
 // 直测中的语义改写（已在用例内注释）：antd 的 `.ant-table-filter-dropdown`/`li.ant-dropdown-menu-item`/
 // `.ant-btn-link`/`tbody tr` 选择器重映射；onChange 的 pagination 参数含 `total`；

@@ -1,16 +1,39 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { render, renderHook } from '@testing-library/react'
-import { useState } from 'react'
 import type { CSSProperties, ReactNode } from 'react'
 import { ConfigProvider, theme } from 'antd'
 import { useTableThemeVars } from '../../../src/table/useTableThemeVars'
+import * as tokenBridge from '../../../src/table/tokenBridge'
 import type { TableSemanticStyles } from '../../../src/table/types'
+
+// 仪表（spy）：把 tokenBridge 的两个转换函数包成 vi.fn，委托真实实现（行为零差异），
+// 以便「memo 引用稳定性」块直接数「转换函数被调用几次」——这才是「token 不变 ⇒ 不重算」
+// 的**直接判据**（见块内注释）。产品码 `./tokenBridge` 与本处 `../../../src/table/tokenBridge`
+// 解析到同一 module id，vi.mock 对二者同时生效。
+vi.mock('../../../src/table/tokenBridge', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../src/table/tokenBridge')>()
+  return {
+    ...actual,
+    tokenToCssVars: vi.fn(actual.tokenToCssVars),
+    tableTokenToCssVars: vi.fn(actual.tableTokenToCssVars),
+  }
+})
+
+type Spy = ReturnType<typeof vi.fn>
+function aliasSpy(): Spy {
+  return tokenBridge.tokenToCssVars as unknown as Spy
+}
+function tableSpy(): Spy {
+  return tokenBridge.tableTokenToCssVars as unknown as Spy
+}
 
 // 用 antd ConfigProvider 包裹，确保 useAntdInternalToken 能拿到真实主题上下文。
 // 测试聚焦：① antd 默认主题 → aliasTokenVars/tableTokenVars 结构契约（含 --ant-* 前缀）
-//          ② wrapperStyle 合并优先级（本 hook 自己的逻辑）。
-// antd 内部 useToken realToken 在 jsdom 测试环境下不响应 ConfigProvider theme.token 覆盖
-// （antd 缓存机制 + 缺 StyleProvider），故 theme 覆盖断言不在本测试范围（零行为回归）。
+//          ② wrapperStyle 合并优先级（本 hook 自己的逻辑）
+//          ③ 两个 token useMemo 的引用稳定性（见文末「memo 引用稳定性」块）。
+// 注：本文件旧注释曾断言「jsdom 下 realToken 不响应 ConfigProvider theme.token 覆盖，故 theme 覆盖
+//   断言不在范围」——该说法已被文末「反向保护」用例实测证伪（`theme.token.colorPrimary` 覆盖会体现在
+//   `aliasTokenVars['--ant-color-primary']`），故 theme 反应性现已纳入直测。
 function withConfig(children: ReactNode): ReactNode {
   return <ConfigProvider>{children}</ConfigProvider>
 }
@@ -158,11 +181,17 @@ describe('useTableThemeVars', () => {
   //   二者的真实输入只有 `theme.useToken()` 的 realToken 引用（`cssVar` 是与 ConfigProvider 无关的
   //   固定配置常量）。旧实现把 `cssVar` 写成 hook 体内对象字面量并塞进 deps ⇒ 每轮 `===` 必失败
   //   ⇒ 每轮全量重算（全套 alias 转换 + `prepareComponentToken` 派生），memo 静默失效。
-  // 为什么「产物同引用」是直接判据而不是代理指标：
-  //   `tokenToCssVars` / `tableTokenToCssVars` 每次调用都现造并返回新对象（无内部缓存），
-  //   故「引用相同」⇔「本轮 memo 回调没有执行」⇔「被钉的缺陷不在」。
-  // 仪表自证：先亲读 `theme.useToken().token` 的引用确实没换（下述 tokenRefs），否则「产物同引用」
-  //   会因为「压根没发生重渲染」而恒绿，什么也测不到。
+  // 判据选型（为何**不**用「产物同引用」）：
+  //   `useMemo` 的输出引用相等**不是**「本轮没重算」的可靠代理——React 19 明确把 `useMemo` 当性能
+  //   提示，允许**按槽位、非确定地丢弃**某个 memo 缓存并重跑其 factory，即便 deps 逐槽 Object.is 相等。
+  //   旧钉正是栽在这条上：全量并行下 `tableTokenVars` memo 被丢弃重算（新引用）而 `aliasTokenVars`
+  //   memo 恰好被保留（同引用），deps 两边都稳定 ⇒ 出现「alias 绿 / table 红」这一自相矛盾的读数。
+  //   另注：`tokenToCssVars` / `tableTokenToCssVars` 均**无内部缓存**（每次都现造新对象），所以旧钉里
+  //   alias 侧的「引用相等」只有在 React 真的保留了那条 memo 时才成立——是**假稳定**，非语义保证。
+  // 新判据（直接、确定）：用 spy 数两个转换函数在「token 不变的重渲染」里**被调用了几次**。
+  //   「token 不变 ⇒ 不重算」 ⇔ 两个转换函数调用计数零增长。这直接测计算次数而非 React 的缓存策略。
+  // 仪表自证：先亲读 `theme.useToken().token` 首轮与末轮同一引用（下述 tokenRefs），排除
+  //   「压根没发生重渲染」导致恒绿。
   describe('memo 引用稳定性 —— token 不变的重渲染不得重算 vars', () => {
     type ProbeProps = {
       style: CSSProperties | undefined
@@ -170,9 +199,15 @@ describe('useTableThemeVars', () => {
     }
     type ProbeResult = ReturnType<typeof useTableThemeVars>
 
-    it('同 props + 同 realToken 引用重渲染 → 三个产物引用全等（含 token 引用自证）', () => {
+    // `renderHook` 的泛型次序是 `<Result, Props>`（@testing-library/react types/index.d.ts:263-272），
+    // **Result 在前、Props 在后**。本文件两处曾写成 `<ProbeProps, ProbeResult>`（次序颠倒），
+    // 于是回调被按「入参是 hook 返回值、返回 ProbeProps」检查，`props.style` / `result.current.wrapperStyle`
+    // 逐条报不存在。此处仅调换类型实参次序（类型实参编译后被擦除，运行期零影响）。
+    it('同 props + 同 realToken 引用重渲染 → 两个 token 转换函数零调用增长（含 token 引用自证）', () => {
+      const aSpy = aliasSpy()
+      const tSpy = tableSpy()
       const tokenRefs: unknown[] = []
-      const { result, rerender } = renderHook<ProbeProps, ProbeResult>(
+      const { rerender } = renderHook<ProbeResult, ProbeProps>(
         (props) => {
           tokenRefs.push(theme.useToken().token)
           return useTableThemeVars(props.style, props.stylesResolved)
@@ -183,40 +218,43 @@ describe('useTableThemeVars', () => {
         },
       )
 
-      const firstAlias = result.current.aliasTokenVars
-      const firstTable = result.current.tableTokenVars
-      const firstWrapper = result.current.wrapperStyle
+      // 首轮挂载已各调用一次，记下基线。
+      const aliasBefore = aSpy.mock.calls.length
+      const tableBefore = tSpy.mock.calls.length
 
       rerender({ style: undefined, stylesResolved: undefined })
 
-      // 仪表前提：本轮渲染拿到的 realToken 与首轮是同一引用 ⇒ 「token 未变」成立。
+      // 仪表前提：末轮渲染拿到的 realToken 与首轮同一引用 ⇒ 「token 未变」成立（比较首轮↔末轮，
+      //   覆盖真正的重渲染，而非 StrictMode 双渲染的相邻两次）。
       expect(tokenRefs.length).toBeGreaterThanOrEqual(2)
-      expect(tokenRefs[1]).toBe(tokenRefs[0])
+      expect(tokenRefs[tokenRefs.length - 1]).toBe(tokenRefs[0])
 
-      // 核心断言：token 未变 ⇒ memo 不该重算 ⇒ 产物同引用。
-      expect(result.current.aliasTokenVars).toBe(firstAlias)
-      expect(result.current.tableTokenVars).toBe(firstTable)
-      expect(result.current.wrapperStyle).toBe(firstWrapper)
+      // 核心断言：token 未变 ⇒ 两个 memo 都不该重算 ⇒ 两个转换函数都不该被再次调用。
+      expect(aSpy.mock.calls.length).toBe(aliasBefore)
+      expect(tSpy.mock.calls.length).toBe(tableBefore)
     })
 
-    it('仅 style 变化 → token memo 不跟着失效，只有 wrapperStyle 重算', () => {
-      const { result, rerender } = renderHook<ProbeProps, ProbeResult>(
+    it('仅 style 变化 → 两个 token 转换函数零调用增长，只有 wrapperStyle 重算', () => {
+      const aSpy = aliasSpy()
+      const tSpy = tableSpy()
+      const { result, rerender } = renderHook<ProbeResult, ProbeProps>(
         (props) => useTableThemeVars(props.style, props.stylesResolved),
         {
           initialProps: { style: { margin: 1 }, stylesResolved: undefined },
           wrapper: ({ children }: { children: ReactNode }) => <>{withConfig(children)}</>,
         },
       )
-      const firstAlias = result.current.aliasTokenVars
-      const firstTable = result.current.tableTokenVars
+      const aliasBefore = aSpy.mock.calls.length
+      const tableBefore = tSpy.mock.calls.length
       const firstWrapper = result.current.wrapperStyle
 
       rerender({ style: { margin: 2 }, stylesResolved: undefined })
 
-      // 与 token 无关的入参变化，不得波及两个 token memo。
-      expect(result.current.aliasTokenVars).toBe(firstAlias)
-      expect(result.current.tableTokenVars).toBe(firstTable)
-      // 但 wrapperStyle 必须随之更新（否则就是过度 memo 化）。
+      // 与 token 无关的入参变化，不得波及两个 token memo（转换函数零新增调用）。
+      expect(aSpy.mock.calls.length).toBe(aliasBefore)
+      expect(tSpy.mock.calls.length).toBe(tableBefore)
+      // 但 wrapperStyle 必须随之重算（否则过度 memo 化）。此处断言「变了」是安全方向：
+      //   deps 变化时 factory 必重算，React 只会保留旧缓存成 bug，不会反向误报。
       expect(result.current.wrapperStyle).not.toBe(firstWrapper)
       expect((result.current.wrapperStyle as Record<string, unknown>).margin).toBe(2)
     })

@@ -31,6 +31,18 @@ import {
 import type { TableSemanticStyles } from './types'
 
 /**
+ * 主题注入的 cssVar 配置（antd 缺省同款：`prefix:'ant'` + `key:'css-var-root'`）。
+ *
+ * **必须是模块作用域常量**（= 非反应式输入，故下面两个 `useMemo` 的 deps 只写 `[tokenRecord]`）：
+ *   写成 hook 体内对象字面量 ⇒ 每轮渲染新引用，一旦进 deps 就 `===` 恒失败 ⇒ 全套 alias +
+ *   Table component token 每轮全量重算（memo 静默失效）；不进 deps 则每轮新建的对象被 memo 漏掉
+ *   ⇒ 陈旧闭包。两条都坏，只有提到模块作用域这一条是对的落点。
+ * 提出去对外零行为变化：`tokenBridge` 的 `tokenToCssVars` / `tableTokenToCssVars` 只读
+ * `.prefix` / `.key` 两个字段，从不改写传入的 cssVar 对象。
+ */
+const cssVar = { prefix: 'ant', key: 'css-var-root' }
+
+/**
  * 计算主题 token CSS vars 并合并出根容器 inline style。
  *
  * @param style              `TableProps.style`（用户传入的根容器自定义 style）
@@ -60,10 +72,11 @@ export function useTableThemeVars(
   //   通过 getDefaultComponentToken + getComponentToken 在渲染时单独合并 + 删除与 alias 同值键）。
   //   data-grid 在注入时（tableTokenToCssVars）复刻此合并流程：prepareComponentToken 默认 + 用户覆盖。
   //
-  // useMemo 依赖 real token 引用：theme.useToken() 在 theme/override 变化时更新（新对象）
-  //   → useMemo 重算 vars → 视觉同步。
+  // useMemo 只在**反应式输入变化**时重算：唯一反应式输入是 realToken 引用（theme.useToken() 在
+  //   theme/override 变化时给新对象）→ 重算 vars → 视觉同步。`cssVar` 是模块作用域常量（见本文件
+  //   上方声明处），非反应式输入 ⇒ 不进 deps。本行曾经写的是 hook 体内字面量 + 进 deps ⇒
+  //   每轮新引用 ⇒ `===` 恒失败 ⇒ 全套 alias / Table token 每轮全量重算（memo 静默失效，已修）。
   const { token: realToken } = theme.useToken()
-  const cssVar = { prefix: 'ant', key: 'css-var-root' }
   const tokenRecord = realToken as unknown as Record<string, unknown> | undefined
 
   // alias var：transformToken(realToken, ...)，与 useCacheToken 内部同款调用。
@@ -87,7 +100,7 @@ export function useTableThemeVars(
             },
           })
         : {},
-    [tokenRecord, cssVar],
+    [tokenRecord],
   )
 
   // Table component var：完全复刻 antd genCSSVarRegister fn 回调（详见 tableTokenToCssVars 注释）。
@@ -100,7 +113,7 @@ export function useTableThemeVars(
       tokenRecord
         ? tableTokenToCssVars(tokenRecord, cssVar)
         : {},
-    [tokenRecord, cssVar],
+    [tokenRecord],
   )
 
   // 语义化 root 部位 style（合并到根容器 style；semantic 覆盖同名字段）。

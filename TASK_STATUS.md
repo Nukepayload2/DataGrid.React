@@ -2,7 +2,10 @@
 
 计划真理源：`~/.claude/plans/antd-table-compiled-phoenix.md`（本机 Claude 计划文件，未随仓库分发）
 
-> **本页的时效边界**：「已知行为缺口」表、「一、已落地但没有独立验证者」、「四、剩余待办」三节是 **2026-09-28 的台账快照**——此后落地的批次已修掉其中多条，另有若干条**登记本身被实测推翻**（写了"偏离 antd"实为一致）。终态重写尚未并入本页，因此**任何一行都不许直接当派工前提**；引用前先取当前读数：`node tmp/anchor-audit.mjs`（指针与死引用）、`node tmp/check-skips.mjs`（跳过依据计数）。行为级结论一律以 `docs/reference/known-limitations.md` 与 `docs/features/**` 为准。
+> **本页的时效边界**：「已知行为缺口」表、「一、已落地但没有独立验证者」、「四、剩余待办」三节是 **2026-09-28 的台账快照**——此后落地的批次已修掉其中多条，另有若干条**登记本身被实测推翻**（写了"偏离 antd"实为一致）。这三节里的行**不许直接当派工前提**；
+> 引用前先取当前读数：`node tmp/anchor-audit.mjs`（指针与死引用）、`node tmp/check-skips.mjs`（跳过依据计数）。
+> 门读数看**第七节**——它按「快照时刻＋失效规则」写法给出，引用时连快照时刻一起引，不把它当"现在"。
+> 行为级结论一律以 `docs/reference/known-limitations.md` 与 `docs/features/**` 为准。
 
 ## 状态图例
 - [ ] TODO / [x] DONE / [~] 进行中 / [!] 验证未过
@@ -483,13 +486,22 @@ Phase 2/3 的功能用例原本 `expect(container.firstChild).toMatchSnapshot()`
    二选一：`git rm --cached tests/table/devWarn.test.tsx`，或 `git add -A tests/table/`。
 2. **peer 版本**：`package.json` 写 `^6.1.0`，而本轮所有"已对齐"结论的靶子是 **6.4.4**，用户实际会装到 6.6.x。
    要不要换裁判/加版本门（`bat0-workorder.md` 的 0-E 有选项与代价）。
-3. **是否补上那两个未复验批次的验证**，还是先继续修第二节的真缺陷（我建议先补验证，代价一轮，收益是后面所有判词的前提）。
+3. ~~**是否补上那两个未复验批次的验证**~~ ——**已闭合**：步骤 86／88 两批的代码与钉都在树里，
+   接手方已按「不复跑自报、main 亲跑」复验（见「七之二」与 `tmp/vortex-logs/fix-real-bugs/E-165-takeover.md`），
+   并各做了一次改前必红反证（86 摘 `key` 剔除 ⇒ 两条 flat/multi 钉恰红；88 复原 hook 体内 `cssVar` 字面量 ⇒ 两条 memo 钉恰红），
+   两次装回后 sha1 逐字节等于终态。
+4. **截图基线**：已处置——e2e 首跑红 4 张（`sorting-and-filtering`／`semantic-dom-slots` × light/dark），
+   定性为**基线过期**（证据见「七之二」），已备份旧件到 `tmp/e2e-baseline-bak/` 并只重刷那 4 张，
+   `pnpm test:e2e` 现为 **`136 passed` EXIT=0**。
 
-## 七、本轮终态读数（main 亲跑，独占窗口 2026-09-29 18:35–19:17）
+## 七、门读数快照（main 亲跑；对象＝工作树 2026-09-29 19:17，**不含**步骤 86／88 的改动）
+
+> 本节是**快照**，不是"当前状态"。口径规则：任一产品码或测试改动落地后，本表即作废、须重跑并换新的快照时刻。
+> 快照之后的读数写在表末「快照之后」一节，两者**不许混读**（独立复审抓到过这正是本表的一处断层）。
 
 | 门 | 命令 | 读数 |
 |---|---|---|
-| 全量 | `pnpm test`（= `vitest run` ＋ CSS 兼容门） | **EXIT=0**；`Test Files 128 passed (128)`、`Tests 1785 passed \| 42 skipped (1827)`、`Test timed out` 命中 **0**；`CSS compatibility check passed for Chrome >= 105.` |
+| 全量 | `pnpm test`（= `vitest run` ＋ CSS 兼容门） | **EXIT=0**；`Test Files 128 passed (128)`、`Tests 1785 passed \| 42 skipped (1827)`、`Test timed out` 命中 **0**；`CSS compatibility check passed for Chrome >= 105.`（＝**快照态**读数，不含步骤 86／88） |
 | 类型 | `pnpm test:types` | **EXIT=0**；`129 files / 1791 passed \| 42 skipped (1833)` |
 | 类型 | `npx tsc -b`、`npx tsc -p tsconfig.test.json --noEmit`、`npx tsc -p tsconfig.lib.json --noEmit` | 各 **EXIT=0**、`error TS` **0** 行 |
 | 静态 | `npx oxlint . --ignore-path=.oxlintignore` | `Found 0 warnings and 0 errors.`（555 files / 99 rules） |
@@ -497,33 +509,127 @@ Phase 2/3 的功能用例原本 `expect(container.firstChild).toMatchSnapshot()`
 | 构建 | `pnpm build:docs` | **EXIT=0**；`dist-docs/index.html` **5,096,097 B**；产物内 `design-notes` 命中 **0** ⇒ 死文档路径不进重生产物 |
 | 生成物 | `node scripts/extract-api.mjs` | **EXIT=0**，与工作树抄件 `diff` **0 行**；`sortDirections` 命中 8 次 |
 | 计数 | `node tmp/check-skips.mjs` | `skip 总数=40 无注释=0 文件数=47`（本轮基线 41 ⇒ 只降不升） |
-| 计数 | `node tmp/anchor-audit.mjs` | 指针总数 1452、指向不存在文件 **14**、行号越界 **0**、错行锚点候选 **65**（开工 67） |
+| 计数 | `node tmp/anchor-audit.mjs` | **这类计数会随批次漂移，引用前必复跑**：快照态 指针 1452／悬空 **14**／越界 **0**／候选 65；含步骤 86／88 的重跑得 指针 **1467**／悬空 **15**（越界仍 0）。⇒ 把任何单个数字当"当前值"都是错的 |
 | 覆盖 | `pnpm test:coverage` | **EXIT=0**；`All files 92.84% stmts / 87.83% branch / 95.92% fn / 95% lines`；**零覆盖的 `src/table/**` 生产文件清单为空**（`coverage/lcov.info` 记录数 103、全部落在统计面内；最低档 `engine/RecyclingBodyGrid.tsx` 76.3%）。⚠️ 该配置**不产** `coverage-final.json`，按 json 解析会得出假的「0 条」 |
 
-**判红一次的定性（不是产品回归）**：`demo-extend.pagination-remote > extend remote-data` 在**带 v8 插桩**的 coverage 跑里
-快照取到 `[]`；同一工作树**独占复跑该文件 ⇒ 3 passed / EXIT=0**。单变量差＝插桩变慢导致的**弹窗收敛竞态**
-（红点 `tests/shared/demoHarness.tsx:450`：`settlePopupHtml()` 之后才 `toMatchSnapshot`）。已列为测试底座缺陷待派工，
-**不许**用更新快照基线掩盖。
+### 快照之后（含步骤 86／88 改动，main 亲跑 2026-09-29 21:0x）——**已被下面「七之二」取代，留作过程记录**
+
+| 门 | 读数 | 定性 |
+|---|---|---|
+| 全量 `pnpm test` | **EXIT=1**；`Test Files 1 failed \| 127 passed (128)`、`Tests 2 failed \| 1788 passed \| 42 skipped (1832)` | 红的两条**都是步骤 88 自己新加的 memo 钉**（`tests/table/hooks/useTableThemeVars.tsx`）；scoped 三种组合全绿 ⇒ 只在**全量**下红 ⇒ **已收口**（见「七之二」，判据已换成 spy 调用计数） |
+| `npx oxlint` | `Found 1 warning` | dead `useState` import（步骤 88 遗留）⇒ **已删**，复跑回到 0/0 |
+| `node tmp/anchor-audit.mjs` | 悬空 **15**（＋1） | ＋1 是 main 把工具转储字段当本仓路径抄进本页所致 ⇒ **已改写**，复跑回到 14 |
+| `react-doctor`（0.7.1） | **`All 129 issues`**（Security 1／Bugs 10 errors＋36 warnings／Performance 17／Accessibility 1／Maintainability 64） | 静态计数链：**134 → 130**（批 3 抑制生效）→ **129**（批 1／批 2 落地后）。⚠️ 链上每换一个工具版本都要重取，跨版本数字不可比 |
+
+## 七之二、接手复跑（2026-09-30，**本节的当前有效快照**）
+
+> 本节**取代**上面那张过程表。口径：全部由接手方亲跑，日志落在 `tmp/takeover-*.log`。
+> 静态计数（doctor／anchor-audit／check-skips）**引用前仍须复跑**，它们随批次漂移。
+
+| 门 | 命令 | 读数 |
+|---|---|---|
+| 全量 | `pnpm test` **连跑两次** | 两次均 **EXIT=0**；`Test Files 128 passed (128)`、`Tests 1796 passed \| 42 skipped (1838)`（较接手期 1790/1832 净增 6 ＝ 步骤 92 的 6 条新钉）、`Test timed out` 命中 **0**、`CSS compatibility check passed for Chrome >= 105.`（日志 `tmp/main-full-run1.log`／`-run2.log`，2026-09-30 三棒落地后独占窗口） |
+| 类型 | `pnpm test:types` | **EXIT=0**；`129 files / 1802 passed \| 42 skipped (1844)`、`Type Errors no errors`（`tmp/main-types-run.log`；步骤 93 扩 include 后 typecheck 通道实测吃到整个 `tests/**`） |
+| 类型 | `npx tsc -b`／`tsconfig.test.json`／`tsconfig.lib.json` | 各 **EXIT=0** |
+| 静态 | `npx oxlint . --ignore-path=.oxlintignore` | `Found 0 warnings and 0 errors.`（555 files / 99 rules） |
+| 构建 | `pnpm build` | **EXIT=0**；`dist/index.js` 245,360 B、`dist/index.cjs` 195,142 B、`dist/style.css` 29,042 B、`.d.ts` **110** 个（非空跑） |
+| 构建 | `pnpm build:docs` | **EXIT=0**；`dist-docs/index.html` **5,096,121 B**；产物内 `design-notes` 命中 **0** |
+| 生成物 | `node scripts/extract-api.mjs` | **EXIT=0**，与重生成前抄件 `diff` **0 行**；`sortDirections` 命中 11 次 |
+| 计数 | `node tmp/check-skips.mjs` | `skip 总数=40 无注释=0 文件数=47`（＝基线，未降未升） |
+| 计数 | `node tmp/anchor-audit.mjs` | 扫描 **703**／指针 **1492**（本仓 1456＋参照 36）／悬空 **14**／越界 **0**／候选 70（悬空／越界＝基线未升；指针增量来自三棒新注释，`tmp/main-gates-anchor.log`） |
+| 静态 | `react-doctor`（**0.9.14**，步骤 95 已升版） | **101 条**（Maintainability 49／Bugs 37／Performance 14／Security 1；error **12**／warning 89）；0.7.1 的 `All 125 issues` 与 `jsx-key` Count: 2 **作废**（0.9.14 不再报 `jsx-key` ⇒ 批 1 对账门已迁到步骤 84 的 fiber 探针件，复跑 4 臂全 `["a","b","c"]` 绿）；新开的 6 条 `no-ref-current-in-render` 全判 **B 判跳**（有意 latest-ref，5 条带注释、1 条生产未调用），见 `95-implementer-doctor-upgrade.md` |
+| 覆盖 | `pnpm test:coverage` | **EXIT=0**；92.84% stmts／87.83% branch／95.92% fn／95% lines；`lcov.info` 中 `src/table/**` 记录 **103**、**零覆盖生产文件 0 个** |
+| e2e | `pnpm test:e2e` | 首跑 **EXIT=1**（`127 passed / 9 failed`）⇒ 定性见下方「端到端首次复跑」；**已处置后复跑 `136 passed (2.8m)`、EXIT=0** |
+
+
+**判红一次的定性（不是产品回归）——已修·放行（步骤 94／BAT-34，2026-09-30，main 代执行收口）**：
+`demo-extend.pagination-remote > extend remote-data` 在**带 v8 插桩**的 coverage 跑里快照取到 `[]`；
+同一工作树**独占复跑该文件 ⇒ 3 passed / EXIT=0**。单变量差＝插桩变慢导致的**弹窗收敛竞态**
+（红点 `tests/shared/demoHarness.tsx`：`settlePopupHtml()` 的旧判据把**销毁后的空层**当成收敛值返回 `[]`；
+弹窗生存期由 demo 的 `setTimeout(800)` 异步回填决定，插桩把 50ms 轮询定时器阻塞 501ms 拖过销毁边界）。
+修法：收敛判据不变，但**空层不是可接受的收敛值**——回退到最后一次非空读数（`settlePopupHtml`，`demoHarness.tsx:84-132`）。
+证据：改前码（＝git HEAD，sha1 `5f493be8…`）16 路并发插桩 **12/16 红**、重负载批 5/16 红；改后码（sha1 `15562f0e…`）
+16 路并发插桩 **16/16 绿**；main 复跑 nocov＋插桩 ×3 连跑均 EXIT=0；零 `--update-snapshots`（工单红线遵守）。
+权衡已登记：本层断言弹窗**内容**不断言生存期，「弹窗被永久销毁」类回归由 `Table.filter.test.tsx` 覆盖。
+见 `94-implementer-popup-settle-race.md`、**E-168**。
+
+### 端到端首次复跑（`pnpm test:e2e` = EXIT=1，9 红分两类）
+
+e2e 自 Round K（2026-09-28 19:50、130 截图全绿）以来**一直没人跑过**；本节是那之后的第一次。两类红，性质完全不同：
+
+1. **4 条功能 spec 抖动**（`basic`／`fixed-columns`／`tree-data`／`filter-in-tree`）——`Locator('.dg-wrapper')` 5s 内找不到。
+   **独占复跑同 4 个文件 ⇒ `4 passed (9.0s)`** ⇒ Vite dev 冷编译超出 `expect` 默认超时，非产品问题。
+2. **4 张截图基线确定性不符**（`sorting-and-filtering` light/dark、`semantic-dom-slots` light/dark；
+   另 `basic-table` light 属上类抖动——复跑 `-g 'basic-table|semantic-dom-slots'` 时它已转绿）。
+   复跑 `-g 'semantic-dom-slots'` ⇒ 两张**稳定红** ⇒ 确定性漂移。
+
+   **归因（三条独立证据，都指向「基线过期」而不是回归）**：
+   - **不是步骤 86／88**：这两个 demo 的源文件**都不含 `onRow`**（grep 零命中）⇒ 步骤 86 剔 `key` 对它们零 DOM 影响；
+     步骤 88 只把 `cssVar` 对象字面量的**位置**从 hook 体内移到模块作用域，产出的 CSS 变量逐键同值。
+   - **不是环境／浏览器漂移**：同一轮里 **130 张里 126 张过** ⇒ 同机同 Chrome 版本可比，L5 那条环境解释被排除。
+   - **与已登记的产品改动对得上**：PNG 基线的时间戳早于本轮行为修复。`sorting-and-filtering` 的差异像素**只落在排序箭头一处**，
+     正对应「表级／列级 `sortDirections` 生效时多画一枚箭头」那次修复——该 demo 的 **vitest 结构基线已刷到 `nodes: 79`**
+     （少的正是那枚多余箭头）且本次全量绿；`semantic-dom-slots` 的差异是右侧语义槽说明面板**整段下移约一行**（多处文字重影），
+     对应「排序格无障碍描述改为跟随语言包」那次修复。两处的**结构基线**都随改动刷过并绿，唯独 **PNG 基线没刷**。
+
+   ⇒ **处置（已执行）**：先备份旧基线到 `tmp/e2e-baseline-bak/`（node sha1 四条留痕），再
+   `npx playwright test e2e/screenshots.spec.ts -g 'sorting-and-filtering|semantic-dom-slots' --update-snapshots`。
+   `-g` 过滤器保证**只重写这 4 张**：`已运行` 逐张比对确认 **changed=4 / total=130**，其余 126 张**零改动**。
+   **终局**：`pnpm test:e2e` ⇒ **`136 passed (2.8m)`、EXIT=0**（与 Round K 同数），首跑那 4 条功能 spec 抖动本次未复现。
+
+### 本次接手新立的一条缺陷（**表体通道已修，表头通道同形状未修**）
+
+- **症状**：用户在 `onHeaderRow` 返回值里写 `key`，该键会落到该表头行**每一个**表头格的 React key 上。
+- **落点**：表头走**另一条**通道 `src/table/engine/headerCellUtils.ts:59` 的 `mergeHeaderEventProps`，
+  剔除集仍只有 `className`／`style`（与表体的 `src/table/engine/bodyCellUtils.ts:46` 同型但**未同步**）。
+- **实测**（`tmp/probe-takeover-header-key.test.tsx`，fiber 读数）：flat 路径 2 个表头格 key 全为 `boom-header-key`
+  （对照组恒 `<undefined>`）；multi 路径 3 个表头格同样全塌成一个；React 19 自己发告警
+  `A props object containing a "key" prop is being spread into JSX`。
+- **与步骤 86 的差别（必须写清，否则会被当成同一条已结案）**：表体那条是**引擎 key 被覆写**（身份被摧毁）；
+  表头这条是**引擎本来没有 key、用户的 key 被注入**，而表头格的**组件身份在父层**、未被摧毁 ⇒ 严重度低一档，
+  但同族、同一个一行形状的修法。步骤 86 的实现者**如实自报未修**（`headerCellUtils.ts` 不在其可写面）并交回 main。
+- **状态**：**已修·放行（步骤 92／BAT-32，2026-09-30，main 代执行收口）**。修法＝`headerCellUtils.ts:87`
+  的 `mergeHeaderEventProps` 剔除集由 `className`／`style` 扩为 `className`／`style`／**`key`**（1 行功能＋JSDoc 依据块，
+  与表体通道 `bodyCellUtils.ts:46` 同形 ⇒ 两条独立通道已同步）。钉 6 条（白盒 3＋黑盒 3）；反证 CF-1（摘
+  `|| k === 'key'`）⇒ **6 红**（各自独立红）＋装回 sha1 `cf751a65…` 逐字节 RESTORE-OK（main 重做，实现者棒死亡）。
+  门 battery main 亲跑全绿（片 `57 passed | 7 skipped`、`tsc -p tsconfig.{test,lib}.json` 各 EXIT=0、oxlint 0/0、
+  全量 ×2 绿）。见 `92-implementer-header-key.md`、**E-168**。
 
 ### 仍未覆盖的面（不许被上面的绿掩盖）
 
-1. **端到端未跑**：`pnpm test:e2e` 与截图基线需要本机浏览器与站点进程，属用户侧窗口；本轮只做过选择器文本的静态核对。
+1. **端到端**：`pnpm test:e2e` 已跑并**已全绿**（`136 passed`）。红过的 4 条功能 spec 是 Vite 冷编译抖动（复跑即绿），
+   4 张 PNG 是过期基线（已按上面证据重刷，只动那 4 张）。**残余**：流程缺口——PNG 基线没有"随可见像素改动重刷"的规则，
+   已登记在 `gap-disposition.md` 二·补第 14 条，建议写进收尾清单。
 2. **「参照版本条件性分叉」整类未扫**：对齐基准＝已安装的 **antd 6.4.4**（peer 写 `^6.1.0`、npm 最新 6.6.5、本机上游克隆 6.5.2）。
    已抓到两例（某排序状态的列收集口径 6.5.x 起改；表体勾选框默认无障碍名是 6.5.2 才有的能力）
    ⇒ 凡「参照没有／不生效」类依据都必须带**裁判版本号**，换裁判要重判一遍。
 3. **「注释声称与 antd 一致」共 406 条，只逐条复核了承载「不修／跳过」决策的 55 条**。
-4. **代码质量面（静态分析）分诊已交回，修复在飞**：权威清单是 **134 条**（产品码 83／站点码 51），不是 206——
+4. **代码质量面（静态分析）分诊已交回，A 档 3 批全部收口（as-of 2026-09-30）**：权威清单是 **134 条**（产品码 83／站点码 51），不是 206——
    同二进制、同 `doctor.config.ts` 的 `--verbose` 重跑两次都稳定 134；**206 是没吃到行内抑制时的读数**
    （anchor ×85 与 pnpm-hardening ×2 会重新出现），这个差异**尚未闭合**、引用时要带档位口径。
    A 档 3 批／11 条：**批 1 是真缺陷**（用户 `onRow` 的 `key` 经后置 spread 覆写引擎给的格子 key，flat 与 multi 两条表体路径同坏，
    fiber 实锤 `["boom","boom","boom"]`）**与批 2**（`useTableThemeVars.ts` 把 `cssVar` 字面量写在 hook 体内当 memo 依赖
-   ⇒ 两个 token memo 每轮全量重算，与 `:63-64` 注释自陈的预期互相矛盾）**均已派实现棒**；
-   **批 3 已落地**（6 处 disable 注释只写短名 `react-hooks/exhaustive-deps`、引擎按全名匹配 ⇒ 抑制不生效；改全名后
+   ⇒ 两个 token memo 每轮全量重算，与 `:63-64` 注释自陈的预期互相矛盾）**均已落进工作树**（两棒都被上一会话轮次上限打断、
+   **未交报告**，集成由 main 接管）；**批 3 已落地**（6 处 disable 注释只写短名 `react-hooks/exhaustive-deps`、引擎按全名匹配 ⇒ 抑制不生效；改全名后
    总数 **134 → 130**，`已运行`：`oxlint` 0/0、`tsc` EXIT=0，**只改注释名、依赖数组未动**）。
    另修 `package.json` 的 `doctor` 脚本一个漏写 flag：`--json-out` 必须配 `--json` 才产文件（实测补上后写出 184,646 B 报告）。
-   判跳要点：12 条 `unused-export` **零条落在产品码**；85 条 `Anchor used as a button` 落在 **46 个 `src/demos/**` ＋ 1 个
-   `src/table/engine/__tests__/BodyGrid.test.tsx`，**生产码 0 命中** ⇒ 禁整类 sweep。
+   ✅ **批 2 已收口（步骤 90，E-165 §二）**：接手期那两条「只在全量下红」的 memo 钉，红点定性为
+   **React 19 允许按槽位非确定丢弃 memo 缓存**——「产物同引用」不是「本轮没重算」的可靠代理
+   （`tokenBridge` 两个转换函数无内部缓存 ⇒ 引用相等只在 React 恰好保留那条 memo 时成立，是**假稳定**）。
+   判据已换成 **spy 数转换函数调用次数**（「token 不变 ⇒ 不重算」⇔ 计数零增长）＋ `tokenRefs` 首末同引用自证
+   （选型依据明写在 `tests/table/hooks/useTableThemeVars.tsx:179-194`）。反证 F2：把 `cssVar` 复原成 hook 体内字面量
+   并加回 deps ⇒ 两条 memo 钉恰红（`expected 12 to be 11`／`expected 14 to be 13`），装回 sha1 `26c0dce4…` RESTORE-OK。
+   全量 `pnpm test` 连跑两次该文件均 13 绿、「只在全量下红」不复现。⚠️ 如实登记：新判据与旧判据在本仓**严格性等价**
+   （无缓存 ⇒ factory 重跑必出新引用），改进在**可诊断**不在严格性。
+   判跳要点：12 条 `unused-export` **零条落在产品码**；85 条 `Anchor used as a button` 按本仓实际路径落在
+   **46 个 `src/demos/**` ＋ 1 个文档站测试件**，**生产码 0 命中** ⇒ 禁整类 sweep
+   （转储另有 1 条的宿主在本仓查无此文件——那是 react-doctor 自己的转储字段名，不是本仓路径；
+   本页刻意不写它的字面形式，否则指针扫描器会把这一句本身计成一条悬空命中）。
    工具仓库钉 `^0.7.1`、最新 0.9.14 是另一套 100 条规则集（升不升属裁判级决定，见第六节第 2 项同源问题）。
-5. **白盒层 2 条既有类型错**（`tests/table/selection/selectionAdapter.tsx:102`、`:117`）被 `tsconfig.test.json`
-   的 include 面盖住 ⇒ `tsc` 门 EXIT=0 **不等于**测试层类型干净。
+5. ~~**白盒层 2 条既有类型错**（`tests/table/selection/selectionAdapter.tsx:102`、`:117`）被 `tsconfig.test.json`
+   的 include 面盖住 ⇒ `tsc` 门 EXIT=0 **不等于**测试层类型干净。~~ **已关闭（步骤 93／BAT-33，as-of 2026-09-30）**：
+   `tsconfig.test.json` 的 include 扩到整个 `tests/**` ⇒ 盲区关闭；类型错现值复测 **33 处／12 文件**（旧数 17 已过期）
+   **全部归零**（写法 24／API 偏差 3／依赖缺失 6）；依赖缺失的 6 处（`@types/node`）走 6 条**自校验** `@ts-expect-error`
+   （各标 TS2591，日后装上 `@types/node` 立即翻红 TS2578 ⇒ 不会静默失效，零新依赖）。it-count 118→118、skips 0→0、
+   零删断言；`pnpm test:types` 129 files／1802 passed、Type Errors none。见 `93-implementer-typecheck-blindspot.md`、**E-168**。
 

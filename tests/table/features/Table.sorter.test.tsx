@@ -3,16 +3,21 @@
 // 对齐来源:
 //   - {{AntDesign}}/components/table/__tests__/Table.sorter.test.tsx
 //     （grep `^\s*it\(` 命中 38 条顶层 it + describe('can be controlled by sortOrder') 内 2 条
-//      = 40 条 it；另有 2 条 describe 顶层/内层）。
+//      = 40 条 it（**6.5.2** 参照口径；已安装裁判 6.4.4 同名件 = **39**，差 1 行＝C-5
+//      `defaultSortOrder still applies when column is hidden by responsive` 仅存在于 6.5.2，
+//      本文件已在步骤 74 转为 dg↔6.4.4 双侧并排直测（行为与 6.4.4 同值，依据见下）；分母由
+//      G-2 分母门从 tests/fixtures/antd-denominator.json 重算）；另有 2 条 describe 顶层/内层）。
 //   - {{AntDesign}}/components/table/__tests__/Sorter.value.test.tsx（2 个 it，全部直测，
 //     见同目录 Sorter.value.test.tsx）
 //
-// 用例数对账：antd 40 条 it（含 describe 内 2 条）= 本文件**对齐直测 34** + skip 6。
+// 用例数对账：antd 40 条 it（含 describe 内 2 条；40 = 6.5.2 口径，其中 C-5 那条 6.5.2-only 的
+// 已在步骤 74 转直测、不占 skip 位）= 本文件**对齐直测 34** + skip 6。
 //   本文件共 56 个 it = 50 直测 + 6 skip（**计数以运行时为准**：`CI=true npx vitest run` 报
 //   `50 passed | 6 skipped (56)`，台账只是清单，历次批次改直测后极易漂移——见 P-031/P-101）；
 //   步骤 74（23-F）把原 skip 'defaultSortOrder still applies when column is hidden by responsive'
 //   转成双侧直测 ⇒ 直测/skip 各 ±1、**总数仍是 56**（分母自证：转直测不新增声明）；
-//   多出的 14 条直测是 data-grid 专属补测（不占 antd 用例位）：
+//   多出的 **16** 条直测是 data-grid 专属补测（不占 antd 用例位；＝G-2 分母门孤儿集 16 条，
+//   2026-09-30 重跑核平，tmp/bat0-denominator-check.out）：
 //     - 'should show correct sorter tooltip as native title'（覆盖 antd 两条 Tooltip 用例的可测语义）
 //     - 'renders sort priority badge for multiple sorters (data-grid enhancement)'（data-grid 增强项）
 //     - 'sortDirections on column controls click cycle'（钉 sortDirections 的两级回退方向：
@@ -28,6 +33,9 @@
 //       步骤 45 日志 §6 交回的「T4 的 erased 子档只走 flat ⇒ 摘 `HeaderCell.tsx` 写出点仍绿」
 //       ⇒ 本条用 分组列 + 用户 onHeaderCell 自带 aria-description + locale 缺 global.sortable
 //       把 multi 侧补成真门（硬编码实现必然转红），并配默认 locale 正对照防空档 vacuous。
+//     - 步骤 58（BAT-23 23-B）新增 2 条（钉参照 **states 搬移语义**，来源＝分母「数量增加」声明）：
+//       第 3 次点击后 onChange 产出序翻面跟随 states 序 / 退化形状——列被循环出排序时
+//       仅少一条、其余相对序不变（按 multiple 升序的旧实现下两条必红）
 //     - 步骤 59（BAT-23 23-A 端到端）新增 5 条：列级 `sortDirections` 裁剪**箭头节点**（flat 路径）、
 //       同档走 multi/分组路径、**成对站点门**（同构造两路径形状＋caret 类名串逐字节相等）、
 //       两级都不配的形状（节点数对齐参照；`-full` 类名差留账＝该裁定的活门）、

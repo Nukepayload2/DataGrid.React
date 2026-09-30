@@ -50,13 +50,16 @@ function createScrollElement(options: {
       scrollTop = value
     },
   })
+  // lib.dom 里 `Element.scrollTo` 是**重载**签名（`(options?: ScrollToOptions)` 与 `(x, y)`），
+  // 单签名的 mock 赋不过去（缺 `options` 可为 `undefined` 的入参位，TS2322）。
+  // 下面按 lib.dom 的重载形状补一次类型断言；运行期仍是这个实现，行为逐字不变。
   el.scrollTo = vi.fn((arg: ScrollToOptions | number, y?: number) => {
     if (typeof arg === 'number') {
       scrollTop = y ?? arg
     } else {
       scrollTop = arg.top ?? scrollTop
     }
-  })
+  }) as unknown as HTMLDivElement['scrollTo']
   document.body.appendChild(el)
   return el
 }

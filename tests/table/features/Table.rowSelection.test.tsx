@@ -1,7 +1,9 @@
 // 黑盒 feature-slice 测试：与 antd 自家 Table rowSelection 测试用例逐条对齐（antd-style 黑盒层）。
 //
 // 对齐来源: {{AntDesign}}/components/table/__tests__/Table.rowSelection.test.tsx（2188 行）
-//   antd 74 个 it（含 describe('preset selection options') 3 条、describe('supports children') >
+//   antd 74 个 it（**6.5.2** 参照口径；已安装裁判 6.4.4 同名件 = **70**，差 4 行＝本文件末尾 skip 清单
+//   C-1..C-4（`should have default aria-label` 等 aria-label 四条），逐条带版本注记；分母由 G-2 分母门
+//   从 tests/fixtures/antd-denominator.json 重算）（含 describe('preset selection options') 3 条、describe('supports children') >
 //   describe('supports checkStrictly') 9 条、describe('cache with selected keys') 8 条）
 //   = 本文件 antd 对齐项 直测 66 + skip 8 = 74（步骤 54 / BAT-29 第 2 片把 2 条 skip 转直测：
 //   `reset last select key after bulk operations`＝29-C、`selectedRows ant selectedKeys should
@@ -10,8 +12,9 @@
 //   非 antd 对齐补测：步骤 34 / BAT-6 返工 **3 条**（F-4 两方向各 1 + 表头全选框默认无障碍名 1）
 //   ＋步骤 50 / 29-E·29-F **2 条** ＋步骤 80 / E-158 **5 条**（shift 区间判据 3 条：表头批量后／菜单批量后／
 //   选中集清空后回单行，＋ checkStrictly=false 不做区间 1 条，＋ NONE 保留「当页 disabled 已选」对照 1 条）
-//   ⇒ 14 条（步骤 82 / E-158 再 ＋ **4 条**：选择列宽随组件 token / 随派生 controlHeight /
-//   无覆盖仍是缺省 32 / 显式 columnWidth 优先于 token）；步骤 54 **0 新增用例、0 新增 skip**（只转直测）。
+//   3+2+5 = 10，步骤 82 / E-158 再 ＋ **4 条**（选择列宽随组件 token / 随派生 controlHeight /
+//   无覆盖仍是缺省 32 / 显式 columnWidth 优先于 token）⇒ 合计 **14 条**（＝G-2 分母门孤儿集 14 条，
+//   2026-09-30 重跑核平，tmp/bat0-denominator-check.out）；步骤 54 **0 新增用例、0 新增 skip**（只转直测）。
 //   ⇒ 运行时总数 88（＝直测 80 ＋ skip 8）。⚠️ 这条恒等式**没有版本锚**：它只对
 //   「本文件工作树态 ＋ antd 6.4.4（本机 installed）」成立，引用它时必须同时写这两项。
 //

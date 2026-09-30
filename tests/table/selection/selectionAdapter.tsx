@@ -99,14 +99,20 @@ describe('selectionAdapter buildSelectionColumnNode', () => {
   })
 
   it('merges rowSelection.onCell with renderCell props and fires row selection changes from the default node', () => {
-    const renderCell = vi.fn<TableRowSelection<Rec>['renderCell']>((_checked, record, index, node) => ({
-      props: {
-        colSpan: 1,
-        rowSpan: index + 1,
-        title: `render-${record.key}`,
-      },
-      children: <span data-testid={`wrapped-${record.key}`}>{node}</span>,
-    }))
+    // `TableRowSelection['renderCell']` 是**可选**字段，其类型含 `undefined`；直接拿它当
+    // `vi.fn` 的类型实参会撞上 `Constructable | Procedure` 约束（TS2344），产出的
+    // `Mock<T | undefined>` 也不是可调用类型、传不进 `buildColumn`（TS2322）。
+    // 取 `NonNullable<...>` 才是这个 mock 真正要表达的签名；只改类型实参，行为与实现逐字不变。
+    const renderCell = vi.fn<NonNullable<TableRowSelection<Rec>['renderCell']>>(
+      (_checked, record, index, node) => ({
+        props: {
+          colSpan: 1,
+          rowSpan: index + 1,
+          title: `render-${record.key}`,
+        },
+        children: <span data-testid={`wrapped-${record.key}`}>{node}</span>,
+      }),
+    )
     const { column, fireSelectionChange } = buildColumn({
       getCheckboxProps: (record) => ({ name: `select-${record.key}` }),
       onCell: (record, index) => ({

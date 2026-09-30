@@ -46,7 +46,12 @@ describe('SummaryLayer', () => {
       stickyBottomOffset: 18,
     })
 
-    expect((rendered[0] as ReactElement).props.__stickyBottomOffset).toBe(18)
+    // React 19 的 `ReactElement` 默认类型实参是 `unknown`，裸 `as ReactElement` 的 `.props`
+    // 即 `unknown`，读属性报 TS2571。此处把被读的那个注入 prop 写进类型实参；纯类型面，运行期不变。
+    expect(
+      (rendered[0] as ReactElement<{ __stickyBottomOffset: number }>).props
+        .__stickyBottomOffset,
+    ).toBe(18)
   })
 
   it('renders nothing when summary is missing or inline placement has no row line', () => {

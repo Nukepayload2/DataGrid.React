@@ -1,7 +1,13 @@
 // 黑盒 feature-slice 测试：与 antd 自家 Table 测试用例逐条对齐（antd-style 黑盒层）。
 //
 // 对齐来源: {{AntDesign}}/components/table/__tests__/Table.test.tsx
-//   30 个 it + mountTest（1 it）+ directionTest 占位（1 it.skip）= 共 32 用例。
+//   30 个 it + mountTest（1 it）+ directionTest 占位（1 it.skip）= 共 32 用例
+//   （**6.5.2** 参照口径；已安装裁判 6.4.4 同名件 = **31**，差 1 行＝C-6
+//   `passes aria-* props to all tables with scroll` 仅存在于 6.5.2，该 it.skip 旁注释有
+//   P-088 版本注记；分母由 G-2 分母门从 tests/fixtures/antd-denominator.json 重算）。
+//   本文件另有 data-grid 专属补测 **5 条**（engine cell key 保持 4 条 + onHeaderRow key 变化
+//   时 header cell DOM 节点保持 1 条，步骤 86 jsx-key 批次，见各用例旁注释）
+//   ⇒ 运行时 30 直测 | 7 skip（37），2026-09-30 G-2 分母门重跑核平。
 //
 // 选择器重映射（data-grid 无语义化 table DOM，行无 .dg-row 元素，以 data-row-index 标识）:
 //   - antd `th` / `td` → `div.dg-cell.ant-table-cell.dg-cell-header` / `.dg-cell-body`
@@ -783,14 +789,20 @@ describe('Table', () => {
 
   // ── 本仓独有缺陷钉子（taskId `fix-real-bugs`／步骤 86；react-doctor `jsx-key` error ×2）──────
   // 症状：用户 `onRow` 返回的对象里带 `key` 时，会**覆写**引擎写在格子上的 React key。
-  // 落点（实读）：引擎 key 在 `src/table/engine/BodyGrid.tsx:165`（multi）与
-  //   `src/table/engine/FlatColumnCells.tsx:460`（flat）；用户 onRow 的其余字段
-  //   （`src/table/engine/bodyCellUtils.ts:21-32` 只剔 className/style）在 `BodyGrid.tsx:237` 与
-  //   `FlatColumnCells.tsx:518` 以**最后一个属性**位置 spread ⇒ 后置属性赢，引擎 key 消失。
-  // 裁判侧形状（实读 `@rc-component/table@1.10.2/es/body/BodyRow.js`）：`:124` 把 onRow 返回值只
-  //   spread 到该行**唯一一个** `<tr>`，`:146` 格子的 key 走 `getCellProps().key`，与 onRow 无关
-  //   ⇒ 「行级 key 广播到该行 N 个格子」是本仓自家产物，不属于「与 antd 不一致但功能正常」。
-  // 取证口径＝fiber 读数（上面 readFiberKey 的注释）；React 元素 key 不落 DOM，属性断言测不到。
+  // 落点（实读）：multi 路径的引擎 key 是 src/table/engine/BodyGrid.tsx:165 的 `standardCellKey`，
+  //   flat 路径的引擎 key 是 src/table/engine/FlatColumnCells.tsx:460 的 `getRowKey`；
+  //   用户行级 props 袋（`omitKey`）在 src/table/engine/BodyGrid.tsx:238 与
+  //   src/table/engine/FlatColumnCells.tsx:519 展开，JSX 后置属性赢 ⇒ 引擎 key 消失。
+  // 修法：行级袋不再装 `key`，剔除集 = `className` / `style` / `key`，见 src/table/engine/bodyCellUtils.ts:45；
+  //   JSX 属性顺序**不动**，因为 oxlint 的 `react/jsx-key` 要求 "key" prop must be placed before any
+  //   `{...spread}`（实测：在已剔 key 的袋上再把 key 挪到袋之后，react-doctor 的 2 条 jsx-key 消失、
+  //   oxlint 反手新产 2 条 warning ⇒ 两工具的顺序要求互斥；读数 tmp/86-evidence-oxlint-AplusB-keyafter.log
+  //   与 tmp/86-doctor-keyafter/，账本 tmp/vortex-logs/fix-real-bugs/86-implementer-jsxkey.md 第 2.2 节）。
+  // 裁判侧形状（实读 `@rc-component/table@1.10.2/es/body/BodyRow.js`）：onRow 返回值只 spread 到该行
+  //   **唯一一个** `<tr>`（`:124`），格子 key 走 `getCellProps().key`（`:146`）；本仓 grid 无 `<tr>`，
+  //   行级 key 没有合法落点 ⇒ 「行级 key 广播到该行 N 个格子」是本仓自家产物，
+  //   不属于「与 antd 不一致但功能正常」。
+  // 取证口径＝fiber 读数（见上方 readFiberKey 注释）；React 元素 key 不落 DOM，属性断言测不到。
   it('keeps the engine cell key when onRow returns a key (flat body path)', () => {
     const rows = [
       { id: 'a', name: 'Alice', code: 1 },
@@ -840,7 +852,7 @@ describe('Table', () => {
       { id: 'b', name: 'Bob', code: 2 },
       { id: 'c', name: 'Cary', code: 3 },
     ]
-    // 分组表头 ⇒ maxDepth>1 ⇒ mode='multi'（`src/table/engine/GridTable.tsx:289`），表体走 BodyGrid。
+    // 分组表头 ⇒ maxDepth>1 ⇒ mode='multi'（`src/table/engine/GridTable.tsx:287`），表体走 BodyGrid。
     const columns: TableProps<any>['columns'] = [
       {
         title: 'Group',
@@ -868,8 +880,9 @@ describe('Table', () => {
     // 路径见证：格子祖先链里有 `BodyCell` ⇒ 量的确实是 multi 表体路径（与 flat 那条互不冒充）。
     expect(fiberAncestorNames(controlCells[0]!)).toContain('BodyCell')
 
-    // 引擎值（实读 `src/table/engine/BodyGrid.tsx:165` = `resolveStandardBodyCellKey`，
-    // 格式 `b-{colIdx}-{行键}`，见 `src/table/engine/recyclingIdentity.ts:17`）。
+    // 引擎值（实读 `src/table/engine/BodyGrid.tsx:165` = `standardCellKey`，
+    // 由 `resolveStandardBodyCellKey` 产出 `b-{列序}-{行键}`，见
+    // `src/table/engine/recyclingIdentity.ts:17` 的 `resolveStandardBodyRowKey`）。
     const engineKeys = ['b-0-a', 'b-1-a', 'b-0-b', 'b-1-b', 'b-0-c', 'b-1-c']
     expect(controlCells.map(readFiberKey)).toEqual(engineKeys)
 
@@ -877,5 +890,221 @@ describe('Table', () => {
     expect(expCells.map(readFiberKey)).not.toContain(USER_CELL_KEY)
 
     expect(expCells.every((cell) => cell.getAttribute('data-user-row') === 'injected')).toBe(true)
+  })
+
+  // ── 本仓独有缺陷钉子（taskId `fix-real-bugs`／步骤 92：表头通道的 `key` 注入）────────────
+  // 症状：用户 `onHeaderRow` 返回值里的 `key` 落到该表头行**每一个**表头格的 React key 上。
+  // 落点（实读）：表头走的是**独立于表体**的一条通道 `mergeHeaderEventProps`
+  //   （src/table/engine/headerCellUtils.ts:87 的剔除集行，此前只有 className/style），
+  //   消费者两处：`HeaderCell.tsx:402` 与 `FlatColumnCells.tsx:360`，两处都是
+  //   `{...omitKey(omitKey(headerEventProps, 'onClick'), 'onKeyDown')}` 这句 spread。
+  //   表头格根 div **本来就没有**引擎 key（HeaderCell.tsx:234 / FlatColumnCells.tsx:253 的 `dg-cell-header` div），
+  //   表头格的组件身份在**父层**（实读 GridTable.tsx:651 的 `<HeaderCell key={`h-${cell.key}`}>`、
+  //   GridTable.tsx:821+870 的 `<ColumnCells key={`h-${column.key}`}>`）⇒ 用户 key 在这一层是**注入**、
+  //   不是覆写（与步骤 86 的表体条机制不同，见下）。
+  // 改前实测（探针 tmp/92-probe/header-key-detail.probe.test.tsx，改前读数 tmp/92-probe-detail-before.log）：
+  //   flat  2 格 div fiber key = ["boom-header-key","boom-header-key"]（对照恒 "<undefined>"）
+  //   multi 3 格 div fiber key 全塌成同一个串；父层组件 key 两组一致（h-name/h-code、h-g.name/h-g.code/h-g）
+  //     ⇒ 组件身份未被摧毁（工单 §2 的停手条件不触发）；但用户 key 随渲染变化时该行表头格 DOM
+  //     节点会被销毁重建（`sameNode=false`，稳定 key / 不传 onHeaderRow 两条对照臂均 `sameNode=true`）
+  //     ＋ React 19 dev 告警 `A props object containing a "key" prop is being spread into JSX`。
+  // 修法：行级袋不再装 `key`（剔除集 = className / style / key），与表体通道
+  //   src/table/engine/bodyCellUtils.ts:46 同形；JSX 属性顺序**不动**（表头格根节点无引擎 key 可保，
+  //   且步骤 86 已实测两个静态器对顺序的要求互斥，见 86 报告 §2.2）。
+  // 裁判侧形状（实读 `@rc-component/table@1.10.2` 的 `es/Header/HeaderRow.js`）：`onHeaderRow` 返回值只
+  //   spread 到该表头行**唯一一个** `<tr>`（`:28`），表头格 key 走 `:46` 的 `columnsKey[cellIndex]`（`:40` 消费）；
+  //   本仓 grid 无 `<tr>` ⇒ 「行级 key 广播到该行 N 个表头格」是本仓自家产物。
+  // 取证口径＝fiber 读数（见上方 readFiberKey 注释）；React 元素 key 不落 DOM，属性断言测不到。
+  // ⚠️ 本块必须留在文件**末尾**：本文件含 expectSnapshot/mountTest，`__snapshots__/Table.test.tsx.snap`
+  //   里存了 cssinjs 的 `css-var-_r_N_` 类名，N 随同文件 `<Table>` 挂载次数漂移（工单 §5）。
+  const USER_HEADER_KEY = 'boom-header-key'
+
+  /** 读格子的**父层组件元素** key（表头格的真实身份载体：`h-<colKey>`）。见块首注释。 */
+  const readParentComponentKey = (el: Element): string => {
+    const names = Object.getOwnPropertyNames(el).concat(Object.keys(el))
+    const fiberProp = names.find((name) => name.startsWith('__reactFiber$'))
+    if (!fiberProp) return '<no-fiber>'
+    let cur = (el as unknown as Record<string, any>)[fiberProp]
+    for (let depth = 0; cur && depth < 8; depth += 1) {
+      cur = cur.return
+      if (cur && typeof cur.type === 'function') {
+        return cur.key === null || cur.key === undefined ? '<undefined>' : String(cur.key)
+      }
+    }
+    return '<none>'
+  }
+
+  it('keeps the engine header cell key when onHeaderRow returns a key (flat header path)', () => {
+    const rows = [
+      { id: 'a', name: 'Alice', code: 1 },
+      { id: 'b', name: 'Bob', code: 2 },
+    ]
+    const columns: TableProps<any>['columns'] = [
+      { title: 'Name', dataIndex: 'name', key: 'name' },
+      { title: 'Code', dataIndex: 'code', key: 'code' },
+    ]
+    // `key` 不在公开返回类型 `React.HTMLAttributes` 上（`src/table/publicTypes.ts:638`）
+    //   ⇒ 只有 JS 用户 / 断言用户会写出来；用 `as never` 复刻同形返回值（同文件既有风格）。
+    const onHeaderRowControl = () => ({ 'data-user-row': 'injected' }) as never
+    const onHeaderRowWithKey = () =>
+      ({ 'data-user-row': 'injected', key: USER_HEADER_KEY }) as never
+
+    const control = customRender(
+      <Table
+        rowKey="id"
+        columns={columns}
+        dataSource={rows}
+        onHeaderRow={onHeaderRowControl}
+        pagination={false}
+      />,
+    )
+    const exp = customRender(
+      <Table
+        rowKey="id"
+        columns={columns}
+        dataSource={rows}
+        onHeaderRow={onHeaderRowWithKey}
+        pagination={false}
+      />,
+    )
+
+    const controlCells = Array.from(control.container.querySelectorAll('.dg-cell-header'))
+    const expCells = Array.from(exp.container.querySelectorAll('.dg-cell-header'))
+    // 非空对照：2 个表头格在场（否则"没注入"可能只是因为"没渲染"）。
+    expect(controlCells).toHaveLength(2)
+    expect(expCells).toHaveLength(2)
+    // 路径见证：格子祖先链里有 `ColumnCells` ⇒ 这条用例量的确实是 flat 表头路径。
+    expect(fiberAncestorNames(controlCells[0]!)).toContain('ColumnCells')
+
+    // 引擎值：表头格根 div **无引擎 key**（实读 `FlatColumnCells.tsx:280` 的 `<div>` 属性表），
+    //   身份在父层 `<ColumnCells key={`h-${column.key}`}>`（`GridTable.tsx:821` + keyPrefix='h' 见 `:870`）。
+    const controlKeys = controlCells.map(readFiberKey)
+    expect(controlKeys).toEqual(['<undefined>', '<undefined>'])
+    // 身份归属的正面读数：父层组件 key 仍是引擎写的 `h-<colKey>`（未被用户字段接管）。
+    expect(controlCells.map(readParentComponentKey)).toEqual(['h-name', 'h-code'])
+
+    // 主断言：用户 onHeaderRow 加 `key` 后，表头格的 React key 逐位等于对照组/引擎值 ⇒ 未被注入。
+    expect(expCells.map(readFiberKey)).toEqual(controlKeys)
+    expect(expCells.map(readFiberKey)).not.toContain(USER_HEADER_KEY)
+    // 父层身份仍由引擎独占。
+    expect(expCells.map(readParentComponentKey)).toEqual(['h-name', 'h-code'])
+
+    // 修法边界：只让 React 元素身份不进袋，用户其余字段照旧上到每个表头格（防"整包丢弃"式修法）。
+    expect(expCells.every((cell) => cell.getAttribute('data-user-row') === 'injected')).toBe(true)
+  })
+
+  it('keeps the engine header cell key when onHeaderRow returns a key (multi header path)', () => {
+    const rows = [
+      { id: 'a', name: 'Alice', code: 1 },
+      { id: 'b', name: 'Bob', code: 2 },
+    ]
+    // 分组表头 ⇒ maxDepth>1 ⇒ mode='multi'（`src/table/engine/GridTable.tsx:287`），表头走 HeaderGrid + HeaderCell。
+    const columns: TableProps<any>['columns'] = [
+      {
+        title: 'Group',
+        key: 'g',
+        children: [
+          { title: 'Name', dataIndex: 'name', key: 'name' },
+          { title: 'Code', dataIndex: 'code', key: 'code' },
+        ],
+      },
+    ]
+    const onHeaderRowControl = () => ({ 'data-user-row': 'injected' }) as never
+    const onHeaderRowWithKey = () =>
+      ({ 'data-user-row': 'injected', key: USER_HEADER_KEY }) as never
+
+    const control = customRender(
+      <Table
+        rowKey="id"
+        columns={columns}
+        dataSource={rows}
+        onHeaderRow={onHeaderRowControl}
+        pagination={false}
+      />,
+    )
+    const exp = customRender(
+      <Table
+        rowKey="id"
+        columns={columns}
+        dataSource={rows}
+        onHeaderRow={onHeaderRowWithKey}
+        pagination={false}
+      />,
+    )
+
+    const controlCells = Array.from(control.container.querySelectorAll('.dg-cell-header'))
+    const expCells = Array.from(exp.container.querySelectorAll('.dg-cell-header'))
+    // 非空对照：1 个分组格 + 2 个叶子格 = 3 个表头格在场。
+    expect(controlCells).toHaveLength(3)
+    expect(expCells).toHaveLength(3)
+    // 路径见证：格子祖先链里有 `HeaderCell` ⇒ 量的确实是 multi 表头路径（与 flat 那条互不冒充）。
+    expect(fiberAncestorNames(controlCells[0]!)).toContain('HeaderCell')
+
+    const controlKeys = controlCells.map(readFiberKey)
+    expect(controlKeys).toEqual(['<undefined>', '<undefined>', '<undefined>'])
+    // 父层 `<HeaderCell key={`h-${cell.key}`}>`（`GridTable.tsx:651`）：分组格 h-g、叶子格 h-g.name / h-g.code。
+    expect(controlCells.map(readParentComponentKey)).toEqual(['h-g.name', 'h-g.code', 'h-g'])
+
+    expect(expCells.map(readFiberKey)).toEqual(controlKeys)
+    expect(expCells.map(readFiberKey)).not.toContain(USER_HEADER_KEY)
+    expect(expCells.map(readParentComponentKey)).toEqual(['h-g.name', 'h-g.code', 'h-g'])
+
+    expect(expCells.every((cell) => cell.getAttribute('data-user-row') === 'injected')).toBe(true)
+  })
+
+  it('keeps the header cell DOM node when onHeaderRow returns a key that changes (both header paths)', () => {
+    // 改前实测读数（tmp/92-probe-detail-before.log 的 churn 三臂）：用户 `key` 随渲染变化 ⇒
+    //   该表头行全部表头格 DOM 节点被销毁重建（`sameNode=false`，挂的标记丢失）；
+    //   稳定 key / 不传 onHeaderRow 两条对照臂均 `sameNode=true`（`churn-*-STABLE` / `churn-*-NONE`）。
+    // 改后同三臂全 `sameNode=true`（tmp/92-probe-detail-after.log）⇒ 钉的是"身份不再被用户字段绑架"。
+    const cases: Array<[string, TableProps<any>['columns']]> = [
+      [
+        'flat',
+        [
+          { title: 'Name', dataIndex: 'name', key: 'name' },
+          { title: 'Code', dataIndex: 'code', key: 'code' },
+        ],
+      ],
+      [
+        'multi',
+        [
+          {
+            title: 'Group',
+            key: 'g',
+            children: [
+              { title: 'Name', dataIndex: 'name', key: 'name' },
+              { title: 'Code', dataIndex: 'code', key: 'code' },
+            ],
+          },
+        ],
+      ],
+    ]
+    for (const [label, columns] of cases) {
+      const rows = [
+        { id: 'a', name: 'Alice', code: 1 },
+        { id: 'b', name: 'Bob', code: 2 },
+      ]
+      const view = (userKey: string) => (
+        <Table
+          rowKey="id"
+          columns={columns}
+          dataSource={rows}
+          onHeaderRow={(() => ({ key: userKey })) as never}
+          pagination={false}
+        />
+      )
+      const { rerender, container } = customRender(view('user-key-1'))
+      const first = container.querySelector('.dg-cell-header')!
+      ;(first as unknown as Record<string, unknown>).__nodeMark = 'alive'
+      rerender(view('user-key-2'))
+      const after = container.querySelector('.dg-cell-header')!
+      // 非空对照：表头格在场（否则"节点存活"可能只是因为"没渲染"）。
+      expect(container.querySelectorAll('.dg-cell-header').length, label).toBeGreaterThan(0)
+      expect(after === first, `${label}: 表头格节点被销毁重建`).toBe(true)
+      expect(
+        (after as unknown as Record<string, unknown>).__nodeMark,
+        `${label}: 节点被换掉了`,
+      ).toBe('alive')
+    }
   })
 })

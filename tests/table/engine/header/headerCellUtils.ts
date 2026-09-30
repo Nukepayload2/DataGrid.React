@@ -110,6 +110,56 @@ describe('headerCellUtils — mergeHeaderEventProps', () => {
     expect(merged.id).toBe('hdr-cell')
     expect(merged.tabIndex).toBe(0)
   })
+
+  // ── 本仓独有缺陷钉子（taskId `fix-real-bugs`／步骤 92：表头通道的 `key` 注入）────────────
+  // 症状：用户 `onHeaderRow` 返回值里的 `key` 会进袋，被 spread 到该表头行**每一个**表头格 div
+  //   （multi 路径 `HeaderCell.tsx:402`、flat 路径 `FlatColumnCells.tsx:360`）⇒ 表头格的 React
+  //   元素身份被用户字段接管（表头格根 div 本无引擎 key，身份在父层 `h-<colKey>`）。
+  // 修法：剔除集加 `key`，与表体通道 `src/table/engine/bodyCellUtils.ts:46` 的
+  //   `extractRestElementProps` 同形；JSX 属性顺序不动（表头格根节点没有引擎 key 可保）。
+  // 依据（JSDoc 全量版见 src/table/engine/headerCellUtils.ts 的 mergeHeaderEventProps）：
+  //   `@rc-component/table@1.10.2` 的 `es/Header/HeaderRow.js:28` 把 `onHeaderRow` 返回值只 spread 到
+  //   该表头行**唯一一个** `<tr>`，表头格 key 由 `:46` 的 `columnsKey[cellIndex]` 独占 ⇒ 参照侧
+  //   不存在「行级 key 落到每个格子」这条通路；裁判＝本机 antd 6.4.4。
+  // 黑盒侧的对应钉子见 `tests/table/features/Table.test.tsx` 末尾两条
+  //   `onHeaderRow returns a key` 用例（fiber 读数，flat / multi 两条表头路径）。
+  it('跳过 key（React 元素身份，不是 HTML 属性）', () => {
+    // `key` 不在公开返回类型 `React.HTMLAttributes` 上（`src/table/publicTypes.ts:638`）
+    //   ⇒ 只有 JS 用户 / 断言用户写得出；用 `as never` 复刻同形返回值。
+    const merged = mergeHeaderEventProps([
+      { onClick: () => {}, key: 'boom-cell-key' } as never,
+      { onMouseEnter: () => {}, key: 'boom-row-key' } as never,
+    ])
+    expect(merged).not.toHaveProperty('key')
+    expect(Object.keys(merged)).toEqual(['onClick', 'onMouseEnter'])
+  })
+
+  it('只剔 key：其余字段（含事件 / tabIndex / data-*）照旧透传（防「整包丢弃」式修法）', () => {
+    const onClick = () => {}
+    const onKeyDown = () => {}
+    const merged = mergeHeaderEventProps([
+      {
+        'data-user-row': 'injected',
+        tabIndex: 3,
+        onClick,
+        onKeyDown,
+        key: 'boom-row-key',
+      } as never,
+    ])
+    expect(merged).not.toHaveProperty('key')
+    expect(merged['data-user-row']).toBe('injected')
+    expect(merged.tabIndex).toBe(3)
+    expect(merged.onClick).toBe(onClick)
+    expect(merged.onKeyDown).toBe(onKeyDown)
+  })
+
+  it('key 与 className / style 同为一组剔除字段（三者都不进袋）', () => {
+    const merged = mergeHeaderEventProps([
+      { className: 'a', style: { color: 'red' }, key: 'k', id: 'hdr-cell' } as never,
+    ])
+    expect(Object.keys(merged)).toEqual(['id'])
+    expect(merged.id).toBe('hdr-cell')
+  })
 })
 
 describe('headerCellUtils — mergeHeaderStickyStyle', () => {

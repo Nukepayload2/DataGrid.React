@@ -10,6 +10,9 @@
 // - extendDemos：渲染后点击全部筛选触发器 / 行选择菜单按钮，快照 portal 到 document.body 的弹窗层
 //   + console.warn/error 收集（文件：demo-extend.<slug>.test.tsx，同抽片）
 // - axeAll：渲染后断言 0 axe 违规（文件：a11y.test.tsx）
+// - skip 注册（BAT-0 0-E，main 裁定）：被排除出直测的 demo（axeAll 7 条 / snapshotDemos 1 条）
+//   登记为 it.skip（形状＝antd 上游 accessibilityTest.tsx:191-204 的 describe.skip），
+//   不 `continue` 静默移出可计数清单；snapshotDemos/axeAll 各带「分母＝清单全量」计数断言。
 //
 // mount/axe 保持全量单文件（断言面与快照无关、无 diff 体积问题）；
 // 快照与弹窗层按类目拆文件，理由见 snapshotDemos 注释。
@@ -81,21 +84,53 @@ const POPUP_SETTLE_POLL_MS = 50
 // 要求连续 N 次取值一致才认定稳定：留出容错余量，避免恰好落在单次静默窗口上。
 const POPUP_SETTLE_STABLE_TICKS = 3
 
+/**
+ * 等弹窗层收敛，返回它**最后一次非空**的归一化 HTML。
+ *
+ * 收敛判据＝「连续 POPUP_SETTLE_STABLE_TICKS 次取值相同」（不变），但**空层不是可接受的收敛值**：
+ * 读到空层时返回等的是 `lastNonEmpty`（从无非空读数时才返回空数组）。
+ *
+ * 为什么（2026-09-30 实测，`.ant-dropdown` 生存期探针 ＋ 反事实批：同一份**改前**码 16 路并发
+ * 插桩跑 12/16 红、16 路重负载跑 5/16 红；改后码 16 路并发插桩跑 16/16 绿，`tmp/94-*.log`）：
+ * - 弹窗的**生存期**由 demo 自身的异步数据回填决定，不由本用例决定。
+ *   `remote-data` 的 mock 远程源是 `queryData` 里的 `setTimeout(800)`
+ *   （`src/demos/_compare/remote-data.shared.ts:78`），回填引发的重渲染会把已打开的
+ *   筛选弹窗整个销毁（探针读数：点击后 t=741ms 还有弹窗，t=869ms 起恒为 0，`rows` 同时 0→40）。
+ * - 插桩档把「等收敛」拖过这条 800ms 边界，于是收敛读到的是**销毁后的空层**：
+ *   正常档 settle 在 t≈305ms 收工（6 读，popups=1）；16 路并发插桩档的典型红跑是
+ *   读#1..#5 拿到弹窗（t=3/76/147/206/265ms，第 2 个 stable tick），
+ *   **读#5→#6 之间那个 50ms 定时器被插桩下的重渲染阻塞了 501ms**（t=265→766ms），
+ *   弹窗在阻塞期间被销毁；随后 3 读连续同值（空层）⇒ 旧判据把「空」当成收敛值返回 `[]` ⇒ 快照红。
+ * - 只把空层判成「未收敛、等 deadline 再回退」也能修，但代价是每次命中都白等满 5s；
+ *   这里取「空层连续 N 次即视为弹窗已被销毁、终止等待并回退到销毁前捕获的那一份」，
+ *   既对插桩变慢鲁棒，又不在命中路径上多花时间（实测 ~150ms），正常路径零行为变化。
+ *
+ * 权衡（如实登记）：本层断言的是**弹窗层的内容**（结构/文案/控件），不是它的生存期；
+ * 若某天出现「弹窗打开后立即被产品缺陷永久销毁」的真实回归，本判据会取销毁前的快照而放过它。
+ * 生存期面另有 `tests/table/features/Table.filter.test.tsx` 等功能用例覆盖，不靠本夹具守。
+ */
 async function settlePopupHtml(): Promise<string[]> {
   const deadline = Date.now() + POPUP_SETTLE_TIMEOUT_MS
   let previous = ''
   let stableTicks = 0
+  // 弹窗层最后一次非空读数：空层收敛（被无关重渲染销毁）时回退到这里。
+  let lastNonEmpty: string[] | null = null
   for (;;) {
     const html = currentPopupHtml()
     const serialized = html.join('\u0000')
+    if (html.length > 0) lastNonEmpty = html
     if (serialized === previous) {
       stableTicks += 1
-      if (stableTicks >= POPUP_SETTLE_STABLE_TICKS) return html
+      if (stableTicks >= POPUP_SETTLE_STABLE_TICKS) {
+        return html.length > 0 ? html : (lastNonEmpty ?? html)
+      }
     } else {
       previous = serialized
       stableTicks = 0
     }
-    if (Date.now() >= deadline) return html
+    if (Date.now() >= deadline) {
+      return html.length > 0 ? html : (lastNonEmpty ?? html)
+    }
     await new Promise((resolve) => setTimeout(resolve, POPUP_SETTLE_POLL_MS))
   }
 }
@@ -398,24 +433,35 @@ export function resolveSnapshotTarget(container: HTMLElement, compare?: boolean)
  * 用例名用 `demo.name`（不含类目的仓库唯一主 id）：同一 demo 只会出现在一个片里，
  * 因此快照 key 仍与 demo 名一一对应，便于按 demo 名 grep 定位。
  */
+// skip 注册口径（BAT-0 0-E，main 裁定；形状＝antd 上游 accessibilityTest.tsx:191-204 的
+// describe.skip 同构）：被排除出直测的 demo 不 `continue` 静默移出可计数清单，而是登记为
+// `it.skip`（运行报告可见、可计数；依据见各 skip 常量旁注释）。每个 runner 末尾附
+// 「分母＝清单全量」计数断言，使「全量遍历」可机器验证（P-043 载体不存在假绿的镜像）。
 export function snapshotDemos(list: readonly DemoMeta[], options: DemoHarnessOptions = {}): void {
   const skip = [...(options.skip ?? []), ANTD_CONTROL_DEMO]
+  let emitted = 0
 
   for (const demo of list) {
-    if (skip.includes(demo.name)) continue
-
-    it(
+    const shouldSkip = skip.includes(demo.name)
+    const testMethod = shouldSkip ? it.skip : it
+    emitted += 1
+    testMethod(
       `snapshot ${demo.name}`,
-      async () => {
-        const { container } = await renderDemo(demo)
-        // 统计域 = 整个渲染（含对照栏）：筛主题覆盖时要拿全库默认值做参照。
-        const tokenDefaults = collectThemeTokenDefaults(container.outerHTML)
-        const target = resolveSnapshotTarget(container, demo.compare)
-        expect(formatDemoStructureDigest(buildDemoStructureDigest(target, tokenDefaults))).toMatchSnapshot()
-      },
+      shouldSkip
+        ? () => {}
+        : async () => {
+            const { container } = await renderDemo(demo)
+            // 统计域 = 整个渲染（含对照栏）：筛主题覆盖时要拿全库默认值做参照。
+            const tokenDefaults = collectThemeTokenDefaults(container.outerHTML)
+            const target = resolveSnapshotTarget(container, demo.compare)
+            expect(formatDemoStructureDigest(buildDemoStructureDigest(target, tokenDefaults))).toMatchSnapshot()
+          },
       DEMO_TEST_TIMEOUT_MS,
     )
   }
+  it(`snapshot 分母＝清单全量 ${list.length}（直测 ${list.length - skip.length} + skip ${skip.length}）`, () => {
+    expect(emitted).toBe(list.length)
+  })
 }
 
 /** 按给定 demo 列表生成弹窗展开用例——拆分粒度与理由同 snapshotDemos。 */
@@ -485,17 +531,25 @@ export function axeAll(options: DemoHarnessOptions = {}): void {
   const skip = [...(options.skip ?? []), ANTD_CONTROL_DEMO, ...Object.keys(A11Y_ROOT_CAUSE_SKIP)]
   // 起始禁用规则：jsdom 计算样式受限假阳性，对齐 antd 测试基线。
   const disabledRules = ['label', 'empty-table-header', 'nested-interactive', 'button-name']
+  let emitted = 0
 
   for (const demo of demos) {
-    if (skip.includes(demo.name)) continue
-
-    it(
+    // 被排除的 demo 登记为 it.skip（不 continue 静默移出），依据见 A11Y_ROOT_CAUSE_SKIP 注释。
+    const shouldSkip = skip.includes(demo.name)
+    const testMethod = shouldSkip ? it.skip : it
+    emitted += 1
+    testMethod(
       `axe ${demo.name}`,
-      async () => {
-        const { container } = await renderDemo(demo)
-        await expectNoAxeViolations(resolveA11yScope(container, demo.compare), disabledRules)
-      },
+      shouldSkip
+        ? () => {}
+        : async () => {
+            const { container } = await renderDemo(demo)
+            await expectNoAxeViolations(resolveA11yScope(container, demo.compare), disabledRules)
+          },
       A11Y_TEST_TIMEOUT_MS,
     )
   }
+  it(`axe 分母＝注册表全量 ${demos.length}（直测 ${demos.length - skip.length} + skip ${skip.length}）`, () => {
+    expect(emitted).toBe(demos.length)
+  })
 }

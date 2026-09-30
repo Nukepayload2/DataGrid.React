@@ -21,10 +21,21 @@
  * 豁免是**逐条具名**的（宿主 + 目标 + 理由），并要求每条豁免都仍然真的命中一次——
  * 失效豁免判红，防止这里变成长期停车场。
  */
+// ── `@types/node` 缺失的三处抑制（本仓既定写法）────────────────────────────────
+// 本仓刻意不装 `@types/node`：`tsconfig.lib.json` 的 `types` 只有 `vite/client`（`src/vite-env.d.ts`
+// 同款），理由见 `src/table/devWarn.ts:51`。故 `node:fs` / `node:path` / `process` 运行期存在、类型面缺声明。
+// 本件按其**职责**（S-004 永久门：扫真实磁盘、检查仓内路径引用是否存在）无法避开文件系统 API——
+// `readdirSync(withFileTypes)` / `existsSync` 在浏览器与 `?raw` / `import.meta.glob` 面上都没有等价物，
+// 改写会动到这道永久门的扫描面，故此处沿用本仓既有约定（同款见
+// `tests/table/engine/header/sortDirectionsWiring.tsx:25` 与 `tests/table/features/Table.sorter.test.tsx:96`）。
+// 抑制是**自校验**的：日后一旦装上 `@types/node`，这三行会因「抑制未被使用」而红（TS2578），是提醒而非隐患。
+// @ts-expect-error TS2591：本仓无 @types/node，'node:fs' 无类型声明（运行时可用）
 import { existsSync, readFileSync, readdirSync } from 'node:fs'
+// @ts-expect-error TS2591：本仓无 @types/node，'node:path' 无类型声明（运行时可用）
 import { dirname, join, sep } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
+// @ts-expect-error TS2591：本仓无 @types/node，'process' 无类型声明（运行时可用）
 const ROOT = process.cwd()
 
 /** 读哪些宿主文件。`.json` 刻意不读：`src/docs/generated/api.json` 与 doctor 的 dump 是产物，
