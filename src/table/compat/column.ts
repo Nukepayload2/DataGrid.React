@@ -233,11 +233,13 @@ export interface ColumnType<RecordType = any> {
   /**
    * 隐藏该列。
    *
-   *   - `true`：该叶子列的可视内容不渲染（表头格 + 数据单元格均隐藏）。
+   *   - `true`：该列的可视内容不渲染（表头格 + 数据单元格均隐藏）。
    *   - `false` / undefined：正常渲染。
    *
-   * **多级表头**：分组列（有 `children`）的 `hidden` 字段**无效**——只有叶子列的 `hidden` 生效
-   *   （与 antd 一致：隐藏分组列请隐藏其全部子叶子；父分组格随子叶子收缩自动横向收起）。
+   * **多级表头**：分组列（有 `children`）的 `hidden: true` 连同其整棵子树一起移除——
+   *   对齐 antd@6.4.4 `@rc-component/table` `useColumns/index.js:26-37` `filterHiddenColumns`：
+   *   `hidden` 的列从列树剔除，分组列被剔除时其子叶子一并消失（29-D 修复，BAT-35 35-A）；
+   *   叶子列的 `hidden` 走本仓 0fr track 方案（保留 DOM + `.dg-cell-hidden`，见下方 @internal）。
    *
    * **与各能力组合**：隐藏列宽度计为 0，固定列 sticky 偏移按可见叶子列累加；合并单元格仍跨原叶子区间；
    * 多级表头父分组格随子叶子收缩；选择列作为普通叶子列参与，同样可被 hidden。
@@ -434,10 +436,10 @@ export interface ColumnType<RecordType = any> {
    *     实测取值只有 `'trigger'`（点触发器/点面板外/ESC）与 `'menu'`（弹层内 antd `<Menu>` 点项）；
    *   - 门 ②（`:247`）`!newVisible && !column.filterDropdown && filterOnClose`——**自定义面板从不因关闭而应用**。
    *
-   * ⇒ 本包接**门 ②**（`src/table/engine/FilterDropdown.tsx` 的 `handleOpenChange`：`filterOnClose && !isCustom`），
-   *   ⇒ **默认值（true）与门 ② 的语义都与 antd 6.4.4 同形**；
-   *   门 ①（`source`）本包**未接**——它决定的是"弹层内 `<Menu>` 点项该不该关掉面板"（我方关、参照不关），
-   *   与本条数据结果缺陷无关，属**独立待裁边界**，接它等于顺手改动开合语义。
+   * ⇒ 本包**两道门都接**（`src/table/engine/FilterDropdown.tsx` 的 `handleOpenChange`）：
+   *   - 门 ②（`filterOnClose && !isCustom`）：**自定义面板从不因关闭而应用**，默认值（true）与门 ② 语义都与 antd 6.4.4 同形；
+   *   - 门 ①（`info.source === 'trigger'`，**BAT-35 35-E 接**）：弹层内 antd `<Menu>` 点项（`source==='menu'`）
+   *     不算关闭 ⇒ 面板保持打开、不透传 `onOpenChange(false)`（与参照一致；改前我方关、参照不关）。
    *   同名同义于 antd `column.filterOnClose`（antd 6.4.4 `es/table/interface.d.ts:117`，同为列级字段）。
    */
   filterOnClose?: boolean

@@ -162,7 +162,14 @@ export function toEngineColumns<RecordType>(
     cols: Array<ColumnType<RecordType>>,
     parentPath: string,
   ): Array<EngineColumnNode<RecordType>> =>
-    cols.map((col) => {
+    cols
+      // 分组列 hidden（29-D 修复，BAT-35 35-A）：对齐 antd@6.4.4 `@rc-component/table`
+      // `useColumns/index.js:26-37` `filterHiddenColumns`——`hidden: true` 的**分组列**连同整棵
+      // 子树从列树移除（不进引擎、不占 track）。叶子列 `hidden` 仍走本仓 0fr track 方案（保留 DOM
+      // + `.dg-cell-hidden`，`gridTemplateColumnsUtils.ts:86`），二者判据分离。与 responsive 过滤同形
+      // （`compat/column.ts:573`：responsive 列进本函数前已从 columns 数组移除）。
+      .filter((col) => !(col.hidden === true && !!col.children && col.children.length > 0))
+      .map((col) => {
       const path = columnKey(col, parentPath, counter)
       warnFunctionTitleOnce(col, path) // 函数式 title 告警（判据与去重只此一份，见文件末尾）
       const hasChildren = !!col.children && col.children.length > 0
@@ -198,7 +205,8 @@ export function toEngineColumns<RecordType>(
         // column.onHeaderCell 透传（仅叶子列消费；分组表头格无 onHeaderCell——antd 同款语义）。
         // 引擎渲染层把返回值合并到表头格 div props（className/style/onClick/...）。
         node.onHeaderCell = col.onHeaderCell
-        // 隐藏列透传（仅叶子列消费；分组列的 hidden 无意义）。
+        // 隐藏列透传（仅叶子列消费；分组列的 `hidden: true` 在上方 `build` 的 filter 里连同子树
+        // 移除，不会走到这里——见 29-D 修复注释）。
         node.hidden = col.hidden
         // 排序相关透传（仅叶子列消费；分组列无 sorter）。sortOrder 由适配层 useSorter 派生后回填
         // （buildColumnTree 阶段），这里先透传 sorter/sortDirections/showSorterTooltip（配置类字段）。

@@ -12,9 +12,6 @@ import {
   stickyCellStyle,
   type LeafStickyInfo,
 } from './useStickyColumns'
-import {
-  defaultRenderCellElement,
-} from './useCellElementPool'
 import type {
   DisposeCellElementReason,
   GridCellElementRenderParams,
@@ -29,6 +26,23 @@ import type {
 type Identity = string | number | object | undefined
 type ListenerEntry = [type: string, listener: EventListener]
 type CellRenderKind = 'element' | 'react'
+
+/**
+ * 缺省元素渲染器：复用旧元素、只更新 textContent。
+ * BAT-35 35-B 自 `useCellElementPool.ts` 移入——该文件随死代码 `useCellElementPool` hook 整体退役，
+ * 本函数是其唯一存活导出，落到唯一消费方（下方 `:608` `cell.renderer ?? defaultRenderCellElement`）。
+ */
+function defaultRenderCellElement<RecordType>(
+  params: GridCellElementRenderParams<RecordType>,
+  oldElement: HTMLElement | undefined,
+): HTMLElement {
+  const element = oldElement ?? document.createElement('span')
+  element.textContent =
+    params.value === null || params.value === undefined
+      ? ''
+      : String(params.value)
+  return element
+}
 
 interface ReactSlot<RecordType> {
   key: string
@@ -67,7 +81,7 @@ interface ActiveCell<RecordType> {
   appliedStyle: Record<string, string> | undefined
 }
 
-interface PoolBucket<RecordType> {
+interface RecyclingPoolBucket<RecordType> {
   outer: Array<HTMLDivElement>
   inner: Array<HTMLElement>
   options: GridColumnOptions<RecordType> | undefined
@@ -75,7 +89,7 @@ interface PoolBucket<RecordType> {
 
 interface RecyclingStore<RecordType> {
   active: Map<Identity, Map<Identity, ActiveCell<RecordType>>>
-  pools: Map<Identity, PoolBucket<RecordType>>
+  pools: Map<Identity, RecyclingPoolBucket<RecordType>>
   reactSlots: WeakMap<HTMLDivElement, ReactSlot<RecordType>>
   reactSlotList: Map<string, ReactSlot<RecordType>>
   scratchTargets: Map<Identity, Set<Identity>>
@@ -299,7 +313,7 @@ function makeOuterCell(): HTMLDivElement {
 function getBucket<RecordType>(
   store: RecyclingStore<RecordType>,
   column: EngineLeafColumn<RecordType>,
-): PoolBucket<RecordType> {
+): RecyclingPoolBucket<RecordType> {
   const identity = resolveColumnIdentity(column)
   const options = column.gridColumnOptions
   const existing = store.pools.get(identity)
@@ -310,7 +324,7 @@ function getBucket<RecordType>(
     }
     return existing
   }
-  const bucket: PoolBucket<RecordType> = {
+  const bucket: RecyclingPoolBucket<RecordType> = {
     outer: [],
     inner: [],
     options,
@@ -321,7 +335,7 @@ function getBucket<RecordType>(
 
 function clearBucket<RecordType>(
   store: RecyclingStore<RecordType>,
-  bucket: PoolBucket<RecordType>,
+  bucket: RecyclingPoolBucket<RecordType>,
   reason: DisposeCellElementReason,
 ): void {
   for (const inner of bucket.inner.splice(0)) {

@@ -59,17 +59,19 @@
 //      `expandedRowKeys` 同理（antd 顶层 → data-grid `expandable.expandedRowKeys`）。
 //   f) 选择菜单项**文案**取自 locale（默认 'Select all data' / 'Invert current page' / 'Clear all data'，见
 //      selectionAdapter.tsx 的 resolvedSelections 映射）；表头全选框的无障碍名**不**取 locale（步骤 34）。
-//   g) **未修的分叉（步骤 54 实测并交回 main，见 tmp/vortex-logs/fix-real-bugs/54-implementer-bat29-selection.md）**：
-//      表头全选框与菜单 INVERT 的**范围**。参照 antd **6.4.4** 把这两档限定在当前页
-//      （useSelection.js:92 `flattenData(childrenColumnName, pageData)` → :271-277 recordKeys、:217 invert 遍历 pageData），
-//      我方 `engine/useRowSelection.ts` 的 selectableKeys 建在 `useSelectionAdapter.ts` 的 selectionDataSource
-//      ＝**筛选后的全量所有页**（Table.tsx:535-546 喂 filteredDataSource）。探针读数（pageSize 2／5 行）：
-//      表头全选 dg keys=[1,2,3,4,5] vs antd [1,2]；菜单 INVERT dg [2,3,4,5] vs antd [2]；
-//      菜单 ALL 两侧都是全量（参照 :201 用 data）⇒ ALL 同形、上面两档分叉。
-//      更严重的一面：我方菜单仍显示 locale 原文案 **'Invert current page' / '反选当页'** 却反选所有页
-//      ＝文案与行为互相打脸。不在本步修的理由＝修法要把当前页切片喂进选择 hook，而 `pagedDataSource`
-//      出自 `Table.tsx:783-799` 的 usePaginationAdapter（在选择 hook `:535-546` **之后**），必须动
-//      `Table.tsx` 的 hook 顺序——本步红线禁改该文件。本文件**不**为现状行为补断言（那等于把缺陷焊成规格）。
+//   g) **选择「范围随分页」三档分母（BAT-35 35-F 已修，本文件下方 `describe('35-F selection scope')` 钉住）**：
+//      参照 antd **6.4.4** 把表头全选 / 菜单 INVERT / 菜单 NONE 保留面限定在**当前页**
+//      （useSelection.js:92 `flattenData(childrenColumnName, pageData)` → :271-277 recordKeys、:217-227 invert 遍历
+//      pageData、:242-245 NONE 的 checkboxPropsMap 建在 pageData），唯独菜单 ALL 保持**全量**（:201-208 用 data）。
+//      我方修前 selectableKeys / changeableRowKeys 全建在未分页的 selectionDataSource（**全量所有页**，
+//      Table.tsx 喂 filteredDataSource）⇒ 三档全部越界到所有页。探针 79 读数（pageSize 2／5 行）：
+//      表头全选 dg [1,2,3,4,5] vs antd [1,2]；菜单 INVERT dg [2,3,4,5] vs antd [2]；
+//      菜单 NONE 跨页 disabled-已选 dg [3] vs antd []；菜单 ALL 两侧都是全量 ⇒ ALL 同形。
+//      修法（35-F）：把 `useSemanticClassNames` + `usePaginationAdapter` 上移到 `useSelectionAdapter` 之前，
+//      把当前页切片 `pagedDataSource` 喂进选择层（useSelectionAdapter 的 pageDataSource → useRowSelection 的
+//      pageDataSource）。**三档各钉各的分母，不许统一**：表头全选 / INVERT / NONE 保留面 = 当前页；
+//      菜单 ALL = 全量；树形 conduction 的 disabled 判据 = 全量（行属性，跨页一致）。文案侧不动
+//      （'Invert current page' 现在名副其实）。
 import { cloneElement, type Key } from 'react'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 import { fireEvent } from '@testing-library/react'
@@ -908,6 +910,106 @@ describe('Table.rowSelection', () => {
       openSelectionMenu(container)
       fireEvent.click(menuItems()[0])
       expect(onChange).toHaveBeenLastCalledWith([1], [data[1]], { type: 'none' })
+    })
+  })
+
+  // === 35-F：选择「范围随分页」三档分母钉（BAT-35 35-F）===
+  // 参照 antd 6.4.4 把「表头全选 / 菜单 INVERT / 菜单 NONE 保留面」三档限定在**当前页**，
+  // 唯独菜单 ALL 保持**全量**（useSelection.js:201 遍历 data）。我方修前 selectableKeys /
+  // changeableRowKeys 全建在未分页的 filteredDataSource（全量）⇒ 三档全部越界到所有页。
+  // 探针 79 读数（pageSize 2 / 5 行）：表头全选 dg [1,2,3,4,5] vs antd [1,2]；
+  // 菜单 INVERT dg [2,3,4,5] vs antd [2]；菜单 NONE 跨页 disabled-已选 dg [3] vs antd []。
+  // 修法（35-F）：把当前页切片（usePaginationAdapter 的 pagedDataSource）喂进选择层，
+  // 三档各钉各的分母（ALL=全量 / INVERT=当前页 / NONE 保留=当前页 disabled），不许统一。
+  describe('35-F selection scope: current page vs full (antd 6.4.4 useSelection.js)', () => {
+    const pagedData: Row[] = [
+      { key: 1, name: 'a' },
+      { key: 2, name: 'b' },
+      { key: 3, name: 'c' },
+      { key: 4, name: 'd' },
+      { key: 5, name: 'e' },
+    ]
+
+    // B1：表头全选范围＝当前页（参照 useSelection.js:271-277 recordKeys 建在 pageData）。
+    it('header select-all acts on the current page only (antd 6.4.4 useSelection.js:271-277)', () => {
+      const onChange = vi.fn()
+      const { container } = customRender(
+        createTable({
+          dataSource: pagedData,
+          pagination: { pageSize: 2 },
+          rowSelection: { onChange },
+        }),
+      )
+      // 当前页只渲染 2 行（key1 / key2）
+      expect(bodyInputs(container).length).toBe(2)
+      fireEvent.click(headerInput(container)!)
+      // 参照只选当前页 [1,2]，不是全量 [1,2,3,4,5]
+      expect(onChange).toHaveBeenLastCalledWith([1, 2], expect.anything(), { type: 'all' })
+    })
+
+    // B3：菜单 INVERT 范围＝当前页（参照 useSelection.js:217-227 遍历 pageData）。
+    it('menu INVERT inverts only the current page (antd 6.4.4 useSelection.js:217-227)', () => {
+      const onChange = vi.fn()
+      const { container } = customRender(
+        createTable({
+          dataSource: pagedData,
+          pagination: { pageSize: 2 },
+          rowSelection: {
+            onChange,
+            defaultSelectedRowKeys: [1],
+            selections: [Table.SELECTION_INVERT],
+          },
+        }),
+      )
+      expect(bodyInputs(container).length).toBe(2)
+      openSelectionMenu(container)
+      fireEvent.click(menuItems()[0])
+      // 参照反选当前页（key1 已选→清、key2→选）⇒ [2]，不是全量 [2,3,4,5]
+      expect(onChange).toHaveBeenLastCalledWith([2], expect.anything(), { type: 'invert' })
+    })
+
+    // B4c：菜单 NONE 跨页 disabled-已选行（参照 useSelection.js:242-245 checkboxPropsMap 建在 pageData）。
+    // NONE 清空全部、只保留「当前页上 disabled 且已选」；key3 在 page 2（非当前页）⇒ 清空。
+    it('menu NONE clears a cross-page disabled-selected row (antd 6.4.4 useSelection.js:242-245)', () => {
+      const onChange = vi.fn()
+      const { container } = customRender(
+        createTable({
+          dataSource: pagedData,
+          pagination: { pageSize: 2 },
+          rowSelection: {
+            onChange,
+            selectedRowKeys: [3], // 跨页（page 2）的 disabled 已选行
+            getCheckboxProps: (r: Row) => ({ disabled: r.key === 3 }),
+            selections: [Table.SELECTION_NONE],
+          },
+        }),
+      )
+      expect(bodyInputs(container).length).toBe(2) // 当前页 key1/key2
+      openSelectionMenu(container)
+      fireEvent.click(menuItems()[0])
+      // 参照清空全部（key3 非当前页）⇒ []，不是 [3]
+      expect(onChange).toHaveBeenLastCalledWith([], expect.anything(), { type: 'none' })
+    })
+
+    // 菜单 ALL 回归护栏：参照 useSelection.js:201-208 遍历全量 data ⇒ ALL 保持全量。
+    // （三档范围各不相同，本条钉住「ALL 不许被统一成当前页」。）
+    it('menu ALL still selects the full data across pages (antd 6.4.4 useSelection.js:201-208)', () => {
+      const onChange = vi.fn()
+      const { container } = customRender(
+        createTable({
+          dataSource: pagedData,
+          pagination: { pageSize: 2 },
+          rowSelection: {
+            onChange,
+            selections: [Table.SELECTION_ALL],
+          },
+        }),
+      )
+      expect(bodyInputs(container).length).toBe(2)
+      openSelectionMenu(container)
+      fireEvent.click(menuItems()[0])
+      // 参照菜单 ALL 遍历全量 data ⇒ [1,2,3,4,5]，不是当前页 [1,2]
+      expect(onChange).toHaveBeenLastCalledWith([1, 2, 3, 4, 5], expect.anything(), { type: 'all' })
     })
   })
 

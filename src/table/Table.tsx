@@ -519,8 +519,60 @@ function TableInner<RecordType = any>(
   // 非树形 → flattenedData === filteredDataSource（同引用，零回归）。
   const flattenedDataSource = tree.flattenedData
 
+  // === 语义化样式 classNames/styles 求值（35-F 上移）===
+  // 上移原因：usePaginationAdapter 需要 classNamesResolved/stylesResolved（见下方注释），而
+  //   usePaginationAdapter 又必须先于 useSelectionAdapter 算出当前页切片 pagedDataSource。
+  // 支持对象（静态）或函数 `(info) => 对象`（动态，按 info.props 求值）。对齐 antd v6：
+  //   - info.props 含 size/bordered/virtual/scroll/pagination 子集（与 antd 一致：暴露当前生效 props）。
+  //   - 求值后统一得到 `TableSemanticClassNames`/`TableSemanticStyles` 对象。
+  // 适配层直接消费 root/title/footer/pagination.*（注入到对应 DOM）；section/content/header/body
+  //   透传给引擎（GridTable.semantic）由引擎注入到 grid 内部部位。
+  // 未提供（undefined）时 semanticResolved 为 undefined，所有部位走默认 class/style，零回归。
+  // 求值 + 引擎子集构造抽出为独立 hook `useSemanticClassNames`（行为零差异，先移动不重写）。
+  const { classNamesResolved, stylesResolved, engineSemantic } = useSemanticClassNames(
+    classNames,
+    styles,
+    size,
+    bordered,
+    virtual,
+    scroll,
+    pagination as false | TablePaginationConfig | undefined,
+  )
+
+  // === 分页集成（usePaginationAdapter：派生 + 切片 + 渲染分页节点）（35-F 上移）===
+  // 上移原因：useSelectionAdapter 需要**当前页切片** pagedDataSource 作「当前页分母」
+  //   （35-F 选择范围随分页），而 pagedDataSource 由本 hook 的 usePagination（useState）算出——
+  //   必须在 useSelectionAdapter **之前**声明，才能读到本次渲染的最新分页态（经 ref 读会滞后一帧）。
+  // paginationStateRef 在顶部声明（L379，在 useSorter 之前），供 useSorter/useFilter 的 onChange
+  //   闭包注入最新分页。hook 内写 .current，外部读。
+  const {
+    paginationEnabled,
+    pagedDataSource,
+    topPaginationNode,
+    bottomPaginationNode,
+    fireTableChange,
+  } = usePaginationAdapter<RecordType>({
+    pagination,
+    flattenedDataSource,
+    paginationDataSource: treeEnabled ? filteredDataSource : flattenedDataSource,
+    paginationStateRef,
+    onChange,
+    onFirstRowChange: scrollToFirstRowOnChange,
+    getFiltersArg,
+    currentSorterResult,
+    size,
+    classNamesResolved,
+    stylesResolved,
+  })
+  // 渲染期写入发射口（同上方 `filtersArgRef.current = getFiltersArg`）：useSorter/useFilter 的
+  // 事件闭包比本 hook 早声明，只能经 ref 读；交互发生在渲染之后 ⇒ 读到的是本次渲染的最新闭包。
+  fireTableChangeRef.current = fireTableChange
+
   // === 行选择（useSelectionAdapter：模式解析 + selectionLookup + 受控/非受控 state +
   //   useRowSelection 调用 + fireSelectionChange 分发，详见 ./useSelectionAdapter.ts）===
+  // 35-F：多喂一份**当前页**切片（pagedDataSource）作选择「当前页分母」——表头全选 / 菜单 INVERT /
+  //   菜单 NONE 保留面 / 表头三态 / shift 范围随当前页，菜单 ALL 仍走 filteredDataSource（全量）。
+  //   未分页时 pagedDataSource＝filteredDataSource，「当前页」＝全量（零回归）。
   const {
     selectionEnabled,
     nativeSelectionConfigured,
@@ -537,6 +589,7 @@ function TableInner<RecordType = any>(
     gridSelection: gridOptions?.selection as GridSelectionOptions<RecordType> | undefined,
     flattenedDataSource,
     filteredDataSource,
+    pageDataSource: pagedDataSource,
     // 原始 dataSource（antd rawData 口径）：行选择的 key 存在性判定与 selectedRows 查表用它。
     rawDataSource: dataSource,
     treeEnabled,
@@ -604,23 +657,7 @@ function TableInner<RecordType = any>(
     filteredValueMap,
   })
 
-  // === 语义化样式 classNames/styles 求值 ===
-  // 支持对象（静态）或函数 `(info) => 对象`（动态，按 info.props 求值）。对齐 antd v6：
-  //   - info.props 含 size/bordered/virtual/scroll/pagination 子集（与 antd 一致：暴露当前生效 props）。
-  //   - 求值后统一得到 `TableSemanticClassNames`/`TableSemanticStyles` 对象。
-  // 适配层直接消费 root/title/footer/pagination.*（注入到对应 DOM）；section/content/header/body
-  //   透传给引擎（GridTable.semantic）由引擎注入到 grid 内部部位。
-  // 未提供（undefined）时 semanticResolved 为 undefined，所有部位走默认 class/style，零回归。
-  // 求值 + 引擎子集构造抽出为独立 hook `useSemanticClassNames`（行为零差异，先移动不重写）。
-  const { classNamesResolved, stylesResolved, engineSemantic } = useSemanticClassNames(
-    classNames,
-    styles,
-    size,
-    bordered,
-    virtual,
-    scroll,
-    pagination as false | TablePaginationConfig | undefined,
-  )
+  // （useSemanticClassNames 已 35-F 上移到 useSelectionAdapter 之前——见上方行选择段注释。）
 
   const {
     scrollBarShowOnTableHover,
@@ -775,31 +812,8 @@ function TableInner<RecordType = any>(
     return sticky
   }, [sticky])
 
-  // === 分页集成（usePaginationAdapter：派生 + 切片 + 渲染分页节点）===
-  // paginationStateRef 在顶部声明（L343，在 useSorter 之前），供 useSorter/useFilter 的 onChange
-  //   闭包注入最新分页。hook 内写 .current，外部读。
-  const {
-    paginationEnabled,
-    pagedDataSource,
-    topPaginationNode,
-    bottomPaginationNode,
-    fireTableChange,
-  } = usePaginationAdapter<RecordType>({
-    pagination,
-    flattenedDataSource,
-    paginationDataSource: treeEnabled ? filteredDataSource : flattenedDataSource,
-    paginationStateRef,
-    onChange,
-    onFirstRowChange: scrollToFirstRowOnChange,
-    getFiltersArg,
-    currentSorterResult,
-    size,
-    classNamesResolved,
-    stylesResolved,
-  })
-  // 渲染期写入发射口（同上方 `filtersArgRef.current = getFiltersArg`）：useSorter/useFilter 的
-  // 事件闭包比本 hook 早声明，只能经 ref 读；交互发生在渲染之后 ⇒ 读到的是本次渲染的最新闭包。
-  fireTableChangeRef.current = fireTableChange
+  // （usePaginationAdapter 已 35-F 上移到 useSelectionAdapter 之前——见上方行选择段注释。
+  //   pagedDataSource / topPaginationNode / bottomPaginationNode / fireTableChange 均在该处声明。）
 
   const renderedDataSource = useMemo(() => {
     if (!treeEnabled || !paginationEnabled) return pagedDataSource

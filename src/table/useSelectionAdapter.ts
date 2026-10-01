@@ -43,6 +43,13 @@ export interface UseSelectionAdapterOptions<RecordType> {
   flattenedDataSource: Array<RecordType>
   filteredDataSource: Array<RecordType>
   /**
+   * **当前页**切片（usePaginationAdapter 的 `pagedDataSource`，树形下为顶层当前页行）。
+   * 35-F：喂给状态机作「当前页分母」（参照 antd `pageData` 等价物）——表头全选 / 菜单 INVERT /
+   * 菜单 NONE 保留面 / 表头三态随当前页，菜单 ALL 仍走 `filteredDataSource`（全量）。
+   * 可选：未分页 / 白盒测试未提供时回落 `filteredDataSource`（全量），此时「当前页」＝全量（零回归）。
+   */
+  pageDataSource?: Array<RecordType>
+  /**
    * 原始 `dataSource`（**未排序 / 未筛选 / 未分页**，且含全树 children）。
    *
    * 对齐 antd：`InternalTable.js:177` 用 `useLazyKVMap(rawData, childrenColumnName, getRowKey)`
@@ -88,12 +95,16 @@ export function useSelectionAdapter<RecordType>(
     gridSelection,
     flattenedDataSource,
     filteredDataSource,
+    pageDataSource,
     rawDataSource,
     treeEnabled,
     childrenColumnName,
     rowKey: rowKeyResolved,
     parentChildrenMap,
   } = options
+
+  // 35-F：当前页分母。未分页 / 白盒测试未喂时回落 filteredDataSource（全量）⇒「当前页」＝全量（零回归）。
+  const effectivePageDataSource = pageDataSource ?? filteredDataSource
 
   // === 模式解析（compat rowSelection vs native gridOptions.selection）===
   const nativeSelectionConfigured = gridSelection !== undefined
@@ -159,6 +170,27 @@ export function useSelectionAdapter<RecordType>(
     dig(filteredDataSource)
     return out
   }, [treeEnabled, filteredDataSource, childrenColumnName])
+
+  // === 当前页数据源（35-F，喂状态机作「当前页分母」）===
+  // 与 selectionDataSource 同构，但切片是**当前页**（pageDataSource，树形下为顶层当前页行）。
+  // antd 的 recordKeys / checkboxPropsMap 建在 flattenData(pageData) 上（useSelection.js:92），
+  // 折叠子孙同样要看得见（点父行时 disabled 子孙照样可解析）。非树形 → 直接复用 pageDataSource
+  // 引用（零回归）。未分页时 pageDataSource＝filteredDataSource，本值与 selectionDataSource 同。
+  const pageSelectionDataSource = useMemo(() => {
+    if (!treeEnabled) return effectivePageDataSource
+    const out: Array<RecordType> = []
+    const dig = (records: Array<RecordType>) => {
+      for (const record of records) {
+        out.push(record)
+        const children = record && typeof record === 'object'
+          ? (record as any)[childrenColumnName]
+          : undefined
+        if (Array.isArray(children) && children.length > 0) dig(children as Array<RecordType>)
+      }
+    }
+    dig(effectivePageDataSource)
+    return out
+  }, [treeEnabled, effectivePageDataSource, childrenColumnName])
 
   // === getSelectionValue + selectionLookup（keyToValue/valueToKey）===
   const getSelectionValue = useCallback(
@@ -304,13 +336,18 @@ export function useSelectionAdapter<RecordType>(
   }, [effectiveSelectedKeys, updatePreserveRecordsCache])
 
   // === useRowSelection 调用（状态机）===
-  // 数据源用 selectionDataSource（筛选后数据的**全树**扁平视图，含折叠子孙）：
-  //   disabled / selectableKeys / conduction 必须看得见折叠行，否则点父行会把 disabled
-  //   子孙一起选中（antd 的 checkboxPropsMap 同样建在全树上）。非树形时与旧实现同引用。
+  // 双分母（35-F，参照 antd 6.4.4 useSelection.js，三档范围各不相同，不许统一）：
+  //   - dataSource = selectionDataSource（**全量**全树扁平，含折叠子孙）→ 菜单 ALL 分母
+  //     （antd :201-208 遍历 data）。disabled / conduction 必须看得见折叠行，否则点父行会把
+  //     disabled 子孙一起选中（antd 的 checkboxPropsMap 同样建在全树上）。
+  //   - pageDataSource = pageSelectionDataSource（**当前页**全树扁平）→ 表头全选 / 菜单 INVERT /
+  //     菜单 NONE 保留面 / 表头三态 / shift 范围 的分母（antd recordKeys 建在 flattenData(pageData)
+  //     上，useSelection.js:92/271）。非树形时与旧实现同引用；未分页时与 selectionDataSource 同。
   const selection = useRowSelection<RecordType>({
     type: resolvedRowSel?.type,
     selectedRowKeys: effectiveSelectedKeys,
     dataSource: selectionDataSource,
+    pageDataSource: pageSelectionDataSource,
     rowKey: rowKeyResolved,
     getCheckboxProps: resolvedRowSel?.getCheckboxProps,
     selections: resolvedRowSel?.selections,

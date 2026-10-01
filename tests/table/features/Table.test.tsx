@@ -7,7 +7,8 @@
 //   P-088 版本注记；分母由 G-2 分母门从 tests/fixtures/antd-denominator.json 重算）。
 //   本文件另有 data-grid 专属补测 **5 条**（engine cell key 保持 4 条 + onHeaderRow key 变化
 //   时 header cell DOM 节点保持 1 条，步骤 86 jsx-key 批次，见各用例旁注释）
-//   ⇒ 运行时 30 直测 | 7 skip（37），2026-09-30 G-2 分母门重跑核平。
+//   ⇒ 运行时 31 直测 | 6 skip（37），2026-09-30 G-2 分母门重跑核平；29-D 修复（BAT-35 35-A）
+//   把 29-D 的 it.skip 转直测（30→31 直测、7→6 skip）。
 //
 // 选择器重映射（data-grid 无语义化 table DOM，行无 .dg-row 元素，以 data-row-index 标识）:
 //   - antd `th` / `td` → `div.dg-cell.ant-table-cell.dg-cell-header` / `.dg-cell-body`
@@ -574,17 +575,56 @@ describe('Table', () => {
   })
 
   // antd L574（规约源 6.5.2 `Table.test.tsx:574`）：分组表头 hidden 列（组级 hidden ＋ 组内叶子 hidden）。
-  // skip 依据（**仍真**）：data-grid 的 `hidden` 仅对叶子列生效，分组列（有 `children`）的 `hidden` 无效
-  //   （判据文案在 `src/table/compat/column.ts:239-240`；旧依据写的 `:238-239` 实测越界一格，已改）。
-  // 双臂实测（探针 `tmp/81-probe-readings.txt` 臂 `A9.dg` / `A9.ref`；两臂都只数容器内节点、无 portal 面）：
-  //   dg `.dg-cell-header` **9** 个（组级 hidden 的 `title2` 及其三个子叶子**全在**），
-  //   带 `.dg-cell-hidden` 的只有叶子级的 `title3-1` / `title3-3`；
-  //   ↔ 裁判 `thead th` **3** 个，两行分别 `['title1','title3']` / `['title3-2']`（上游正是断 2 与 1）
-  //   ⇒ **不同值**。
-  // ⚠️ 更正旧依据末句的口径：「叶子列 hidden 已由上方 'support hidden columns' 用例覆盖」只对**平铺表头**成立；
-  //   分组表头下的叶子 hidden（dg 保留 DOM ＋ 加 `.dg-cell-hidden`，0fr track 方案）本文件**无直测**。
-  it.skip('support hidden columns in Group table head', () => {
-    // 占位：data-grid hidden 仅支持叶子列（组级 hidden 无效＝与裁判的真实分叉）。
+  // 29-D 修复（BAT-35 35-A）：组级 `hidden: true` 现连同整棵子树移除，对齐参照 antd@6.4.4
+  //   `@rc-component/table` `useColumns/index.js:26-37` `filterHiddenColumns`（`hidden` 的列从列树
+  //   剔除，分组列被剔除时其子叶子一并消失）。叶子级 `hidden` 仍走本仓 0fr track 方案（保留 DOM
+  //   ＋ `.dg-cell-hidden`，重映射口径见文件头 L21-22）。
+  // 参照机制实读（6.4.4）：参照 DOM 行 0＝[title1, title3]（2 格）、行 1＝[title3-2]（1 格）
+  //   （上游断 2 与 1，见 6.5.2 `Table.test.tsx:602-613`）。
+  // 本仓修后 DOM：`title2` 及其三个子叶子被移除（4 格消失）；`title3` 的两个子叶子 3-1/3-3
+  //   仍 0fr ＋ `.dg-cell-hidden`（保留 DOM）⇒ 表头共 5 格、其中 2 格带类。
+  it('support hidden columns in Group table head', () => {
+    const columns = [
+      { key: '1', title: 'title1' },
+      {
+        key: '2',
+        title: 'title2',
+        hidden: true,
+        children: [
+          { key: '2-1', title: 'title2-1' },
+          { key: '2-2', title: 'title2-2' },
+          { key: '2-3', title: 'title2-3' },
+        ],
+      },
+      {
+        key: '3',
+        title: 'title3',
+        children: [
+          { key: '3-1', title: 'title3-1', hidden: true },
+          { key: '3-2', title: 'title3-2' },
+          { key: '3-3', title: 'title3-3', hidden: true },
+        ],
+      },
+    ]
+    const { container } = customRender(<Table columns={columns} />)
+    const headerCells = Array.from(container.querySelectorAll('.dg-cell-header'))
+    const texts = headerCells.map((c) => c.textContent)
+    // 组级 hidden：title2 及其三个子叶子被整棵移除（DOM 中不存在）
+    for (const t of ['title2', 'title2-1', 'title2-2', 'title2-3']) {
+      expect(texts).not.toContain(t)
+    }
+    // title1 / title3 / title3-2 在场
+    for (const t of ['title1', 'title3', 'title3-2']) {
+      expect(texts).toContain(t)
+    }
+    // 叶子级 hidden（3-1/3-3）：0fr 方案，保留 DOM 并带类
+    const hiddenTexts = headerCells
+      .filter((c) => c.classList.contains('dg-cell-hidden'))
+      .map((c) => c.textContent)
+      .sort()
+    expect(hiddenTexts).toEqual(['title3-1', 'title3-3'])
+    // 表头共 5 格（title2 组 + 3 子叶子被移除）
+    expect(headerCells).toHaveLength(5)
   })
 
 

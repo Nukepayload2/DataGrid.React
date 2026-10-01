@@ -660,12 +660,46 @@ e2e 自 Round K（2026-09-28 19:50、130 截图全绿）以来**一直没人跑�
 +14、a11y skip 注册 7＋1 计数断言、api-json 3→9。`src/**` 零改动（0-D 假 prop 已装回、sha1 逐字节一致）、
 `tsconfig*.json`／`docs/**`／`package.json`／`e2e/**` 未动。详见 `96-implementer-bat0-testgates.md` §6 与 **E-170**。
 
-**遗交项（本批不动，待用户裁定）**：`docs/reference/known-limitations.md:319-325` 的「非 CI 裸包名解析到 lib/」
-一句已被 test.alias 全口径作废（需改一行，但 `docs/**` 属禁写面 ⇒ 待后续文档批）；Z-4 表头全选/反选页面范围；
+**遗交项**：`docs/reference/known-limitations.md`「测试环境的观测面」条的旧句已于 **2026-09-30 改毕**（用户指示，
+main 直接执行；原句保留为历史口径＋新增「已修」行；anchor-audit 复跑 14/0 未升）。其余待用户裁定：Z-4 表头全选/反选页面范围；
 29-D grouped-column `hidden`；peer `^6.1.0` vs 实装 6.4.4；PoolBucket 两个同名声明；item-14 PNG 重基线清单；
 lib→ES2022；git：停机维护期间用户已自行提交 4 个 `add tests` 提交（最新 `fedeb7e`，2026-09-30 21:17），
 `AD` 索引残件（旧路径 devWarn 测试文件，见本文件 :483 既有登记）与未跟踪 `tmpv53-final2-progress.txt` 均已随提交处置
 （旧路径出索引、进度件已入库）；**当前未提交面＝本批 §6.1 类型/lint 修复 4 文件＋本 七之三 节**
 （`scripts/antd-denominator.mjs`、`tests/api-json-reconcile.test.ts`、`tests/denominator.test.ts`、
 `tests/skip-discipline.test.ts`、`TASK_STATUS.md`），提交时机仍由用户定。
+
+## 七之四、BAT-35 六项全量 battery（2026-09-30，**本节的当前有效快照**）
+
+> 用户 2026-09-30 裁定：antd 版本声明（peer `^6.1.0`）**不动**；其余六项按建议做。main 独占窗口串行执行（零子代理），
+> 日志落 `tmp/bat35-*.log`。写面＝`src/table/**`（7 文件）、`tests/**`（3 文件＋1 删除）、`docs/reference/{compat-matrix,known-limitations}.md`、
+> `docs/contributing/verification-guide.md`、`src/docs/generated/api.json`、`AGENTS.md`、`TASK_STATUS.md`、`tmp/**`；
+> `package.json`／`pnpm-lock.yaml`／`tsconfig*.json`／`vite.config.ts`／`playwright.config.ts`／`e2e/**`／`src/demos/**`／`scripts/**` 零写。
+
+**六项落地**（详见 `97-implementer-bat35-six-items.md`）：
+- **35-A**（29-D 分组列 `hidden`）：`filterHiddenColumns` 删 `hidden:true` 分组列；leaf `hidden` 走 0fr＋`.dg-cell-hidden` 保留 DOM。
+- **35-B**（PoolBucket 改名＋`useCellElementPool` 退役）：`useCellElementPool.ts` 删除（live `defaultRenderCellElement` 先移走）；AGENTS.md「DOM 复用」行更新。
+- **35-C**（截图重基线规则）：`docs/contributing/verification-guide.md` 写入重基线规则。
+- **35-D**（lib→ES2022 不动裁定）：零代码，裁定登记（peer `^6.1.0` 不动、lib target 不动）。
+- **35-E**（自定义筛选面板门①）：`FilterDropdown.tsx` `handleOpenChange` 加 `if (info?.source !== 'trigger') return` 门①（点菜单项不关面板）；`compat/column.ts` JSDoc 更新；api.json 重生成。摘码反证 sha1 `0ac3ede3…` 逐字节一致。
+- **35-F**（Z-4/29-B+B4c 表头全选/反选范围，三档三份分母）：`useRowSelection.ts` 加 `pageDataSource` 可选 prop＋三档分母（表头全选/INVERT/NONE 保留面=当前页、菜单 ALL=全量、树形 conduction disabled=全量）；`useSelectionAdapter.ts` 加 `pageDataSource` 可选 prop（默认 filteredDataSource，白盒零回归）；`Table.tsx` `usePaginationAdapter` 上移到 `useSelectionAdapter` 之前＋喂 `pagedDataSource`。4 新直测 pre-red 必红→修复后全绿；摘码反证 sha1 `D5ED0F3B…` 逐字节一致。树形 conduction 回归（isKeyDisabled 误用当前页 disabledKeySet）修复＝加 allDisabledKeySet（全量）专供 conduction。
+
+**收口 battery（终态含 35-F）**：
+
+| 门 | 读数 |
+|---|---|
+| 全量 `pnpm test` ×2 | 连续两次 **130 文件 / 1848 passed\|48 skipped (1896)**、0 failed（vs 七之三 1845：＋3＝35-F 4 新直测－1 白盒回归修复） |
+| `pnpm test:types` | **131 文件 / 1854 passed\|48 skipped (1902)**、Type Errors none |
+| `tsc -p tsconfig.json --noEmit` ×3 | 全 EXIT=0 |
+| oxlint | 0 warnings / 0 errors |
+| check-skips | skip 总数=38（基线 39 ⇒ **−1**，前批 skip 转直测，未升） |
+| api.json 重生成 | sha1 `cbb0483e…` **不变**（pageDataSource 内部类型，公共 API 零变化） |
+| build / build:docs | 全 EXIT=0 |
+| anchor-audit | 行号越界 0、悬空 其它=14（基线 14 未升） |
+| react-doctor | ok=True、totalDiagnosticCount=100（基线 101 ⇒ **−1**，未升） |
+| e2e | **136 passed**（2.8m） |
+
+**遗交**（本批不动，随收口上呈）：① 用户决策项已裁定（peer `^6.1.0` 不动、六项按建议做）⇒ 全部落地；
+② git：实现者零写（纪律遵守），未提交面＝35-A..35-F 全部改动＋本 七之四 节，提交时机由用户定；
+③ 不在 BAT-35 范围（待用户）：N-2 表级一跳、G-1 独立复验、29-C C4。
 

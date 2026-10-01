@@ -64,8 +64,19 @@ export interface UseRowSelectionOptions<RecordType> {
   type?: SelectionType
   /** 受控选中 key 数组（真理源）。 */
   selectedRowKeys: Array<Key>
-  /** 全集 dataSource（用于算 selectableKeys / 全选 / 半选）。 */
+  /**
+   * **全量** dataSource（所有页）。35-F 起只用于**菜单 ALL** 的分母
+   * （参照 antd 6.4.4 `useSelection.js:201-208` 遍历 `data`）。表头全选 / 菜单 INVERT /
+   * 菜单 NONE 保留面改用 `pageDataSource`（当前页）——三档范围各不相同，不许统一。
+   */
   dataSource: Array<RecordType>
+  /**
+   * **当前页** dataSource（参照 antd `pageData` 等价物，含树形折叠子孙）。
+   * 35-F 起是 `selectableKeys` / 表头全选 / 菜单 INVERT / 菜单 NONE 保留面的分母
+   * （参照 `useSelection.js:92 flattenData(pageData)` → `:271-277 recordKeys` / `:217-227` /
+   * `:242-245 checkboxPropsMap`）。缺省（未分页 / 调用方未喂）时回落 `dataSource`（零回归）。
+   */
+  pageDataSource?: Array<RecordType>
   /** rowKey 取值器（字符串属性名或函数）。 */
   rowKey: string | ((record: RecordType) => string | number)
   /**
@@ -204,6 +215,7 @@ export function useRowSelection<RecordType>(
     type = 'checkbox',
     selectedRowKeys,
     dataSource,
+    pageDataSource,
     rowKey,
     getCheckboxProps,
     selections,
@@ -211,6 +223,9 @@ export function useRowSelection<RecordType>(
     parentChildrenMap,
   } = options
   const isRadio = type === 'radio'
+  // 35-F：当前页分母（参照 antd pageData 等价物）。未喂（未分页 / 调用方未传）时回落全量
+  // dataSource ⇒ 不分页场景零回归（此时「当前页」＝全量）。
+  const pageData = pageDataSource ?? dataSource
 
   // === 树形父子联动 ===
   // checkStrictly=false 且提供了 parentChildrenMap（非空 Map）→ 启用联动。
@@ -221,14 +236,17 @@ export function useRowSelection<RecordType>(
   const treeLinkEnabled =
     !isRadio && !checkStrictly && !!parentChildrenMap && parentChildrenMap.size > 0
 
-  // === 全集可勾选 key/record（排除 disabled）===
-  // 顺带产出 disabledKeySet（供树形联动判定「哪些子行不参与 conduction」）与 allDisabled
+  // === 当前页可勾选 key/record（排除 disabled）===
+  // 35-F：分母从「全量 dataSource」改为「当前页 pageData」（参照 antd 6.4.4
+  // useSelection.js:92 `flattenData(pageData)` → :271-277 recordKeys）。表头全选 / 菜单 INVERT /
+  // 菜单 NONE 保留面 / 表头三态（allSelected/intermediate/allDisabled*）全部随当前页。
+  // 顺带产出 disabledKeySet（当前页 disabled，供树形联动 + NONE 保留面）与 allDisabled
   // （供表头全选框推导 disabled/checked/半选，对齐 antd allDisabled*）。
   const { selectableKeys, selectableRecords, disabledKeySet, allDisabled } = useMemo(() => {
     const keys: Array<Key> = []
     const records: Array<RecordType> = []
     const disabledKeys = new Set<Key>()
-    for (const record of dataSource) {
+    for (const record of pageData) {
       const disabled = getCheckboxProps?.(record)?.disabled === true
       const key = resolveKey(record, rowKey)
       if (disabled) {
@@ -242,14 +260,43 @@ export function useRowSelection<RecordType>(
       selectableKeys: keys,
       selectableRecords: records,
       disabledKeySet: disabledKeys,
-      allDisabled: dataSource.length > 0 && keys.length === 0,
+      allDisabled: pageData.length > 0 && keys.length === 0,
     }
+  }, [pageData, rowKey, getCheckboxProps])
+
+  // === 全量可勾选 key（菜单 ALL 专用分母）===
+  // 35-F：参照 antd 6.4.4 useSelection.js:201-208 菜单 ALL 遍历 **data（全量所有页）**，
+  // 与上面「当前页」分母刻意不同——三档范围各不相同，不许统一成一份。
+  const allChangeableKeys = useMemo(() => {
+    const keys: Array<Key> = []
+    for (const record of dataSource) {
+      if (getCheckboxProps?.(record)?.disabled === true) continue
+      keys.push(resolveKey(record, rowKey))
+    }
+    return keys
   }, [dataSource, rowKey, getCheckboxProps])
 
-  /** 某 key 是否属于当前数据源里的 disabled 行（不在数据源里的 key 视为可选）。 */
+  // === 全量 disabled key 集（树形联动专用，35-F）===
+  // 树形 conduction 判「哪些子行不参与传导」必须用**全量** disabled（一行 disabled 与否是
+  // 行属性，跨页一致——antd `conductCheck` 走 `isCheckboxDisabled(record)`，按 record 判，
+  // 不分页）。若误用当前页 disabledKeySet，翻页后「另一页上 disabled 的行」会被当可选 →
+  // 传导把它选上（实测 dg 把跨页 disabled 行勾上，antd 不勾）。
+  // 注意与上面「当前页 disabledKeySet」刻意不同：后者供表头三态 + 菜单 NONE 保留面（antd
+  // checkboxPropsMap 建在 pageData 上，随当前页）。
+  const allDisabledKeySet = useMemo(() => {
+    const disabledKeys = new Set<Key>()
+    for (const record of dataSource) {
+      if (getCheckboxProps?.(record)?.disabled === true) {
+        disabledKeys.add(resolveKey(record, rowKey))
+      }
+    }
+    return disabledKeys
+  }, [dataSource, rowKey, getCheckboxProps])
+
+  /** 某 key 是否属于（全量）数据源里的 disabled 行（树形联动 conduction 判据）。 */
   const isKeyDisabled = useCallback(
-    (key: Key) => disabledKeySet.has(key),
-    [disabledKeySet],
+    (key: Key) => allDisabledKeySet.has(key),
+    [allDisabledKeySet],
   )
 
   // === 当前选中 Set（去重；受控源 selectedRowKeys）===
@@ -478,13 +525,15 @@ export function useRowSelection<RecordType>(
   /**
    * 应用一个 selection 项（菜单点击时调用）。
    *
-   * 内置哨兵按 key 分支（对齐 antd mergedSelections 的 ALL/INVERT/NONE 行为）：
-   *   - ALL：选中所有 changeableRowKeys，并保留 selectedRowKeys 中已选的 disabled 行
-   *     （antd ALL：`!disabled || derivedSelectedKeySet.has(key)` → keys.push(key)）。
-   *   - NONE：清空所有 changeableRowKeys，仅保留 selectedRowKeys 中已选的 disabled 行
-   *     （antd NONE：`derivedSelectedKeySet.filter(key => disabled)`）。
-   *   - INVERT：changeableRowKeys 中未选→选、已选→清；保留 selectableKeys 之外的 key
-   *     （antd INVERT：遍历 pageData 非 disabled 行 toggle，disabled 行原样保留）。
+   * 内置哨兵按 key 分支（对齐 antd 6.4.4 mergedSelections 的 ALL/INVERT/NONE 行为）。
+   * **三档分母各不相同**（35-F，参照 useSelection.js，不许统一）：
+   *   - ALL（:201-208 遍历 **data 全量**）：选中所有**全量**非 disabled 行（allChangeableKeys），
+   *     并保留 selectedRowKeys 中已选的 disabled 行（antd ALL：`!disabled || selected`）。
+   *   - INVERT（:217-227 遍历 **pageData 当前页**）：changeableRowKeys（当前页非 disabled）中
+   *     未选→选、已选→清；disabled 行原样保留。
+   *   - NONE（:242-245 `filter(key => checkboxPropsMap.get(key)?.disabled)`，checkboxPropsMap
+   *     建在 pageData）：清空**全部**已选（跨页），只保留「**当前页**上 disabled 且已选」的 key
+   *     （disabledKeySet ∩ selectedKeySet）——跨页的 disabled-已选行也被清掉。
    *
    * 自定义项：调 `item.onSelect(changeableRowKeys)`（返回 void）；引擎不改变 selectedRowKeys，
    *   返回 null（调用方据此不触发 onChange——demo 内自行 setState）。
@@ -498,25 +547,27 @@ export function useRowSelection<RecordType>(
         item.onSelect?.(changeableRowKeys)
         return null
       }
-      // changeableRowKeys 在树形联动下可能含父行（其子孙也在 selectableKeys）。
-      // 用 Set 统一处理；ALL/INVERT 结果在树形联动模式下经 conductTreeCheck 补全父。
+      // 当前页非 disabled（INVERT 分母 + 自定义项 onSelect 入参）；全量非 disabled（ALL 分母）。
+      // 树形联动下两者都可能含父行（其子孙也在 selectableKeys）；结果在联动模式下经
+      // conductTreeCheck 补全父。
       const changeableSet = new Set<Key>(changeableRowKeys)
+      const allChangeableSet = new Set<Key>(allChangeableKeys)
       let nextSet: Set<Key>
       let method: RowSelectMethod
       if (item.key === 'all') {
-        // ALL：changeableRowKeys 全选 + 保留已选 disabled 行（不在 changeableSet 中的已选 key）。
+        // ALL：**全量**非 disabled 全选 + 保留已选 disabled 行（起点是完整 selectedKeySet）。
         nextSet = new Set<Key>(selectedKeySet)
-        for (const k of changeableSet) nextSet.add(k)
+        for (const k of allChangeableSet) nextSet.add(k)
         method = 'all'
       } else if (item.key === 'none') {
-        // NONE：清空 changeableRowKeys，仅保留已选 disabled 行。
+        // NONE：清空全部，仅保留「当前页 disabled 且已选」的 key（参照 checkboxPropsMap 建在 pageData）。
         nextSet = new Set<Key>()
         for (const k of selectedKeySet) {
-          if (!changeableSet.has(k)) nextSet.add(k)
+          if (disabledKeySet.has(k)) nextSet.add(k)
         }
         method = 'none'
       } else {
-        // INVERT：changeableRowKeys 中 toggle；保留 selectableKeys 之外的 key（disabled 行原样）。
+        // INVERT：**当前页**非 disabled 中 toggle；disabled 行与跨页行原样保留。
         nextSet = new Set<Key>(selectedKeySet)
         for (const k of changeableSet) {
           if (nextSet.has(k)) nextSet.delete(k)
@@ -539,7 +590,15 @@ export function useRowSelection<RecordType>(
       }
       return { nextKeys, method }
     },
-    [changeableRowKeys, selectedKeySet, treeLinkEnabled, parentChildrenMap, isKeyDisabled],
+    [
+      changeableRowKeys,
+      allChangeableKeys,
+      disabledKeySet,
+      selectedKeySet,
+      treeLinkEnabled,
+      parentChildrenMap,
+      isKeyDisabled,
+    ],
   )
 
   return {

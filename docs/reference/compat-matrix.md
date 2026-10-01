@@ -124,6 +124,7 @@
 | API | 归类 | 证据 |
 |-----|------|------|
 | `key/title/width/align/fixed/className/style/onHeaderCell/ellipsis(含 showTitle)/hidden/render/children` | ColumnType | dg `types.ts:373-476` |
+| `hidden`（组级 vs 叶子级，29-D 已修） | ColumnType.hidden | 组级（有 `children`）`hidden: true` 连同整棵子树移除——对齐 antd@6.4.4 `@rc-component/table` `useColumns` `filterHiddenColumns`（修点 `columnAdapter.ts:171`，BAT-35 35-A）；叶子级 `hidden` 走 0fr track（保留 DOM ＋ `.dg-cell-hidden`，`gridTemplateColumnsUtils.ts:86`） |
 | `render` 返回 `RenderedCell{ children, props }` 对象形态 | ColumnType.render | dg 仅兼容 `children` 内容；`props` 废弃并忽略，合并请用 `onCell`，其它内置格样式/事件请用 column/onRow 或自定义 body.cell |
 | `sorter`（bool/CompareFn/ColumnSorter）/ `sortOrder` / `defaultSortOrder` / `sortDirections` | ColumnType | dg `types.ts:339-353, 522+` |
 | `filters` / `filterDropdown` / `filterMultiple` / `filteredValue` / `defaultFilteredValue` / `filterIcon` / `filterMode` / `filterSearch` / `onFilter` / `filterOnClose` | ColumnType | antd `interface.ts:162-194`；dg `types.ts` + `engine\FilterDropdown.tsx` |
@@ -199,6 +200,7 @@
 - `scroll.scrollToFirstRowOnChange` 已实现，默认开启，可设 `false` 关闭。
 - `render` 返回 `RenderedCell{ children, props }` 对象形态仅保留 `children` 内容兼容；`props` 废弃并忽略。
 - `rowSelection.onSelect/onSelectMultiple/onSelectAll/onSelectInvert/onSelectNone/columnTitle/onCell/getTitleCheckboxProps` 已实现。
+- `rowSelection` 的「范围随分页」三档分母已对齐 antd 6.4.4（BAT-35 35-F）：**表头全选 / 菜单 INVERT / 菜单 NONE 保留面**限定在**当前页**，**菜单 ALL** 保持**全量**，**树形 conduction 的 disabled 判据**走**全量**（一行 disabled 与否是行属性，跨页一致）。参照 `antd 6.4.4 es/table/hooks/useSelection.js:92（flattenData(pageData)）/201-208（ALL 用 data）/217-227（INVERT 遍历 pageData）/242-245（NONE 的 checkboxPropsMap 建在 pageData）/271-277（recordKeys 建在 pageData）`。
 - 拖拽排序已通过 `gridOptions.rowDragSort` / `gridOptions.columnDragSort` 作为公开 API 采用；内部 hook 不从主入口导出，demo 也不直接导入内部 hook。
 
 ---

@@ -359,18 +359,21 @@ export function FilterDropdown({
 
   // Dropdown onOpenChange：关闭时处理 filterOnClose 语义。
   //
-  // 参照（antd **6.4.4** `es/table/hooks/useFilter/FilterDropdown.js:240-251`）的关闭应用有**两道门**：
-  //   门 ① `info.source === 'trigger'`（`:241`）、门 ② `!newVisible && !column.filterDropdown && filterOnClose`（`:247`）。
-  // 这里只接**门 ②**（`!isCustom`）：**自定义面板（`column.filterDropdown`）从不因"关闭"而应用草稿**——
+  // 参照（antd **6.4.4** `es/table/hooks/useFilter/FilterDropdown.js:240-251` `onVisibleChange`）的开合处理有**两道门**：
+  //   门 ① `info.source === 'trigger'`（`:241`，**整个处理体都门在内**）、门 ② `!newVisible && !column.filterDropdown && filterOnClose`（`:247`）。
+  // 门 ①（**BAT-35 35-E 接**）：`info.source` 只有 `'trigger'`（点触发器/点面板外/ESC）与 `'menu'`（弹层内 antd `<Menu>` 点项）
+  //   两值（已运行探针 57 V-4a：在我方同一个 `onOpenChange` 槽位上运行时可得）。它区分的不是"用户 vs 程序化"关闭，
+  //   而是"**Menu 点项不算关闭**"⇒ 只影响**开合态**（V-1e：改前我方 Menu 点项关面板、参照保持打开）⇒ 接门 ① 后
+  //   Menu 点项保持面板打开、不透传 `onOpenChange(false)`、不应用/重置草稿（与参照一致）。
+  // 门 ②（**本批前已接**，`!isCustom`）：**自定义面板（`column.filterDropdown`）从不因"关闭"而应用草稿**——
   //   面板内的值是用户的私有草稿，只有他自己调 `confirm()` / `clearFilters({confirm:true})` 才算应用。
   //   ⇒ 与本文件旧行为（无门 ②）的差别是可被用户看见的数据结果：修复前"没点确定的值"会被应用、
   //     甚至把已生效的筛选**顶掉/清空**（探针 57：V-1a/V-1b/V-1d/V-2c 四条双侧分叉）。
-  // 门 ① **本处不接**（已运行探针 57 V-4a：`info.source` 在我方同一个 `onOpenChange` 槽位上运行时可得，
-  //   取值只有 `'trigger'`（点触发器/点面板外/ESC）与 `'menu'`（弹层内 antd `<Menu>` 点项））：
-  //   它区分的不是"用户 vs 程序化"关闭，而是"Menu 点项不算关闭"⇒ 会影响**开合态**
-  //   （V-1e：我方 Menu 点项关面板、参照保持打开），属独立待裁边界，不在本批改（交回 main 裁定）。
   const handleOpenChange = useCallback(
-    (nextOpen: boolean) => {
+    (nextOpen: boolean, info?: { source?: string }) => {
+      // 门 ①：只有 `source === 'trigger'`（点触发器/点面板外/ESC）才走开合处理；
+      //   `source === 'menu'`（弹层内 `<Menu>` 点项）整段跳过 ⇒ 面板保持打开、不回调、不动草稿。
+      if (info?.source !== 'trigger') return
       setOpen(nextOpen)
       // 透传 onOpenChange 给调用方（column.filterDropdownProps.onOpenChange）。
       dropdownProps?.onOpenChange?.(nextOpen)

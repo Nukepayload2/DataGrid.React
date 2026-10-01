@@ -16,6 +16,18 @@
 - light / dark 双主题下的边框、背景、滚动条、hover、selected、filter dropdown
 - console 是否干净
 
+## e2e 截图基线重拍
+
+改动涉及**可见像素**（结构、样式、主题、虚拟滚动窗口、排序／筛选／选择的可视态）⇒ 同一轮必须重拍受影响的 e2e PNG 基线。
+否则 e2e 视觉断言拿旧基线比新像素，会误报（把合法改动判成回归）或漏报（旧基线恰好没覆盖到）。
+
+1. 备份旧基线到 `tmp/` 并逐文件留 sha1 记入报告（如 `tmp/e2e-baseline-bak/`）。
+2. 用 `-g` 过滤器**只重拍受影响张**（`npx playwright test screenshots.spec.ts -g "<demo 名>" --update-snapshots`）——不要全量重拍，避免无关基线漂移。
+3. 重拍后跑**全量** `pnpm test:e2e` 确认全绿（新基线自洽、无连带翻红）。
+
+注意：`--update-snapshots` 只用于**预期内的合法像素改动**的重拍；未先定性就 `-u` 去掩盖真实回归，违反纪律。
+先例：E-165 §四／E-166——把 9 红里的 4 张定性为「基线过期而非回归」后重拍（`sorting-and-filtering`／`semantic-dom-slots` × light/dark），e2e 门 136 全绿。
+
 ## 文档更新原则
 
 - 确认是长期边界的，写入 [`../reference/known-limitations.md`](../reference/known-limitations.md) 或 ADR。

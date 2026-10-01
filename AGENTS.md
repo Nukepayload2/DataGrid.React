@@ -41,7 +41,7 @@
 - 滚动条 - {engine}/StickyScrollBar.tsx,{engine}/FloatingScrollBar.tsx,{engine}/floatingScrollBarUtils.ts - thumb
 - 虚拟窗口 - {engine}/useVirtualList.ts,{engine}/virtualListUtils.ts - isScrolling scrollTo
 - 行高实测与索引 - {engine}/useRowMeasurements.ts,{engine}/useRowHeightSystem.ts,{engine}/rowSizeSystem.ts,{engine}/AATree.ts,{engine}/binaryArraySearch.ts - data-known-size sizeTree offsetTree
-- DOM 复用 - {engine}/RecyclingBodyGrid.tsx,{engine}/recyclingIdentity.ts,{engine}/recyclingCellTypes.ts,{engine}/useCellElementPool.ts - VirtualizationMode
+- DOM 复用 - {engine}/RecyclingBodyGrid.tsx,{engine}/recyclingIdentity.ts,{engine}/recyclingCellTypes.ts - VirtualizationMode
 - 表头行高偏移 - {engine}/useHeaderRowHeights.ts - sticky offset
 
 ## 引擎：交互状态机

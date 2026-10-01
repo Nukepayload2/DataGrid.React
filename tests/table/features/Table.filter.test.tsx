@@ -3217,6 +3217,47 @@ describe('Table.filter', () => {
     expect(p.querySelectorAll('.ant-dropdown-menu-item-selected')).toHaveLength(1)
   })
 
+  // antd 6.4.4 对齐（BAT-35 35-E，接门 ①）：自定义 filterDropdown 内含 antd `<Menu>`，
+  // 点菜单项 ⇒ 面板**保持打开**（`source==='menu'` 不算关闭）＋ 用户 `filterDropdownProps.onOpenChange`
+  // **不**收到 false。对齐 antd `es/table/hooks/useFilter/FilterDropdown.js:240-251` `onVisibleChange`
+  // 的 `info.source === 'trigger'` 门（整个开合处理体都门在 source==='trigger' 内，'menu' 源整段跳过）。
+  // 57 报告 §10 V-1e 双侧读数：参照 openCls=true／userOC [1xtrue]；改前 dg openCls=false／userOC [1xtrue,1xfalse]。
+  it('keeps the panel open and does not notify onOpenChange(false) when a custom Menu item is clicked', async () => {
+    const onOpenChange = vi.fn()
+    const onSelect = vi.fn()
+    const { container } = customRender(
+      createTable({
+        columns: [
+          {
+            ...column,
+            filterDropdown: (
+              <div className="custom-filter-dropdown">
+                <Menu onSelect={onSelect} items={[{ key: '1', label: 'Item 1' }]} />
+              </div>
+            ),
+            filterDropdownProps: { onOpenChange },
+          },
+        ],
+      }),
+    )
+    await openFilter(container)
+    // 打开时收到一次 true
+    expect(onOpenChange).toHaveBeenCalledTimes(1)
+    expect(onOpenChange).toHaveBeenCalledWith(true)
+    // 点面板内 `<Menu>` 的一项
+    const item = panel().querySelector<HTMLElement>('.ant-dropdown-menu-item')!
+    fireEvent.mouseDown(item)
+    fireEvent.click(item)
+    await waitFor(() => {
+      expect(onSelect).toHaveBeenCalledTimes(1)
+    })
+    // 门 ①：Menu 点项 ⇒ 面板保持打开（不关）
+    expect(container.querySelector('.ant-dropdown-open')).toBeTruthy()
+    // 用户 onOpenChange 只收到 open 的 true，没有 close 的 false
+    expect(onOpenChange).toHaveBeenCalledTimes(1)
+    expect(onOpenChange).not.toHaveBeenCalledWith(false)
+  })
+
   describe('filteredKeys should all be controlled or not controlled', () => {
     const tableData = [
       {

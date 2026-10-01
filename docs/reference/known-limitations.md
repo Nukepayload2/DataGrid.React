@@ -149,11 +149,12 @@ antd 6.4.4**——证据一律写成 `antd 6.4.4 <文件>:<行>` 这个形状，
   （参照 `onSelectMultiple` 先于 `onChange`，我方相反；参照区间支**不**调 `onSelect`）。
   现状/绕法：选中结果集合本身同值，依赖回调**次数或顺序**做去重/联动的调用方请以 `onChange` 为准。
   判类：**登记不修**——对齐顺序要重排既有派发链，会牵动已被独立验证的批量/清锚语义，收益不抵风险。`探针实测`
-- **「清空选择」对跨页且被禁用的已选行处理不同**：参照只保留**当前页**的 disabled 已选（跨页那部分被清掉），
-  我方保留**全量** disabled 已选 ⇒ 用户在翻页场景看到"清空后仍留有一个选中项"。
-  现状/绕法：需要彻底清空请连 `selectedRowKeys` 一起受控传入空数组。
-  判类：**待产品裁定**（修法要在选择层重算分页切片，会造出第二份分页状态真身，与"分页状态的单一真身在哪一层"是同一条裁定），
-  与"跨页选择集合语义"登记在同一条上，不单独开工。`探针实测`
+- **「清空选择」对跨页且被禁用的已选行处理（BAT-35 35-F 已修）**：参照只保留**当前页**的 disabled 已选
+  （跨页那部分被清掉），我方修前保留**全量** disabled 已选 ⇒ 用户在翻页场景看到"清空后仍留有一个选中项"。
+  35-F 起菜单 NONE 的保留面改建在**当前页**切片（`useRowSelection` 的 `disabledKeySet` 建在 `pageData` 上，
+  参照 `antd 6.4.4 es/table/hooks/useSelection.js:242-245` checkboxPropsMap 建在 pageData）⇒ 与参照同形。
+  直测钉在 `Table.rowSelection.test.tsx` 的 `describe('35-F selection scope')`（`menu NONE clears a cross-page
+  disabled-selected row`）。`探针实测`
 
 - **选择项下拉的触发形态（触发方式 ＋ 容器回调次数，一件事登记一次）**：
   - **触发方式**：我们只在**点击**时打开，参照默认**悬停**打开。依据：参照 `antd 6.4.4 es/table/hooks/useSelection.js:326-329`
@@ -194,15 +195,6 @@ antd 6.4.4**——证据一律写成 `antd 6.4.4 <文件>:<行>` 这个形状，
   `a === b`），我们逐项比较（`src/table/engine/filterUtils.ts` 的 `isSameFilteredValueList`）。
   **这条不是分叉**——此前把它登记成"参照深比较、我们引用比较"是错的，已撤销（见下面撤账表）。
   唯一可构造的微差是 `NaN`：我们判等、参照判不等（筛选项值里不会出现，`读码`）。
-- **筛选下拉的开合语义只接了参照的两道门之一**：症状是**弹层里放 antd `<Menu>` 的自定义面板**时，点 Menu 项那一下
-  在我们这里算一次关闭（面板会收起来），参照却把这种来源的开合上报整条忽略、面板保持打开。
-  已接的那道门是**正常行为、不算分叉**：`filterOnClose` 只在**内置面板**关闭时应用草稿，自定义面板关闭**从不**应用草稿
-  （与参照 `!column.filterDropdown && filterOnClose` 同形，`antd 6.4.4 es/table/hooks/useFilter/FilterDropdown.js:247`）。
-  没接的那道只影响**开合时机**——筛选值不会被丢、用户回调不会被吞。绕法：要"点菜单项不关面板"就把
-  `filterDropdownProps.open` 自己受控（我们的开合显示值就走这一档，`src/table/engine/FilterDropdown.tsx:413-414`）。
-  判类：**登记不修**——那道门区分的不是"用户 vs 程序化"，而是"Menu 点项不算一次关闭"，接上它会连带改掉此刻
-  要不要应用草稿（数据去向）。依据：参照 `:240-249` 的门 ① `info.source === 'trigger'`、我方
-  `src/table/engine/FilterDropdown.tsx:354-376` 的 `handleOpenChange` 只收开合布尔、不看来源。`已实读参照源码`
 - **自定义面板 `confirm()` 之后关闭下拉延迟一个宏任务**：症状是确认后当前这一轮事件循环里面板还开着，参照是
   同步即关；紧跟着读 DOM 或截一帧的调用方会看到"值已确认、面板未关"。
   绕法：筛选值在 `confirm()` 当刻就已应用（不延迟），要等面板关完再动作就自己等一帧。
@@ -212,14 +204,17 @@ antd 6.4.4**——证据一律写成 `antd 6.4.4 <文件>:<行>` 这个形状，
   三个入口共用同一条延迟关闭（`src/table/engine/FilterDropdown.tsx:385-391`、`:404`、`:410`），改同步就是把这个
   误派发路径重新打开，而分叉的代价只有那一帧可见状态、没有数据后果。参照侧确实同步：`triggerVisible(false)`
   直接在 `doFilter` 里调用（`antd 6.4.4 es/table/hooks/useFilter/FilterDropdown.js:236`）。`已实读参照源码`
-- **用户自己传的 `filterDropdownProps.onOpenChange` 收到的通知集合与参照相反**：症状是订阅方在参照**不通知**的
-  场合收到通知（Menu 点项引起的开合），又在参照**会通知**的场合收不到（`confirm()`、`clearFilters({closeDropdown:true})`、
-  自定义面板拿到的 `close()` 这三条程序化关闭）。
+- **用户自己传的 `filterDropdownProps.onOpenChange` 收到的通知集合与参照不同**：症状是订阅方在参照**会通知**的
+  三条**程序化关闭**（`confirm()`、`clearFilters({closeDropdown:true})`、自定义面板拿到的 `close()`）场合收不到通知
+  ——我们只由**用户交互**（点触发器/点面板外/ESC，`source==='trigger'`）驱动这个回调，三个程序化入口直接
+  `setOpen`、不经 `handleOpenChange`。（此前"Menu 点项引起的开合"那条分叉已由 **BAT-35 35-E 接门 ①** 消除：
+  Menu 点项现在与参照一致、不回调。）
   绕法：需要感知程序化关闭的调用方在自己调用这三个入口时同步更新自己那一份开合态，别只靠这个回调。
-  判类：**登记不修**——两种通知集合互斥：照参照那样只转发 trigger 来源就丢 Menu 那一次，像我们现在这样无条件转发
-  就丢程序化那三次，逐字贴参照要同时改掉我们自己的关闭实现。依据：我方 `src/table/engine/FilterDropdown.tsx:358`
-  转发每一次上报的开合，而 `:385-412` 的三个程序化入口直接 `setOpen`、不经过 `handleOpenChange`；
-  参照在 `triggerVisible` 里同步转发（`antd 6.4.4 es/table/hooks/useFilter/FilterDropdown.js:123-129`），
+  判类：**登记不修**——要让三个程序化入口也走 `handleOpenChange` 转发，得同时改掉我们自己的延迟关闭实现
+  （`setTimeout(0)` 那条，见上一条），而分叉的代价只是订阅方少收三次通知、没有数据后果。
+  依据：我方 `src/table/engine/FilterDropdown.tsx` 的 `handleOpenChange`（`:372`）只由用户交互驱动、
+  在 `:379` 转发，而 `applyAndClose`（`:350`）／`clearFiltersFn`（`:416`）／`closeFn`（`:431`）三个程序化入口
+  直接 `setOpen`；参照在 `triggerVisible` 里同步转发（`antd 6.4.4 es/table/hooks/useFilter/FilterDropdown.js:123-129`），
   调用点是 `:207`、`:221`、`:236`、`:302` 与经门 ① 的 `:246`。`已实读参照源码`
 - **排序指示器的 `aria-hidden` 挂在我方外层、参照挂在 inner**：症状只有拿无障碍树或 DOM 断言对比两侧时才现——
   我们把整块排序指示（箭头 ＋ 优先级徽标）一起隐藏，参照只隐藏装箭头的那层。读屏用户目前的实际结果相同。
@@ -318,10 +313,13 @@ antd 6.4.4**——证据一律写成 `antd 6.4.4 <文件>:<行>` 这个形状，
 
 ### 测试环境的观测面（不是产品差异）
 
-- **测试里 antd 可能有两个实例**：非 CI 环境下裸包名 `antd` 会解析到 `lib/`（CommonJS 构建），
+- **测试里 antd 可能有两个实例**（该假象已消除，2026-09-30）：历史上非 CI 环境下裸包名 `antd` 会解析到 `lib/`（CommonJS 构建），
   而我们代码引的是 `antd/es` ⇒ 同一份源码被加载两次、两份 Context。凡历史上得到「测试里观测不到某个 antd 行为」
   这类结论的，都要重查是不是被这个假象遮蔽过（曾被遮蔽的一条：自定义筛选面板里用户 `Menu` 的 `selectable` 被
-  参照的下拉上下文覆盖）。判类：**仪表面**问题，已对齐；产品代码不受影响。`探针实测`
+  参照的下拉上下文覆盖）。判类：**仪表面**问题；产品代码不受影响。`探针实测`
+  **已修**：`vite.config.ts` 的 test 块加了 test 作用域 alias（`antd` → `antd/es`，对 CI 与非 CI 的所有 vitest 跑都生效；
+  顶层 `resolve.alias` 未动，站点构建不受影响）⇒ 探针复测：`antd` 与 `antd/es` 已是同一模块实例（改前两份），
+  行为面同时恢复（es ConfigConsumer 读裸 Provider 注入，改前 `undefined`、改后 `"rtl"`）。见 `tmp/vortex-logs/fix-real-bugs/96-implementer-bat0-testgates.md` §2。`探针实测`
 
 ## 此前登记有误、本轮回撤的条目（留痕）
 
