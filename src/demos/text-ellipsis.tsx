@@ -35,15 +35,15 @@ export default function EllipsisDemo() {
         right={<EllipsisAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>左右并排呈现 data-grid 与 antd ellipsis demo。
+          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd ellipsis demo。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>ellipsis: true 实现机制差异</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：两侧 Address ×4 列均省略号（<code>...</code>）+ hover 显示
-                  native title；但实现不同——左栏 data-grid 用 <code>dg-cell-ellipsis</code> CSS 类
+                  native title；但实现不同——前栏 data-grid 用 <code>dg-cell-ellipsis</code> CSS 类
                   （<code>overflow:hidden + white-space:nowrap + text-overflow:ellipsis +
-                  word-break:keep-all</code>），右栏 antd 用原生 ellipsis（<code>genEllipsisStyle</code>）。</li>
+                  word-break:keep-all</code>），后栏 antd 用原生 ellipsis（<code>genEllipsisStyle</code>）。</li>
                 <li><strong>触发条件</strong>：<code>column.ellipsis: true</code> 列内容超出列宽时。</li>
                 <li><strong>差异原因</strong>：data-grid 用 CSS Grid 布局，自行实现等价 ellipsis CSS 类对齐
                   antd 的省略号样式；antd 用原生 <code>&lt;table&gt;</code> tableLayout:fixed。</li>
@@ -55,7 +55,8 @@ export default function EllipsisDemo() {
                 <li><strong>差异行为</strong>：在边界宽度（容器很窄）下，两侧省略号生效程度可能略有差异。</li>
                 <li><strong>触发条件</strong>：容器宽度不足以容纳所有列时。</li>
                 <li><strong>差异原因</strong>：两侧列宽策略不同——data-grid 用 minmax(0,1fr) 收缩
-                  （min:0 允许列收缩触发省略），antd 用 width + flex fill。详见
+                  （min:0 允许列收缩触发省略），antd 用原生 <code>&lt;table&gt;</code> +
+                  <code>&lt;colgroup&gt;</code> 列宽（有 ellipsis 列时 tableLayout:fixed）。详见
                   <code>docs/features/columns/column-width.md</code>。</li>
               </ul>
             </li>

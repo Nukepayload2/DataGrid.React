@@ -56,37 +56,26 @@ export default function RowSelectionDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>左右并排呈现 data-grid 与 antd row-selection demo，
+          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd row-selection demo，
           顶部 Radio.Group 共享 type 切换 + getCheckboxProps 禁用行 + 受控 selectedKeys。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>type 控件</strong>
-              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：左栏顶部与 demo 内 Selection Type 用原生
-                  <code> &lt;input type="radio"&gt;</code> RadioGroup；右栏用 antd
-                  <code> &lt;Radio.Group&gt;</code>。</li>
-                <li><strong>触发条件</strong>：始终（demo 写死）。</li>
-                <li><strong>差异原因</strong>：data-grid 引擎不依赖 antd 本体控件，选用最小原生实现；
-                  两者 <code>value</code>/<code>onChange</code> 语义等价。</li>
-              </ul>
+              <strong>type 控件（demo 实现细节）</strong>：顶部工具栏的 Selection Type 是 antd
+              <code>&lt;Radio.Group&gt;</code>，经共享 state 同时驱动两栏；前栏变体在栏内另渲染一份原生
+              <code>&lt;input type="radio"&gt;</code> 最小 RadioGroup，后栏变体用 antd
+              <code>&lt;Radio.Group&gt;</code>。栏内控件为 demo 文件层选择——data-grid 引擎的选择控件
+              内部实际用 antd Checkbox/Radio 渲染（antd 为 peerDependency）。
             </li>
             <li>
-              <strong>分隔线</strong>
-              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：左栏用 <code>border-top</code>（取 antd token CSS var
-                  <code>var(--ant-color-border-secondary)</code>）；右栏 antd <code>&lt;Divider&gt;</code>。</li>
-                <li><strong>触发条件</strong>：始终（demo 写死）。</li>
-                <li><strong>差异原因</strong>：左栏避免依赖 antd 组件，用 token 自适应主题保持视觉对齐。</li>
-              </ul>
+              <strong>分隔线（demo 实现细节）</strong>：前栏变体用 <code>border-top</code>（取 antd token CSS var
+              <code>var(--ant-color-border-secondary)</code>）；后栏变体用 antd <code>&lt;Divider&gt;</code>。
             </li>
             <li>
               <strong>onChange 回调签名</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid <code>onChange(keys, rows, info)</code> 三参；
-                  antd <code>onChange(keys, rows)</code> 两参。</li>
+                <li><strong>差异行为</strong>：两侧 <code>onChange(keys, rows, info)</code> 均为三参
+                  （antd 类型含第三参 <code>info: {'{ type }'}</code>）；两栏 demo 处理器均只取前两参。</li>
                 <li><strong>触发条件</strong>：勾选/取消勾选任一行。</li>
-                <li><strong>差异原因</strong>：data-grid 额外提供 <code>info</code>（区分用户操作来源），
-                  demo 仅用前两参与 antd 对照。</li>
               </ul>
             </li>
           </ul>

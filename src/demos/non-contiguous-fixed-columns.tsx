@@ -58,7 +58,7 @@ export default function FixedGappedColumnsDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>本 demo 左右并排呈现 data-grid 与 antd fixed-gapped-columns。
+          <strong>对照说明：</strong>本 demo 前后两栏呈现 data-grid 与 antd fixed-gapped-columns。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>分散固定列堆叠实现机制</strong>

@@ -22,7 +22,7 @@ export default function ColspanRowspanDemo() {
             unCheckedChildren="Bordered"
           />
           <span style={{ color: token.colorTextSecondary, fontSize: 12 }}>
-            同时驱动左右两栏
+            同时驱动前后两栏
           </span>
         </Space>
       </DemoToolbar>
@@ -34,7 +34,7 @@ export default function ColspanRowspanDemo() {
         right={<ColspanRowspanAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>本 demo 左右并排呈现 data-grid 与 antd colspan-rowspan。
+          <strong>对照说明：</strong>本 demo 前后两栏呈现 data-grid 与 antd colspan-rowspan。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>表头 / 单元格合并实现机制</strong>

@@ -58,7 +58,7 @@ export default function FixedColumnsDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>本 demo 左右并排呈现 data-grid 与 antd fixed-columns。
+          <strong>对照说明：</strong>本 demo 前后两栏呈现 data-grid 与 antd fixed-columns。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>固定列实现机制</strong>
@@ -84,12 +84,14 @@ export default function FixedColumnsDemo() {
             <li>
               <strong>无 width 列 + scroll.x:'max-content'</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：中间 Column 1-20 无 <code>width</code>，data-grid 横滚到最右
-                  时右固定列 Action 严格贴右（与 antd 一致）。</li>
+                <li><strong>差异行为</strong>：中间 Column 1-20 无 <code>width</code>，两侧
+                  <code>scroll.x:'max-content'</code> 均保持 <code>table-layout:auto</code>（固定列 +
+                  max-content → auto）。</li>
                 <li><strong>触发条件</strong>：含无 <code>width</code> 普通列 + <code>scroll.x:'max-content'</code>。</li>
-                <li><strong>差异原因</strong>：data-grid 列宽策略下 max-content 路径使固定列偏移稳定贴边；
-                  数字 <code>scroll.x</code> + 无 width 列总和 &lt; 声明宽时可能脱离（本 demo 不命中）。
-                  详见 <code>docs/features/columns/fixed-column.md</code>。</li>
+                <li><strong>差异原因</strong>：data-grid 无 width 列为 <code>minmax(min-content,1fr)</code>，
+                  auto 布局下实际列总宽小于可滚动宽度时 fixed-end 列可能脱离右边缘（已知问题）；
+                  本 demo 内容短，是否可见需人工验证。详见
+                  <code>docs/features/columns/fixed-column.md</code>。</li>
               </ul>
             </li>
           </ul>

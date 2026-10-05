@@ -54,7 +54,7 @@ export default function DragColumnSortingDemo() {
         right={<DragColumnSortingAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>左右并排呈现 data-grid（自研 pointer 列方向拖拽）与 antd 官方
+          <strong>对照说明：</strong>前后两栏呈现 data-grid（自研 pointer 列方向拖拽）与 antd 官方
           drag-column-sorting（dnd-kit 列拖拽）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
@@ -65,9 +65,9 @@ export default function DragColumnSortingDemo() {
                   <strong>跟随指针平移</strong>（transform）+ body cell borderInline 虚线指示 +
                   DragOverlay 预览（灰底）。</li>
                 <li><strong>触发条件</strong>：按住列头并水平移动指针。</li>
-                <li><strong>差异原因</strong>：data-grid 用 CSS Grid，transform 平移单个单元格会破坏
-                  grid 布局，故 data-grid 只对可见单元格做离散 transform，让真实重排仍由 columns
-                  更新完成；antd 各列 <code>&lt;th&gt;</code>/<code>&lt;td&gt;</code> 可独立 transform。</li>
+                <li><strong>差异原因</strong>：data-grid 的一列不是单一 DOM 元素（表头/表体单元格是
+                  独立的 grid item），dnd-kit 的单元素 transform 模型无法平移整列，故 data-grid 只对
+                  可见单元格做离散 transform，真实重排仍由 columns 更新完成。</li>
               </ul>
             </li>
             <li>

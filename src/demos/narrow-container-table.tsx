@@ -52,20 +52,21 @@ export default function NarrowDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>左右并排呈现 data-grid 与 antd narrow demo，
+          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd narrow demo，
           两侧均包 300px 宽容器 + 200 行 + size="small" + 分页。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>列宽策略差异</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 表格总宽默认取每列内容宽度
-                  （<code>max-content</code>），300px 窄容器下表格横向溢出出现横向滚动；antd 用
-                  <code>table-layout:fixed</code> + <code>width:100%</code>，列均分容器宽度。</li>
+                <li><strong>差异行为</strong>：data-grid 无 width 列为 <code>minmax(min-content,1fr)</code>
+                  且 grid <code>width:100%</code>，列均分 300px 容器、无横向溢出；antd 无 scroll 时
+                  <code>table-layout</code> 默认 <code>auto</code>，列按内容尺寸，内容总宽超出 300px 时
+                  表格溢出容器。</li>
                 <li><strong>触发条件</strong>：列无固定 <code>width</code> 且未显式传
-                  <code>tableLayout:'fixed'</code> 时。</li>
-                <li><strong>差异原因</strong>：data-grid CSS Grid 走 auto 语义（每列 track 取
-                  max-content），与 antd <code>&lt;table&gt;</code> 默认 <code>table-layout:fixed</code>
-                  不同。详见 <code>docs/features/columns/column-width.md</code>。</li>
+                  <code>tableLayout</code>/scroll 时。</li>
+                <li><strong>差异原因</strong>：data-grid CSS Grid 的 fill 分支把剩余空间均分给无 width 列；
+                  antd <code>&lt;table&gt;</code> auto 布局按内容决定列宽。详见
+                  <code>docs/features/columns/column-width.md</code>。</li>
               </ul>
             </li>
             <li>

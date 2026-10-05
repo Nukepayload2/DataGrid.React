@@ -26,7 +26,7 @@ export default function TreeTableEllipsisDemo() {
       >
         <div>
           <strong>对照说明（树形首列 ellipsis + fixed 组合，issue #36583）：</strong>
-          左右并排呈现 data-grid 与 antd tree-table-ellipsis demo（树形 name 超长 +
+          前后两栏呈现 data-grid 与 antd tree-table-ellipsis demo（树形 name 超长 +
           Name ellipsis+fixed(Switch) + defaultExpandAllRows + rowSelection）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
@@ -42,12 +42,8 @@ export default function TreeTableEllipsisDemo() {
               </ul>
             </li>
             <li>
-              <strong>Fixed 开关（核心）</strong>：
-              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：切换 Name 列 fixed true/false，横向滚动时 Name 列固定与否。</li>
-                <li><strong>触发条件</strong>：顶部 <code>Fixed first column</code> Switch。</li>
-                <li><strong>差异原因</strong>：共享 state 同时驱动两侧，验证两侧 fixed 行为一致。</li>
-              </ul>
+              <strong>Fixed 开关</strong>：顶部 <code>Fixed first column</code> Switch 以共享 state
+              同时驱动前后两栏 Name 列的 <code>fixed</code>，用于对照两侧 fixed 表现是否一致。
             </li>
             <li>
               <strong>checkStrictly 默认一致</strong>：

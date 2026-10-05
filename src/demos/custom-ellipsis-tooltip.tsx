@@ -39,7 +39,7 @@ export default function EllipsisCustomTooltipDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>左右并排呈现 data-grid 与 antd ellipsis-custom-tooltip demo，
+          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd ellipsis-custom-tooltip demo，
           Address ×4 列均 <code>ellipsis: {'{ showTitle: false }'}</code>，render 内用 antd Tooltip 接管 hover。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>

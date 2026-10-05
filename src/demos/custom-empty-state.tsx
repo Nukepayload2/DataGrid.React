@@ -64,7 +64,7 @@ export default function App() {
         }
       >
         <div>
-          <strong>对照说明：</strong>左右并排呈现 data-grid 与 antd 自定义空状态。
+          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd 自定义空状态。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>'Table' 表体空状态</strong>

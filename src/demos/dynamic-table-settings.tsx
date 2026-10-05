@@ -159,7 +159,7 @@ export default function DynamicSettingsDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>左右并排呈现 data-grid 与 antd dynamic-settings demo
+          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd dynamic-settings demo
           （10 Switch + 5 Radio.Group 全量动态切换），用于集成回归 + 对照差异。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>

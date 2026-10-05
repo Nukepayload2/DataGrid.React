@@ -49,7 +49,7 @@ export default function NestTableBorderDebugDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>左右并排呈现 data-grid 与 antd nest-table-border-debug demo
+          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd nest-table-border-debug demo
           （主表 + expandedRowRender 子 Table，父子 bordered 各自独立 Switch）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
@@ -67,8 +67,8 @@ export default function NestTableBorderDebugDemo() {
             <li>
               <strong>嵌套子表实现差异</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：左栏子表是 data-grid <code>&lt;Table&gt;</code>；
-                  右栏子表是真实 antd <code>&lt;Table&gt;</code>。</li>
+                <li><strong>差异行为</strong>：前栏子表是 data-grid <code>&lt;Table&gt;</code>；
+                  后栏子表是真实 antd <code>&lt;Table&gt;</code>。</li>
                 <li><strong>触发条件</strong>：展开任意行。</li>
                 <li><strong>差异原因</strong>：data-grid 的 <code>expandedRowRender</code> 把返回内容
                   放进 <code>dg-row-expanded</code>（grid-column: 1 / -1 跨整行），嵌套的

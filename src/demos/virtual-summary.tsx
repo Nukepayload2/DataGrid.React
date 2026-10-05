@@ -47,7 +47,7 @@ export default function VirtualSummaryDemo() {
             <Typography.Link href={ISSUE_URL} target="_blank" rel="noreferrer">
               #47184
             </Typography.Link>{' '}
-            中确认「虚拟下 summary 只能用 fixed」。右栏如实呈现：开关关闭时 summary 异常/不可见；开启后才作为 workaround 钉底显示。
+            中确认「虚拟下 summary 只能用 fixed」。后栏如实呈现：开关关闭时 summary 异常/不可见；开启后才作为 workaround 钉底显示。
           </>
         }
       />
@@ -61,12 +61,12 @@ export default function VirtualSummaryDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>左右两侧均开启 <code>virtual</code> 渲染万行/十万行数据，并启用 <code>Table.Summary</code> 表尾汇总。
+          <strong>对照说明：</strong>前后两栏均开启 <code>virtual</code> 渲染万行/十万行数据，并启用 <code>Table.Summary</code> 表尾汇总。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>antd 病灶（#47184）</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：右栏 antd <code>virtual</code> 下 <code>summary</code> 函数虽被调用，但非 fixed 的 summary 可能无法正常呈现。</li>
+                <li><strong>差异行为</strong>：后栏 antd <code>virtual</code> 下 <code>summary</code> 函数虽被调用，但非 fixed 的 summary 可能无法正常呈现。</li>
                 <li><strong>触发条件</strong>：顶栏「antd Summary fixed」开关关闭（默认）时即可观察到 summary 缺失。</li>
                 <li><strong>说明</strong>：<Typography.Link href={ISSUE_URL} target="_blank" rel="noreferrer">antd#47184</Typography.Link> 记录了「虚拟下 summary 只能 fixed」的限制。</li>
               </ul>
@@ -74,17 +74,17 @@ export default function VirtualSummaryDemo() {
             <li>
               <strong>data-grid 解药</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：左栏 summary 始终可见——虚拟滚动表体时汇总行（共 N 行 / 均龄）钉在表尾视口底部，数值正确更新。</li>
+                <li><strong>差异行为</strong>：前栏 summary 始终可见——虚拟滚动表体时汇总行（共 N 行 / 均龄）钉在表尾视口底部，数值正确更新。</li>
                 <li><strong>触发条件</strong>：任意滚动表体。</li>
-                <li><strong>说明</strong>：左栏在虚拟滚动下仍能稳定显示汇总行；使用 <code>&lt;Table.Summary fixed&gt;</code> 可让汇总行固定在底部。</li>
+                <li><strong>说明</strong>：前栏在虚拟滚动下仍能稳定显示汇总行；使用 <code>&lt;Table.Summary fixed&gt;</code> 可让汇总行固定在底部。</li>
               </ul>
             </li>
             <li>
               <strong>如何观察</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>左栏（data-grid）</strong>：滚动表体（滚轮/拖拽滚动条/键盘 PgDn），表尾汇总行始终钉在底部，「共 N 行 / 均龄 X」数值正确。</li>
-                <li><strong>右栏（antd）</strong>：默认（fixed 关闭）summary 异常或不可见——这是 #47184 的真实表现，未做任何美化；开启「antd Summary fixed」后 summary 钉底显示（官方唯一 workaround）。</li>
-                <li><strong>切换数据量</strong>：1万 ↔ 10万——两侧均保持虚拟化流畅滚动；左栏 summary 数值随数据量正确更新。</li>
+                <li><strong>前栏（data-grid）</strong>：滚动表体（滚轮/拖拽滚动条/键盘 PgDn），表尾汇总行始终钉在底部，「共 N 行 / 均龄 X」数值正确。</li>
+                <li><strong>后栏（antd）</strong>：默认（fixed 关闭）summary 异常或不可见——这是 #47184 的真实表现，未做任何美化；开启「antd Summary fixed」后 summary 钉底显示（官方唯一 workaround）。</li>
+                <li><strong>切换数据量</strong>：1万 ↔ 10万——两侧均保持虚拟化流畅滚动；前栏 summary 数值随数据量正确更新。</li>
               </ul>
             </li>
           </ul>

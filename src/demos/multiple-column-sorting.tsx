@@ -44,7 +44,7 @@ export default function MultipleSorterDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>左右并排呈现 data-grid 与 antd multiple-sorter demo。
+          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd multiple-sorter demo。
           三分数列 <code>sorter.multiple</code>（Chinese=3 / Math=2 / English=1，multiple 越大 = 优先级越高）；
           排序结果、循环、onChange 数组本身均一致。两侧可观察差异：
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>

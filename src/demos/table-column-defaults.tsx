@@ -31,7 +31,7 @@ export default function ColumnDefaultsDemo() {
         right={<ColumnDefaultsAntd ellipsis={ellipsis} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>左右并排呈现 data-grid 与 antd column-defaults demo，
+          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd column-defaults demo，
           两侧 Table 级均传 <code>column</code> prop 设 <code>align:center</code> 与
           <code>ellipsis:true</code>。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
@@ -48,12 +48,12 @@ export default function ColumnDefaultsDemo() {
             <li>
               <strong>Align 字面量</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：左栏 Address 用 <code>align:'start'</code>；右栏用
+                <li><strong>差异行为</strong>：前栏 Address 用 <code>align:'start'</code>；后栏用
                   <code>align:'left'</code>。</li>
                 <li><strong>触发条件</strong>：始终（demo 写死）。</li>
-                <li><strong>差异原因</strong>：data-grid Align 类型用 CSS logical 的
-                  <code>'start'/'center'/'end'</code>；antd v6 用物理方向
-                  <code>'left'/'center'/'right'</code>。语义等价（<code>'start'='left'</code>）。</li>
+                <li><strong>差异原因</strong>：两侧 align 类型都接受 <code>'start'/'end'</code> 与
+                  <code>'left'/'right'</code>（rc-table AlignType 含全部取值）；demo 前栏写
+                  <code>'start'</code>、后栏写 <code>'left'</code>，渲染结果等价。</li>
               </ul>
             </li>
             <li>

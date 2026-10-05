@@ -30,14 +30,14 @@ export default function RowSelectionCustomDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>左右并排呈现 data-grid 与 antd row-selection-custom demo，
+          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd row-selection-custom demo，
           共享 selectedRowKeys 同步驱动两侧 46 行的 selections 菜单（3 内置哨兵 + 自定义 odd/even）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>内置哨兵来源</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：左栏 <code>Table.SELECTION_ALL/INVERT/NONE</code> 来自
-                  data-grid 引擎；右栏同名哨兵来自 antd 本体。</li>
+                <li><strong>差异行为</strong>：前栏 <code>Table.SELECTION_ALL/INVERT/NONE</code> 来自
+                  data-grid 引擎；后栏同名哨兵来自 antd 本体。</li>
                 <li><strong>触发条件</strong>：表头全选框旁下拉箭头点开后选择前 3 项菜单。</li>
                 <li><strong>说明</strong>：两侧 selections 数组结构等价，选择菜单项行为一致。</li>
               </ul>
@@ -47,13 +47,9 @@ export default function RowSelectionCustomDemo() {
               两侧均显式关闭分页（<code>pagination={false}</code>）。
             </li>
             <li>
-              <strong>选中态可视化区</strong>
-              <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：页面下方显示共享 <code>selectedRowKeys</code>，
-                  antd demo 原本仅 <code>onChange</code> console.log。</li>
-                <li><strong>触发条件</strong>：任意选择变化（内置项 / 自定义 odd-even / 行 checkbox）。</li>
-                <li><strong>说明</strong>：本页额外显示 selectedKeys，方便直接观察两侧选择状态。</li>
-              </ul>
+              <strong>选中态可视化区（demo 接线）</strong>：页面下方额外显示共享 <code>selectedRowKeys</code>
+              （官方 antd demo 仅 <code>onChange</code> console.log），方便直接观察两侧选择状态；
+              任意选择变化（内置项 / 自定义 odd-even / 行 checkbox）都会刷新。
             </li>
           </ul>
         </div>

@@ -57,7 +57,7 @@ export default function ResizableDemo() {
           />
         </Space>
         <span style={{ color: token.colorTextTertiary, fontSize: 12 }}>
-          控制条只影响左栏，右栏保持静态对照
+          控制条只影响前栏，后栏保持静态对照
         </span>
       </DemoToolbar>
 
@@ -75,19 +75,19 @@ export default function ResizableDemo() {
       >
         <div>
           <div>
-            <strong>① 右栏表现（静态对照）</strong>
+            <strong>① 后栏表现（静态对照）</strong>
             <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
               <li>
-                右栏不提供列宽拖拽，只保留静态表格作为对照。
+                后栏不提供列宽拖拽，只保留静态表格作为对照。
               </li>
-              <li>观察重点在左栏拖动后的列宽变化和边界限制。</li>
+              <li>观察重点在前栏拖动后的列宽变化和边界限制。</li>
             </ul>
           </div>
           <div style={{ marginTop: 12 }}>
-            <strong>② 左栏表现（可直接拖拽）</strong>
+            <strong>② 前栏表现（可直接拖拽）</strong>
             <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
               <li>
-                打开列宽拖拽后，左栏表头右缘会出现手柄；拖动即可改变列宽。
+                打开列宽拖拽后，前栏表头右缘会出现手柄；拖动即可改变列宽。
               </li>
               <li>
                 <strong>min/max 约束</strong>：可以统一设置最小 / 最大宽度，拖到边界后列宽保持在允许范围内。
@@ -106,7 +106,7 @@ export default function ResizableDemo() {
             <strong>③ 如何观察</strong>
             <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
               <li>
-                鼠标悬停<strong>左栏</strong>表头格右缘会出现拖拽手柄；按下拖动即可改变列宽。右栏任意列边缘<strong>均无手柄</strong>。
+                鼠标悬停<strong>前栏</strong>表头格右缘会出现拖拽手柄；按下拖动即可改变列宽。后栏任意列边缘<strong>均无手柄</strong>。
               </li>
               <li>
                 调顶部控制条 <code>min width</code> / <code>max width</code> → 拖到边界会被限制，
@@ -117,7 +117,7 @@ export default function ResizableDemo() {
                 切 <code>ResizeSibling</code> → 总宽不变，相邻列反向收缩/拉伸。
               </li>
               <li>
-                切 <code>Disabled</code> → 左栏手柄消失，视觉等同右栏 antd 静态基线，直接对照落差。
+                切 <code>Disabled</code> → 前栏手柄消失，视觉等同后栏 antd 静态基线，直接对照落差。
               </li>
               <li>
                 所有列都未给 <code>width</code>；固定布局下初始列宽均分容器，

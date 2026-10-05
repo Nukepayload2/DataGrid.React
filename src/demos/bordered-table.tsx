@@ -22,7 +22,7 @@ export default function BorderedDemo() {
             unCheckedChildren="Bordered"
           />
           <span style={{ color: token.colorTextSecondary, fontSize: 12 }}>
-            同时驱动下方两示例左右两栏
+            同时驱动下方两示例前后两栏
           </span>
         </Space>
       </DemoToolbar>
@@ -97,10 +97,13 @@ export default function BorderedDemo() {
                 <strong>fixed 取值差异</strong>
                 <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                   <li><strong>差异行为</strong>：data-grid 用逻辑属性 <code>'start'/'end'</code>，
-                    antd demo 用 <code>'left'/'right'</code>。视觉等价。</li>
+                    antd demo 用 <code>'left'/'right'</code>。两侧 fixed 类型都接受
+                  <code>'start'/'end'</code> 与 <code>'left'/'right'</code>（rc-table FixedType 含全部取值），
+                  渲染结果等价。</li>
                   <li><strong>触发条件</strong>：始终（列定义写死）。</li>
-                  <li><strong>差异原因</strong>：data-grid 用 CSS 逻辑属性以 RTL 自动适配，antd demo
-                    沿用物理值。</li>
+                  <li><strong>差异原因</strong>：data-grid 把 <code>'start'/'end'</code> 解析为物理
+                    left/right sticky 偏移；antd 固定单元格用 CSS 逻辑属性
+                    <code>inset-inline-start/end</code>（RTL 自动镜像）。</li>
                 </ul>
               </li>
             </ul>

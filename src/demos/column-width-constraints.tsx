@@ -366,31 +366,31 @@ export default function ColumnWidthConstraintsDemo() {
           <strong>{modeLabel(layoutMode)}观察重点：</strong>
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              左栏上方的「操作列最小宽度 / 最大宽度」只作用于 data-grid 的「操作」列，
+              前栏上方的「操作列最小宽度 / 最大宽度」只作用于 data-grid 的「操作」列，
               对应列定义里的 <code>gridColumnOptions.minWidth/maxWidth</code>。
             </li>
             <li>
-              复现 antd discussion 56602：保持「自动」布局，右栏 antd 的「操作」列声明{' '}
+              复现 antd discussion 56602：保持「自动」布局，后栏 antd 的「操作」列声明{' '}
               <code>minWidth: {ACTION_MIN_WIDTH}</code>，单元格内容只有一个图标按钮。
-              右栏表格上方的读数会显示声明值和实际列宽。
+              后栏表格上方的读数会显示声明值和实际列宽。
             </li>
             <li>
-              操作列如果遵循这个极小宽度，列宽应贴近单元格内的虚线框；实际右栏会被图标按钮自身尺寸、
+              操作列如果遵循这个极小宽度，列宽应贴近单元格内的虚线框；实际后栏会被图标按钮自身尺寸、
               表头内容和单元格内边距撑开。复现点不是切换不同 <code>scroll.x</code>，
-              而是在给定 <code>scroll.x={SCROLL_X}</code> 后直接观察右栏实际列宽。
+              而是在给定 <code>scroll.x={SCROLL_X}</code> 后直接观察后栏实际列宽。
             </li>
             <li>
               data-grid 自动布局在未写列级下限时使用 <code>min-content</code> 作为默认下限；
-              本页左栏「操作」列显式设置列级边界，固定布局则按列定义和约束分配，不再按内容撑宽。
+              本页前栏「操作」列显式设置列级边界，固定布局则按列定义和约束分配，不再按内容撑宽。
             </li>
             <li>
-              左栏「操作」列通过 <code>gridColumnOptions.minWidth/maxWidth</code> 声明列级边界；
-              右栏 antd 在自动布局 + 给定 <code>scroll.x</code> 时不能稳定遵循这种极小列宽意图，
+              前栏「操作」列通过 <code>gridColumnOptions.minWidth/maxWidth</code> 声明列级边界；
+              后栏 antd 在自动布局 + 给定 <code>scroll.x</code> 时不能稳定遵循这种极小列宽意图，
               固定布局也不支持最小宽度语义。
             </li>
             <li>
-              左栏表头分隔线启用 <code>ResizeSibling</code>，拖动时会同时改变左右相邻列，
-              并受上方列级最小 / 最大约束限制；右栏 antd 没有这层列宽边界能力。
+              前栏表头分隔线启用 <code>ResizeSibling</code>，拖动时会同时改变左右相邻列，
+              并受上方列级最小 / 最大约束限制；后栏 antd 没有这层列宽边界能力。
             </li>
           </ul>
         </div>

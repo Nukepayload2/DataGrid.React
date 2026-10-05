@@ -508,7 +508,7 @@ export function ThemeEditorPanel() {
             children: (
               <Card size="small">
                 <p style={{ margin: '0 0 8px' }}>
-          <strong>用法</strong>：改任一 token 控件 → 左右两栏实时同步变化。data-grid
+          <strong>用法</strong>：改任一 token 控件 → 前后两栏实时同步变化。data-grid
           经 Table.tsx <code>useToken</code> realToken +{' '}
           <code>transformToken</code> 把 token 注入{' '}
           <code>.dg-wrapper</code> inline <code>--ant-*</code> CSS variables
@@ -622,7 +622,8 @@ export function ThemeEditorPanel() {
         </p>
         <p style={{ margin: '12px 0 0' }}>
           <strong>全局虚拟化开关不生效</strong>（本 demo 自渲染、非虚拟化对象）：本 demo
-          不使用 SplitDemo（自渲染双栏 + 自有 ConfigProvider 作用域），不读全局
+          不使用 SplitDemo（自渲染双栏，token 经 <code>useTheme</code> 写入应用级全局主题 store，
+          由根 <code>ConfigProvider</code> 消费），不读全局
           <code> useVirtualization</code>，故全局「Virtual」开关天然不影响它。
         </p>
               </Card>

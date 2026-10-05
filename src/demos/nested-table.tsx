@@ -38,25 +38,25 @@ export default function NestedTableDemo() {
         right={<NestedTableAntd size={size} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>左右并排呈现 data-grid 与 antd nested-table demo
+          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd nested-table demo
           （expandedRowRender 返回嵌套子 Table + defaultExpandedRowKeys: ['0'] + size 切换）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>嵌套子表</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：左栏子表是 data-grid <code>&lt;Table&gt;</code>；
-                  右栏子表是真实 antd <code>&lt;Table&gt;</code>。两者渲染各自的表格样式。</li>
+                <li><strong>差异行为</strong>：前栏子表是 data-grid <code>&lt;Table&gt;</code>；
+                  后栏子表是真实 antd <code>&lt;Table&gt;</code>。两者渲染各自的表格样式。</li>
                 <li><strong>触发条件</strong>：展开任意行（初始 key='0' 的行默认展开）。</li>
-                <li><strong>说明</strong>：展开内容可以放入一张独立子表，子表使用自己的 columns、dataSource 和 size。</li>
+                <li><strong>说明</strong>：展开内容可以放入一张独立子表，子表使用自己的 columns 和 dataSource（子表不传 size，走默认档）。</li>
               </ul>
             </li>
             <li>
-              <strong>size 取值差异</strong>
+              <strong>size 取值</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：中等档 data-grid 用 <code>medium</code>、antd demo
-                  用 <code>middle</code>。两者视觉等价。</li>
+                <li><strong>差异行为</strong>：中等档两侧都传 <code>'medium'</code>（antd v6 接受
+                  <code>'medium'</code>；遗留写法 <code>'middle'</code> 由 antd 内部归一为
+                  <code>'medium'</code>）。两侧行高/padding 一致。</li>
                 <li><strong>触发条件</strong>：size 切到中间档。</li>
-                <li><strong>说明</strong>：<code>medium</code> 和 <code>middle</code> 在这里视觉等价。</li>
               </ul>
             </li>
           </ul>

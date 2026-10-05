@@ -80,7 +80,7 @@ export default function GroupingColumnsDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>本 demo 左右并排呈现 data-grid 与 antd grouping-columns。
+          <strong>对照说明：</strong>本 demo 前后两栏呈现 data-grid 与 antd grouping-columns。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>多级表头实现机制</strong>
@@ -97,18 +97,20 @@ export default function GroupingColumnsDemo() {
             <li>
               <strong>fixed 逻辑属性</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：左栏 data-grid 用 <code>fixed:'start'/'end'</code>；
-                  右栏 antd 用 <code>fixed:'left'/'right'</code>。</li>
+                <li><strong>差异行为</strong>：两侧 fixed 类型都接受 <code>'start'/'end'</code> 与
+                  <code>'left'/'right'</code>（rc-table FixedType 含全部取值）；demo 前栏写
+                  <code>'start'/'end'</code>、后栏写 <code>'left'/'right'</code>，渲染结果等价。</li>
                 <li><strong>触发条件</strong>：Name 固定 start、Gender 固定 end（始终）。</li>
-                <li><strong>差异原因</strong>：data-grid 用 antd v6 逻辑属性（RTL 自动适配）；
-                  antd demo 仍用物理属性。语义等价，无转换。</li>
+                <li><strong>差异原因</strong>：data-grid 把 <code>'start'/'end'</code> 解析为物理
+                  left/right sticky 偏移；antd 固定单元格用 CSS 逻辑属性
+                  <code>inset-inline-start/end</code>（RTL 自动镜像）。</li>
               </ul>
             </li>
             <li>
               <strong>scroll.y 高度模式</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：右栏 antd <code>scroll: {'{ x:"calc(700px+50%)", y:47*5 }'}</code>
-                  （数字 y = 表体 max-height）；左栏 data-grid <code>scroll: {'{ x:"calc(700px+50%)", y:true }'}</code>
+                <li><strong>差异行为</strong>：后栏 antd <code>scroll: {'{ x:"calc(700px+50%)", y:47*5 }'}</code>
+                  （数字 y = 表体 max-height）；前栏 data-grid <code>scroll: {'{ x:"calc(700px+50%)", y:true }'}</code>
                   + 父容器固定高 473px。</li>
                 <li><strong>触发条件</strong>：始终（表体需限高纵滚）。</li>
                 <li><strong>差异原因</strong>：data-grid <code>y:true</code> 是数据区域模式——CSS Grid
@@ -121,12 +123,13 @@ export default function GroupingColumnsDemo() {
               <strong>无 width 列填满剩余 scroll.x</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：Company Name 列无 <code>width</code>，data-grid 用
-                  <code>minmax(0,1fr)</code> 填满 scroll.x 剩余空间，Gender 严格贴右；antd 同样
-                  flex-fill 该列。</li>
+                  <code>minmax(0,1fr)</code> 填满 scroll.x 剩余空间，Gender 贴右；antd 用原生
+                  <code>&lt;table&gt;</code> + <code>&lt;colgroup&gt;</code>，auto/fixed 布局下浏览器把
+                  剩余宽度分给该列。</li>
                 <li><strong>触发条件</strong>：含无 <code>width</code> 的普通列 + scroll.x 时。</li>
-                <li><strong>差异原因</strong>：data-grid 列宽策略把 absolute width 列映射到
-                  <code>minmax(width,1fr)</code>、无 width 列到 <code>minmax(0,1fr)</code>，使右固定列
-                  偏移稳定贴右；antd <code>&lt;table&gt;</code> 原生 width+flex fill 同效。详见
+                <li><strong>差异原因</strong>：data-grid 命中 fixed 布局的 fill 分支：有 width 列保持
+                  绝对 px track、无 width 列 <code>minmax(0,1fr)</code> 均分剩余，使右固定列贴右；
+                  antd 侧由原生 table 布局完成同效填充。详见
                   <code>docs/features/columns/column-width.md</code>。</li>
               </ul>
             </li>

@@ -38,15 +38,15 @@ export default function SizeDemo() {
         right={<SizeAntd size={size} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>左右并排呈现 data-grid 与 antd size demo，共享 Segmented 切换 size 档位。
+          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd size demo，共享 Segmented 切换 size 档位。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>size 取值差异</strong>
+              <strong>size 取值</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：中等档 data-grid 用 <code>medium</code>、antd demo
-                  用 <code>middle</code>。两侧行高/padding 视觉等价（medium = middle = 12/8）。</li>
+                <li><strong>差异行为</strong>：中等档两侧都传 <code>'medium'</code>（antd v6 SizeType
+                  含 <code>'medium'</code>；遗留写法 <code>'middle'</code> 由 antd 内部归一为
+                  <code>'medium'</code>）。两侧行高/padding 一致。</li>
                 <li><strong>触发条件</strong>：size 切到中间档。</li>
-                <li><strong>说明</strong>：<code>medium</code> 和 <code>middle</code> 在这里视觉等价。</li>
               </ul>
             </li>
             <li>

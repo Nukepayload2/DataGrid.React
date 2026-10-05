@@ -53,37 +53,37 @@ export default function TreeTablePreserveSelectedRowKeysDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>左右并排呈现 data-grid 与 antd tree-table-preserveSelectedRowKeys
+          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd tree-table-preserveSelectedRowKeys
           demo（树形 × 分页 × checkStrictly × preserveSelectedRowKeys）。顶部 CheckStrictly +
           Preserve 两开关共享驱动两侧。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>preserve=false 数据源语义差异</strong>
+              <strong>preserve=false 的 key 保留范围</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：对<strong>固定树形数据</strong>，两侧 preserve=false 翻页/折叠均不丢
-                  key；但<strong>ajax（数据源切换）</strong>场景下，data-grid 与 antd 的 key 保留范围可能不同。</li>
+                <li><strong>差异行为</strong>：两侧的存在性判定都基于<strong>原始全树</strong>（未排序/未筛选/未分页），
+                  key 保留范围一致：仍存在于数据源的 key 保留，彻底离开数据源的 key 丢弃。</li>
                 <li><strong>触发条件</strong>：<code>preserveSelectedRowKeys: false</code> + dataSource 跨请求切换。</li>
-                <li><strong>差异原因</strong>：antd <code>getRecordByKey</code>（useLazyKVMap dig 递归 <code>rawData</code>
-                  全树）与 data-grid 全树存在性判定（<code>filteredDataSource</code> 递归 walk）覆盖范围不同；
-                  本 demo 用固定数据源，两侧 preserve=true / false 行为一致。详见
-                  <code> docs/features/interaction/selection.md</code>。</li>
+                <li><strong>说明</strong>：antd 经 <code>useLazyKVMap(rawData)</code> 递归 dig；data-grid 的
+                  <code>recordByKey</code> 同样由 <code>rawDataSource</code> 递归 dig 构建。本 demo 用固定数据源，
+                  两侧 preserve=true / false 行为一致。详见
+                  <code>docs/features/interaction/selection.md</code>。</li>
               </ul>
             </li>
             <li>
-              <strong>checkStrictly 引擎默认差异</strong>
+              <strong>checkStrictly 默认值</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid <code>checkStrictly</code> 默认 <strong>true</strong>，
-                  antd 默认 <strong>false</strong>。</li>
+                <li><strong>差异行为</strong>：两侧默认均为 <strong>true</strong>（父子独立），无差异。</li>
                 <li><strong>触发条件</strong>：未显式传 <code>checkStrictly</code>。</li>
-                <li><strong>差异原因</strong>：data-grid 引擎默认偏向父子独立。本 demo 两侧均显式传共享 state（初值 false）规避差异。</li>
+                <li><strong>说明</strong>：本 demo 两侧均显式传共享 state（初值 false = 父子联动），顶部开关同时驱动两侧。</li>
               </ul>
             </li>
             <li>
-              <strong>onSelect 回调差异</strong>
+              <strong>onSelect 回调</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：antd demo 含 <code>onSelect</code>；data-grid 仅 <code>onChange</code>。</li>
+                <li><strong>差异行为</strong>：antd demo 变体额外接了 <code>onSelect</code>；前栏变体仅接
+                  <code>onChange</code>（data-grid <code>TableRowSelection</code> 类型同样声明了 <code>onSelect</code>，
+                  demo 未使用）。</li>
                 <li><strong>触发条件</strong>：勾选任意一行。</li>
-                <li><strong>差异原因</strong>：data-grid 尚未声明 onSelect 类型，左栏用 onChange 观察勾选变化（功能等价）。</li>
               </ul>
             </li>
             <li>
@@ -91,7 +91,7 @@ export default function TreeTablePreserveSelectedRowKeysDemo() {
               <ol style={{ margin: '4px 0', paddingLeft: 20 }}>
                 <li>跨页保留：页1勾父 → 翻页2 → 翻回页1，勾选保留。</li>
                 <li>折叠保留：展开父→勾子→折叠父→再展开仍勾。</li>
-                <li>联动跨页/折叠：勾父 → 全部子（含折叠/跨页的）被勾。</li>
+                <li>联动折叠：勾父 → 全部子（含折叠的）被勾。</li>
               </ol>
             </li>
             <li>

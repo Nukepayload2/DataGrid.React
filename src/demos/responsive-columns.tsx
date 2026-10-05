@@ -37,7 +37,7 @@ export default function ResponsiveDemo() {
         right={<ResponsiveAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>左右并排呈现 data-grid 与 antd responsive demo。
+          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd responsive demo。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>断点检测机制差异</strong>

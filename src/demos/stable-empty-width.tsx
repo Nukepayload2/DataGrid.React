@@ -31,7 +31,7 @@ export default function StableEmptyWidthDemo() {
         style={{ marginBottom: 16 }}
         message={
           <>
-            本 demo 对比空数据、开启竖向滚动和增删列时的列宽表现：右栏会出现空表收缩、切换时表头跳动和增删列时的短暂抖动，左栏保持声明列宽稳定。
+            本 demo 对比空数据、开启竖向滚动和增删列时的列宽表现：后栏可能出现空表收缩、切换时表头跳动和增删列时的短暂抖动；前栏列宽变化平滑（增删列时已有列按比例 0.3s 过渡）。
           </>
         }
       />
@@ -69,36 +69,36 @@ export default function StableEmptyWidthDemo() {
           <strong>对照说明：</strong>两侧使用<strong>完全相同</strong>的列定义（数字 px width）
           和 dataSource 切换时机。顶栏按钮同时驱动两侧。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
-            <Item title="① 右栏可见问题">
+            <Item title="① 后栏可见问题">
               <li>
-                <strong>切换为空数据后</strong>：右栏部分列宽会收缩，和声明的 px 不一致。
+                <strong>切换为空数据后</strong>：后栏部分列宽会收缩，和声明的 px 不一致。
               </li>
               <li>
-                <strong>开启竖向滚动时</strong>：空 / 非空切换会让右栏表头宽度看起来跳一下。
+                <strong>开启竖向滚动时</strong>：空 / 非空切换会让后栏表头宽度看起来跳一下。
               </li>
               <li>
-                <strong>增列或删列时</strong>：右栏可能出现一帧可见的抖动。
+                <strong>增列或删列时</strong>：后栏可能出现一帧可见的抖动。
               </li>
               <li>
                 <strong>触发条件</strong>：点顶栏任意按钮。
               </li>
             </Item>
 
-            <Item title="② 左栏稳定表现">
+            <Item title="② 前栏稳定表现">
               <li>
-                <strong>点同样的按钮</strong>：左栏列宽保持一致，空 / 非空切换时不会改变已声明宽度。
+                <strong>点同样的按钮</strong>：前栏列宽保持一致，空 / 非空切换时不会改变已声明宽度。
               </li>
               <li>
-                <strong>增删列时</strong>：只更新受影响的列，已有列不跟着抖。
+                <strong>增删列时</strong>：已有列宽度按比例平滑变化（0.3s <code>grid-template-columns</code> 过渡），无单帧抖动。
               </li>
             </Item>
 
             <Item title="③ 如何观察">
               <li>
-                <strong>切空 / 非空</strong>：点「切换到空数据 / 有数据」。左栏列宽不变；右栏会更容易看出收缩和跳动。
+                <strong>切空 / 非空</strong>：点「切换到空数据 / 有数据」。前栏列宽不变；后栏会更容易看出收缩和跳动。
               </li>
               <li>
-                <strong>增删列</strong>：点「增加列 / 删除列」。左栏变化平顺，右栏短暂抖动更明显。
+                <strong>增删列</strong>：点「增加列 / 删除列」。前栏变化平顺，后栏短暂抖动更明显。
               </li>
             </Item>
           </ul>
