@@ -146,7 +146,7 @@ describe('Table size', () => {
 
 describe('Table locale', () => {
   // emptyText 优先级（src/table/Table.tsx:289-298 + emptyLoadingAdapter.tsx:19-23）：
-  //   TableProps.locale.emptyText > ConfigProvider locale.Table.emptyText > renderEmpty('Table') > <Empty>。
+  //   TableProps.locale.emptyText > ConfigProvider locale.Table.emptyText > renderEmpty('Table') > <Empty SIMPLE>。
   it('prefers Table locale emptyText over ConfigProvider locale.Table emptyText', () => {
     const fromContext = renderWithConfig(
       <Table columns={columns} dataSource={[]} pagination={false} />,

@@ -66,7 +66,7 @@ tags: a=2 button=2 div=39 li=4 path=4 span=6 svg=4 ul=1"
 
 exports[`demo snapshot · 细节兼容性 > snapshot stable-empty-width 1`] = `
 "root: dg-wrapper.ant-table-wrapper.dg-size-small.dg-bordered.dg-data-area
-nodes: 31
+nodes: 26
 rows: 1
 cells: 4
 headerCells: 4
@@ -77,7 +77,7 @@ headerColspan: (none)
 mergedCells: (none)
 structural: headerVStickyCells=4 floatingScrollBar=1
 themeOverrides: (none)
-tags: circle=1 div=19 ellipse=1 g=3 path=5 svg=1 title=1"
+tags: div=19 ellipse=1 g=2 path=2 svg=1 title=1"
 `;
 
 exports[`demo snapshot · 细节兼容性 > snapshot table-column-defaults 1`] = `

@@ -116,14 +116,14 @@ export default function RowSelectionFixedDemo() {
         }
       >
         <div style={{ marginTop: 12, color: token.colorTextSecondary, fontSize: 13 }}>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd 行选择列 fixed 继承行为。
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd 行选择列 fixed 继承行为。
           <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>fixed 取值命名</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：前栏 data-grid 用 <code>fixed:'start'/'end'</code>；
-                  后栏 antd 用 <code>fixed:'left'/'right'</code>。控制条 selFixed 取值
-                  （'start'/'end'）在后栏 antd 映射为 'left'/'right'。</li>
+                <li><strong>差异行为</strong>：data-grid 用 <code>fixed:'start'/'end'</code>；
+                  antd 用 <code>fixed:'left'/'right'</code>。控制条 selFixed 取值
+                  （'start'/'end'）在 antd 映射为 'left'/'right'。</li>
                 <li><strong>触发条件</strong>：首列 fixed 开关 / rowSelection.fixed 选择。</li>
                 <li><strong>说明</strong>：两侧最终视觉效果等价；本页用 start/end 和 left/right 分别展示同一固定方向。</li>
               </ul>

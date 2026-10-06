@@ -51,7 +51,7 @@ export default function HiddenColumnsDemo() {
         right={<HiddenColumnsAntd checkedList={checkedList} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd hidden-columns demo，
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd hidden-columns demo，
           共享 Checkbox.Group 同步驱动两侧 8 列显隐。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>

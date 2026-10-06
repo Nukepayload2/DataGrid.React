@@ -51,7 +51,7 @@ export default function RowSelectionAndOperationDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd row-selection-and-operation demo，
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd row-selection-and-operation demo，
           受控 selectedRowKeys 共享 + 顶部 Reload 批量清空。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>

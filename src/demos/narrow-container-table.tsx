@@ -52,7 +52,7 @@ export default function NarrowDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd narrow demo，
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd narrow demo，
           两侧均包 300px 宽容器 + 200 行 + size="small" + 分页。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>

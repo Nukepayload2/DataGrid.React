@@ -35,15 +35,15 @@ export default function EllipsisDemo() {
         right={<EllipsisAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd ellipsis demo。
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd ellipsis demo。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>ellipsis: true 实现机制差异</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：两侧 Address ×4 列均省略号（<code>...</code>）+ hover 显示
-                  native title；但实现不同——前栏 data-grid 用 <code>dg-cell-ellipsis</code> CSS 类
+                  native title；但实现不同——data-grid 用 <code>dg-cell-ellipsis</code> CSS 类
                   （<code>overflow:hidden + white-space:nowrap + text-overflow:ellipsis +
-                  word-break:keep-all</code>），后栏 antd 用原生 ellipsis（<code>genEllipsisStyle</code>）。</li>
+                  word-break:keep-all</code>），antd 用原生 ellipsis（<code>genEllipsisStyle</code>）。</li>
                 <li><strong>触发条件</strong>：<code>column.ellipsis: true</code> 列内容超出列宽时。</li>
                 <li><strong>差异原因</strong>：data-grid 用 CSS Grid 布局，自行实现等价 ellipsis CSS 类对齐
                   antd 的省略号样式；antd 用原生 <code>&lt;table&gt;</code> tableLayout:fixed。</li>

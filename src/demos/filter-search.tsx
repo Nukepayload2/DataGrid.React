@@ -40,7 +40,7 @@ export default function FilterSearchDemo() {
         right={<FilterSearchAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd filter-search demo。两侧 <code>filterSearch</code>
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd filter-search demo。两侧 <code>filterSearch</code>
           行为完全对齐（Name 列 <code>filterMode:'tree'</code>、Address 列默认 menu；data-grid FilterDropdown
           用 antd <code>&lt;Tree&gt;</code>，视觉/交互一致），无可观察差异。两侧行为要点：
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>

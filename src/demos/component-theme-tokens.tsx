@@ -198,7 +198,7 @@ export default function ComponentTokenDemo() {
           }
         >
           <div>
-            <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd component-token demo
+            <strong>对照说明：</strong>两栏呈现 data-grid 与 antd component-token demo
             （ConfigProvider theme 28 token + 动态面板），方便对照 token 注入效果。
             <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
               <li>

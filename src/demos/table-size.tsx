@@ -38,7 +38,7 @@ export default function SizeDemo() {
         right={<SizeAntd size={size} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd size demo，共享 Segmented 切换 size 档位。
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd size demo，共享 Segmented 切换 size 档位。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>size 取值</strong>

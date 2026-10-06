@@ -56,7 +56,7 @@ export default function ExpandStickyDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd expand-sticky demo
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd expand-sticky demo
           （bordered + Team 列每 2 行合并 + EXPAND_COLUMN 哨兵控制展开列位置）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>

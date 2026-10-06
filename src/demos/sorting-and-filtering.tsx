@@ -60,14 +60,14 @@ export default function HeadDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd head demo（排序 + 筛选共存），
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd head demo（排序 + 筛选共存），
           共享数据驱动两侧 Name/Age/Address 列（sorter/filters/onFilter 配置逐字一致）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>Submenu 渲染层级</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：Name 列 filters 含 Submenu→children（Green/Black）。
-                  前栏 data-grid 扁平化为顶层项（一级 Checkbox 参与勾选）；后栏 antd 原生 menu 模式
+                  data-grid 扁平化为顶层项（一级 Checkbox 参与勾选）；antd 原生 menu 模式
                   渲染二级菜单（点 Submenu 弹出 Green/Black）。</li>
                 <li><strong>触发条件</strong>：点 Name 列筛选图标展开下拉。</li>
                 <li><strong>差异原因</strong>：两侧 filters 数据结构完全一致（逐字 antd demo），
@@ -77,8 +77,8 @@ export default function HeadDemo() {
             <li>
               <strong>filter 下拉控件来源</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：前栏 data-grid 的 FilterDropdown 由引擎统一渲染
-                  （内部用 antd Dropdown/Checkbox/Radio/Button）；后栏 antd 用原生 filter 下拉。</li>
+                <li><strong>差异行为</strong>：data-grid 的 FilterDropdown 由引擎统一渲染
+                  （内部用 antd Dropdown/Checkbox/Radio/Button）；antd 用原生 filter 下拉。</li>
                 <li><strong>触发条件</strong>：展开任意列筛选下拉。</li>
                 <li><strong>差异原因</strong>：data-grid 自绘 FilterDropdown 以对接引擎的筛选状态管理，
                   但行为对齐 antd（filterOnClose 默认 / confirm 应用 / clearFilters 草稿不立即清表）。</li>

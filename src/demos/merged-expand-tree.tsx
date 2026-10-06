@@ -177,7 +177,7 @@ export default function MergedExpandTreeDemo() {
         type="warning"
         showIcon
         style={{ marginBottom: 16 }}
-        message="本页专门观察行合并与树形数据叠加时的列位表现。后栏展开第一组子行后，分组单元格可能覆盖树形子行，后续单元格位置会变得不稳定；前栏保持分组列和数据列对齐。"
+        message="本页专门观察行合并与树形数据叠加时的列位表现。antd 展开第一组子行后，分组单元格可能覆盖树形子行，后续单元格位置会变得不稳定；data-grid 保持分组列和数据列对齐。"
       />
 
       <DemoToolbar>

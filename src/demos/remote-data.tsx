@@ -15,7 +15,7 @@ export default function AjaxDemo() {
         right={<AjaxAntd virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd ajax demo（loading +
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd ajax demo（loading +
           服务端分页/排序/筛选 + preserveSelectedRowKeys）。两栏各自维护异步加载 state，
           任一侧 onChange 只刷新该侧。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>

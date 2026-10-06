@@ -30,7 +30,7 @@ export default function PaginationDemo() {
         right={<PaginationAntd placement={placement} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd 分页 demo。顶部
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd 分页 demo。顶部
           <code> Radio.Group</code>（6 位置 + <code>none</code> 互斥）共享驱动两侧分页器位置
           （单元素数组 = 单翻页器）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>

@@ -748,7 +748,7 @@ function GridTableInner<RecordType = any>(
               empty grid item 显式定位到 headerTracks 之后的第一条 track（grid-row: headerRowsUsed+1），
               grid-column: 1 / -1 跨所有列；内容居中（.dg-empty 区 padding + flex center）。
               内容来自 emptyText（适配层已按 TableProps.locale.emptyText >
-              ConfigProvider locale.Table.emptyText > ConfigProvider.renderEmpty('Table') > 默认 Empty
+              ConfigProvider locale.Table.emptyText > ConfigProvider.renderEmpty('Table') > 默认 Empty SIMPLE
               优先级解析；表体 empty 不区分空数据 vs 筛选无结果）。
               非空时不渲染。 */}
           {emptyText && dataSource.length === 0 ? (

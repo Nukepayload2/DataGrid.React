@@ -508,7 +508,7 @@ export function ThemeEditorPanel() {
             children: (
               <Card size="small">
                 <p style={{ margin: '0 0 8px' }}>
-          <strong>用法</strong>：改任一 token 控件 → 前后两栏实时同步变化。data-grid
+          <strong>用法</strong>：改任一 token 控件 → 两栏实时同步变化。data-grid
           经 Table.tsx <code>useToken</code> realToken +{' '}
           <code>transformToken</code> 把 token 注入{' '}
           <code>.dg-wrapper</code> inline <code>--ant-*</code> CSS variables

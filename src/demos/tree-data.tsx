@@ -35,7 +35,7 @@ export default function TreeDataDemo() {
         right={<TreeDataAntd checkStrictly={checkStrictly} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd tree-data demo
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd tree-data demo
           （childrenColumnName='children' + 首列缩进 + 展开图标 + checkStrictly 父子联动）。
           顶部 <code>CheckStrictly</code> 开关共享驱动两侧。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
@@ -48,14 +48,14 @@ export default function TreeDataDemo() {
               </ul>
             </li>
             <li>
-              <strong>pagination</strong>：data-grid 与 antd 默认均开启分页；前栏显式传
+              <strong>pagination</strong>：data-grid 与 antd 默认均开启分页；data-grid 显式传
               <code>pagination=&#123;&#123;&#125;&#125;</code> 只是把 demo 意图写明，行为等价于不传。
             </li>
             <li>
               <strong>onSelect 回调</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：antd demo 变体额外接了 <code>onSelect</code>（单行勾选回调）console.log；
-                  前栏变体仅接 <code>onChange</code>（data-grid <code>TableRowSelection</code> 类型同样声明了
+                  data-grid 变体仅接 <code>onChange</code>（<code>TableRowSelection</code> 类型同样声明了
                   <code>onSelect</code>，demo 未使用）。</li>
                 <li><strong>触发条件</strong>：勾选任意一行时。</li>
               </ul>

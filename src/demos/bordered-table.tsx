@@ -22,7 +22,7 @@ export default function BorderedDemo() {
             unCheckedChildren="Bordered"
           />
           <span style={{ color: token.colorTextSecondary, fontSize: 12 }}>
-            同时驱动下方两示例前后两栏
+            同时驱动下方两示例的 data-grid 与 antd 两栏
           </span>
         </Space>
       </DemoToolbar>

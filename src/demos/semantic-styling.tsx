@@ -38,7 +38,7 @@ export default function StyleClassDemo() {
         right={<StyleClassAntd virtual={virtual} scrollY={scrollY} />}
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd style-class demo，
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd style-class demo，
           方便对照 classNames/styles 各部位注入效果。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>

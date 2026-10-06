@@ -137,12 +137,12 @@ export default function VirtualListDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd virtual-list（万行虚拟 + 宽表横滚 + 合并/展开）。
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd virtual-list（万行虚拟 + 宽表横滚 + 合并/展开）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>scrollTo</strong>：「Scroll To index 999 / Top」同时滚动两栏；
-              「Scroll To key 50」仅滚动前栏 data-grid（后栏 antd 的 <code>scrollTo</code> 同样支持
-              <code>key</code>，demo 按钮未接后栏）。
+              「Scroll To key 50」仅滚动 data-grid（antd 的 <code>scrollTo</code> 同样支持
+              <code>key</code>，demo 按钮未接 antd）。
             </li>
           </ul>
         </div>

@@ -7,13 +7,14 @@
 // 选择器重映射：
 //   - antd `.ant-table-placeholder` → `.dg-empty`（data-grid 表体空态区 div，
 //     src/table/engine/GridTable.tsx:754-766，仅 `emptyText && dataSource.length === 0` 时渲染）。
-//   - 默认空态内容为 antd `<Empty>`（`.ant-empty`，src/table/emptyLoadingAdapter.tsx:30）。
+//   - 默认空态内容为 antd `<Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />`（`.ant-empty`，
+//     src/table/emptyLoadingAdapter.tsx:30-36，对齐 antd InternalTable 的 DefaultRenderEmpty 'Table' 兜底）。
 //   - antd 的 offsetWidth spy + triggerResize 是 rc-resize-observer 布局测量所需；
 //     data-grid 空态区渲染不依赖实测宽度（jsdom RO 为 no-op mock），故无需 spy/resize。
 //
 // emptyText 优先级（src/table/emptyLoadingAdapter.tsx:9-32 useTableEmptyText）：
 //   rowCount>0 → null；locale.emptyText（函数则调用）> ConfigProvider renderEmpty('Table')
-//   > 默认 antd <Empty>。
+//   > 默认 antd <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />（对齐 antd InternalTable 兜底）。
 //
 // skip 策略：'should not render empty when loading' 是 data-grid 与 antd 的行为差异
 // （useTableEmptyText 无 loading 参数），见对应用例注释。
@@ -61,7 +62,7 @@ describe('Table empty', () => {
       <Table dataSource={[]} columns={columns} pagination={false} />,
     )
 
-    // 空态区存在，默认内容为 antd <Empty>；表体无数据格。
+    // 空态区存在，默认内容为 antd <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />；表体无数据格。
     const empty = container.querySelector('.dg-empty')
     expect(empty).toBeTruthy()
     expect(empty!.querySelector('.ant-empty')).toBeTruthy()

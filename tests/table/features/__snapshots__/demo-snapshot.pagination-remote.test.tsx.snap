@@ -18,7 +18,7 @@ tags: a=10 button=2 div=61 li=3 path=2 span=7 svg=2 ul=1"
 
 exports[`demo snapshot · 分页与远程 > snapshot remote-data 1`] = `
 "root: dg-wrapper.ant-table-wrapper
-nodes: 52
+nodes: 47
 rows: 1
 cells: 4
 headerCells: 4
@@ -29,7 +29,7 @@ headerColspan: (none)
 mergedCells: (none)
 structural: floatingScrollBar=1 filterTrigger=1 selectionInput=1 sorterUp=1 sorterDown=1
 themeOverrides: (none)
-tags: circle=1 div=25 ellipse=1 g=3 input=1 label=1 path=8 span=7 svg=4 title=1"
+tags: div=25 ellipse=1 g=2 input=1 label=1 path=5 span=7 svg=4 title=1"
 `;
 
 exports[`demo snapshot · 分页与远程 > snapshot scroll-to-first-row 1`] = `

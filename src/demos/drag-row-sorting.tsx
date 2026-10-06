@@ -39,7 +39,7 @@ export default function DragSortingDemo() {
         right={<DragSortingAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid（自研 pointer 行拖拽）与 antd 官方
+          <strong>对照说明：</strong>两栏呈现 data-grid（自研 pointer 行拖拽）与 antd 官方
           drag-sorting（dnd-kit 行拖拽）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>

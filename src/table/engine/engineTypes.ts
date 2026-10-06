@@ -813,7 +813,8 @@ export interface EngineTableProps<RecordType = any> {
    *   1. `TableProps.locale.emptyText`（Table 级，最高优先级）。
    *   2. `ConfigProvider locale.Table.emptyText`（全局 Table locale，由 merged Table locale 提供）。
    *   3. `ConfigProvider.renderEmpty('Table')`（全局表体空状态）。
-   *   4. 默认 antd `<Empty>`。
+   *   4. 默认 antd `<Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />`（对齐 antd InternalTable 的
+   *      DefaultRenderEmpty 'Table' 兜底，小号 SIMPLE 图标）。
    * 解析后的 ReactNode 传给引擎；引擎仅在 pagedDataSource 为空时渲染一个跨所有列的 empty 区
    * （`grid-column: 1 / -1`，居中）。非空时不渲染（零回归）。
    *

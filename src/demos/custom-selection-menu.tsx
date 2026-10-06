@@ -30,14 +30,14 @@ export default function RowSelectionCustomDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd row-selection-custom demo，
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd row-selection-custom demo，
           共享 selectedRowKeys 同步驱动两侧 46 行的 selections 菜单（3 内置哨兵 + 自定义 odd/even）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>内置哨兵来源</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：前栏 <code>Table.SELECTION_ALL/INVERT/NONE</code> 来自
-                  data-grid 引擎；后栏同名哨兵来自 antd 本体。</li>
+                <li><strong>差异行为</strong>：data-grid 的 <code>Table.SELECTION_ALL/INVERT/NONE</code> 来自
+                  data-grid 引擎；antd 同名哨兵来自 antd 本体。</li>
                 <li><strong>触发条件</strong>：表头全选框旁下拉箭头点开后选择前 3 项菜单。</li>
                 <li><strong>说明</strong>：两侧 selections 数组结构等价，选择菜单项行为一致。</li>
               </ul>

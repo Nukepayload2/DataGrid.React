@@ -39,7 +39,7 @@ export default function DragSortingHandlerDemo() {
         right={<DragSortingHandlerAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid（自研 pointer 手柄列拖拽）与 antd 官方
+          <strong>对照说明：</strong>两栏呈现 data-grid（自研 pointer 手柄列拖拽）与 antd 官方
           drag-sorting-handler（dnd-kit 手柄列拖拽）。首列为手柄列，仅按住手柄拖拽才启动排序。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>

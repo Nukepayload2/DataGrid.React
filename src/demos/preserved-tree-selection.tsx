@@ -53,7 +53,7 @@ export default function TreeTablePreserveSelectedRowKeysDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd tree-table-preserveSelectedRowKeys
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd tree-table-preserveSelectedRowKeys
           demo（树形 × 分页 × checkStrictly × preserveSelectedRowKeys）。顶部 CheckStrictly +
           Preserve 两开关共享驱动两侧。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
@@ -80,8 +80,8 @@ export default function TreeTablePreserveSelectedRowKeysDemo() {
             <li>
               <strong>onSelect 回调</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：antd demo 变体额外接了 <code>onSelect</code>；前栏变体仅接
-                  <code>onChange</code>（data-grid <code>TableRowSelection</code> 类型同样声明了 <code>onSelect</code>，
+                <li><strong>差异行为</strong>：antd demo 变体额外接了 <code>onSelect</code>；data-grid 变体仅接
+                  <code>onChange</code>（<code>TableRowSelection</code> 类型同样声明了 <code>onSelect</code>，
                   demo 未使用）。</li>
                 <li><strong>触发条件</strong>：勾选任意一行。</li>
               </ul>

@@ -515,7 +515,8 @@ export interface TableProps<RecordType = any> {
    *     1. `TableProps.locale.emptyText`（Table 级，最高优先级）。
    *     2. `ConfigProvider locale.Table.emptyText`（全局 Table locale，由 merged Table locale 提供）。
    *     3. `ConfigProvider.renderEmpty('Table')`（全局表体空状态）。
-   *     4. 默认 antd `<Empty>`（无描述）。
+   *     4. 默认 antd `<Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />`（与 antd InternalTable 的
+   *        DefaultRenderEmpty 'Table' 兜底同款，即小号 SIMPLE 图标而非默认大图）。
    * - **表体 empty 不区分"空数据 vs 筛选无结果"**：data-grid 当前兼容语义下，两种场景
    *   共用同一表体 emptyText，并按上述优先级解析。
    *
@@ -531,8 +532,8 @@ export interface TableProps<RecordType = any> {
    *   `<Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No Filter(Custom)" />`
    *   （filter 下拉内 filters 空时占位）。
    *
-   * 不传（默认）→ 用 `ConfigProvider locale.Table.emptyText`、ConfigProvider.renderEmpty 或默认 antd Empty
-   * （零回归：现有 demo 无 locale）。
+   * 不传（默认）→ 用 `ConfigProvider locale.Table.emptyText`、ConfigProvider.renderEmpty 或默认 antd
+   * `<Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />`（零回归：现有 demo 无 locale）。
    *
    * 字段集合对齐 antd `TableProps.locale` 子集。
    */

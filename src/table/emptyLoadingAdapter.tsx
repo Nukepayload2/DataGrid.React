@@ -27,7 +27,12 @@ export function useTableEmptyText(args: {
       return rendered
     }
 
-    return <Empty />
+    // 对齐 antd InternalTable 的最终兜底（es/table/InternalTable.js:414-416）：
+    // `renderEmpty?.('Table') || <DefaultRenderEmpty componentName="Table" />`，
+    // 而 DefaultRenderEmpty 对 'Table' 返回 <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />。
+    // antd 的 ConfigContext 默认值不携带 renderEmpty（循环依赖，见 config-provider/context.js 注释），
+    // 所以无 ConfigProvider 注入时两侧都会走到这一步——必须用同款 SIMPLE 图标，否则空态视觉不一致。
+    return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} />
   }, [locale, renderEmpty, rowCount])
 }
 

@@ -23,7 +23,7 @@ export default function EditRowDemo() {
         right={<EditRowAntd virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd edit-row（行级 editingKey +
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd edit-row（行级 editingKey +
           Edit/Save/Cancel + InputNumber(age)/Input + 100 行分页 + Form 外层）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>

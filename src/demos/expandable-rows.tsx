@@ -72,7 +72,7 @@ export default function ExpandDemo() {
       >
         <div>
           <strong>对照说明：</strong>
-          前后两栏呈现 data-grid 与 antd 行展开（expandable.expandedRowRender + rowExpandable 禁用 "Not Expandable" 行）。
+          两栏呈现 data-grid 与 antd 行展开（expandable.expandedRowRender + rowExpandable 禁用 "Not Expandable" 行）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>展开过渡</strong>
@@ -86,9 +86,9 @@ export default function ExpandDemo() {
             <li>
               <strong>expandRowByClick + expandedRowClassName</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：前栏 data-grid 开启 <code>expandRowByClick: true</code>（点击行体切换展开，且不阻止 <code>onRow.onClick</code>）+ <code>expandedRowClassName</code> 给展开行追加 <code>dg-demo-expanded-row</code> class（浅黄底）；后栏 antd 不开。</li>
-                <li><strong>触发条件</strong>：点击行体非图标单元格（前栏），或展开任意行（前栏加 class）。</li>
-                <li><strong>说明</strong>：前栏额外演示「点击行体展开」与「展开行视觉标记」两项能力。</li>
+                <li><strong>差异行为</strong>：data-grid 开启 <code>expandRowByClick: true</code>（点击行体切换展开，且不阻止 <code>onRow.onClick</code>）+ <code>expandedRowClassName</code> 给展开行追加 <code>dg-demo-expanded-row</code> class（浅黄底）；antd 不开。</li>
+                <li><strong>触发条件</strong>：点击行体非图标单元格（data-grid），或展开任意行（data-grid 加 class）。</li>
+                <li><strong>说明</strong>：data-grid 额外演示「点击行体展开」与「展开行视觉标记」两项能力。</li>
               </ul>
             </li>
             <li>

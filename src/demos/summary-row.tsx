@@ -61,7 +61,7 @@ export default function SummaryDemo() {
       >
         <p style={{ margin: '0 0 4px' }}>
           <b>对照说明：</b>
-          前后两栏呈现 data-grid 与 antd summary（示例1 计算总计 + 示例2 fixed sticky bottom）。
+          两栏呈现 data-grid 与 antd summary（示例1 计算总计 + 示例2 fixed sticky bottom）。
         </p>
         <p style={{ margin: '0 0 8px' }}>
           <b>示例 1</b>：两侧均 <code>summary=&#123;(pageData) =&gt; ...&#125;</code> 计算总计——
@@ -75,7 +75,7 @@ export default function SummaryDemo() {
         <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
           <li>示例 1 展示 <code>summary</code> 函数如何根据当前页数据计算多行汇总。</li>
           <li>示例 2 展示 <code>&lt;Table.Summary fixed&gt;</code> 在表体滚动时固定在底部。</li>
-          <li>前栏 data-grid 使用 <code>scroll.y: true</code>，高度由父容器决定；后栏 antd 保持数字高度写法。</li>
+          <li>data-grid 使用 <code>scroll.y: true</code>，高度由父容器决定；antd 保持数字高度写法。</li>
         </ul>
       </div>
     </div>

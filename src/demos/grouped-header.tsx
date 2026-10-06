@@ -80,7 +80,7 @@ export default function GroupingColumnsDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>本 demo 前后两栏呈现 data-grid 与 antd grouping-columns。
+          <strong>对照说明：</strong>本 demo 两栏呈现 data-grid 与 antd grouping-columns。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>多级表头实现机制</strong>
@@ -98,8 +98,8 @@ export default function GroupingColumnsDemo() {
               <strong>fixed 逻辑属性</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：两侧 fixed 类型都接受 <code>'start'/'end'</code> 与
-                  <code>'left'/'right'</code>（rc-table FixedType 含全部取值）；demo 前栏写
-                  <code>'start'/'end'</code>、后栏写 <code>'left'/'right'</code>，渲染结果等价。</li>
+                  <code>'left'/'right'</code>（rc-table FixedType 含全部取值）；demo data-grid 侧写
+                  <code>'start'/'end'</code>、antd 侧写 <code>'left'/'right'</code>，渲染结果等价。</li>
                 <li><strong>触发条件</strong>：Name 固定 start、Gender 固定 end（始终）。</li>
                 <li><strong>差异原因</strong>：data-grid 把 <code>'start'/'end'</code> 解析为物理
                   left/right sticky 偏移；antd 固定单元格用 CSS 逻辑属性
@@ -109,8 +109,8 @@ export default function GroupingColumnsDemo() {
             <li>
               <strong>scroll.y 高度模式</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：后栏 antd <code>scroll: {'{ x:"calc(700px+50%)", y:47*5 }'}</code>
-                  （数字 y = 表体 max-height）；前栏 data-grid <code>scroll: {'{ x:"calc(700px+50%)", y:true }'}</code>
+                <li><strong>差异行为</strong>：antd <code>scroll: {'{ x:"calc(700px+50%)", y:47*5 }'}</code>
+                  （数字 y = 表体 max-height）；data-grid <code>scroll: {'{ x:"calc(700px+50%)", y:true }'}</code>
                   + 父容器固定高 473px。</li>
                 <li><strong>触发条件</strong>：始终（表体需限高纵滚）。</li>
                 <li><strong>差异原因</strong>：data-grid <code>y:true</code> 是数据区域模式——CSS Grid

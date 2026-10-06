@@ -88,7 +88,7 @@ export default function ResetFilterDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd reset-filter demo。受控筛选/排序/重置在两侧
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd reset-filter demo。受控筛选/排序/重置在两侧
           行为一致：同一组 <code>filteredInfo</code>/<code>sortedInfo</code> 驱动两侧受控
           <code>filteredValue</code>/<code>sortOrder</code>，三按钮（Sort age / Clear filters /
           Clear filters and sorters）同时作用于两侧。两侧可观察差异：
@@ -96,11 +96,11 @@ export default function ResetFilterDemo() {
             <li>
               <strong>locale 文案</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：前栏 data-grid 传中文 locale（漏斗下拉底部「确定/重置」、
+                <li><strong>差异行为</strong>：data-grid 传中文 locale（漏斗下拉底部「确定/重置」、
                   tree 全选「全选」、搜索框 placeholder「搜索」、空筛选项占位「无筛选」）；
-                  后栏 antd 不传 locale，保持英文（OK/Reset/Select all items/Search in filters/No filters）。</li>
+                  antd 不传 locale，保持英文（OK/Reset/Select all items/Search in filters/No filters）。</li>
                 <li><strong>触发条件</strong>：打开任一列漏斗下拉。</li>
-                <li><strong>差异原因</strong>：本 demo 用前栏中文 / 后栏英文对照验证 locale key 注入。
+                <li><strong>差异原因</strong>：本 demo 用 data-grid 中文 / antd 英文对照验证 locale key 注入。
                   两侧机制相同（同一套 antd FilterDropdown locale），仅文案不同。</li>
               </ul>
             </li>

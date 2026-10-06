@@ -58,7 +58,7 @@ export default function FixedColumnsDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>本 demo 前后两栏呈现 data-grid 与 antd fixed-columns。
+          <strong>对照说明：</strong>本 demo 两栏呈现 data-grid 与 antd fixed-columns。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>固定列实现机制</strong>

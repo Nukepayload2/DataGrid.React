@@ -21,7 +21,7 @@ export default function EditCellDemo() {
         right={<EditCellAntd virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd edit-cell
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd edit-cell
           （components.body.cell/row + onCell 编辑 + 增删行）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>

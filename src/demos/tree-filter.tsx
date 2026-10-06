@@ -40,7 +40,7 @@ export default function FilterInTreeDemo() {
         right={<FilterInTreeAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>前后两栏呈现 data-grid 与 antd filter-in-tree demo。两侧
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd filter-in-tree demo。两侧
           <code>filterMode:'tree'</code> 树形筛选行为完全对齐（均用 antd
           <code>&lt;Tree checkable&gt;</code> 父子联动），无可观察差异：
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
