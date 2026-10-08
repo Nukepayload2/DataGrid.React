@@ -454,7 +454,7 @@ export function ThemeEditorPanel() {
               opacity: 0.85,
             }}
           >
-            data-grid（useToken → .dg-wrapper --ant-* 注入）
+            data-grid
           </div>
           {/* scroll.y:true 只开启数据区域模式；Table 自适应占满这里提供的可用空间。 */}
           <div style={yScroll ? { height: 240 } : undefined}>
@@ -484,7 +484,7 @@ export function ThemeEditorPanel() {
               opacity: 0.85,
             }}
           >
-            antd（cssinjs :where(.ant-table) 原生消费）
+            antd
           </div>
           <div style={yScroll ? { height: 240 } : undefined}>
             <AntdTable<RecordType>
@@ -508,24 +508,19 @@ export function ThemeEditorPanel() {
             children: (
               <Card size="small">
                 <p style={{ margin: '0 0 8px' }}>
-          <strong>用法</strong>：改任一 token 控件 → 两栏实时同步变化。data-grid
-          经 Table.tsx <code>useToken</code> realToken +{' '}
-          <code>transformToken</code> 把 token 注入{' '}
-          <code>.dg-wrapper</code> inline <code>--ant-*</code> CSS variables
-          并直接消费 antd Table var；<code>--dg-*</code> 仅保留自研滚动、行高等异构变量。antd 经 cssinjs 原生消费。两侧
-          视觉应一致，差异即注入覆盖 gap。
+          <strong>用法</strong>：改任一 token 控件 → 两栏表格实时同步变化。
+          两侧视觉应保持一致；若出现不一致，说明 data-grid 对该 token 的覆盖还不完整。
         </p>
         <p style={{ margin: '0 0 8px' }}>
-          <strong>dark bug 修复</strong>：未编辑的 token <strong>不进</strong>{' '}
-          ConfigProvider（由 antd algorithm + prepareComponentToken 派生）→ dark 下自动
-          变暗（如 headerBg 由 #fafafa 派生为 #1d1d1d）。只有用户显式编辑过的 token 才作为
+          <strong>dark 模式</strong>：未编辑的 token <strong>不进</strong>{' '}
+          ConfigProvider，由 antd 主题算法自动派生 → dark 下自动
+          变暗（如 headerBg 由 #fafafa 变为 #1d1d1d）。只有用户显式编辑过的 token 才作为
           override 传入，dark 下仍保留覆盖值。
         </p>
         <p style={{ margin: '0 0 8px' }}>
           <strong>编辑/未编辑标记</strong>：label 旁 <Tag color="processing" style={{ fontSize: 11 }}>● 已编辑</Tag>{' '}
-          表示该 token 已被覆盖（key 在 overrides 里），<Tag style={{ fontSize: 11, opacity: 0.5 }}>默认</Tag>{' '}
-          表示由 algorithm 派生。每项旁「重置」按钮仅已编辑时显示；Card 顶「重置全部」仅任一
-          overrides 非空时显示。
+          表示该 token 已被手动修改，<Tag style={{ fontSize: 11, opacity: 0.5 }}>默认</Tag>{' '}
+          表示仍是默认值。每项旁「重置」按钮仅已编辑时显示；Card 顶「重置全部」仅存在已编辑 token 时显示。
         </p>
         <table
           style={{
@@ -560,7 +555,7 @@ export function ThemeEditorPanel() {
             <tr>
               <td style={td}><code>colorBgContainer</code></td>
               <td style={td}>ColorPicker</td>
-              <td style={td}>表体单元格背景（dark 下由 algorithm 覆盖，编辑器优先级更高）</td>
+              <td style={td}>表体单元格背景（dark 下随主题算法自动变暗，手动编辑过的值优先）</td>
             </tr>
             <tr>
               <td style={td}><code>headerBg</code></td>
@@ -615,16 +610,13 @@ export function ThemeEditorPanel() {
           </tbody>
         </table>
         <p style={{ margin: '12px 0 0' }}>
-          <strong>dark 切换</strong>：顶栏 Segmented（或本 demo 镜像 Segmented）→ Light/Dark
-          → <code>algorithm</code> 重算全套 token。data-grid 经 realToken 重算
-          <code> --ant-*</code>，antd 原生 dark。两侧应同步变暗（编辑器覆盖的 token
-          在 dark 下仍保留覆盖值，未编辑的重派生为 dark 默认）。
+          <strong>dark 切换</strong>：顶栏 Segmented（或本 demo 镜像 Segmented）→ Light/Dark，
+          antd 主题算法 <code>algorithm</code> 重算全套 token。两侧应同步变暗：编辑器覆盖的 token
+          在 dark 下仍保留覆盖值，未编辑的变为 dark 默认。
         </p>
         <p style={{ margin: '12px 0 0' }}>
-          <strong>全局虚拟化开关不生效</strong>（本 demo 自渲染、非虚拟化对象）：本 demo
-          不使用 SplitDemo（自渲染双栏，token 经 <code>useTheme</code> 写入应用级全局主题 store，
-          由根 <code>ConfigProvider</code> 消费），不读全局
-          <code> useVirtualization</code>，故全局「Virtual」开关天然不影响它。
+          <strong>全局虚拟化开关不生效</strong>：本 demo 自行渲染两张表格，编辑的 token
+          写入应用级全局主题（由根 <code>ConfigProvider</code> 消费），所以全局「Virtual」开关不影响本页。
         </p>
               </Card>
             ),

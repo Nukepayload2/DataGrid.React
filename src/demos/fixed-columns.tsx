@@ -61,13 +61,12 @@ export default function FixedColumnsDemo() {
           <strong>对照说明：</strong>本 demo 两栏呈现 data-grid 与 antd fixed-columns。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>固定列实现机制</strong>
+              <strong>固定列效果</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：Full Name + Age 固定 start（左）、Action 固定 end（右），
-                  中间 Column 1-20 普通列。横向滚动时 sticky 固定两侧列。两侧结构一致，视觉一致。</li>
+                  中间 Column 1-20 普通列。横向滚动时两侧列保持固定。两侧效果一致，视觉一致。</li>
                 <li><strong>触发条件</strong>：列含 <code>fixed:'start'/'end'</code> + scroll.x（始终）。</li>
-                <li><strong>差异原因</strong>：data-grid 用 CSS Grid <code>position:sticky</code> + 列宽
-                  策略保证偏移稳定；antd 原生 <code>&lt;table&gt;</code> sticky。语义等价。详见
+                <li><strong>差异原因</strong>：两侧都用 CSS sticky 实现固定列，视觉效果一致。详见
                   <code>docs/features/columns/fixed-column.md</code>。</li>
               </ul>
             </li>
@@ -77,20 +76,18 @@ export default function FixedColumnsDemo() {
                 <li><strong>差异行为</strong>：滚到最左时 antd 隐藏 start 阴影、最右隐藏 end 阴影；
                   data-grid 两侧阴影恒显（阴影本身 8px 模糊 + 极淡 alpha，视觉差异极小）。</li>
                 <li><strong>触发条件</strong>：横向滚到边缘。</li>
-                <li><strong>差异原因</strong>：antd 由 rc-table 监听 scrollLeft 动态切换；data-grid 纯 CSS
-                  不脚本监听。详见 <code>docs/features/columns/fixed-column.md</code>。</li>
+                <li><strong>差异原因</strong>：antd 根据横向滚动位置动态隐藏/显示阴影；data-grid 阴影恒显。
+                  详见 <code>docs/features/columns/fixed-column.md</code>。</li>
               </ul>
             </li>
             <li>
               <strong>无 width 列 + scroll.x:'max-content'</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：中间 Column 1-20 无 <code>width</code>，两侧
-                  <code>scroll.x:'max-content'</code> 均保持 <code>table-layout:auto</code>（固定列 +
-                  max-content → auto）。</li>
+                  <code>scroll.x:'max-content'</code> 下表格均保持 <code>table-layout:auto</code>。</li>
                 <li><strong>触发条件</strong>：含无 <code>width</code> 普通列 + <code>scroll.x:'max-content'</code>。</li>
-                <li><strong>差异原因</strong>：data-grid 无 width 列为 <code>minmax(min-content,1fr)</code>，
-                  auto 布局下实际列总宽小于可滚动宽度时 fixed-end 列可能脱离右边缘（已知问题）；
-                  本 demo 内容短，是否可见需人工验证。详见
+                <li><strong>差异原因</strong>：auto 布局下实际列总宽小于可滚动宽度时，右固定列可能脱离右边缘
+                  （data-grid 已知问题）；本 demo 内容短，是否可见需人工验证。详见
                   <code>docs/features/columns/fixed-column.md</code>。</li>
               </ul>
             </li>

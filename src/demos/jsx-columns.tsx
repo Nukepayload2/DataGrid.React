@@ -32,7 +32,7 @@ export default function JsxDemo() {
           两侧均用 JSX <code>&lt;Table.Column&gt;</code>/<code>&lt;Table.ColumnGroup&gt;</code> 子元素声明列。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>JSX 列声明解析</strong>
+              <strong>JSX 列声明</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：两侧都把 <code>&lt;Table.Column&gt;</code>/
                   <code>&lt;Table.ColumnGroup&gt;</code> 子元素解析为列定义（含 ColumnGroup 多级表头）。</li>
@@ -41,10 +41,10 @@ export default function JsxDemo() {
               </ul>
             </li>
             <li>
-              <strong>Space size 字面量</strong>
+              <strong>Space size 取值</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：data-grid Action 列 <code>&lt;Space&gt;</code> 用
-                  <code> size="middle"</code>；antd 用 <code>size="medium"</code>。</li>
+                  <code>size="middle"</code>；antd 用 <code>size="medium"</code>。</li>
                 <li><strong>触发条件</strong>：始终（demo 写死）。</li>
                 <li><strong>说明</strong>：<code>middle</code> 与 <code>medium</code> 在这里视觉等价。</li>
               </ul>

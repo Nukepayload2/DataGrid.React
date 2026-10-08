@@ -44,9 +44,8 @@ export default function FixedHeaderDemo() {
               <strong>固定表头</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：两侧一致——3 列（Name/Age/Address）× 100 行，表体纵向滚动时
-                  表头钉顶。实现不同：data-grid 表头单元格用 <code>position:sticky; top:0</code> 内联样式；
-                  antd 把表头渲染在独立的、不滚动的 <code>.ant-table-header</code> 容器中，置于可滚动
-                  表体容器之上。</li>
+                  表头钉顶。两侧实现不同：data-grid 用 CSS sticky 钉住表头单元格；antd 把表头放在
+                  独立的不滚动的 <code>.ant-table-header</code> 区域。视觉效果两侧一致。</li>
                 <li><strong>触发条件</strong>：表体纵向滚动时。</li>
                 <li><strong>说明</strong>：此 demo 仅作结构对照基线。</li>
               </ul>
@@ -55,8 +54,8 @@ export default function FixedHeaderDemo() {
               <strong>scroll.y 取值差异</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：data-grid 用 <code>scroll.y:true</code>（布尔，父容器
-                  height:394 = stickyHeader 54.8 + 表体可见 275.2 + 分页条区 64）；antd 用数字
-                  <code>scroll.y:55*5</code>（忠实官方）。两侧可见行数一致（6 行）。</li>
+                  固定高度 394px）；antd 用数字
+                  <code>scroll.y:55*5</code>（忠实官方 demo）。两侧可见行数一致（6 行）。</li>
                 <li><strong>触发条件</strong>：表格进入固定表头模式即出现。</li>
                 <li><strong>说明</strong>：data-grid 使用 <code>scroll.y: true</code>，高度由父容器决定；antd 使用数字高度。</li>
               </ul>
@@ -67,7 +66,7 @@ export default function FixedHeaderDemo() {
                 <li><strong>差异行为</strong>：data-grid 走自绘悬浮滚动条（macOS 风格细条），antd（非虚拟时）用
                   浏览器原生滚动条。</li>
                 <li><strong>触发条件</strong>：表体出现滚动条即出现（虚拟化开关 ON 时 antd 改用
-                  rc-virtual-list 自绘滚动条）。</li>
+                  虚拟滚动的自绘滚动条）。</li>
                 <li><strong>说明</strong>：两侧滚动条样式不同，但滚动交互一致。</li>
               </ul>
             </li>

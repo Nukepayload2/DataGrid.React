@@ -202,17 +202,13 @@ export default function ComponentTokenDemo() {
             （ConfigProvider theme 28 token + 动态面板），方便对照 token 注入效果。
             <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
               <li>
-                <strong>token 消费机制差异</strong>
+                <strong>主题 token 效果</strong>
                 <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                   <li><strong>差异行为</strong>：两侧最终视觉一致（如 <code>cellFontSize:16</code> →
-                    表头/表体 computed fontSize 均为 16），但消费链路不同。</li>
+                    表头/表体字号均为 16）。</li>
                   <li><strong>触发条件</strong>：ConfigProvider <code>theme.components.Table</code>
                     任意 token（28 个）。</li>
-                  <li><strong>差异原因</strong>：data-grid 经 <code>tableTokenToCssVars</code> 把 token
-                    映射为 <code>.dg-wrapper</code> inline <code>--ant-*</code> CSS 变量，由
-                    data-grid 直接消费 <code>--ant-table-cell-font-size</code> 等 antd CSS var；antd v6 cssinjs 原生消费
-                    <code>:where(.ant-table)</code> component token。详见
-                    <code>docs/features/styling/theme-tokens.md</code>。</li>
+                  <li><strong>差异原因</strong>：无差异，两侧由同一套 antd 主题 token 驱动，效果一致。</li>
                 </ul>
               </li>
               <li>
@@ -221,9 +217,8 @@ export default function ComponentTokenDemo() {
                   <li><strong>差异行为</strong>：data-grid 用 <code>scroll:&#123;y:true&#125;</code>
                     （表格占满父容器可用空间，不向 Table 传计算高度）；antd 用 <code>scroll:&#123;y:240&#125;</code>（数字）。</li>
                   <li><strong>触发条件</strong>：Fixed Header 开关 ON。</li>
-                  <li><strong>差异原因</strong>：data-grid 的 <code>y:true</code> 只开启数据区域模式，
-                    高度由自适应布局提供；antd 的 <code>scroll.y</code> 接受
-                    <code>number | string</code>（本 demo 传数字 240）。</li>
+                  <li><strong>差异原因</strong>：data-grid 额外支持 <code>y:true</code>（表体填满父容器可用空间）；
+                    antd 的 <code>scroll.y</code> 接受数字或字符串（本 demo 传 240）。</li>
                 </ul>
               </li>
               <li>

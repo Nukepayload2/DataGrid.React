@@ -320,7 +320,7 @@ export default function DomRecycledVirtualListAntdDemo() {
       <Space style={{ marginBottom: 8 }} align="center" wrap>
         <Typography.Text strong>对照：antd 大量数据</Typography.Text>
         <Typography.Text type="secondary">
-          同数据、同列宽、同操作列；antd 侧固定使用 virtual Table。
+          同数据、同列宽、同操作列；antd 侧始终使用 virtual Table。
         </Typography.Text>
       </Space>
       <Space style={{ marginBottom: 12 }} align="center" wrap>
@@ -373,7 +373,7 @@ export default function DomRecycledVirtualListAntdDemo() {
         onCancel={() => setActionModal(null)}
         onOk={() => setActionModal(null)}
       >
-        <div>不支持指定的方法。</div>
+        <div>这只是演示，操作未实现。</div>
         <div>{actionModal ? JSON.stringify(actionModal.row) : ''}</div>
       </Modal>
       <style>{`

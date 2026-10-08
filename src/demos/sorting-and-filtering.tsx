@@ -34,7 +34,7 @@ export default function HeadDemo() {
             checkedChildren="Bordered"
             unCheckedChildren="Bordered"
           />
-          <Button onClick={handleReset}>Reset (remount both)</Button>
+          <Button onClick={handleReset}>Reset (clear sorting and filtering)</Button>
         </Space>
       </DemoToolbar>
 
@@ -60,38 +60,36 @@ export default function HeadDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd head demo（排序 + 筛选共存），
-          共享数据驱动两侧 Name/Age/Address 列（sorter/filters/onFilter 配置逐字一致）。
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd 排序 + 筛选共存 demo，
+          两侧 Name/Age/Address 列的 sorter/filters/onFilter 配置完全一致。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>Submenu 渲染层级</strong>
+              <strong>Submenu 选项的展示差异</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：Name 列 filters 含 Submenu→children（Green/Black）。
-                  data-grid 扁平化为顶层项（一级 Checkbox 参与勾选）；antd 原生 menu 模式
-                  渲染二级菜单（点 Submenu 弹出 Green/Black）。</li>
+                <li><strong>差异行为</strong>：Name 列 filters 含一个 Submenu（下面带 Green/Black 两个选项）。
+                  data-grid 把 Green/Black 直接显示为顶层选项（与其他选项同级参与勾选）；antd 渲染为二级菜单
+                  （点 Submenu 弹出 Green/Black）。</li>
                 <li><strong>触发条件</strong>：点 Name 列筛选图标展开下拉。</li>
-                <li><strong>差异原因</strong>：两侧 filters 数据结构完全一致（逐字 antd demo），
+                <li><strong>说明</strong>：两侧 filters 配置完全一致（照抄 antd 官方 demo），
                   data-grid 现状不做二级菜单 UI（已知简化）。详见 <code>docs/features/interaction/filter-sorter.md</code>。</li>
               </ul>
             </li>
             <li>
-              <strong>filter 下拉控件来源</strong>
+              <strong>筛选下拉的渲染</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 的 FilterDropdown 由引擎统一渲染
-                  （内部用 antd Dropdown/Checkbox/Radio/Button）；antd 用原生 filter 下拉。</li>
+                <li><strong>差异行为</strong>：data-grid 的筛选下拉由 data-grid 自行渲染
+                  （视觉上使用 antd 的 Dropdown/Checkbox/Radio/Button）；antd 用自带的原生筛选下拉。</li>
                 <li><strong>触发条件</strong>：展开任意列筛选下拉。</li>
-                <li><strong>差异原因</strong>：data-grid 自绘 FilterDropdown 以对接引擎的筛选状态管理，
-                  但行为对齐 antd（filterOnClose 默认 / confirm 应用 / clearFilters 草稿不立即清表）。</li>
+                <li><strong>说明</strong>：data-grid 筛选下拉的行为与 antd 对齐：filterOnClose 默认行为相同，点「确认」才应用筛选，
+                  点「重置」只清空下拉内已选选项，不立即清空表格。</li>
               </ul>
             </li>
             <li>
               <strong>排序/筛选叠加与 sortDirections 循环</strong>（两侧一致，行为说明）：
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li>raw → sort → filter 管线一致；<code>sortDirections</code> 耗尽后回落到无排序
-                  （data-grid <code>nextSortDirection</code> 越界返回 null、antd 返回 undefined，
-                  均按无排序处理，语义一致）。</li>
-                <li><code>clearFilters()</code> 无参默认 <code>{'{confirm:false}'}</code>，点 Reset 只清草稿
-                  不立即清表，与 antd <code>onReset</code> 一致。</li>
+                <li>两侧排序与筛选的生效顺序相同（先排序、后筛选）；<code>sortDirections</code> 耗尽后再次点击回到无排序
+                  （两侧返回值细节略有不同，但都按无排序处理，行为一致）。</li>
+                <li>筛选下拉里点「重置」只清空下拉内已选选项，不立即清空表格，与 antd 行为一致。</li>
               </ul>
             </li>
           </ul>

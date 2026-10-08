@@ -94,7 +94,7 @@ export default function ResizableDemo() {
               </li>
               <li>
                 <strong>三种模式</strong>：<code>Disabled</code>（禁用手柄）/
-                <code>ResizeLeft</code>（总宽跟手势变化）/<code>ResizeSibling</code>
+                <code>ResizeLeft</code>（表格总宽跟着拖动变化）/<code>ResizeSibling</code>
                 （相邻列反向增减，表格总宽不变）。
               </li>
               <li>
@@ -109,11 +109,11 @@ export default function ResizableDemo() {
                 鼠标悬停<strong>data-grid</strong>表头格右缘会出现拖拽手柄；按下拖动即可改变列宽。antd 任意列边缘<strong>均无手柄</strong>。
               </li>
               <li>
-                调顶部控制条 <code>min width</code> / <code>max width</code> → 拖到边界会被限制，
-                手势继续移动但列宽不动，观察边界约束下的拖拽手感。
+                调顶部控制条 <code>min width</code> / <code>max width</code> → 拖到边界后，
+                继续拖列宽也不再变化，观察边界约束下的拖拽手感。
               </li>
               <li>
-                切 <code>ResizeLeft</code> → 表格总宽随手势变化（拖宽后可能触发横向滚动）；
+                切 <code>ResizeLeft</code> → 表格总宽跟着拖动变化（拖宽后可能触发横向滚动）；
                 切 <code>ResizeSibling</code> → 总宽不变，相邻列反向收缩/拉伸。
               </li>
               <li>
@@ -121,7 +121,7 @@ export default function ResizableDemo() {
               </li>
               <li>
                 所有列都未给 <code>width</code>；固定布局下初始列宽均分容器，
-                首次拖拽后被拖拽的列进入受控宽度。
+                首次拖拽后列宽以拖动结果为准。
               </li>
               <li>
                 <strong>组合观察（固定列 × 拖拽）</strong>：Name 列已设{' '}

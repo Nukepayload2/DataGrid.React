@@ -27,24 +27,21 @@ export default function EditCellDemo() {
             <li>
               <strong>EditableCell / EditableRow 返回值差异</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid <code>EditableCell</code> 返回内容 ReactNode
-                  （不包 <code>&lt;td&gt;</code>），<code>EditableRow</code> 用
-                  <code> Form component=&#123;false&#125;</code> + Provider（不产生 DOM）；
-                  antd 两侧分别返回 <code>&lt;td&gt;</code> / <code>&lt;tr&gt;</code>。</li>
+                <li><strong>差异行为</strong>：antd 的 <code>EditableCell</code> / <code>EditableRow</code> 分别返回
+                  <code>&lt;td&gt;</code> / <code>&lt;tr&gt;</code>；data-grid 的 <code>EditableCell</code> 只返回单元格内容
+                  （不包 <code>&lt;td&gt;</code>），<code>EditableRow</code> 原样渲染该行的各单元格（不产生额外 DOM）。</li>
                 <li><strong>触发条件</strong>：任意行渲染时（components.body.cell/row 自定义组件）。</li>
-                <li><strong>差异原因</strong>：data-grid 用 CSS Grid + div 渲染（<code>dg-row</code>/<code>dg-cell</code>），
-                  单元格需穿透为 grid 直接子元素；引擎把 EditableCell 渲染在 <code>.dg-cell-inner</code> 处。
-                  antd 原生 <code>&lt;table&gt;</code> 走原生 <code>&lt;td&gt;</code>/<code>&lt;tr&gt;</code>。</li>
+                <li><strong>差异原因</strong>：用法无差异：两侧都通过 <code>components.body.cell/row</code> 传入自定义
+                  单元格/行组件，编辑行为与外观一致。</li>
               </ul>
             </li>
             <li>
-              <strong>Form context 透传</strong>
+              <strong>Form 校验</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid div 渲染层级下，antd Form context 仍正常透传到
-                  EditableCell 内的 Form.Item，save(validateFields) 成功。</li>
-                <li><strong>触发条件</strong>：单元格进入编辑态后回车/失焦触发 validateFields。</li>
-                <li><strong>差异原因</strong>：React context 不依赖 DOM 层级，data-grid 的 div 渲染不改变
-                  React 组件树层级，故 Form context 跨层透传正常。</li>
+                <li><strong>差异行为</strong>：两侧的可编辑单元格都用 antd <code>&lt;Form.Item&gt;</code> 做必填校验，
+                  校验通过才保存，行为一致。</li>
+                <li><strong>触发条件</strong>：单元格进入编辑态后回车/失焦触发校验与保存。</li>
+                <li><strong>差异原因</strong>：无差异。</li>
               </ul>
             </li>
             <li>
@@ -53,8 +50,7 @@ export default function EditCellDemo() {
             </li>
             <li>
               <strong>rowClassName + CSS</strong>：两侧均传 <code>rowClassName</code> 返回
-              <code>{'editable-row'}</code> + 同款 <code>.editable-cell-value-wrap</code> hover 边框 CSS
-              （注入 document.head，两子组件共用同一 CSS，幂等检查防重复注入）。
+              <code>{'editable-row'}</code>，并用同一套 <code>.editable-cell-value-wrap</code> hover 边框样式。
             </li>
           </ul>
         </div>

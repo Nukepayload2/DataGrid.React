@@ -26,7 +26,7 @@ export default function StyleClassDemo() {
             unCheckedChildren="scroll.y"
           />
           <span style={{ color: 'rgba(0,0,0,0.65)', fontSize: 12 }}>
-            两块 Table 同时展示：对象 styles (size=small) + 函数 stylesFn (size=medium)
+            每侧同时展示两块 Table：一块用对象形式的 styles (size=small)，另一块用函数形式 (size=medium)
           </span>
         </Space>
       </DemoToolbar>
@@ -39,28 +39,28 @@ export default function StyleClassDemo() {
       >
         <div>
           <strong>对照说明：</strong>两栏呈现 data-grid 与 antd style-class demo，
-          方便对照 classNames/styles 各部位注入效果。
+          方便对照给各部位设置 classNames/styles 的效果。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>row 类名透传差异</strong>
+              <strong>行类名作用差异</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 表头/表体无独立 <code>&lt;tr&gt;</code>，
-                  <code>body.row</code>/<code>header.row</code> 的 class/style 透传到该行所有单元格；
-                  antd 作用于真实 <code>&lt;tr&gt;</code>。视觉等价。</li>
+                <li><strong>差异行为</strong>：data-grid 的行没有 <code>&lt;tr&gt;</code> 元素，
+                  <code>body.row</code>/<code>header.row</code> 设置的 class/style 作用于该行所有单元格；
+                  antd 有 <code>&lt;tr&gt;</code> 元素直接承接。两侧视觉效果等价。</li>
                 <li><strong>触发条件</strong>：传 <code>classNames.body.row</code> /
-                  <code> styles.body.row</code> 时。</li>
-                <li><strong>差异原因</strong>：data-grid 用 CSS Grid，行＝多 cell 直接铺在 grid 上
-                  无行容器，故行级样式分散到 cell。详见 <code>docs/features/layout/layout.md</code>。</li>
+                  <code>styles.body.row</code> 时。</li>
+                <li><strong>说明</strong>：data-grid 的行没有独立的行元素，行级样式因此作用到该行每个单元格。
+                  详见 <code>docs/features/layout/layout.md</code>。</li>
               </ul>
             </li>
             <li>
               <strong>pagination 简易模式差异</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：antd demo 用 <code>pagination:&#123;pageSize:3, simple:true&#125;</code>；
-                  data-grid <code>TablePaginationConfig</code> 暂未暴露 <code>simple</code>，仅 <code>pageSize:3</code>。</li>
+                <li><strong>差异行为</strong>：antd 侧用 <code>pagination:&#123;pageSize:3, simple:true&#125;</code>；
+                  data-grid 的 pagination 暂不支持 <code>simple</code> 选项，仅设置 <code>pageSize:3</code>。</li>
                 <li><strong>触发条件</strong>：本 demo 默认配置（始终）。</li>
-                <li><strong>差异原因</strong>：data-grid pagination 配置项尚未对齐 antd 全集，
-                  <code>simple</code> 为已知简化。</li>
+                <li><strong>说明</strong>：data-grid 的 pagination 配置项尚未与 antd 完全对齐，
+                  <code>simple</code> 为已知差距。</li>
               </ul>
             </li>
           </ul>

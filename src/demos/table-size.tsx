@@ -44,8 +44,8 @@ export default function SizeDemo() {
               <strong>size 取值</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：中等档两侧都传 <code>'medium'</code>（antd v6 SizeType
-                  含 <code>'medium'</code>；遗留写法 <code>'middle'</code> 由 antd 内部归一为
-                  <code>'medium'</code>）。两侧行高/padding 一致。</li>
+                  含 <code>'medium'</code>；遗留写法 <code>'middle'</code> 会被 antd 自动当作
+                  <code>'medium'</code> 处理）。两侧行高/padding 一致。</li>
                 <li><strong>触发条件</strong>：size 切到中间档。</li>
               </ul>
             </li>

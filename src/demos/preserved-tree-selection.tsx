@@ -60,11 +60,10 @@ export default function TreeTablePreserveSelectedRowKeysDemo() {
             <li>
               <strong>preserve=false 的 key 保留范围</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：两侧的存在性判定都基于<strong>原始全树</strong>（未排序/未筛选/未分页），
+                <li><strong>差异行为</strong>：两侧都用<strong>完整数据</strong>（未排序/未筛选/未分页）判断 key 是否还在，
                   key 保留范围一致：仍存在于数据源的 key 保留，彻底离开数据源的 key 丢弃。</li>
                 <li><strong>触发条件</strong>：<code>preserveSelectedRowKeys: false</code> + dataSource 跨请求切换。</li>
-                <li><strong>说明</strong>：antd 经 <code>useLazyKVMap(rawData)</code> 递归 dig；data-grid 的
-                  <code>recordByKey</code> 同样由 <code>rawDataSource</code> 递归 dig 构建。本 demo 用固定数据源，
+                <li><strong>说明</strong>：本 demo 用固定数据源，
                   两侧 preserve=true / false 行为一致。详见
                   <code>docs/features/interaction/selection.md</code>。</li>
               </ul>
@@ -74,14 +73,14 @@ export default function TreeTablePreserveSelectedRowKeysDemo() {
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：两侧默认均为 <strong>true</strong>（父子独立），无差异。</li>
                 <li><strong>触发条件</strong>：未显式传 <code>checkStrictly</code>。</li>
-                <li><strong>说明</strong>：本 demo 两侧均显式传共享 state（初值 false = 父子联动），顶部开关同时驱动两侧。</li>
+                <li><strong>说明</strong>：本 demo 两侧均显式传 <code>checkStrictly</code>（初值 false = 父子联动），顶部开关同时驱动两侧。</li>
               </ul>
             </li>
             <li>
               <strong>onSelect 回调</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：antd demo 变体额外接了 <code>onSelect</code>；data-grid 变体仅接
-                  <code>onChange</code>（<code>TableRowSelection</code> 类型同样声明了 <code>onSelect</code>，
+                <li><strong>差异行为</strong>：antd 侧额外接了 <code>onSelect</code>（<code>rowSelection</code> 的
+                  单行勾选回调）；data-grid 侧仅接 <code>onChange</code>（同样声明了 <code>onSelect</code>，
                   demo 未使用）。</li>
                 <li><strong>触发条件</strong>：勾选任意一行。</li>
               </ul>
@@ -95,8 +94,8 @@ export default function TreeTablePreserveSelectedRowKeysDemo() {
               </ol>
             </li>
             <li>
-              <strong>分页</strong>：15 父 × 2 子 + 分页 <code>defaultPageSize: 5</code> → 3 页/父
-              （切片基于顶层父行；展开子行不占页大小预算）。
+              <strong>分页</strong>：15 个父行 × 每父 2 个子行，分页 <code>defaultPageSize: 5</code> → 共 3 页
+              （分页只数顶层父行；展开的子行不占页面行数）。
             </li>
           </ul>
         </div>

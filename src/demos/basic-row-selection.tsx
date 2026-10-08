@@ -60,15 +60,8 @@ export default function RowSelectionDemo() {
           顶部 Radio.Group 共享 type 切换 + getCheckboxProps 禁用行 + 受控 selectedKeys。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>type 控件（demo 实现细节）</strong>：顶部工具栏的 Selection Type 是 antd
-              <code>&lt;Radio.Group&gt;</code>，经共享 state 同时驱动两栏；data-grid 变体在栏内另渲染一份原生
-              <code>&lt;input type="radio"&gt;</code> 最小 RadioGroup；antd 侧变体用
-              <code>&lt;Radio.Group&gt;</code>。栏内控件为 demo 文件层选择——data-grid 引擎的选择控件
-              内部实际用 antd Checkbox/Radio 渲染（antd 为 peerDependency）。
-            </li>
-            <li>
-              <strong>分隔线（demo 实现细节）</strong>：data-grid 变体用 <code>border-top</code>（取 antd token CSS var
-              <code>var(--ant-color-border-secondary)</code>）；antd 侧变体用 <code>&lt;Divider&gt;</code>。
+              <strong>type 控件</strong>：顶部工具栏的 Selection Type 是共享的
+              <code>&lt;Radio.Group&gt;</code>，同时驱动两栏的选择模式（Checkbox / Radio）。
             </li>
             <li>
               <strong>onChange 回调签名</strong>

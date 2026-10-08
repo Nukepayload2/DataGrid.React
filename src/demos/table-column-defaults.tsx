@@ -41,8 +41,7 @@ export default function ColumnDefaultsDemo() {
                 <li><strong>差异行为</strong>：两侧 Name/Description 继承 Table 级
                   <code> align:center</code>，Address 单列自身 <code>align</code> 覆盖默认 center。</li>
                 <li><strong>触发条件</strong>：Table 级传 <code>column</code> + 列自身同名字段。</li>
-                <li><strong>差异原因</strong>：data-grid <code>applyColumnDefaults</code> 浅合并（列自身优先）
-                  与 antd <code>mergeProps(default, col)</code> 同语义。</li>
+                <li><strong>差异原因</strong>：两侧合并规则相同——列自身字段优先，Table 级 <code>column</code> 只是默认值。</li>
               </ul>
             </li>
             <li>
@@ -52,7 +51,7 @@ export default function ColumnDefaultsDemo() {
                   <code>align:'left'</code>。</li>
                 <li><strong>触发条件</strong>：始终（demo 写死）。</li>
                 <li><strong>差异原因</strong>：两侧 align 类型都接受 <code>'start'/'end'</code> 与
-                  <code>'left'/'right'</code>（rc-table AlignType 含全部取值）；demo data-grid 侧写
+                  <code>'left'/'right'</code>；demo data-grid 侧写
                   <code>'start'</code>、antd 侧写 <code>'left'</code>，渲染结果等价。</li>
               </ul>
             </li>
@@ -62,9 +61,8 @@ export default function ColumnDefaultsDemo() {
                 <li><strong>差异行为</strong>：开启 <code>Ellipsis</code> 开关时两侧内容溢出均显示
                   <code>...</code>；关闭时均无。</li>
                 <li><strong>触发条件</strong>：Table 级 <code>column.ellipsis</code> 由开关驱动。</li>
-                <li><strong>差异原因</strong>：data-grid 有 ellipsis 列即派生
-                  <code>tableLayout:'fixed'</code> + <code>minmax(width,1fr)</code> 限 track 宽，
-                  与 antd <code>table-layout:fixed</code> 等效。详见
+                <li><strong>差异原因</strong>：有 ellipsis 列时 data-grid 同样切换为固定表格布局，
+                  与 antd <code>table-layout:fixed</code> 行为一致。详见
                   <code>docs/features/columns/column-width.md</code>。</li>
               </ul>
             </li>

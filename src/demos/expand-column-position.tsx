@@ -57,16 +57,16 @@ export default function ExpandStickyDemo() {
       >
         <div>
           <strong>对照说明：</strong>两栏呈现 data-grid 与 antd expand-sticky demo
-          （bordered + Team 列每 2 行合并 + EXPAND_COLUMN 哨兵控制展开列位置）。
+          （bordered + Team 列每 2 行合并 + EXPAND_COLUMN 常量控制展开列位置）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>展开过渡差异</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 展开/收起为 CSS Grid 的 <code>grid-template-rows</code>
-                  track <code>0fr↔1fr</code> 过渡；antd 无展开动画（仅展开图标有旋转过渡）。</li>
+                <li><strong>差异行为</strong>：data-grid 展开/收起有平滑的高度动画；antd 无展开动画
+                  （展开行立即出现/消失，仅展开图标有旋转过渡）。</li>
                 <li><strong>触发条件</strong>：点击任一行的展开图标。</li>
-                <li><strong>差异原因</strong>：data-grid 用 CSS Grid 渲染展开行（track 高度直接可动画插值），
-                  antd 的展开行立即出现/消失。详见{' '}
+                <li><strong>差异原因</strong>：展开动画是 data-grid 的附加能力，antd 的展开行立即出现/消失。
+                  详见{' '}
                   <code>docs/features/interaction/expand.md</code>。</li>
               </ul>
             </li>
@@ -74,10 +74,10 @@ export default function ExpandStickyDemo() {
               <strong>expandedRowOffset</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：两侧均设 <code>expandedRowOffset: 3</code>（展开内容跳过
-                  Team / 展开列 / Name，从 Age 列开始）并用 <code>EXPAND_COLUMN</code> 哨兵控制展开列位置；
-                  两侧展开列位置一致（Team 之后、Name 之前）。该 prop 在 rc-table 1.10.2 未废弃，
-                  仍作为展开行 colspan 偏移生效。</li>
-                <li><strong>触发条件</strong>：始终（展开列位置由列顺序决定，展开行 colspan 偏移由
+                  Team / 展开列 / Name，从 Age 列开始）并用 <code>EXPAND_COLUMN</code> 常量控制展开列位置；
+                  两侧展开列位置一致（Team 之后、Name 之前）。该 prop 在 antd 中未废弃，
+                  仍作为展开行的列偏移生效。</li>
+                <li><strong>触发条件</strong>：始终（展开列位置由列顺序决定，展开行的列偏移由
                   <code>expandedRowOffset</code> 决定）。</li>
               </ul>
             </li>

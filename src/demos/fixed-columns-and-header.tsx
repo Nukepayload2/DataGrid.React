@@ -45,12 +45,12 @@ export default function FixedColumnsHeaderDemo() {
               <strong>scroll.y 取值差异</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：data-grid 用 <code>scroll.y:true</code>（布尔，
-                  父容器 height:330 ≈ antd 表体 275 + 表头 ~55）；antd 用数字
-                  <code>scroll.y:55*5</code>（忠实官方）。</li>
+                  父容器固定高度 330px）；antd 用数字
+                  <code>scroll.y:55*5</code>（忠实官方 demo）。</li>
                 <li><strong>触发条件</strong>：表格进入固定表头模式（表体纵向滚动、表头钉顶）即出现。</li>
-                <li><strong>差异原因</strong>：data-grid 用纯 CSS flex 自适应高度（<code>y:true</code> 仅
-                  支持布尔，需父容器明确高度）；antd 接受数字 max-height 语义。两侧表体均可纵向滚动、
-                  表头钉顶，视觉等价。</li>
+                <li><strong>差异原因</strong>：data-grid 的 <code>scroll.y</code> 只支持布尔
+                  （true = 表体占满父容器高度，需父容器有明确高度）；antd 的 <code>scroll.y</code> 接受数字
+                  （表体最大高度）。两侧表体均可纵向滚动、表头钉顶，视觉一致。</li>
               </ul>
             </li>
             <li>
@@ -59,9 +59,8 @@ export default function FixedColumnsHeaderDemo() {
                 <li><strong>差异行为</strong>：data-grid 走自绘悬浮滚动条（macOS 风格细条），antd（非虚拟时）用
                   浏览器原生滚动条。</li>
                 <li><strong>触发条件</strong>：表体或表头区域出现滚动条即出现（虚拟化开关 ON 时 antd
-                  改用 rc-virtual-list 自绘滚动条）。</li>
-                <li><strong>差异原因</strong>：data-grid 非 sticky 模式恒用自绘 FloatingScrollBar；
-                  antd Table 非虚拟时用浏览器原生滚动条。</li>
+                  改用虚拟滚动的自绘滚动条）。</li>
+                <li><strong>差异原因</strong>：data-grid 默认用自绘滚动条；antd Table 非虚拟时用浏览器原生滚动条。</li>
               </ul>
             </li>
             <li>
@@ -72,9 +71,8 @@ export default function FixedColumnsHeaderDemo() {
                 <li><strong>触发条件</strong>：data-grid 含 <code>scroll.x:'max-content'</code> + Action fixed
                   <code>'end'</code> + 中间 Column 8-20 无 width（max-content）。</li>
                 <li><strong>差异原因</strong>：两侧固定列 + <code>scroll.x:'max-content'</code> 均为
-                  <code>table-layout:auto</code>；data-grid 无 width 列为 <code>minmax(min-content,1fr)</code>，
-                  边界宽度下实际列总宽小于可滚动宽度时 fixed-end 列可能偏移脱离。详见
-                  <code>docs/features/columns/fixed-column.md</code>。</li>
+                  <code>table-layout:auto</code>；边界宽度下实际列总宽小于可滚动宽度时，右固定列可能偏移脱离右边缘。
+                  详见 <code>docs/features/columns/fixed-column.md</code>。</li>
               </ul>
             </li>
           </ul>

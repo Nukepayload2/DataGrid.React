@@ -97,7 +97,7 @@ export default function StickyDemo() {
             长篇工作区文档中的粘性表头
           </h1>
           <p style={{ ...paragraphStyle, marginTop: 16, maxWidth: 860 }}>
-            本页模拟团队评审记录：说明文字、长表格和后续章节都位于同一个滚动容器中。
+            本页模拟团队评审记录：说明文字、长表格和后续章节都位于同一个滚动区域中。
             表格不会创建自己的垂直滚动区域；应用内容会作为一篇文档整体滚动。
           </p>
         </header>
@@ -106,10 +106,10 @@ export default function StickyDemo() {
           <h2 style={{ margin: '0 0 12px', fontSize: 20 }}>背景</h2>
           <p style={paragraphStyle}>
             产品、支持和合规团队经常在文档工作区中评审表格密集的页面。
-            读者浏览行数据和相邻说明章节时，粘性表头需要持续可用，而不是被限制在固定高度的表格视口内。
+            读者浏览行数据和相邻说明章节时，粘性表头需要持续可见，而不是只出现在表格自己的滚动区域内。
           </p>
           <p style={paragraphStyle}>
-            第一张表使用 data-grid 的页面级粘性模式。第二张表保留相同的文档结构，并使用 antd 作为对照。
+            第一张表使用 data-grid，表头跟随页面滚动保持粘住。第二张表保留相同的文档结构，使用 antd 作为对照。
           </p>
         </section>
 

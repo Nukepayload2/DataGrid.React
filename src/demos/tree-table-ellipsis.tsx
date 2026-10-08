@@ -30,15 +30,15 @@ export default function TreeTableEllipsisDemo() {
           Name ellipsis+fixed(Switch) + defaultExpandAllRows + rowSelection）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>四机制正交组合</strong>：
+              <strong>四个特性组合</strong>：
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li>
-                  <strong>差异行为</strong>：Name 列同时承担 fixed sticky 定位 +
-                  ellipsis CSS 类 + 树形内容前缀（缩进 + 展开图标）+ 前置 rowSelection 哨兵列，
-                  四者作用于不同层面（定位 / CSS 类 / 内容 / 列顺序）。
+                  <strong>差异行为</strong>：Name 列同时具备固定定位、省略号、
+                  树形内容（缩进 + 展开图标），且前面还有一列行选择框，
+                  四个特性互不干扰、组合下正常工作。
                 </li>
-                <li><strong>触发条件</strong>：Name = 第一个含 dataIndex 的叶子列，且 fixed=true。</li>
-                <li><strong>差异原因</strong>：data-grid 引擎 BodyCell 渲染时这四层面正交，组合正确工作不冲突。</li>
+                <li><strong>触发条件</strong>：fixed=true（Name 是表里第一个数据列）。</li>
+                <li><strong>差异原因</strong>：两侧这四个特性相互独立，组合下正确工作、不冲突。</li>
               </ul>
             </li>
             <li>
@@ -58,7 +58,7 @@ export default function TreeTableEllipsisDemo() {
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：Name 列超长树名稳定省略号 <code>...</code>，两侧视觉一致。</li>
                 <li><strong>触发条件</strong>：首列 <code>ellipsis:true + width:'30%'</code>。</li>
-                <li><strong>差异原因</strong>：data-grid <code>derivedTableLayout</code> 隐式派生 <code>tableLayout:'fixed'</code>（首列 ellipsis）+ 无 width 列 <code>minmax(0,1fr)</code>（min:0 收缩），与 antd <code>&lt;table&gt;</code> + tableLayout:fixed 一致。</li>
+                <li><strong>差异原因</strong>：首列带 ellipsis 时两侧都使用固定表格布局（tableLayout:fixed），省略号显示一致。</li>
               </ul>
             </li>
           </ul>

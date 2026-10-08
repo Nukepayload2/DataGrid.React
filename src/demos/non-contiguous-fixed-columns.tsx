@@ -61,15 +61,14 @@ export default function FixedGappedColumnsDemo() {
           <strong>对照说明：</strong>本 demo 两栏呈现 data-grid 与 antd fixed-gapped-columns。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>分散固定列堆叠实现机制</strong>
+              <strong>分散固定列堆叠</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：start 侧 FullName（最左）+ Column1（第 3 列，中间夹 Age）
                   不相邻；end 侧 Action1 + Action3（中间夹 Action2）不相邻。横向滚动时 4 个固定列都
                   sticky 固定（start 两个叠在左侧、end 两个叠在右侧）。两侧结构一致。</li>
                 <li><strong>触发条件</strong>：固定列不相邻（始终）。</li>
-                <li><strong>差异原因</strong>：data-grid <code>useStickyColumns</code> 按列顺序累加偏移
-                  （start 从左扫遇 fixed=start 累加；end 从右扫遇 fixed=end 累加），不要求固定列相邻；
-                  antd 原生 <code>fixed:'start'/'end'</code> 同款语义。详见
+                <li><strong>差异原因</strong>：无差异。两侧 <code>fixed:'start'/'end'</code> 语义一致，
+                  固定列不要求相邻。详见
                   <code>docs/features/columns/fixed-column.md</code>。</li>
               </ul>
             </li>
@@ -77,20 +76,21 @@ export default function FixedGappedColumnsDemo() {
               <strong>固定列边缘阴影切换</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：滚到边缘时 antd 隐藏对应侧阴影；data-grid 分散固定列
-                  （Column1 起 start 阴影 / Action1 起 end 阴影）恒显（8px 模糊 + 极淡 alpha，差异极小）。</li>
+                  （Column1 起 start 阴影 / Action1 起 end 阴影）恒显，两侧视觉差异极小。</li>
                 <li><strong>触发条件</strong>：横向滚到边缘。</li>
-                <li><strong>差异原因</strong>：antd rc-table 监听 scrollLeft 动态切换；data-grid 纯 CSS
-                  不脚本监听。详见 <code>docs/features/columns/fixed-column.md</code>。</li>
+                <li><strong>差异原因</strong>：两侧差别仅在滚到边缘时阴影是否隐藏，视觉差异极小。
+                  详见 <code>docs/features/columns/fixed-column.md</code>。</li>
               </ul>
             </li>
             <li>
               <strong>无 width 列 + scroll.x:'max-content'</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：本 demo 用 <code>scroll.x:'max-content'</code>，左右固定列
-                  严格贴边、无脱离（与 antd 一致）。</li>
+                  严格贴住容器边缘（与 antd 一致）。</li>
                 <li><strong>触发条件</strong>：含无 <code>width</code> 普通列 + <code>scroll.x:'max-content'</code>。</li>
-                <li><strong>差异原因</strong>：data-grid 列宽策略下 max-content 路径使固定列偏移稳定贴边；
-                  数字 <code>scroll.x</code> + 无 width 列总和 &lt; 声明宽时可能脱离（本 demo 不命中）。
+                <li><strong>差异原因</strong>：<code>scroll.x:'max-content'</code> 时表格宽度由内容决定，
+                  固定列始终贴住边缘；用数字 <code>scroll.x</code> 时若各列宽度总和小于声明宽度，
+                  固定列可能不贴边（本 demo 不属于这种情况）。
                   详见 <code>docs/features/columns/fixed-column.md</code>。</li>
               </ul>
             </li>

@@ -23,7 +23,7 @@ const semanticSlots: SemanticSlot[] = [
     title: 'root',
     status: 'supported',
     dgTarget: '.dg-wrapper',
-    dgDescription: '根元素，承载表格容器的基础样式、尺寸和主题变量。',
+    dgDescription: '根元素，承载表格容器的基础样式和尺寸。',
     antdTarget: '.ant-table-wrapper',
     antdDescription: '根元素，包含字体大小、背景色、圆角、滚动条颜色等表格容器的基础样式。',
   },
@@ -50,7 +50,7 @@ const semanticSlots: SemanticSlot[] = [
     title: 'header.wrapper',
     status: 'limited',
     dgTarget: '无独立 thead 容器',
-    dgDescription: 'data-grid 没有独立表头容器 DOM；该槽位保留 API 形状，但不会形成 antd 的 thead 层级。',
+    dgDescription: 'data-grid 没有独立的表头容器 DOM，页面中不会出现 antd 的 thead 元素。',
     antdTarget: '.ant-table-thead',
     antdDescription: '头部容器元素，包含表头的布局和容器样式。',
   },
@@ -59,7 +59,7 @@ const semanticSlots: SemanticSlot[] = [
     title: 'header.row',
     status: 'mapped',
     dgTarget: '表头行内所有 header cell',
-    dgDescription: '表头行样式透传到同一逻辑行的所有表头单元格。',
+    dgDescription: 'data-grid 没有独立的表头行元素，该样式作用于同一表头行的所有单元格。',
     antdTarget: 'thead > tr',
     antdDescription: '头部行元素，包含表头行的布局和样式。',
   },
@@ -77,7 +77,7 @@ const semanticSlots: SemanticSlot[] = [
     title: 'section',
     status: 'supported',
     dgTarget: '.dg-scroll-wrap',
-    dgDescription: '表格包装容器，承载滚动区域、边框和浮动滚动条上下文。',
+    dgDescription: '表格包装容器，承载滚动区域和边框。',
     antdTarget: '.ant-table-container',
     antdDescription: '容器元素，包含清除浮动、最大宽度、滚动条背景等表格包装容器样式。',
   },
@@ -86,7 +86,7 @@ const semanticSlots: SemanticSlot[] = [
     title: 'body.wrapper',
     status: 'limited',
     dgTarget: '无独立 tbody 容器',
-    dgDescription: 'data-grid 没有独立表体容器 DOM；表体直接由 grid cell 组成。',
+    dgDescription: 'data-grid 没有独立的表体容器 DOM，页面中不会出现 antd 的 tbody 元素。',
     antdTarget: '.ant-table-tbody',
     antdDescription: '主体容器元素，包含表格主体的布局和容器样式。',
   },
@@ -95,7 +95,7 @@ const semanticSlots: SemanticSlot[] = [
     title: 'body.row',
     status: 'mapped',
     dgTarget: '表体行内所有 body cell',
-    dgDescription: '数据行样式透传到同一逻辑行的所有数据单元格。',
+    dgDescription: 'data-grid 没有独立的数据行元素，该样式作用于同一行的所有单元格。',
     antdTarget: 'tbody > tr',
     antdDescription: '主体行元素，包含数据行的悬浮效果、选中状态、展开状态等交互样式。',
   },
@@ -104,7 +104,7 @@ const semanticSlots: SemanticSlot[] = [
     title: 'body.cell',
     status: 'supported',
     dgTarget: '.dg-cell-body',
-    dgDescription: '主体单元格元素，包含内边距、换行、合并格和行标题视觉样式。',
+    dgDescription: '主体单元格元素，包含内边距、换行和合并格的样式。',
     antdTarget: 'td.ant-table-cell',
     antdDescription: '主体单元格元素，包含相对定位、内边距、文字换行等数据单元格的基础样式。',
   },
@@ -122,7 +122,7 @@ const semanticSlots: SemanticSlot[] = [
     title: 'pagination.root',
     status: 'supported',
     dgTarget: '.dg-pagination',
-    dgDescription: '分页根元素，承载分页器的布局和外层语义样式。',
+    dgDescription: '分页根元素，承载分页器的布局。',
     antdTarget: '.ant-pagination',
     antdDescription: '分页根元素，包含分页组件的基础样式和布局。',
   },
@@ -131,15 +131,15 @@ const semanticSlots: SemanticSlot[] = [
     title: 'pagination.item',
     status: 'mapped',
     dgTarget: 'antd Pagination item',
-    dgDescription: '分页单项样式透传到内部 antd Pagination 的 item 层。',
+    dgDescription: '该样式作用于内部 antd Pagination 的分页项。',
     antdTarget: '.ant-pagination-item / prev / next',
     antdDescription: '分页单项元素，包含分页项的样式和交互效果。',
   },
 ]
 
 const statusLabel: Record<SemanticSlotStatus, string> = {
-  supported: '已落点',
-  mapped: '透传',
+  supported: '已支持',
+  mapped: '映射',
   limited: '受限',
 }
 
@@ -195,7 +195,7 @@ function SemanticSlotList({
                 {isDataGrid ? <Tag color={statusColor[slot.status]}>{statusLabel[slot.status]}</Tag> : null}
                 <Tooltip title={target}>
                   <Button
-                    aria-label={`${slot.title} 落点信息`}
+                    aria-label={`${slot.title} 对应位置`}
                     type="text"
                     size="small"
                     icon={<InfoCircleOutlined />}
@@ -230,11 +230,11 @@ export default function SemanticDomDemo() {
         }}
       >
         <strong>Semantic DOM：</strong> 左侧 data-grid 使用与 antd Semantic DOM 示例同名的
-        <code> semantic-mark-*</code> classNames 标记 11 个槽位（antd 的 header.wrapper /
-        body.wrapper 本库不提供——无 thead/tbody 容器）；右侧列表说明每个槽位在
-        data-grid DOM 中的落点。data-grid 已支持可排序表头的 <code>aria-sort</code>：
-        点击 <strong>Age</strong> 表头时输出 <code>ascending</code> / <code>descending</code>，
-        未排序时不输出该属性。
+        <code>semantic-mark-*</code> classNames 标记 11 个部位（antd 的 header.wrapper /
+        body.wrapper 在 data-grid 中没有对应元素——无 thead/tbody 容器）；右侧列表说明每个部位在
+        data-grid DOM 中对应的位置。data-grid 已支持可排序表头的 <code>aria-sort</code>：
+        点击 <strong>Age</strong> 表头后，表头显示 <code>ascending</code> / <code>descending</code>，
+        未排序时没有该属性。
         <Button
           type="link"
           style={{ paddingInline: 6 }}

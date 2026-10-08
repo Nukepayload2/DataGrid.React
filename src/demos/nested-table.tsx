@@ -47,15 +47,15 @@ export default function NestedTableDemo() {
                 <li><strong>差异行为</strong>：data-grid 侧子表是 data-grid <code>&lt;Table&gt;</code>；
                   antd 侧子表是真实 antd <code>&lt;Table&gt;</code>。两者渲染各自的表格样式。</li>
                 <li><strong>触发条件</strong>：展开任意行（初始 key='0' 的行默认展开）。</li>
-                <li><strong>说明</strong>：展开内容可以放入一张独立子表，子表使用自己的 columns 和 dataSource（子表不传 size，走默认档）。</li>
+                <li><strong>说明</strong>：展开内容可以放入一张独立子表，子表使用自己的 columns 和 dataSource（子表不传 size，用默认尺寸）。</li>
               </ul>
             </li>
             <li>
               <strong>size 取值</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：中等档两侧都传 <code>'medium'</code>（antd v6 接受
-                  <code>'medium'</code>；遗留写法 <code>'middle'</code> 由 antd 内部归一为
-                  <code>'medium'</code>）。两侧行高/padding 一致。</li>
+                  <code>'medium'</code>；遗留写法 <code>'middle'</code> 也能用，效果相同）。
+                  两侧行高/padding 一致。</li>
                 <li><strong>触发条件</strong>：size 切到中间档。</li>
               </ul>
             </li>

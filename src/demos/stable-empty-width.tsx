@@ -89,7 +89,7 @@ export default function StableEmptyWidthDemo() {
                 <strong>点同样的按钮</strong>：data-grid 列宽保持一致，空 / 非空切换时不会改变已声明宽度。
               </li>
               <li>
-                <strong>增删列时</strong>：已有列宽度按比例平滑变化（0.3s <code>grid-template-columns</code> 过渡），无单帧抖动。
+                <strong>增删列时</strong>：已有列宽度按比例平滑变化（0.3s 过渡），无单帧抖动。
               </li>
             </Item>
 

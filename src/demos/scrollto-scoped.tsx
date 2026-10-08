@@ -62,7 +62,7 @@ export default function ScrolltoScopedDemo() {
               lineHeight: 1.6,
             }}
           >
-            两侧外层容器初始 scrollTop 都为 0。点按钮后：data-grid 表体动 / 外层不动；
+            两侧外层容器初始都滚到顶部。点按钮后：data-grid 只动表体，外层不动；
             antd 外层也跟着滚（#46467）。
           </span>
         </Space>
@@ -79,16 +79,16 @@ export default function ScrolltoScopedDemo() {
         right={<ScrolltoScopedAntd tableRef={antdRef} />}
       >
         <div>
-          <strong>对照说明：</strong>直击 antd <IssueLink /> ——
+          <strong>对照说明：</strong>针对 antd <IssueLink /> ——
           外层有滚动条时，<code>ref.scrollTo</code> 连外层一起滚（antd 团队确认 bug）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
-            <Item title={`① antd 病灶（#46467）`}>
+            <Item title={`① antd 问题（#46467）`}>
               <li>
                 <strong>差异行为</strong>：antd 非虚拟模式下调用
                 <code>ref.scrollTo(&#123; index &#125;)</code> 时，外层容器也可能被一起滚动。
               </li>
               <li>
-                <strong>触发条件</strong>：antd demo 区——外层有可滚动空间时，点顶栏「Scroll
+                <strong>触发条件</strong>：antd 侧——外层有可滚动空间时，点顶栏「Scroll
                 To row 150」。观察外层 placeholder 也被顶上去。
               </li>
               <li>
@@ -100,8 +100,8 @@ export default function ScrolltoScopedDemo() {
                 <strong>差异行为</strong>：data-grid 的 <code>ref.scrollTo</code> 只滚动表体，外层容器不会动。
               </li>
               <li>
-                <strong>触发条件</strong>：data-grid demo 区——任意外层 scrollTop 状态下点顶栏
-                「Scroll To row 150」。表体滚到目标行，外层 scrollTop <strong>不变</strong>。
+                <strong>触发条件</strong>：data-grid 侧——任意外层滚动位置状态下点顶栏
+                「Scroll To row 150」。表体滚到目标行，外层滚动位置 <strong>不变</strong>。
               </li>
               <li>
                 <strong>说明</strong>：本页重点验证 scrollTo 的影响范围是否限定在表格内部。
@@ -109,7 +109,7 @@ export default function ScrolltoScopedDemo() {
             </Item>
             <Item title="③ 如何观察">
               <li>
-                <strong>初始态</strong>：两侧外层容器都滚到顶部（scrollTop=0），
+                <strong>初始态</strong>：两侧外层容器都滚到顶部，
                 上下两块 placeholder 上下夹住表格。
               </li>
               <li>
@@ -117,12 +117,12 @@ export default function ScrolltoScopedDemo() {
                 <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                   <li>
                     <strong>data-grid</strong>：表体瞬间滚到第 150 行，
-                    上下 placeholder <strong>不动</strong>（外层 scrollTop 仍为 0）。
+                    上下 placeholder <strong>不动</strong>（外层滚动位置仍在顶部）。
                   </li>
                   <li>
                     <strong>antd</strong>：表体滚到第 150 行的<strong>同时</strong>，
-                    外层容器也被 <code>scrollIntoView</code> 拉动——上方 placeholder 被顶出视口、
-                    下方 placeholder 滚入视口。
+                    外层容器也跟着滚——上方 placeholder 被顶出可见区域、
+                    下方 placeholder 滚入可见区域。
                   </li>
                 </ul>
               </li>
@@ -130,8 +130,8 @@ export default function ScrolltoScopedDemo() {
                 <strong>点「Scroll To row 0」</strong>：
                 <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                   <li>
-                    data-grid 表体滚回首行，外层依旧不动；antd 外层也会被
-                    scrollIntoView 拉回，把表体所在区段重新对齐到外层视口。
+                    data-grid 表体滚回首行，外层依旧不动；antd 外层也会跟着
+                    滚动，把表体重新对齐到外层可见区域。
                   </li>
                 </ul>
               </li>

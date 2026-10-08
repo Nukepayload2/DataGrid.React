@@ -41,14 +41,13 @@ export default function FilterInTreeDemo() {
       >
         <div>
           <strong>对照说明：</strong>两栏呈现 data-grid 与 antd filter-in-tree demo。两侧
-          <code>filterMode:'tree'</code> 树形筛选行为完全对齐（均用 antd
-          <code>&lt;Tree checkable&gt;</code> 父子联动），无可观察差异：
+          <code>filterMode:'tree'</code> 树形筛选行为完全对齐（筛选面板为可勾选树，父子联动），无可观察差异：
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li><strong>Name 列</strong>：<code>filterMode:'tree'</code> + filters 含 children（Joe /
               Category 1→[Yellow,Pink] / Category 2→[Green,Black]）。勾 Category 1 自动勾 Yellow+Pink
               （父子联动）；选中值作 filteredValue，onFilter 对每个 value 判定 OR。</li>
-            <li><strong>filterSearch（tree 模式）</strong>：输入搜索词后命中节点<strong>高亮</strong>
-              （antd <code>filterTreeNode</code> "highlight" 语义），<strong>不隐藏</strong>不匹配节点
+            <li><strong>filterSearch（tree 模式）</strong>：输入搜索词后匹配到的节点<strong>高亮</strong>
+              （antd <code>filterTreeNode</code> "highlight" 行为），<strong>不隐藏</strong>不匹配节点
               ——两侧一致。</li>
             <li><strong>Address 列</strong>：无 filterMode → 默认 menu + filterSearch。tree + menu 共存
               （Name 走 tree，Address 走 menu，互不影响）。</li>

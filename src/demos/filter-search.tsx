@@ -40,17 +40,17 @@ export default function FilterSearchDemo() {
         right={<FilterSearchAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd filter-search demo。两侧 <code>filterSearch</code>
-          行为完全对齐（Name 列 <code>filterMode:'tree'</code>、Address 列默认 menu；data-grid FilterDropdown
-          用 antd <code>&lt;Tree&gt;</code>，视觉/交互一致），无可观察差异。两侧行为要点：
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd filter-search demo。两侧的筛选搜索
+          行为完全一致（Name 列 <code>filterMode:'tree'</code>、Address 列默认 menu 模式；data-grid 侧的树形筛选
+          也用 antd <code>&lt;Tree&gt;</code> 渲染，视觉和交互一致），无可观察差异。两侧行为要点：
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
-            <li><strong>tree 模式 filterSearch</strong>（两侧 Name）：输入搜索词后命中节点<strong>高亮</strong>
-              （antd <code>filterTreeNode</code> "highlight" 语义），<strong>不隐藏</strong>不匹配节点。</li>
-            <li><strong>menu 模式 filterSearch</strong>（两侧 Address）：下拉顶部搜索框实时过滤筛选项
-              （item.text 转小写包含输入即命中，大小写不敏感）；输入空显全部；关闭清空搜索值。</li>
+            <li><strong>tree 模式</strong>（两侧 Name 列）：输入搜索词后匹配节点只<strong>高亮</strong>
+              （antd <code>Tree</code> 的 <code>filterTreeNode='highlight'</code> 行为），<strong>不隐藏</strong>不匹配节点。</li>
+            <li><strong>menu 模式</strong>（两侧 Address 列）：下拉顶部搜索框实时过滤筛选项
+              （大小写不敏感）；输入为空时显示全部；关闭下拉清空搜索词。</li>
           </ul>
           <p style={{ margin: '8px 0 0' }}>
-            搜索框只过滤显示/高亮，不影响已勾选的筛选值（搜索与勾选状态解耦）。
+            搜索框只影响筛选项的显示/高亮，不影响已勾选的筛选值。
             <strong>Bordered 开关</strong>同时切换两侧边框；打开 console 查看 <code>onChange</code> 参数。
           </p>
         </div>

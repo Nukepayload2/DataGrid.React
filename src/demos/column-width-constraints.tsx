@@ -380,7 +380,7 @@ export default function ColumnWidthConstraintsDemo() {
               而是在给定 <code>scroll.x={SCROLL_X}</code> 后直接观察 antd 实际列宽。
             </li>
             <li>
-              data-grid 自动布局在未写列级下限时使用 <code>min-content</code> 作为默认下限；
+              data-grid 自动布局在未声明列级下限时，列宽可被内容换行压缩（下限是最长不可拆分的词）；
               本页 data-grid「操作」列显式设置列级边界，固定布局则按列定义和约束分配，不再按内容撑宽。
             </li>
             <li>

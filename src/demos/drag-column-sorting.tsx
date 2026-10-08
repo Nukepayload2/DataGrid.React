@@ -54,32 +54,32 @@ export default function DragColumnSortingDemo() {
         right={<DragColumnSortingAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>两栏呈现 data-grid（自研 pointer 列方向拖拽）与 antd 官方
+          <strong>对照说明：</strong>两栏呈现 data-grid（自研列拖拽）与 antd 官方
           drag-column-sorting（dnd-kit 列拖拽）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>拖拽视觉</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 拖拽中显示<strong>蓝色垂直指示线</strong>
-                  + 被拖列 overlay 跟随指针 + 中间列自动让位；antd 被拖列表头
-                  <strong>跟随指针平移</strong>（transform）+ body cell borderInline 虚线指示 +
-                  DragOverlay 预览（灰底）。</li>
-                <li><strong>触发条件</strong>：按住列头并水平移动指针。</li>
-                <li><strong>差异原因</strong>：data-grid 的一列不是单一 DOM 元素（表头/表体单元格是
-                  独立的 grid item），dnd-kit 的单元素 transform 模型无法平移整列，故 data-grid 只对
-                  可见单元格做离散 transform，真实重排仍由 columns 更新完成。</li>
+                <li><strong>差异行为</strong>：data-grid 拖拽中显示<strong>一条蓝色竖线</strong>
+                  标示目标位置，被拖列的副本跟随鼠标，中间列自动让位；antd 被拖的列表头
+                  原位变灰（半透明），一个灰底的列表头预览跟随鼠标，目标列的 body 单元格
+                  显示灰色虚线边框。</li>
+                <li><strong>触发条件</strong>：按住列头水平拖动。</li>
+                <li><strong>差异原因</strong>：data-grid 的一列不是单一 DOM 元素（表头和表体单元格是
+                  相互独立的元素），无法把整列作为一个整体移动，所以拖拽中只移动可见单元格并显示
+                  蓝色竖线，列的实际重排由 columns 更新完成。</li>
               </ul>
             </li>
             <li>
               <strong>列标志（仅 data-grid）</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 的 Gender 列 <code>gridColumnOptions.dragColumnLock:'lockDrag'</code>
-                  （不可发起拖但被动让位）、Email 列 <code>gridColumnOptions.dragColumnLock:'lockPosition'</code>
-                  （不可发起拖且 index 固定）；antd
-                  忠实复刻官方，无此单列约束。</li>
+                <li><strong>差异行为</strong>：data-grid 的 Gender 列设置 <code>gridColumnOptions.dragColumnLock:'lockDrag'</code>
+                  （不能拖动，其它列拖过时会跟着让位）、Email 列设置 <code>gridColumnOptions.dragColumnLock:'lockPosition'</code>
+                  （不能拖动，位置固定）；antd
+                  忠实复刻官方，没有这种单列约束。</li>
                 <li><strong>触发条件</strong>：尝试拖动 Gender/Email 列，或拖动其它列让其让位。</li>
-                <li><strong>差异原因</strong>：data-grid 列方向拖拽支持 per-column 标志
-                  （<code>gridColumnOptions</code>），是相对官方的功能扩展。</li>
+                <li><strong>差异原因</strong>：data-grid 的列拖拽支持按列设置锁定
+                  （<code>gridColumnOptions.dragColumnLock</code>），是 antd 官方 demo 没有的扩展功能。</li>
               </ul>
             </li>
           </ul>

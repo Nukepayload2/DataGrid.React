@@ -64,15 +64,15 @@ export default function VirtualSummaryDemo() {
           <strong>对照说明：</strong>两栏均开启 <code>virtual</code> 渲染万行/十万行数据，并启用 <code>Table.Summary</code> 表尾汇总。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>antd 病灶（#47184）</strong>
+              <strong>antd 的问题（#47184）</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：antd <code>virtual</code> 下 <code>summary</code> 函数虽被调用，但非 fixed 的 summary 可能无法正常呈现。</li>
+                <li><strong>差异行为</strong>：antd <code>virtual</code> 下，未加 <code>fixed</code> 的 summary 无法正常呈现。</li>
                 <li><strong>触发条件</strong>：顶栏「antd Summary fixed」开关关闭（默认）时即可观察到 summary 缺失。</li>
                 <li><strong>说明</strong>：<Typography.Link href={ISSUE_URL} target="_blank" rel="noreferrer">antd#47184</Typography.Link> 记录了「虚拟下 summary 只能 fixed」的限制。</li>
               </ul>
             </li>
             <li>
-              <strong>data-grid 解药</strong>
+              <strong>data-grid 的表现</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：data-grid summary 始终可见——虚拟滚动表体时汇总行（共 N 行 / 均龄）钉在表尾视口底部，数值正确更新。</li>
                 <li><strong>触发条件</strong>：任意滚动表体。</li>

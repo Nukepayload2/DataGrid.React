@@ -77,8 +77,8 @@ export default function ExpandDemo() {
             <li>
               <strong>展开过渡</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 有 <code>grid-template-rows</code> track
-                  <code>0fr↔1fr</code> 过渡；antd 无展开动画（仅展开图标有旋转过渡）。展开内容和受控状态两侧保持一致。</li>
+                <li><strong>差异行为</strong>：data-grid 展开/收起有平滑的高度动画；antd 无展开动画
+                  （展开行立即出现/消失，仅展开图标有旋转过渡）。展开内容和受控状态两侧保持一致。</li>
                 <li><strong>触发条件</strong>：展开/收起任意行。</li>
                 <li><strong>说明</strong>：本页重点验证展开内容、展开图标和受控状态。</li>
               </ul>
@@ -86,14 +86,14 @@ export default function ExpandDemo() {
             <li>
               <strong>expandRowByClick + expandedRowClassName</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 开启 <code>expandRowByClick: true</code>（点击行体切换展开，且不阻止 <code>onRow.onClick</code>）+ <code>expandedRowClassName</code> 给展开行追加 <code>dg-demo-expanded-row</code> class（浅黄底）；antd 不开。</li>
+                <li><strong>差异行为</strong>：data-grid 开启 <code>expandRowByClick: true</code>（点击行体切换展开，且不阻止 <code>onRow.onClick</code>）+ <code>expandedRowClassName</code> 给展开行追加 <code>dg-demo-expanded-row</code> class（浅黄底）；antd 不开启这两项设置。</li>
                 <li><strong>触发条件</strong>：点击行体非图标单元格（data-grid），或展开任意行（data-grid 加 class）。</li>
                 <li><strong>说明</strong>：data-grid 额外演示「点击行体展开」与「展开行视觉标记」两项能力。</li>
               </ul>
             </li>
             <li>
-              <strong>展开控制方式（demo 接线）</strong>：本 demo 两栏均受控（共享 expandedRowKeys +
-              Expand All / Collapse All 按钮组），便于同步对照两侧行为；官方 antd demo 原本非受控展开。
+              <strong>展开控制方式（demo 实现细节）</strong>：本 demo 两栏均为受控（共享同一份 expandedRowKeys +
+              Expand All / Collapse All 按钮），便于同步对照两侧行为；官方 antd demo 原本是非受控展开。
             </li>
           </ul>
         </div>

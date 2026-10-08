@@ -96,19 +96,20 @@ export default function ResetFilterDemo() {
             <li>
               <strong>locale 文案</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 传中文 locale（漏斗下拉底部「确定/重置」、
-                  tree 全选「全选」、搜索框 placeholder「搜索」、空筛选项占位「无筛选」）；
-                  antd 不传 locale，保持英文（OK/Reset/Select all items/Search in filters/No filters）。</li>
-                <li><strong>触发条件</strong>：打开任一列漏斗下拉。</li>
-                <li><strong>差异原因</strong>：本 demo 用 data-grid 中文 / antd 英文对照验证 locale key 注入。
-                  两侧机制相同（同一套 antd FilterDropdown locale），仅文案不同。</li>
+                <li><strong>差异行为</strong>：data-grid 侧传了中文 locale：筛选下拉底部按钮为「确定/重置」、
+                  搜索框占位文案「搜索」、树形筛选的全选「全选」、空筛选占位「无筛选」；
+                  antd 侧不传 locale，保持英文（OK/Reset/Select all items/Search in filters/No filters）。</li>
+                <li><strong>触发条件</strong>：打开任一列的筛选下拉。</li>
+                <li><strong>说明</strong>：本 demo 故意 data-grid 侧用中文、antd 侧用英文，方便看清文案差异。
+                  两侧筛选下拉文案都来自 antd 的 locale 配置，只是语言不同。</li>
               </ul>
             </li>
           </ul>
           <p style={{ margin: '8px 0 0' }}>
-            末尾追加的 Status/Tag/Empty 列用于触发上述 locale 文案分支；与受控筛选/排序/重置无关。
-            两栏均使用默认分页器，表底一致出现 disabled 态分页条。已知：filter 触发时 onChange 的
-            <code>sorter</code> 字段可能不完整
+            末尾追加的 Status/Tag/Empty 列用于让上述筛选文案（搜索框占位、树形全选、空筛选占位）
+            实际出现；与受控筛选/排序/重置无关。
+            两侧均使用默认分页器，数据只有 1 页，分页条的前后翻页按钮为禁用态。已知：仅触发 filter 时 onChange 的
+            <code>sorter</code> 参数可能不完整
             （data-grid 与 antd 均如此，非 bug）。
           </p>
         </div>

@@ -80,7 +80,7 @@ export default function DragMultiRowReorderDemo() {
             ? '所有选中行成块移动到目标位置（保持相对顺序）。'
             : '只移被拖行（其它选中行不动）。'}
           <br />
-          边界：被拖行未选中→只移它；目标落在选中块内部→no-op。
+          边界：被拖行未选中→只移它；目标落在选中块内部→无变化。
         </div>
       </DemoToolbar>
 

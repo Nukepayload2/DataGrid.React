@@ -29,19 +29,19 @@ export default function EditRowDemo() {
             <li>
               <strong>EditableCell 返回值</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 的 <code>components.body.cell</code> 返回
-                  <strong> 内容 ReactNode（不包 td）</strong>，引擎渲染在 <code>.dg-cell-inner</code>；
-                  antd 返回原生 <code>&lt;td &#123;...props&#125;&gt;</code>。</li>
+                <li><strong>差异行为</strong>：data-grid 的 <code>components.body.cell</code> 只需返回
+                  <strong>单元格内容（不需要包 <code>&lt;td&gt;</code>）</strong>；
+                  antd 需要返回原生 <code>&lt;td &#123;...props&#125;&gt;</code>。</li>
                 <li><strong>触发条件</strong>：编辑态整行（name/age/address 三列进入 Input/InputNumber）。</li>
                 <li><strong>说明</strong>：data-grid 的 cell 组件只需要返回单元格内容；antd 侧保持官方示例写法。</li>
               </ul>
             </li>
             <li>
-              <strong>Form context 透传</strong>
+              <strong>整表共享同一个 Form</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：两侧均 <strong>Form 在 Table 外层</strong>
                   （<code>component=&#123;false&#125;</code> 不产生 DOM），Form.Item 在 EditableCell 内。
-                  data-grid 的 div 渲染层级<em>不</em>阻断 Form context 透传到 Form.Item。</li>
+                  data-grid 侧单元格里的 Form.Item 同样能正常关联外层 Form（读写值不受影响）。</li>
                 <li><strong>触发条件</strong>：点击 Edit 后整表共享一个 Form（<code>Form.useForm</code>），
                   靠 <code>editingKey</code> 区分当前编辑行。</li>
                 <li><strong>说明</strong>：两侧都能通过同一个 Form 管理当前编辑行，并正常保存。</li>

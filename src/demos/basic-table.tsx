@@ -33,14 +33,14 @@ export default function BasicDemo() {
           <strong>对照说明：</strong>两栏呈现 data-grid 与 antd basic demo。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>Tag 实现</strong>
+              <strong>Tag 列</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 用内联最小 Tag（手写预设色
-                  geekblue/green/volcano 的色板 + 边框/背景）；antd 用原生
-                  <code>&lt;Tag&gt;</code>（预设色内置）。</li>
+                <li><strong>差异行为</strong>：data-grid 侧的 Tags 列是 demo 里手写的最小 Tag
+                  （预设色 geekblue/green/volcano + 边框/背景）；antd 侧用内置
+                  <code>&lt;Tag&gt;</code>。</li>
                 <li><strong>触发条件</strong>：Tags 列渲染（任意行）。</li>
-                <li><strong>差异原因</strong>：data-grid 引擎本身不依赖 antd 本体的 Tag 组件，
-                  demo 用内联最小实现还原外观；antd 侧直接用内置组件。</li>
+                <li><strong>差异原因</strong>：两栏的 Tags 列都由 demo 文件编写；data-grid 侧没有复用
+                  antd <code>&lt;Tag&gt;</code>，外观是手写的；antd 侧直接用内置组件。</li>
               </ul>
             </li>
             <li>

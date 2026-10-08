@@ -55,14 +55,13 @@ export default function HiddenColumnsDemo() {
           共享 Checkbox.Group 同步驱动两侧 8 列显隐。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>隐藏机制差异</strong>
+              <strong>隐藏列</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 隐藏列仍渲染单元格 DOM（grid track 收为 <code>0fr</code> +
-                  加 <code>dg-cell-hidden</code> 类占位）；antd <code>column.hidden</code> 直接不渲染该列 th/td。</li>
+                <li><strong>差异行为</strong>：data-grid 隐藏列仍保留在 DOM 中但宽度为 0；antd
+                  <code>column.hidden</code> 直接不渲染该列的表头与单元格。</li>
                 <li><strong>触发条件</strong>：取消勾选某列（<code>column.hidden = true</code>）。</li>
-                <li><strong>差异原因</strong>：data-grid 用 CSS Grid，需保持 track 线号稳定（多级表头列范围 /
-                  固定列偏移 / 合并格区间依赖线号），故保留 <code>0fr</code> track 占位而非删除；antd 原生
-                  <code>&lt;table&gt;</code> 无此约束。详见 <code>docs/features/columns/hidden-column.md</code>。</li>
+                <li><strong>差异原因</strong>：antd 原生 <code>&lt;table&gt;</code> 可以直接移除整列；data-grid 保留
+                  零宽占位以维持布局稳定。详见 <code>docs/features/columns/hidden-column.md</code>。</li>
               </ul>
             </li>
             <li>
@@ -70,9 +69,9 @@ export default function HiddenColumnsDemo() {
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：两者均为瞬切（无平滑动画）。</li>
                 <li><strong>触发条件</strong>：列无固定 <code>width</code> 时。</li>
-                <li><strong>差异原因</strong>：CSS Grid 的 <code>grid-template-columns</code> 过渡仅对可动画尺寸
-                  （px / fr / %）逐项插值；无 width 列 track 为内容尺寸（min/max-content）无法插值。
-                  给列设固定 <code>width</code> 可观察到 <code>0.3s</code> 动画（如 <code>resizable</code> demo 拖拽定宽后隐藏）。</li>
+                <li><strong>差异原因</strong>：无固定 <code>width</code> 的列宽由内容决定，无法做宽度过渡，
+                  所以瞬切。给列设固定 <code>width</code> 可观察到 <code>0.3s</code> 的隐藏 / 显示动画
+                  （如 <code>resizable</code> demo 拖拽定宽后再隐藏）。</li>
               </ul>
             </li>
           </ul>

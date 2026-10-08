@@ -62,7 +62,7 @@ export default function TreeDataDemo() {
             </li>
             <li>
               <strong>树形渲染</strong>：record 含 <code>children</code> 嵌套 → 自动进入树形模式；
-              缩进 = <code>level × indentSize(15px)</code>，点 Name 列展开图标（▶/▼）toggle 子树。
+              子行比父行缩进 15px，点 Name 列展开图标（▶/▼）展开/折叠子树。
             </li>
           </ul>
         </div>

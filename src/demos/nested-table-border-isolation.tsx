@@ -60,19 +60,18 @@ export default function NestTableBorderDebugDemo() {
                   切换 Child Switch 仅影响子表边框。data-grid 与 antd 行为一致（无差异）。</li>
                 <li><strong>触发条件</strong>：切换任一 Switch。</li>
                 <li><strong>差异原因</strong>：无差异。<code>bordered</code> 是每张 Table 自身 prop，
-                  嵌套子表是独立 Table 实例，父子天然隔离。详见{' '}
+                  嵌套子表是独立的 Table，父子天然隔离。详见{' '}
                   <code>docs/features/layout/bordered.md</code>。</li>
               </ul>
             </li>
             <li>
-              <strong>嵌套子表实现差异</strong>
+              <strong>嵌套子表</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：data-grid 侧子表是 data-grid <code>&lt;Table&gt;</code>；
                   antd 侧子表是真实 antd <code>&lt;Table&gt;</code>。</li>
                 <li><strong>触发条件</strong>：展开任意行。</li>
-                <li><strong>差异原因</strong>：data-grid 的 <code>expandedRowRender</code> 把返回内容
-                  放进 <code>dg-row-expanded</code>（grid-column: 1 / -1 跨整行），嵌套的
-                  <code>&lt;Table&gt;</code> 是独立实例，与主表正交。详见{' '}
+                <li><strong>差异原因</strong>：展开内容横跨整行，嵌套的
+                  <code>&lt;Table&gt;</code> 是独立的 Table，与主表布局互不影响。详见{' '}
                   <code>docs/features/interaction/expand.md</code>。</li>
               </ul>
             </li>

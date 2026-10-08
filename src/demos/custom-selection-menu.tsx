@@ -31,15 +31,15 @@ export default function RowSelectionCustomDemo() {
       >
         <div>
           <strong>对照说明：</strong>两栏呈现 data-grid 与 antd row-selection-custom demo，
-          共享 selectedRowKeys 同步驱动两侧 46 行的 selections 菜单（3 内置哨兵 + 自定义 odd/even）。
+          共享 selectedRowKeys 同步驱动两侧的 selections 菜单（46 行数据；3 个内置菜单项 + 自定义 odd/even 菜单项）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>内置哨兵来源</strong>
+              <strong>内置菜单项来源</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 的 <code>Table.SELECTION_ALL/INVERT/NONE</code> 来自
-                  data-grid 引擎；antd 同名哨兵来自 antd 本体。</li>
+                <li><strong>差异行为</strong>：data-grid 的 <code>Table.SELECTION_ALL/INVERT/NONE</code> 是
+                  data-grid 包导出的内置常量；antd 同名常量来自 antd 本体。</li>
                 <li><strong>触发条件</strong>：表头全选框旁下拉箭头点开后选择前 3 项菜单。</li>
-                <li><strong>说明</strong>：两侧 selections 数组结构等价，选择菜单项行为一致。</li>
+                <li><strong>说明</strong>：两侧 selections 数组结构相同，选择菜单项行为一致。</li>
               </ul>
             </li>
             <li>
@@ -47,9 +47,9 @@ export default function RowSelectionCustomDemo() {
               两侧均显式关闭分页（<code>pagination={false}</code>）。
             </li>
             <li>
-              <strong>选中态可视化区（demo 接线）</strong>：页面下方额外显示共享 <code>selectedRowKeys</code>
-              （官方 antd demo 仅 <code>onChange</code> console.log），方便直接观察两侧选择状态；
-              任意选择变化（内置项 / 自定义 odd-even / 行 checkbox）都会刷新。
+              <strong>选中态显示区（demo 额外加的元素）</strong>：页面下方额外显示共享的 <code>selectedRowKeys</code>
+              （官方 antd demo 只是把 <code>onChange</code> 打印到控制台），方便直接观察两侧选择状态；
+              任意选择变化（内置菜单项 / 自定义 odd-even / 行 checkbox）都会刷新。
             </li>
           </ul>
         </div>
@@ -64,9 +64,9 @@ export default function RowSelectionCustomDemo() {
           <code>[{selectedRowKeys.join(', ')}]</code>
         )}
         <div style={{ marginTop: 4, color: token.colorTextSecondary, fontSize: 12 }}>
-          点表头全选框旁的下拉箭头，选择 Select all data / Invert current page / Clear all data / Odd Row / Even Row。
+          点表头全选框旁的下拉箭头，选择 Select all data / Invert current page / Clear all data / Select Odd Row / Select Even Row。
           两侧共享同一 selectedRowKeys → 点任一侧菜单项两侧勾选同步。
-          打开浏览器 console 可看到 onChange 回调日志（内置项触发；自定义 odd/even 由 demo 内 setState）。
+          打开浏览器 console 可看到 onChange 回调日志（内置菜单项触发；自定义 odd/even 项直接更新共享状态，不经过 onChange）。
         </div>
       </div>
     </div>

@@ -35,10 +35,10 @@ export default function ScrollToFirstRowDemo() {
         right={<ScrollToFirstRowAntd enabled={enabled} />}
       >
         <div>
-          <strong>对照说明：</strong>覆盖 <code>scroll.scrollToFirstRowOnChange</code>。
+          <strong>对照说明：</strong>演示 <code>scroll.scrollToFirstRowOnChange</code>：切换分页后表体是否滚回第一行。
           点击 <code>Scroll bodies down</code> 后切换分页；开关开启时 data-grid 表体滚回首行，
-          关闭时保留当前表体滚动位置。antd 侧保留数字 <code>scroll.y</code> 对照；
-          data-grid 侧仍只使用 <code>scroll.y=true</code>，不引入 antd 的数字高度语义。
+          关闭时保留当前表体滚动位置。antd 侧给 <code>scroll.y</code> 配数字高度做对照；
+          data-grid 侧使用 <code>scroll.y=true</code>（布尔值），不配数字高度。
         </div>
       </SplitDemo>
     </div>

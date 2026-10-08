@@ -159,14 +159,14 @@ export default function DynamicSettingsDemo() {
         }
       >
         <div>
-          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd dynamic-settings demo
-          （10 Switch + 5 Radio.Group 全量动态切换），用于集成回归 + 对照差异。
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd dynamic-settings demo：
+          顶部控件（10 个 Switch + 5 组 Radio.Group）可动态切换表格的各项设置，用于观察各设置在两侧的行为。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>scroll.y 取值差异</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：data-grid 用 <code>scroll:&#123;y:true&#125;</code>
-                  （表格占满父容器可用空间，不向 Table 传计算高度）；antd 用 <code>scroll:&#123;y:240&#125;</code>（数字）。</li>
+                  （表体占满父容器的固定高度）；antd 用 <code>scroll:&#123;y:240&#125;</code>（数字，即表体最大高度）。</li>
                 <li><strong>触发条件</strong>：Fixed Header 开关 ON。</li>
                 <li><strong>说明</strong>：data-grid 使用 <code>scroll.y: true</code>，高度由父容器提供；antd 使用数字高度。</li>
               </ul>

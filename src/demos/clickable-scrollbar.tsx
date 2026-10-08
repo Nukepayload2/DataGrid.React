@@ -102,22 +102,19 @@ export default function ClickableScrollbarDemo() {
         right={<ClickableScrollbarAntd tableRef={antdRef} />}
       >
         <div>
-          <strong>对照说明：</strong>直击 antd <IssueLink /> 虚拟滚动条不可点
-          （虚拟滚动条只能拖 thumb，无法点击轨道空白处按页跳转）。
+          <strong>对照说明：</strong>针对 antd <IssueLink /> 的问题：虚拟滚动条不可点
+          （只能拖 thumb，无法点击滚动条空白处按页跳转）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
-            <Item title="① antd 病灶（#53813）">
+            <Item title="① antd 的问题（#53813）">
               <li>
-                <strong>差异行为</strong>：antd 虚拟滚动条由 <code>rc-virtual-list</code> 自绘
-                （<code>.rc-virtual-list-scrollbar</code> +
-                {' '}
-                <code>.rc-virtual-list-scrollbar-thumb</code>），只有 thumb 本体可拖；
-                点击轨道空白处<strong>无反应</strong>（既不跳页也不定位）。横向、纵向两条都如此。
+                <strong>差异行为</strong>：antd 虚拟滚动条只能拖 thumb；
+                点击滚动条空白处<strong>无反应</strong>（既不跳页也不定位）。横向、纵向两条都如此。
               </li>
               <li>
-                <strong>触发条件</strong>：antd 表体任意纵向 / 横向滚动条轨道空白处点击。
+                <strong>触发条件</strong>：antd 表体任意纵向 / 横向滚动条空白处点击。
               </li>
               <li>
-                <strong>说明</strong>：该交互缺口记录在 <IssueLink />；本页用于对照轨道点击和拖拽行为。
+                <strong>说明</strong>：该交互缺口记录在 <IssueLink />；本页用于对照滚动条点击和拖拽行为。
               </li>
             </Item>
             <Item title="② data-grid 对照">
@@ -126,21 +123,17 @@ export default function ClickableScrollbarDemo() {
                 拖动过程中表体滚动平滑跟随；滚轮和程序滚动仍正常工作。
               </li>
               <li>
-                <strong>轨道点击按页跳转</strong>：点在 thumb 之外的轨道空白处
-                {' '}
-                <code>pointerdown</code> 不再进入增量拖动——改为向点击方向<strong>按页跳一视口</strong>
+                <strong>滚动条点击按页跳转</strong>：点击 thumb 之外的滚动条空白处，
+                向点击方向<strong>按页跳一视口</strong>
                 （垂直：点 thumb 上方→向上一页 / 下方→向下一页；水平：点 thumb 左方→向左一页 /
-                右方→向右一页），与浏览器原生滚动条轨道点击行为一致。
+                右方→向右一页），与浏览器原生滚动条点击行为一致。
               </li>
               <li>
-                <strong>触发条件</strong>：data-grid 滚动条 hit 区（右侧 8px 纵 / 底部 8px 横）任意
-                {' '}
-                <code>pointerdown + drag</code>（命中 thumb 时）/ 单
-                {' '}
-                <code>pointerdown</code>（命中轨道空白时即按页跳）；或滚轮 / 顶栏「Scroll To」按钮。
+                <strong>触发条件</strong>：拖动 data-grid 滚动条的 thumb，或点击滚动条空白处
+                （即按页跳）；或滚轮 / 顶栏「Scroll To」按钮。
               </li>
               <li>
-                <strong>说明</strong>：滚轮、键盘和 scrollTo 仍按表格滚动容器工作；滚动条只提供更易用的视觉和点击入口。
+                <strong>说明</strong>：滚轮、键盘和 scrollTo 仍正常滚动表体；滚动条只提供更易用的视觉和点击入口。
               </li>
             </Item>
             <Item title="③ scrollBarFoldMode 显示策略">
@@ -152,11 +145,11 @@ export default function ClickableScrollbarDemo() {
                 <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                   <li>
                     <code>showOnTableHover:false, expandOnHover:true</code>（默认）：
-                    滚动条 2px 细线常驻；hover 8px hit 区 → thumb 展开为 8px。
+                    滚动条 2px 细线常驻；鼠标悬停到滚动条上时 thumb 展开为 8px。
                   </li>
                   <li>
                     <code>showOnTableHover:true, expandOnHover:true</code>：
-                    未 hover 表格时隐藏；hover 表格 / hit 区 / 触摸后显示并展开。
+                    未 hover 表格时隐藏；hover 表格或滚动条后显示并展开。
                   </li>
                   <li>
                     <code>expandOnHover:false</code>：thumb 始终以展开尺寸显示（不做 2px→8px 过渡）。
@@ -167,7 +160,7 @@ export default function ClickableScrollbarDemo() {
               <li>
                 <strong>触发条件</strong>：顶栏 <code>showOnTableHover</code> /
                 {' '}
-                <code>expandOnHover</code> 开关；hover data-grid 滚动条 hit 区。
+                <code>expandOnHover</code> 开关；hover data-grid 滚动条。
               </li>
               <li>
                 <strong>说明</strong>：data-grid 可通过配置控制滚动条何时显示；antd 没有对应开关。
@@ -175,29 +168,26 @@ export default function ClickableScrollbarDemo() {
             </Item>
             <Item title="如何观察">
               <li>
-                <strong>拖 thumb（两侧）</strong>：在两侧滚动条 thumb 上 pointerdown + 拖动，
-                表体平滑滚动；data-grid thumb 因 8px hit 区<strong>更易命中</strong>。
+                <strong>拖 thumb（两侧）</strong>：按住两侧滚动条的 thumb 拖动，
+                表体平滑滚动；data-grid 滚动条有 8px 宽的按压区域，<strong>更易按住</strong>。
               </li>
               <li>
-                <strong>轨道按页跳（data-grid 专属）</strong>：data-grid 点击 thumb 之外的轨道空白
-                {' '}
-                <code>pointerdown</code>——向点击方向<strong>按页跳一视口</strong>（垂直：上/下方；
-                水平：左/右方），松开不进入拖动；antd thumb 之外 pointerdown 无响应（#53813 病灶）。
-                <strong>按住轨道空白不放</strong>：500ms 后开始连续翻页（每 50ms 一页 = 20 CPS，
-                Windows repeat button 手感），三种条件停止——松开 pointer / 翻到边界 / pointer
-                {' '}
-                移到 thumb 上。
+                <strong>滚动条按页跳（data-grid 专属）</strong>：点击 data-grid thumb 之外的滚动条空白——
+                向点击方向<strong>按页跳一视口</strong>（垂直：上/下方；
+                水平：左/右方），松开不进入拖动；antd 点击 thumb 之外无响应（即 #53813 记录的问题）。
+                <strong>按住滚动条空白不放</strong>：500ms 后开始连续翻页（每 50ms 一页），
+                三种条件停止——松开按钮 / 翻到边界 / 鼠标移到 thumb 上。
               </li>
               <li>
-                <strong>hit 区（data-grid 专属）</strong>：data-grid thumb 之外的 8px 透明 hit 区
-                {' '}
-                <code>pointerdown</code> 命中 thumb 即起拖；命中轨道即按页跳。
+                <strong>8px 宽（data-grid 专属）</strong>：data-grid 滚动条有 8px 宽的按压区域
+                （可见细线 2px，hover 时展开为 8px），
+                按到 thumb 即拖动，按到空白即按页跳。
               </li>
               <li>
                 <strong>切 visibility（data-grid 专属）</strong>：拨动顶栏
                 {' '}
                 <code>showOnTableHover</code> / <code>expandOnHover</code>，
-                看 data-grid 滚动条形态变化（常驻细线 / 仅 hover 表格才显 / hover hit 区展开）。
+                看 data-grid 滚动条形态变化（常驻细线 / 仅 hover 表格才显 / hover 滚动条展开）。
               </li>
               <li>
                 <strong>程序滚动（两侧）</strong>：点「Scroll To index 5000 / Top」按钮，

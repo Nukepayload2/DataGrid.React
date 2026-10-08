@@ -39,32 +39,31 @@ export default function DragSortingHandlerDemo() {
         right={<DragSortingHandlerAntd bordered={bordered} virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>两栏呈现 data-grid（自研 pointer 手柄列拖拽）与 antd 官方
-          drag-sorting-handler（dnd-kit 手柄列拖拽）。首列为手柄列，仅按住手柄拖拽才启动排序。
+          <strong>对照说明：</strong>两栏呈现 data-grid（自研手柄列拖拽）与 antd 官方
+          drag-sorting-handler（dnd-kit 手柄列拖拽）。首列为手柄列，只有按住手柄拖拽才会启动排序。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>拖拽视觉</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 拖拽中显示<strong>overlay 克隆跟随指针</strong>
-                  （原位行隐藏，仅参与占位/命中）+ <strong>蓝色指示线</strong>标示插入位置；antd 被拖行
-                  <strong>跟随指针平移</strong>（transform），松手后重排。</li>
-                <li><strong>触发条件</strong>：按住手柄并移动指针。</li>
-                <li><strong>差异原因</strong>：data-grid 的一行不是单一 DOM 元素（各单元格是独立 grid item），
-                  dnd-kit 的单元素 transform 模型无法平移整行，故用 overlay 克隆 + 指示线 + 中间行让位；
-                  antd 原生 <code>&lt;tr&gt;</code> 是单一元素，可直接 transform。</li>
+                <li><strong>差异行为</strong>：data-grid 拖拽中显示<strong>被拖行的副本跟随鼠标</strong>
+                  （原位的行隐藏，只保留占位）+ <strong>一条蓝色线</strong>标示插入位置；antd 被拖的行
+                  <strong>跟随鼠标移动</strong>，松手后重排。</li>
+                <li><strong>触发条件</strong>：按住手柄拖动。</li>
+                <li><strong>差异原因</strong>：data-grid 的一行不是单一 DOM 元素（各单元格是相互独立的元素），
+                  无法把整行作为一个整体移动，所以拖拽中用被拖行的副本 + 蓝色线标示位置，中间行让位；
+                  antd 原生 <code>&lt;tr&gt;</code> 是单一元素，可以直接移动。</li>
               </ul>
             </li>
             <li>
               <strong>手柄触发机制</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：data-grid 通过
-                  <code>gridOptions.rowDragSort.handleSelector</code> 命中手柄（手柄加 class 作命中标识）；
+                  <code>gridOptions.rowDragSort.handleSelector</code> 指定手柄（给手柄加 class 作为标识）；
                   antd 用 <code>RowContext.Provider</code> 把 <code>setActivatorNodeRef</code>/
-                  <code>listeners</code> 透传到 DragHandle。</li>
+                  <code>listeners</code> 传递给手柄组件。</li>
                 <li><strong>触发条件</strong>：仅手柄列触发，点 Name/Age/Address 不触发。</li>
-                <li><strong>差异原因</strong>：data-grid 无 tr 上挂 listeners 的机制，靠容器事件委托 +
-                  选择器限定手柄命中；antd 在 <code>&lt;tr&gt;</code> 组件层用 context 下发 listeners
-                  到手柄 DOM。</li>
+                <li><strong>差异原因</strong>：data-grid 用 CSS 选择器指定手柄，只有按住手柄才会触发拖拽；
+                  antd 的官方 demo 把拖拽事件直接绑定到手柄组件上。</li>
               </ul>
             </li>
           </ul>

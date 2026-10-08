@@ -116,7 +116,8 @@ export default function RowSelectionFixedDemo() {
         }
       >
         <div style={{ marginTop: 12, color: token.colorTextSecondary, fontSize: 13 }}>
-          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd 行选择列 fixed 继承行为。
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd 行选择列（selection 列）的固定行为：
+          auto 模式下跟随相邻列的固定，也可以显式固定到左/右。
           <ul style={{ margin: '6px 0 0', paddingLeft: 20 }}>
             <li>
               <strong>fixed 取值命名</strong>

@@ -218,9 +218,9 @@ function RecyclingCounters({
 
   return (
     <Typography.Text type="secondary" data-testid="recycling-counters">
-      native create {stats.create} / reuse {stats.reuse} / render {stats.render} / recycle {stats.recycle} / discard {stats.discard}
+      原生 DOM 创建 {stats.create} / 复用 {stats.reuse} / 更新 {stats.render} / 回收 {stats.recycle} / 销毁 {stats.discard}
       {' '}
-      React mount {stats.reactMount} / render {stats.reactRender} / unmount {stats.reactUnmount}
+      React 挂载 {stats.reactMount} / 渲染 {stats.reactRender} / 卸载 {stats.reactUnmount}
     </Typography.Text>
   )
 }
@@ -270,7 +270,7 @@ function FrameRateMeter({ resetVersion }: { resetVersion: number }) {
 
   return (
     <Typography.Text type="secondary" data-testid="frame-rate-meter">
-      FPS {frameStats.fps} / p95 {frameStats.p95}ms / long {frameStats.longFrames}
+      帧率 {frameStats.fps} / p95 {frameStats.p95}ms / 长帧 {frameStats.longFrames}
     </Typography.Text>
   )
 }
@@ -422,9 +422,9 @@ export default function VirtualListRecyclingDg() {
   return (
     <div className="dg-recycling-demo demo-view demo-view--fill">
       <Space style={{ marginBottom: 8 }} align="center" wrap>
-        <Typography.Text strong>Recycling virtual body</Typography.Text>
+        <Typography.Text strong>DOM 复用虚拟列表</Typography.Text>
         <Typography.Text type="secondary">
-          普通列使用 HTMLElement fast path；操作列使用 React element。
+          普通列的文本直接写入原生 DOM 元素，操作列的按钮用 React 组件渲染。
         </Typography.Text>
       </Space>
       <Space style={{ marginBottom: 12 }} align="center" wrap>
@@ -432,16 +432,16 @@ export default function VirtualListRecyclingDg() {
           value={mode}
           onChange={(value) => onModeChange(value as 'standard' | 'recycling')}
           options={[
-            { label: 'Recycling', value: 'recycling' },
-            { label: 'Standard', value: 'standard' },
+            { label: 'DOM 复用', value: 'recycling' },
+            { label: '标准', value: 'standard' },
           ]}
         />
         <Segmented
           value={rowCount}
           onChange={(value) => onRowCountChange(value as RecyclingRowCountOption)}
           options={[
-            { label: '8,000 rows', value: DEFAULT_RECYCLING_ROW_COUNT },
-            { label: '1,048,576 rows', value: LARGE_RECYCLING_ROW_COUNT },
+            { label: '8,000 行', value: DEFAULT_RECYCLING_ROW_COUNT },
+            { label: '1,048,576 行', value: LARGE_RECYCLING_ROW_COUNT },
           ]}
         />
         <Switch
@@ -453,10 +453,10 @@ export default function VirtualListRecyclingDg() {
         <Switch
           checked={logEnabled}
           onChange={setLogEnabled}
-          checkedChildren="Console log"
-          unCheckedChildren="Console log"
+          checkedChildren="控制台日志"
+          unCheckedChildren="控制台日志"
         />
-        <Button size="small" onClick={resetStats}>Reset counters</Button>
+        <Button size="small" onClick={resetStats}>重置计数</Button>
       </Space>
       <Space style={{ marginBottom: 12 }} align="center" wrap>
         <RecyclingCounters
@@ -489,7 +489,7 @@ export default function VirtualListRecyclingDg() {
         onCancel={() => setActionModal(null)}
         onOk={() => setActionModal(null)}
       >
-        <div>不支持指定的方法。</div>
+        <div>这只是演示，操作未实现。</div>
         <div>{actionModal ? JSON.stringify(actionModal.row) : ''}</div>
       </Modal>
       <style>{`

@@ -28,30 +28,28 @@ export default function OrderColumnDemo() {
         right={<OrderColumnAntd virtual={virtual} />}
       >
         <div>
-          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd order-column demo，
-          共享数据驱动两侧 EXPAND_COLUMN + SELECTION_COLUMN 哨兵控制展开/选择列位置
-          （Name → 展开 → Age → 选择 → Address，两侧一致）。
+          <strong>对照说明：</strong>两栏呈现 data-grid 与 antd 展开/选择列位置 demo，
+          在 columns 数组中放置 EXPAND_COLUMN / SELECTION_COLUMN 两个特殊值，
+          即可控制展开列与选择列的显示位置（Name → 展开列 → Age → 选择列 → Address，两侧一致）。
           <ul style={{ margin: '8px 0 0', paddingLeft: 20 }}>
             <li>
-              <strong>哨兵常量来源</strong>
+              <strong>EXPAND_COLUMN / SELECTION_COLUMN 常量</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 的 <code>Table.EXPAND_COLUMN/SELECTION_COLUMN</code>
-                  来自 data-grid 引擎；antd 同名哨兵来自 antd 本体。</li>
-                <li><strong>触发条件</strong>：columns 数组中放置哨兵项以决定展开/选择列插入位置。</li>
-                <li><strong>差异原因</strong>：data-grid 在引擎内重新声明了与 antd 等价的哨兵常量对象
-                  （供 data-grid 列体系消费），语义/结构对齐 antd，两侧 columns 数组结构等价。</li>
+                <li><strong>差异行为</strong>：data-grid 与 antd 各自提供同名常量
+                  <code>Table.EXPAND_COLUMN</code> / <code>Table.SELECTION_COLUMN</code>，用法相同。</li>
+                <li><strong>触发条件</strong>：在 columns 数组中放置这两个常量，以决定展开/选择列的插入位置。</li>
+                <li><strong>说明</strong>：两个常量在两侧用法一致，两侧的 columns 数组结构也等价。</li>
               </ul>
             </li>
             <li>
-              <strong>rowSelection 受控语义（demo 接线）</strong>：data-grid 用受控
-              <code>selectedRowKeys</code>（驱动页面下方选中态可视化区）；antd 用
-              <code>rowSelection={"{}"}</code> 非受控（复刻 antd demo 原样，选择 state 由 antd 内部管理）。
-              差异仅在选择 state 管理，不影响哨兵位置。
+              <strong>选择状态管理方式差异</strong>：data-grid 侧用受控
+              <code>selectedRowKeys</code>（页面下方的选中态可视化区由它驱动）；antd 侧用
+              <code>rowSelection={"{}"}</code> 非受控（antd 官方 demo 原样写法，选择状态由 antd 内部管理）。
+              差异仅在选择状态的管理方式，不影响选择列的位置。
             </li>
             <li>
-              <strong>data-grid 选中态可视化区（demo 接线）</strong>：页面下方额外显示 data-grid 的
-              <code>selectedKeys</code>（官方 antd demo 无此区），便于在无 console 环境验证选择功能；
-              antd 非受控，不参与此对照。
+              <strong>data-grid 选中态可视化区</strong>：页面下方额外显示 data-grid 当前的
+              <code>selectedKeys</code>（antd 侧为非受控，不显示此区），便于直接查看选择结果。
             </li>
           </ul>
         </div>

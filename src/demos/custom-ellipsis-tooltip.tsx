@@ -49,8 +49,8 @@ export default function EllipsisCustomTooltipDemo() {
                   <code>title</code> 属性，由 render 内 <code>&lt;Tooltip placement="topLeft"&gt;</code>
                   接管 hover。</li>
                 <li><strong>触发条件</strong>：列设 <code>ellipsis: {'{ showTitle: false }'}</code>。</li>
-                <li><strong>差异原因</strong>：data-grid 与 antd 同款门控（<code>showTitle !== false</code>
-                  才加 native title），两侧语义一致。</li>
+                <li><strong>差异原因</strong>：data-grid 与 antd 行为相同：仅当 <code>showTitle !== false</code>
+                  时才加 native title，两侧语义一致。</li>
               </ul>
             </li>
             <li>
@@ -58,9 +58,8 @@ export default function EllipsisCustomTooltipDemo() {
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
                 <li><strong>差异行为</strong>：两侧内容溢出均显示 <code>...</code>。</li>
                 <li><strong>触发条件</strong>：任一 ellipsis 列存在。</li>
-                <li><strong>差异原因</strong>：data-grid 有 ellipsis 列即派生 <code>tableLayout:'fixed'</code>
-                  → <code>minmax(width,1fr)</code> 限 track 宽；antd 用 <code>&lt;table width:100%&gt;</code> +
-                  <code>tableLayout:fixed</code>，等效。详见 <code>docs/features/columns/column-width.md</code>。</li>
+                <li><strong>差异原因</strong>：无差异。有 ellipsis 列时，data-grid 与 antd 都会自动按固定列布局处理
+                  （等效 <code>tableLayout:'fixed'</code>），两侧列宽与省略号行为一致。</li>
               </ul>
             </li>
           </ul>
