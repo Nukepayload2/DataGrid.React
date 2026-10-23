@@ -29,7 +29,7 @@
 
 ## 引擎：表头、表体、汇总、展开、树形
 - 表头 - {engine}/HeaderGrid.tsx,{engine}/HeaderCell.tsx,{engine}/headerCellUtils.ts,{engine}/FlatColumnCells.tsx - ColumnResizer aria-sort data-leaf-index
-- 表体 - {engine}/BodyGrid.tsx,{engine}/bodyCellUtils.ts,{engine}/cellRenderUtils.tsx,{engine}/cellMerge.ts - renderBodyCells computeCellMergePlan
+- 表体 - {engine}/BodyGrid.tsx,{engine}/bodyCellUtils.ts,{engine}/cellRenderUtils.tsx,{engine}/cellMerge.ts - renderBodyCells computeCellMergePlan resolveCoveredTrackEnd rowLevels
 - 汇总 - {engine}/Summary.tsx,{engine}/SummaryLayer.tsx - Summary.Row Summary.Cell
 - 展开 - {engine}/useRowExpand.ts,{engine}/ExpandIcon.tsx,{engine}/expandLayoutUtils.ts,{engine}/expandLayerUtils.tsx - toggleExpand
 - 树形 - {engine}/useTreeData.ts,{engine}/treeColumnUtils.ts,{engine}/treeIndentRenderer.tsx - flattenTree detectTreeData

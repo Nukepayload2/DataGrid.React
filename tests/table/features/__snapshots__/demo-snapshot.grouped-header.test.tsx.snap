@@ -42,7 +42,7 @@ gridTracks: 8
 columnKeys: group name role location
 rowIndexRuns: 0-6
 headerColspan: (none)
-mergedCells: row2=1 row3=1
+mergedCells: row2=1 row5=1
 structural: rowSpanCells=2 floatingScrollBar=1 expandIcon=2
 themeOverrides: (none)
 tags: button=2 div=61 span=4"

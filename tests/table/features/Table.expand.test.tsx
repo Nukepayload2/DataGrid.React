@@ -584,4 +584,56 @@ describe('Table.expand', () => {
     expect(onExpand).toHaveBeenCalledTimes(1)
     expect(container.querySelectorAll('.dg-cell-body')).toHaveLength(2)
   })
+
+  // cellMerge × 树形：`rowSpan` 数的是"行"，已展开的子行是附加轨道（不占配额）。
+  //   否则子行会吃掉配额——分组合并格停在子行末尾，同组剩余行（声明 rowSpan: 0）整列留空，
+  //   视觉上就是"分组的横线画在展开前的位置"。详见 docs/features/layout/header-and-span.md。
+  it('rowSpan counts rows while expanded children join the merged cell as extra tracks', () => {
+    const grouped = [
+      {
+        key: 'g1',
+        group: 'G1',
+        name: 'parent-1',
+        children: [
+          { key: 'g1-c1', group: 'G1-child', name: 'child-1' },
+          { key: 'g1-c2', group: 'G1-child', name: 'child-2' },
+        ],
+      },
+      { key: 'g2', group: 'G1', name: 'parent-2' },
+      { key: 'g3', group: 'G1', name: 'parent-3' },
+    ]
+    // 分组列：(起行) 声明跨 3 行（parent-1/2/3），其余行 rowSpan: 0 表示被覆盖。
+    const groupSpan: Record<string, number> = { g1: 3, g2: 0, g3: 0 }
+    const groupColumns: TableProps<(typeof grouped)[number]>['columns'] = [
+      {
+        title: 'group',
+        dataIndex: 'group',
+        key: 'group',
+        onCell: (record) => ({ rowSpan: groupSpan[String(record.key)] ?? 1 }),
+      },
+      { title: 'name', dataIndex: 'name', key: 'name' },
+    ]
+    const { container, rerender } = customRender(
+      <Table columns={groupColumns} dataSource={grouped} expandable={{}} />,
+    )
+
+    const mergedCell = () => container.querySelector<HTMLElement>('.dg-cell-rowspan')!
+
+    // 收起：3 行（parent-1/2/3）。
+    expect(mergedCell()).toHaveAttribute('aria-rowspan', '3')
+    expect(mergedCell().style.gridRow).toContain('span 3')
+
+    // 展开：parent-1 + 2 个子行 + parent-2/3 = 5 条轨道；rowSpan 仍按 3 行计，子行是附加轨道。
+    rerender(<Table columns={groupColumns} dataSource={grouped} expandable={{ expandedRowKeys: ['g1'] }} />)
+    expect(container.querySelectorAll('.dg-cell-rowspan')).toHaveLength(1)
+    expect(mergedCell()).toHaveAttribute('aria-rowspan', '5')
+    expect(mergedCell().style.gridRow).toContain('span 5')
+    // 子行与同组剩余行在分组列都不渲染格子（被合并格覆盖），数据列正常。
+    expect(
+      container.querySelectorAll('.dg-cell-body[data-column-key="group"]'),
+    ).toHaveLength(1)
+    expect(
+      container.querySelectorAll('.dg-cell-body[data-column-key="name"]'),
+    ).toHaveLength(5)
+  })
 })

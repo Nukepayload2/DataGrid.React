@@ -224,6 +224,23 @@ antd 6.4.4**——证据一律写成 `antd 6.4.4 <文件>:<行>` 这个形状，
   `src/table/engine/SortIndicator.tsx:81`（属性在根 span）与 `:83-98`（inner 与徽标同为根 span 的子节点）；
   参照 `antd 6.4.4 es/table/hooks/useSorter.js:100-107`（根只有 class 与 `-full`，`aria-hidden` 在 inner 上）。`已实读参照源码`
 
+### 合并（colSpan / rowSpan）
+
+- **树形数据的 `rowSpan` 按"行"计（本仓已实现，属「超出参照的增强」，不是遗留缺陷）**：
+  这一条登记的是与 antd 的语义差异——**antd 那边仍有下列症状，data-grid 不会出现**。
+  - 参照（antd）的症状：`rowSpan: 3` 的分组格盖住 3 行（如 张三/李四/王五），渲染时子行也占 `rowspan`
+    名额，于是展开其中一个父行的子行后，合并格只盖到"父行 + 2 条子行"，同组剩余行（惯例声明
+    `rowSpan: 0`）整列留空、边框断开——分组的分隔横线停在展开前的位置。
+  - 参照怎么做：`onCell` 的返回值直接当原生 `<td rowspan>`，扁平行数就是配额，子行同样占名额。
+  - 我们怎么做（已生效）：覆盖传播先把"行"配额按树层级折叠成轨道区间（`resolveCoveredTrackEnd`：
+    每吃一行，把它紧跟其后的更深层连续行作为附加轨道一并并入覆盖区），合并格 `grid-row` /
+    `aria-rowspan` 报的是轨道数；被覆盖的子行与同组剩余行一律不渲染格子。
+  - 依据：`src/table/engine/cellMerge.ts`（`computeCellMergePlan` 的 `rowLevels` 入参）与
+    `src/table/engine/GridTable.tsx`（树形模式下按 `treeState.rowInfoMap` 派生每行层级）。
+    `探针实测`（demo `merged-expand-tree`：收起 `aria-rowspan=3`、展开 `aria-rowspan=5`）。
+    非树形不受影响（不传 `rowLevels`，行为与旧版逐字节一致）。详见
+    [header-and-span.md](../features/layout/header-and-span.md) 的「树形数据上的合并」一节。
+
 ### 列与表头
 
 - **函数式 `column.title` 未移植**：参照把它当公开能力——`antd 6.4.4 es/table/interface.d.ts:72` 的类型是

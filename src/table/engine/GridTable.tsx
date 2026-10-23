@@ -415,9 +415,23 @@ function GridTableInner<RecordType = any>(
 
   // === 单元格合并计划 ===
   // computeCellMergePlan 内部已检测 onCell 是否存在；无 onCell 返回 null（无合并，跳过开销）。
+  // 树形模式下额外传入每行层级：合并格的 rowSpan 数"行"，已展开的子行是附加轨道（不占配额）。
+  //   否则子行会吃掉配额，分组合并格停在子行末尾、同组剩余行整列留空——
+  //   详见 docs/features/layout/header-and-span.md「树形数据上的合并」。
+  const rowLevels = useMemo<number[] | undefined>(() => {
+    if (!treeEnabled || !treeState) return undefined
+    const levels: number[] = []
+    for (const record of dataSource) {
+      const key = record === undefined ? undefined : getRowKey(record, rowKey)
+      const info = key === undefined ? undefined : treeState.rowInfoMap.get(key)
+      levels.push(info?.level ?? 0)
+    }
+    return levels
+  }, [treeEnabled, treeState, dataSource, rowKey])
+
   const cellMergePlan: CellMergePlan | null = useMemo(
-    () => computeCellMergePlan(leafColumns, dataSource),
-    [leafColumns, dataSource],
+    () => computeCellMergePlan(leafColumns, dataSource, rowLevels),
+    [leafColumns, dataSource, rowLevels],
   )
 
   // === 行高系统 — 详见 useRowHeightSystem.ts 与 docs/features/scrolling/virtualization.md / docs/features/layout/row-height.md ===

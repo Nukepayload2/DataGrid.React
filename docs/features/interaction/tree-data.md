@@ -56,14 +56,16 @@ antd 行为：tree-data（record.children 嵌套）与 `expandable.expandedRowRe
 | 父子映射 | `parentChildrenMap`（全树，供联动用） | rc-tree `convertDataToEntities` |
 | 树形 × expandedRowRender | 树形优先（互斥） | 同款（warning） |
 | 树形 × `expandRowByClick` | **生效**：点行体切换被点节点的展开态（状态源走树的 `expandableKeySet`/`toggleExpand`；无子节点的行点行体不切换） | **生效**：`@rc-component/table 1.10.2 es/hooks/useRowInfo.js:22-24, 32-35` 对 `nest` 类型同样按 `expandRowByClick` 触发展开 |
+| 树形 × 表体合并（`onCell` 的 `rowSpan`） | **`rowSpan` 按"行"计**：已展开的子行作为附加轨道并入合并区，不占配额（`resolveCoveredTrackEnd`） | 按扁平行计：子行吃掉 `rowSpan` 名额，分组合并格停在子行末尾、同组剩余行整列留空 |
 
-⇒ 这一点树形与非树形同形，不属有意差异；生效范围与判据见
+⇒ 树形与非树形同形，不属有意差异；生效范围与判据见
 [`expand.md`](expand.md) 的「点击行体展开」一节，边界登记见
-[`known-limitations.md`](../../reference/known-limitations.md)。`读码`
+[`known-limitations.md`](../../reference/known-limitations.md)。合并列语义见
+[`header-and-span.md`](../layout/header-and-span.md) 的「树形数据上的合并」一节。`读码` + `探针实测`（demo `merged-expand-tree`）
 
 ## 关联源码
 
 - [`src/table/engine/useTreeData.ts`](../../../src/table/engine/useTreeData.ts) — 树形检测/扁平化/展开状态机（`detectTreeData`/`flattenTree`/`collectAllKeys`/`useTreeExpand`）。
 - [`src/table/engine/useRowSelection.ts`](../../../src/table/engine/useRowSelection.ts) — `parentChildrenMap` 消费方（`checkStrictly=false` 父子联动，详见 [selection.md](selection.md)）。
-- [`src/table/engine/GridTable.tsx`](../../../src/table/engine/GridTable.tsx) — `rowInfoMap` 消费（树形缩进 level + 展开图标）。
+- [`src/table/engine/GridTable.tsx`](../../../src/table/engine/GridTable.tsx) — `rowInfoMap` 消费（树形缩进 level + 展开图标 + 合并格的 `rowLevels`）。
 - [`src/table/Table.tsx`](../../../src/table/Table.tsx) — 树形优先判定（树形模式下不构造 engineExpandState）。

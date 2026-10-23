@@ -15,6 +15,11 @@ interface RecordType {
   children?: RecordType[]
 }
 
+/**
+ * 分组列的合并声明：`rowSpan: 3` 数的是**行**（华东组 = 张三 / 李四 / 王五），
+ * 不是展开后的扁平行数——已展开的子行由引擎当作附加轨道并入合并区。
+ * 详见 docs/features/layout/header-and-span.md 的「树形数据上的合并」。
+ */
 const groupRowSpan: Record<string, number> = {
   'east-1': 3,
   'east-2': 0,
@@ -177,7 +182,7 @@ export default function MergedExpandTreeDemo() {
         type="warning"
         showIcon
         style={{ marginBottom: 16 }}
-        message="本页专门观察行合并与树形数据叠加时的列对齐表现。antd 展开第一组子行后，分组单元格可能覆盖树形子行，后续单元格位置会变得不稳定；data-grid 保持分组列和数据列对齐。"
+        message="本页专门观察行合并与树形数据叠加时的列对齐表现。antd 展开第一组子行后，分组单元格可能覆盖树形子行，后续单元格位置会变得不稳定；data-grid 保持分组列和数据列对齐，并且合并格会跟着子行长高——分组仍是 3 行（张三 / 李四 / 王五），展开张三后合并格自动盖住张三的两个子行。"
       />
 
       <DemoToolbar>

@@ -114,4 +114,57 @@ describe('computeCellMergePlan', () => {
     expect(plan[0][0]).toEqual({ hidden: false, colSpan: 1, rowSpan: 1 })
     expect(plan[1][0].hidden).toBe(false)
   })
+
+  // 树形数据：rowSpan 数"行"，已展开的子行是附加轨道，不占配额。
+  //   否则子行会吃掉配额，合并格停在子行末尾、同组剩余行整列留空。
+  describe('tree rows (rowLevels)', () => {
+    // 华东组三行（张三 + 它的两个子行 + 李四 + 王五）→ 7 条扁平行：
+    //   [0] 张三(level 0) [1] 任务A(1) [2] 任务B(1) [3] 李四(0) [4] 王五(0) [5] 赵六(0) [6] 钱七(0)
+    const levels = [0, 1, 1, 0, 0, 0, 0]
+    const treeRows = levels.map((_, index) => ({ id: index }))
+    const groupColumn = (rowSpans: Array<number | undefined>) =>
+      columns([(_record, rowIndex) => {
+        const rowSpan = rowSpans[rowIndex]
+        return rowSpan === undefined ? undefined : { rowSpan }
+      }])
+
+    it('counts rowSpan in rows and folds expanded children into the covered tracks', () => {
+      const plan = computeCellMergePlan(
+        groupColumn([3, undefined, undefined, 0, 0, 2, 0]),
+        treeRows,
+        levels,
+      )!
+
+      // 华东组：声明 3 行（张三/李四/王五）→ 轨道 0..4（含 2 条子行轨道）。
+      expect(plan[0][0]).toEqual({ hidden: false, colSpan: 1, rowSpan: 5 })
+      // 子行与同组剩余行整列被覆盖。
+      for (const index of [1, 2, 3, 4]) expect(plan[0][index].hidden).toBe(true)
+      // 华北组：无子行 → 与扁平行语义一致。
+      expect(plan[0][5]).toEqual({ hidden: false, colSpan: 1, rowSpan: 2 })
+      expect(plan[0][6].hidden).toBe(true)
+    })
+
+    it('keeps flat-row semantics when rowLevels is omitted', () => {
+      const plan = computeCellMergePlan(
+        groupColumn([3, undefined, undefined, 0, 0, 2, 0]),
+        treeRows,
+      )!
+
+      // 无层级信息 → 旧的扁平行口径（配额被子行吃掉，合并格停在子行末尾）。
+      expect(plan[0][0]).toEqual({ hidden: false, colSpan: 1, rowSpan: 3 })
+      expect(plan[0][3].hidden).toBe(true)
+      expect(plan[0][4].hidden).toBe(true)
+    })
+
+    it('clips the folded track range at the last row', () => {
+      const plan = computeCellMergePlan(
+        groupColumn([5, 0, 0, 0, 0, 0, 0]),
+        treeRows,
+        levels,
+      )!
+
+      // 声明 5 行但从第 0 行起只有 7 条轨道（含子行）→ 到末行为止。
+      expect(plan[0][0]).toEqual({ hidden: false, colSpan: 1, rowSpan: 7 })
+    })
+  })
 })
