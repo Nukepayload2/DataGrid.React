@@ -11,11 +11,15 @@ import {
 import { Alert, Button, Spin, Tag, Typography } from 'antd'
 import type { ColumnType, TableProps } from '../table'
 import { Table as GridTable } from '../table'
-import CodeView from '../CodeView'
 import type { DocEntry, DocsAction } from './types'
 import apiData from './generated/api.json'
 
 const { Title, Paragraph, Text } = Typography
+
+// 只读源码视图惰性化：`CodeView` 静态引入会把整条 CodeMirror 6 + Lezer 链路
+// （491 KB min / 163 KB gz）钉进首屏。docs 页本身是按 slug 懒加载的，
+// 但本文件是 docs 壳层（首屏），所以这里的引用必须跟着懒。
+const CodeView = lazy(() => import('../CodeView'))
 
 // #20：docs 区代码块接入 LiveEditor（与示例区同 sucrase 链路）。
 // 懒加载避免把 sucrase/CodeMirror 拖进无 editable 块的文档页（绝大多数页面）。
@@ -175,7 +179,12 @@ export function DocsCode({
 }) {
   // 默认行为不变：只读 CodeView + 复制按钮。
   if (!editable) {
-    return <CodeView code={code} height={height} maxHeight={maxHeight ?? 360} ariaLabel={ariaLabel} />
+    return (
+      // fallback 用等高占位，避免代码块从 0 高度跳到固定高度（CLS）。
+      <Suspense fallback={<div style={{ height, maxHeight }} />}>
+        <CodeView code={code} height={height} maxHeight={maxHeight ?? 360} ariaLabel={ariaLabel} />
+      </Suspense>
+    )
   }
   return <EditableDocsCode code={code} ariaLabel={ariaLabel} />
 }

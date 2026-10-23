@@ -80,15 +80,15 @@
 
 ## 站点壳与页面
 - 壳与 hash 路由 - {src}/App.tsx,{src}/main.tsx - useHashRoute
-- 首页与源码视图 - {src}/HomePage.tsx,{src}/DemoHomePage.tsx,{src}/DocsPage.tsx,{src}/CodeView.tsx - HomePage DocsPage
-- 主题 store 与编辑器 - {src}/theme/ThemeContext.tsx,{src}/ThemeEditorModal.tsx - themeMode
-- 编辑器内核 - {src}/code/CodeMirrorEditor.tsx - EditorView oneDark
+- 首页与源码视图 - {src}/HomePage.tsx,{src}/DemoHomePage.tsx,{src}/DocsPage.tsx,{src}/CodeView.tsx - HomePage DocsPage CodeView 惰性
+- 主题 store 与编辑器 - {src}/theme/ThemeContext.tsx,{src}/ThemeEditorModal.tsx - themeMode ThemeEditorModal 首开才挂载
+- 编辑器内核 - {src}/code/CodeMirrorEditor.tsx - EditorView oneDark CDN 档整条外置
 - 源码懒加载 - {src}/useDemoSource.ts,{src}/useSplitDemoSource.ts - useDemoSource useSplitDemoSource
 
 ## 测试
 - 单元测试 - {tests}/table/** - vitest
 - 契约测试 - {tests}/table/api/*.tsx,{tests}/table/style/*.ts - public-api styleSystemContract
-- 站点与 live - {tests}/live-editable-docs.test.tsx,{tests}/api-json.test.ts,{tests}/live/stripComments.ts,{tests}/live/{scope-specifiers,antd-scope,icon-scope}.test.ts - api-json stripComments 白名单
+- 站点与 live - {tests}/live-editable-docs.test.tsx,{tests}/api-json.test.ts,{tests}/cdn-importmap.test.ts,{tests}/live/stripComments.ts,{tests}/live/{scope-specifiers,antd-scope,icon-scope}.test.ts - api-json importmap stripComments 白名单
 - 主题 store 测试 - {tests}/theme/*.tsx - ThemeProvider themeMode
 - 夹具 - {tests}/setup.ts - jest-dom cleanup
 - e2e - {e2e}/*.spec.ts - playwright
@@ -96,7 +96,8 @@
 
 ## 构建与脚本
 - 库构建与 TS 配置 - vite.lib.config.ts,tsconfig*.json - build:lib
-- 站点构建 - index.html,{src}/index.css,vite.docs.{shared,config,single.config,cdn.config}.ts - dist-docs dist-docs-single dist-docs-cdn importmap
+- 站点构建 - index.html,{src}/index.css,vite.docs.{shared,config,single.config,cdn.config}.ts - dist-docs dist-docs-single dist-docs-cdn importmap CDN_EXTERNALS
+- CDN 档 import map 落地表 - {scripts}/gen-cdn-importmap.mjs,{scripts}/check-esmsh-externals.mjs,{src}/docs/generated/cdn-importmap.json - docs:cdn-map single bundle family 外置根
 - 站点构建说明 - {docs}/architecture/docs-build.md - 三档构建 首屏体积
 - API 抽取 - {scripts}/extract-api.mjs - api.json
 - CSS 兼容门 - {scripts}/check-css-compat.mjs - doiuse
@@ -105,7 +106,7 @@
 
 ## 仓库文档
 - 架构 - {docs}/architecture/*.md - overview rendering-model demo-site live-editor
-- 决策 - {docs}/decisions/*.md - 0001-css-grid-table-architecture 0010-semantic-dom-limits
+- 决策 - {docs}/decisions/*.md - 0001-css-grid-table-architecture 0011-codemirror-cdn-externalization
 - 功能 - {docs}/features/*/*.md - columns layout scrolling interaction display styling api
 - 参考 - {docs}/reference/*.md - compat-matrix public-api known-limitations deprecated-antd-members grid-options-namespace ag-grid-drag-candidates
 - 贡献约定 - {docs}/contributing/*.md - documentation-style verification-guide

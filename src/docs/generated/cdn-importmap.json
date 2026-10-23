@@ -1,0 +1,191 @@
+{
+  "$comment": "由 scripts/gen-cdn-importmap.mjs 生成，不要手改。策略判据见该脚本顶部：single / bundle / family。",
+  "externals": [
+    "react",
+    "react/jsx-runtime",
+    "react-dom",
+    "react-dom/client",
+    "antd",
+    "@codemirror/autocomplete",
+    "@codemirror/commands",
+    "@codemirror/lang-javascript",
+    "@codemirror/language",
+    "@codemirror/lint",
+    "@codemirror/search",
+    "@codemirror/state",
+    "@codemirror/theme-one-dark",
+    "@codemirror/view",
+    "@lezer/common",
+    "@lezer/highlight",
+    "@lezer/javascript",
+    "@lezer/lr",
+    "@marijn/find-cluster-break",
+    "codemirror",
+    "crelt",
+    "style-mod",
+    "w3c-keyname"
+  ],
+  "entries": [
+    {
+      "specifier": "react",
+      "strategy": "single",
+      "package": "react",
+      "version": "19.2.7",
+      "url": "https://esm.sh/react@19.2.7"
+    },
+    {
+      "specifier": "react/jsx-runtime",
+      "strategy": "single",
+      "package": "react",
+      "version": "19.2.7",
+      "url": "https://esm.sh/react@19.2.7/jsx-runtime"
+    },
+    {
+      "specifier": "react-dom",
+      "strategy": "single",
+      "package": "react-dom",
+      "version": "19.2.7",
+      "url": "https://esm.sh/react-dom@19.2.7?external=react"
+    },
+    {
+      "specifier": "react-dom/client",
+      "strategy": "single",
+      "package": "react-dom",
+      "version": "19.2.7",
+      "url": "https://esm.sh/react-dom@19.2.7/client?external=react"
+    },
+    {
+      "specifier": "antd",
+      "strategy": "bundle",
+      "package": "antd",
+      "version": "6.4.4",
+      "url": "https://esm.sh/antd@6.4.4?external=react,react-dom&bundle"
+    },
+    {
+      "specifier": "@codemirror/autocomplete",
+      "strategy": "family",
+      "package": "@codemirror/autocomplete",
+      "version": "6.20.3",
+      "url": "https://esm.sh/@codemirror/autocomplete@6.20.3?external=@codemirror/autocomplete,@codemirror/commands,@codemirror/lang-javascript,@codemirror/language,@codemirror/lint,@codemirror/search,@codemirror/state,@codemirror/theme-one-dark,@codemirror/view,@lezer/common,@lezer/highlight,@lezer/javascript,@lezer/lr,@marijn/find-cluster-break,codemirror,crelt,style-mod,w3c-keyname"
+    },
+    {
+      "specifier": "@codemirror/commands",
+      "strategy": "family",
+      "package": "@codemirror/commands",
+      "version": "6.10.4",
+      "url": "https://esm.sh/@codemirror/commands@6.10.4?external=@codemirror/autocomplete,@codemirror/commands,@codemirror/lang-javascript,@codemirror/language,@codemirror/lint,@codemirror/search,@codemirror/state,@codemirror/theme-one-dark,@codemirror/view,@lezer/common,@lezer/highlight,@lezer/javascript,@lezer/lr,@marijn/find-cluster-break,codemirror,crelt,style-mod,w3c-keyname"
+    },
+    {
+      "specifier": "@codemirror/lang-javascript",
+      "strategy": "family",
+      "package": "@codemirror/lang-javascript",
+      "version": "6.2.5",
+      "url": "https://esm.sh/@codemirror/lang-javascript@6.2.5?external=@codemirror/autocomplete,@codemirror/commands,@codemirror/lang-javascript,@codemirror/language,@codemirror/lint,@codemirror/search,@codemirror/state,@codemirror/theme-one-dark,@codemirror/view,@lezer/common,@lezer/highlight,@lezer/javascript,@lezer/lr,@marijn/find-cluster-break,codemirror,crelt,style-mod,w3c-keyname"
+    },
+    {
+      "specifier": "@codemirror/language",
+      "strategy": "family",
+      "package": "@codemirror/language",
+      "version": "6.12.4",
+      "url": "https://esm.sh/@codemirror/language@6.12.4?external=@codemirror/autocomplete,@codemirror/commands,@codemirror/lang-javascript,@codemirror/language,@codemirror/lint,@codemirror/search,@codemirror/state,@codemirror/theme-one-dark,@codemirror/view,@lezer/common,@lezer/highlight,@lezer/javascript,@lezer/lr,@marijn/find-cluster-break,codemirror,crelt,style-mod,w3c-keyname"
+    },
+    {
+      "specifier": "@codemirror/lint",
+      "strategy": "family",
+      "package": "@codemirror/lint",
+      "version": "6.9.7",
+      "url": "https://esm.sh/@codemirror/lint@6.9.7?external=@codemirror/autocomplete,@codemirror/commands,@codemirror/lang-javascript,@codemirror/language,@codemirror/lint,@codemirror/search,@codemirror/state,@codemirror/theme-one-dark,@codemirror/view,@lezer/common,@lezer/highlight,@lezer/javascript,@lezer/lr,@marijn/find-cluster-break,codemirror,crelt,style-mod,w3c-keyname"
+    },
+    {
+      "specifier": "@codemirror/search",
+      "strategy": "family",
+      "package": "@codemirror/search",
+      "version": "6.7.1",
+      "url": "https://esm.sh/@codemirror/search@6.7.1?external=@codemirror/autocomplete,@codemirror/commands,@codemirror/lang-javascript,@codemirror/language,@codemirror/lint,@codemirror/search,@codemirror/state,@codemirror/theme-one-dark,@codemirror/view,@lezer/common,@lezer/highlight,@lezer/javascript,@lezer/lr,@marijn/find-cluster-break,codemirror,crelt,style-mod,w3c-keyname"
+    },
+    {
+      "specifier": "@codemirror/state",
+      "strategy": "family",
+      "package": "@codemirror/state",
+      "version": "6.7.1",
+      "url": "https://esm.sh/@codemirror/state@6.7.1?external=@codemirror/autocomplete,@codemirror/commands,@codemirror/lang-javascript,@codemirror/language,@codemirror/lint,@codemirror/search,@codemirror/state,@codemirror/theme-one-dark,@codemirror/view,@lezer/common,@lezer/highlight,@lezer/javascript,@lezer/lr,@marijn/find-cluster-break,codemirror,crelt,style-mod,w3c-keyname"
+    },
+    {
+      "specifier": "@codemirror/theme-one-dark",
+      "strategy": "family",
+      "package": "@codemirror/theme-one-dark",
+      "version": "6.1.3",
+      "url": "https://esm.sh/@codemirror/theme-one-dark@6.1.3?external=@codemirror/autocomplete,@codemirror/commands,@codemirror/lang-javascript,@codemirror/language,@codemirror/lint,@codemirror/search,@codemirror/state,@codemirror/theme-one-dark,@codemirror/view,@lezer/common,@lezer/highlight,@lezer/javascript,@lezer/lr,@marijn/find-cluster-break,codemirror,crelt,style-mod,w3c-keyname"
+    },
+    {
+      "specifier": "@codemirror/view",
+      "strategy": "family",
+      "package": "@codemirror/view",
+      "version": "6.43.6",
+      "url": "https://esm.sh/@codemirror/view@6.43.6?external=@codemirror/autocomplete,@codemirror/commands,@codemirror/lang-javascript,@codemirror/language,@codemirror/lint,@codemirror/search,@codemirror/state,@codemirror/theme-one-dark,@codemirror/view,@lezer/common,@lezer/highlight,@lezer/javascript,@lezer/lr,@marijn/find-cluster-break,codemirror,crelt,style-mod,w3c-keyname"
+    },
+    {
+      "specifier": "@lezer/common",
+      "strategy": "family",
+      "package": "@lezer/common",
+      "version": "1.5.2",
+      "url": "https://esm.sh/@lezer/common@1.5.2?external=@codemirror/autocomplete,@codemirror/commands,@codemirror/lang-javascript,@codemirror/language,@codemirror/lint,@codemirror/search,@codemirror/state,@codemirror/theme-one-dark,@codemirror/view,@lezer/common,@lezer/highlight,@lezer/javascript,@lezer/lr,@marijn/find-cluster-break,codemirror,crelt,style-mod,w3c-keyname"
+    },
+    {
+      "specifier": "@lezer/highlight",
+      "strategy": "family",
+      "package": "@lezer/highlight",
+      "version": "1.2.3",
+      "url": "https://esm.sh/@lezer/highlight@1.2.3?external=@codemirror/autocomplete,@codemirror/commands,@codemirror/lang-javascript,@codemirror/language,@codemirror/lint,@codemirror/search,@codemirror/state,@codemirror/theme-one-dark,@codemirror/view,@lezer/common,@lezer/highlight,@lezer/javascript,@lezer/lr,@marijn/find-cluster-break,codemirror,crelt,style-mod,w3c-keyname"
+    },
+    {
+      "specifier": "@lezer/javascript",
+      "strategy": "family",
+      "package": "@lezer/javascript",
+      "version": "1.5.4",
+      "url": "https://esm.sh/@lezer/javascript@1.5.4?external=@codemirror/autocomplete,@codemirror/commands,@codemirror/lang-javascript,@codemirror/language,@codemirror/lint,@codemirror/search,@codemirror/state,@codemirror/theme-one-dark,@codemirror/view,@lezer/common,@lezer/highlight,@lezer/javascript,@lezer/lr,@marijn/find-cluster-break,codemirror,crelt,style-mod,w3c-keyname"
+    },
+    {
+      "specifier": "@lezer/lr",
+      "strategy": "family",
+      "package": "@lezer/lr",
+      "version": "1.4.10",
+      "url": "https://esm.sh/@lezer/lr@1.4.10?external=@codemirror/autocomplete,@codemirror/commands,@codemirror/lang-javascript,@codemirror/language,@codemirror/lint,@codemirror/search,@codemirror/state,@codemirror/theme-one-dark,@codemirror/view,@lezer/common,@lezer/highlight,@lezer/javascript,@lezer/lr,@marijn/find-cluster-break,codemirror,crelt,style-mod,w3c-keyname"
+    },
+    {
+      "specifier": "@marijn/find-cluster-break",
+      "strategy": "family",
+      "package": "@marijn/find-cluster-break",
+      "version": "1.0.3",
+      "url": "https://esm.sh/@marijn/find-cluster-break@1.0.3?external=@codemirror/autocomplete,@codemirror/commands,@codemirror/lang-javascript,@codemirror/language,@codemirror/lint,@codemirror/search,@codemirror/state,@codemirror/theme-one-dark,@codemirror/view,@lezer/common,@lezer/highlight,@lezer/javascript,@lezer/lr,@marijn/find-cluster-break,codemirror,crelt,style-mod,w3c-keyname"
+    },
+    {
+      "specifier": "codemirror",
+      "strategy": "family",
+      "package": "codemirror",
+      "version": "6.0.2",
+      "url": "https://esm.sh/codemirror@6.0.2?external=@codemirror/autocomplete,@codemirror/commands,@codemirror/lang-javascript,@codemirror/language,@codemirror/lint,@codemirror/search,@codemirror/state,@codemirror/theme-one-dark,@codemirror/view,@lezer/common,@lezer/highlight,@lezer/javascript,@lezer/lr,@marijn/find-cluster-break,codemirror,crelt,style-mod,w3c-keyname"
+    },
+    {
+      "specifier": "crelt",
+      "strategy": "family",
+      "package": "crelt",
+      "version": "1.0.7",
+      "url": "https://esm.sh/crelt@1.0.7?external=@codemirror/autocomplete,@codemirror/commands,@codemirror/lang-javascript,@codemirror/language,@codemirror/lint,@codemirror/search,@codemirror/state,@codemirror/theme-one-dark,@codemirror/view,@lezer/common,@lezer/highlight,@lezer/javascript,@lezer/lr,@marijn/find-cluster-break,codemirror,crelt,style-mod,w3c-keyname"
+    },
+    {
+      "specifier": "style-mod",
+      "strategy": "family",
+      "package": "style-mod",
+      "version": "4.1.3",
+      "url": "https://esm.sh/style-mod@4.1.3?external=@codemirror/autocomplete,@codemirror/commands,@codemirror/lang-javascript,@codemirror/language,@codemirror/lint,@codemirror/search,@codemirror/state,@codemirror/theme-one-dark,@codemirror/view,@lezer/common,@lezer/highlight,@lezer/javascript,@lezer/lr,@marijn/find-cluster-break,codemirror,crelt,style-mod,w3c-keyname"
+    },
+    {
+      "specifier": "w3c-keyname",
+      "strategy": "family",
+      "package": "w3c-keyname",
+      "version": "2.2.8",
+      "url": "https://esm.sh/w3c-keyname@2.2.8?external=@codemirror/autocomplete,@codemirror/commands,@codemirror/lang-javascript,@codemirror/language,@codemirror/lint,@codemirror/search,@codemirror/state,@codemirror/theme-one-dark,@codemirror/view,@lezer/common,@lezer/highlight,@lezer/javascript,@lezer/lr,@marijn/find-cluster-break,codemirror,crelt,style-mod,w3c-keyname"
+    }
+  ]
+}

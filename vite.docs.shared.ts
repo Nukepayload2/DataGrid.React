@@ -14,8 +14,29 @@
 import { defineConfig, type Plugin, type PluginOption, type UserConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { viteSingleFile } from 'vite-plugin-singlefile'
-import reactPkg from 'react/package.json'
-import antdPkg from 'antd/package.json'
+// CDN 档的 import map 落地表（23 条映射 = react 族 4 + antd 1 + CodeMirror 闭包 18）。
+// 由 `pnpm docs:cdn-map` 生成、提交进 git；生成原因与三种策略见
+// scripts/gen-cdn-importmap.mjs 顶部注释。
+import cdnImportMap from './src/docs/generated/cdn-importmap.json'
+
+/** CDN 档的 import map 落地表形状（生成产物，见 scripts/gen-cdn-importmap.mjs）。 */
+export interface CdnImportMapEntry {
+  /** 浏览器里出现的裸 specifier，也是 import map 的键。 */
+  specifier: string
+  /** 落地策略：single / bundle / family，判据见生成脚本。 */
+  strategy: 'single' | 'bundle' | 'family'
+  /** 实际被解析的 npm 包名（`react-dom/client` → `react-dom`）。 */
+  package: string
+  /** 该包自己 package.json 里的版本。 */
+  version: string
+  /** 最终 URL（含 `?external=` / `&bundle`）。 */
+  url: string
+}
+
+export interface CdnImportMap {
+  externals: string[]
+  entries: CdnImportMapEntry[]
+}
 
 export interface DocsBuildOptions {
   /** 产物目录（相对仓库根）。 */
@@ -24,7 +45,7 @@ export interface DocsBuildOptions {
   base?: string
   /** true 时走 `viteSingleFile()`（离线单文件档）。 */
   singleFile?: boolean
-  /** 第三方 CDN 档：把 react/react-dom/antd 交给 import map。 */
+  /** 第三方 CDN 档：把生成表里的全部外置包（react / antd / CodeMirror）交给 import map。 */
   cdn?: 'esmsh'
 }
 
@@ -39,36 +60,33 @@ export function envVar(name: string): string | undefined {
   return nodeProcess?.env?.[name]
 }
 
-/** CDN 档外置的包：只放"必须全局单例且由 import map 解析"的那几个。 */
-export const CDN_EXTERNALS: readonly string[] = [
-  'react',
-  'react/jsx-runtime',
-  'react-dom',
-  'react-dom/client',
-  'antd',
-]
+/**
+ * CDN 档外置的包 = 生成表里的全部 specifier。
+ *
+ * 全量而不是"只放源码 import 的那几个"：`family` 组（CodeMirror）的每个成员都进
+ * `external`，以后有人在 `src/` 里直接 import 其中一个，也不会被静默打进本地 chunk
+ * —— 那会造出第二份实例（`instanceof` 断裂）。
+ */
+export const CDN_EXTERNALS: readonly string[] = (cdnImportMap as CdnImportMap).externals
 
 /**
- * esm.sh 的 import map。
+ * esm.sh 的 import map：纯数据，来自 `src/docs/generated/cdn-importmap.json`。
  *
- * - `?external=react,react-dom` **不能省**：这是唯一能保证"页面上只有一份 React"的开关。
- *   实测（`tmp/docs-analyze/esmsh-peer-leak.mjs`）：`@ant-design/icons?external=react` 会把
- *   它的 peer `react-dom >=16.0.0` 编成**绝对 URL**，浏览器解析成当时的最新版（19.3.1），
- *   import map 拦不住绝对 URL ⇒ 双实例 ⇒ React error #527。所以每个包都要列全共享集。
- * - `&bundle`：不 bundle 时 antd 会拆成 1 163 个模块请求（实测），40 KB/s 链路上必死；
- *   bundle 之后是 1 个请求 1 501 KB raw / 380 KB br（代价：没有 tree-shaking，就是全量）。
- * - 版本一律取**本地安装版本**，与 `pnpm-lock.yaml` 对齐，避免 CDN 侧漂移。
+ * 这里不再手写任何 URL —— 三种落地策略（single / bundle / family）的差别全部在
+ * 生成脚本那张 `CDN_ROOTS` 表里，本文件只负责"把表铺成 import map"。
+ *
+ * 仍然必须记住的两条语义（细节见 docs/decisions/0011-codemirror-cdn-externalization.md）：
+ * - `?external=` 列全共享集是唯一能保证"页面上只有一份 react / @codemirror/state"的开关
+ *   （esm.sh 会把没列进去的 peer 编成**绝对 URL**，import map 拦不住 ⇒ 双实例）。
+ * - `&bundle` 只给"不跨模块做引用相等"的包（antd：1163 个请求 → 1 个）；
+ *   给它 CodeMirror 会内联一份私有 `@codemirror/state`，必炸。
  */
 export function createEsmShImportMap(): Record<string, string> {
-  const reactVersion = (reactPkg as { version: string }).version
-  const antdVersion = (antdPkg as { version: string }).version
-  return {
-    react: `https://esm.sh/react@${reactVersion}`,
-    'react/jsx-runtime': `https://esm.sh/react@${reactVersion}/jsx-runtime`,
-    'react-dom': `https://esm.sh/react-dom@${reactVersion}?external=react`,
-    'react-dom/client': `https://esm.sh/react-dom@${reactVersion}/client?external=react`,
-    antd: `https://esm.sh/antd@${antdVersion}?external=react,react-dom&bundle`,
+  const importMap: Record<string, string> = {}
+  for (const entry of (cdnImportMap as CdnImportMap).entries) {
+    importMap[entry.specifier] = entry.url
   }
+  return importMap
 }
 
 /**
@@ -97,18 +115,63 @@ function docsImportMapPlugin(importMap: Record<string, string>): Plugin {
 }
 
 /**
- * CDN 档的构建期断言。
+ * chunk 顶部的 import/export-from 前缀里出现的 specifier。
  *
- * 两条都是"曾经踩过"的形状：
- * 1. 产物里不许出现 `https://esm.sh/` 字面量 —— 出现说明某个依赖没走 external，
- *    运行时会绕过 import map 再拉一份 react/antd（双实例）。
- * 2. `index.html` 里必须有 `type="importmap"`，且必须在入口 script 之前。
+ * **必须只扫前缀，不能扫全文。** docs 页面的代码示例是字符串字面量，里面有
+ * `from '@nukepayload2/data-grid'`、`from '@dnd-kit/core'` 这类文本，`?raw` 导入的
+ * demo 源码更是整篇代码字符串 —— minified 之后全文扫描会匹配 `from"…"`（实测这版
+ * 守卫一次报了 11 个假阳性，含 `module`、`react-highlight-words`）。
+ * 真实外部导入只出现在 chunk 顶部（rolldown 把静态 import 全部提升到开头）。
  */
-function docsCdnGuardPlugin(): Plugin {
+const IMPORT_PREFIX =
+  /^(?:\s*(?:import|export)\s*(?:\{[^{}]*\}|\*(?:\s*as\s*[\w$]+)?|[\w$]+)?\s*(?:from\s*)?["'][^"']+["'];?)+/
+
+function collectPrefixSpecifiers(code: string): string[] {
+  const prefix = code.match(IMPORT_PREFIX)?.[0] ?? ''
+  return [...new Set([...prefix.matchAll(/["']([^"']+)["']/g)].map((match) => match[1]))].filter(
+    (spec) => !spec.startsWith('.') && !spec.startsWith('/'),
+  )
+}
+
+/**
+ * `family` 组的包在 node_modules 里的路径形状（用于断言"没被就地打包"）。
+ *
+ * 只取 `family` 是因为它才是"本地一个字节都不许留"的那类：single / bundle 组
+ * 若被就地打包，产物里会留下 `https://esm.sh/` 字面量或未映射的裸 specifier，被 1、2 抓住。
+ */
+function familyModulePattern(familyPackages: readonly string[]): RegExp | null {
+  if (familyPackages.length === 0) return null
+  const names = familyPackages.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  return new RegExp(
+    String.raw`node_modules[\\/](?:\.pnpm[\\/][^\\/]+[\\/]node_modules[\\/])?(?:${names.join('|')})[\\/]`,
+  )
+}
+
+/**
+ * CDN 档的构建期断言。五条都是"曾经踩过 / 一定会踩"的形状：
+ *
+ * 1. 产物里不许出现 `https://esm.sh/` 字面量 —— 出现说明某个依赖没走 external，
+ *    运行时会绕过 import map 再拉一份 react/antd/CodeMirror（双实例）。
+ * 2. chunk 顶部的每个裸 specifier 必须能在 import map 里找到 —— 兜住"外置了但忘了映射"
+ *    （运行时直接 404）。
+ * 3. `family` 组的模块不许出现在任何本地产物里 —— 外置的意思是"本地一个字节都不留"。
+ *    只靠 1、2 抓不到"被就地打包"（打包后既没有外部导入也没有 esm.sh 字面量）。
+ * 4. `index.html` 里必须有 `type="importmap"`、必须在入口 script 之前，
+ *    且每个 `family` 组的条目都必须带 `external=` 且不得带 `bundle`
+ *    （见 createEsmShImportMap 的注释）。
+ * 5. **守卫自身有效性**：整轮构建必须在 chunk 顶部扫到 `react`。扫不到说明产物形态变了
+ *    （import 不再位于 chunk 开头），此时第 2 条会静默变成空跑 —— 必须红，而不是假装通过。
+ */
+function docsCdnGuardPlugin(cdnMap: CdnImportMap): Plugin {
+  const mapped = new Set(cdnMap.entries.map((entry) => entry.specifier))
+  const familyEntries = cdnMap.entries.filter((entry) => entry.strategy === 'family')
+  const familyPackages = [...new Set(familyEntries.map((entry) => entry.package))]
+  const familyModuleRe = familyModulePattern(familyPackages)
   return {
     name: 'docs:cdn-guard',
     enforce: 'post',
     generateBundle(_options, bundle) {
+      const seenSpecifiers = new Set<string>()
       for (const [fileName, output] of Object.entries(bundle)) {
         if (output.type !== 'chunk') continue
         if (output.code.includes('https://esm.sh/')) {
@@ -117,6 +180,31 @@ function docsCdnGuardPlugin(): Plugin {
               '某个依赖没有走 external，运行时会绕过 import map（双实例风险）。',
           )
         }
+        const specifiers = collectPrefixSpecifiers(output.code)
+        for (const specifier of specifiers) seenSpecifiers.add(specifier)
+        const unmapped = specifiers.filter((spec) => !mapped.has(spec))
+        if (unmapped.length > 0) {
+          this.error(
+            `[docs:cdn-guard] ${fileName} 引用了 import map 里没有的外部模块：` +
+              `${unmapped.join(', ')}。运行时解析不到（404）。`,
+          )
+        }
+        const bundledFamily = familyModuleRe
+          ? Object.keys(output.modules).filter((id) => familyModuleRe.test(id))
+          : []
+        if (bundledFamily.length > 0) {
+          this.error(
+            `[docs:cdn-guard] ${fileName} 里打进了 family 组的模块（${bundledFamily.length} 个，` +
+              `例如 ${bundledFamily[0]}）。CDN 档必须把它们整体交给 esm.sh：` +
+              '检查 package.json 的 devDependencies 是否新增了该族的子包，然后重跑 `pnpm docs:cdn-map`。',
+          )
+        }
+      }
+      if (!seenSpecifiers.has('react')) {
+        this.error(
+          '[docs:cdn-guard] 整轮构建没在任何 chunk 顶部扫到 `react`：' +
+            '说明产物形态变了（import 不再位于 chunk 开头），上面的 import map 校验会静默变成空跑。',
+        )
       }
     },
     transformIndexHtml: {
@@ -129,6 +217,20 @@ function docsCdnGuardPlugin(): Plugin {
         }
         if (entryAt >= 0 && importMapAt > entryAt) {
           throw new Error('[docs:cdn-guard] import map 出现在入口 module script 之后，浏览器不会应用它')
+        }
+        for (const entry of familyEntries) {
+          if (!entry.url.includes('external=')) {
+            throw new Error(
+              `[docs:cdn-guard] ${entry.specifier} 的 URL 没带 ?external=：esm.sh 会把依赖编成绝对 URL，` +
+                'import map 拦不住 ⇒ 双实例（instanceof 断裂）。',
+            )
+          }
+          if (/[?&]bundle\b/.test(entry.url)) {
+            throw new Error(
+              `[docs:cdn-guard] ${entry.specifier} 的 URL 带了 ?bundle：family 组会内联一份私有实例，` +
+                '必踩 "multiple instances ... breaking instanceof checks"。',
+            )
+          }
         }
         return html
       },
@@ -164,7 +266,8 @@ export function createDocsConfig(options: DocsBuildOptions): UserConfig {
   const plugins: PluginOption[] = [...react()]
   if (options.singleFile) plugins.push(viteSingleFile())
   if (options.cdn === 'esmsh') {
-    plugins.push(docsImportMapPlugin(createEsmShImportMap()), docsCdnGuardPlugin())
+    const cdnMap = cdnImportMap as CdnImportMap
+    plugins.push(docsImportMapPlugin(createEsmShImportMap()), docsCdnGuardPlugin(cdnMap))
   }
 
   return defineConfig({

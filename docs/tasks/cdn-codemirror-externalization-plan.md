@@ -1,6 +1,6 @@
 # CDN 档 CodeMirror 外置 + 首屏大依赖懒加载（规划）
 
-> 状态：**只做了测量与设计，代码未动**。等通知后按第 11 节顺序执行。
+> 状态：**P1 + P2 已实施并验收**（P3 未做）。实测结果见第 6 节，实施记录见第 11 节。
 > 本文件的读数全部是实测（sourcemap 逐模块归因 + 产物 gzip/br），不是估算。
 
 ## 0. 一句话
@@ -78,25 +78,26 @@ P3 再把默认档里非首屏必需的大依赖（theme-editor、筛选面板�
 `tsconfig.node.json` 刻意不引 `@types/node`（见 `vite.docs.shared.ts:34-36` 的注释），因此 **不能** 在 TS 配置里 `import { createRequire } from 'node:module'`。
 沿用仓里既有的"Node 侧用 `.mjs` 脚本、产物 JSON 提交进 git"的套路（`scripts/extract-api.mjs` → `src/docs/generated/api.json`，已 git 跟踪）：
 
-- 新增 `scripts/gen-codemirror-cdn-map.mjs`
-  - 从 5 个直接 specifier 出发：`codemirror`、`@codemirror/state`、`@codemirror/view`、`@codemirror/lang-javascript`、`@codemirror/theme-one-dark`
-  - 用 `createRequire` 逐个 `require.resolve('<pkg>/package.json')`，读 `version` + `dependencies`，递归求闭包（去重、按名排序）
-  - 写 `src/docs/generated/codemirror-cdn.json`：`{ packages: [{ name, version }], externals: [name…] }`（确定性输出，便于 diff）
+- 新增 `scripts/gen-cdn-importmap.mjs`（旧名 gen-codemirror-cdn-map，见第 12 节的统一改造）
+  - 一张 `CDN_ROOTS` 表声明外置根与策略；`family` 组的根从 5 个直接 specifier 出发：
+    `codemirror`、`@codemirror/state`、`@codemirror/view`、`@codemirror/lang-javascript`、`@codemirror/theme-one-dark`
+  - 用 `createRequire` 逐个解析包目录（`require.resolve(name)` 后向上找同名 `package.json`），读 `version` + `dependencies`，递归求闭包（去重、按名排序）
+  - 写 `src/docs/generated/cdn-importmap.json`：`{ externals: [specifier…], entries: [{ specifier, strategy, package, version, url }] }`（确定性输出，便于 diff）
   - `--check` 模式：只比对不写文件，不一致 → 非零退出
 - `package.json`
-  - `"docs:codemirror": "node scripts/gen-codemirror-cdn-map.mjs"`
-  - `"build:docs:cdn": "pnpm docs:api && pnpm docs:codemirror && vite build --config vite.docs.cdn.config.ts"`
-  - `"test": "vitest run && pnpm run test:css-compat && node scripts/gen-codemirror-cdn-map.mjs --check"`
+  - `"docs:cdn-map": "node scripts/gen-cdn-importmap.mjs"`
+  - `"build:docs:cdn": "pnpm docs:api && pnpm docs:cdn-map && vite build --config vite.docs.cdn.config.ts"`
+  - `"test": "vitest run && pnpm run test:css-compat && node scripts/gen-cdn-importmap.mjs --check"`
 
 预期闭包 18 个包（实测版本，全部单版本、无重复）：`@codemirror/{autocomplete,commands,lang-javascript,language,lint,search,state,theme-one-dark,view}`、`@lezer/{common,highlight,javascript,lr}`、`@marijn/find-cluster-break`、`codemirror`、`crelt`、`style-mod`、`w3c-keyname`。
 
 ### 3.3 实施点
 
 - `vite.docs.shared.ts`
-  - 顶部 `import codemirrorCdn from './src/docs/generated/codemirror-cdn.json'`（`resolveJsonModule` 已开）。
-  - `CDN_EXTERNALS` 扩展为 `[…现有 5 个, ...codemirrorCdn.externals]` —— 把叶子包也列进 `external`，是为了让"以后有人在 `src/` 里直接 `import '@codemirror/language'`"也走 CDN 而不是偷偷变成本地 chunk（双实例）。
-  - `createEsmShImportMap()` 增一组：每个包 `https://esm.sh/<name>@<version>?external=<externals 逗号连接>`，与 react/antd 三条并列。
-  - 注释写清三条"实测踩出来的"约束：全量 external、禁 `?bundle`、版本取生成表。
+  - 顶部 `import cdnImportMap from './src/docs/generated/cdn-importmap.json'`（`resolveJsonModule` 已开）。
+  - `CDN_EXTERNALS` = 生成表的 `externals`（23 个）—— `family` 组的叶子包也列进 `external`，是为了让"以后有人在 `src/` 里直接 `import '@codemirror/language'`"也走 CDN 而不是偷偷变成本地 chunk（双实例）。
+  - `createEsmShImportMap()` 只做"表 → import map"的铺平，不再拼 URL。
+  - 注释写清策略判据（`instanceof` / 引用相等）与两条实测约束（全量 external、`family` 禁 `?bundle`）。
 - 单文件档 / 默认档：`cdn` 未开启 ⇒ 一行不变。
 
 ### 3.4 守卫（三条，全部挡在构建期）
@@ -152,22 +153,27 @@ P3 再把默认档里非首屏必需的大依赖（theme-editor、筛选面板�
 | `vendor-react` 58 KB gz | 首屏必需 |
 | `compile`(sucrase) 196 KB | 已经是懒加载，不在首屏 |
 
-## 6. 预期读数（执行后按此验收）
+## 6. 读数（预期 vs 实测）
 
 | 阶段 | 默认档首屏 gz | CDN 档首屏本地 gz | CodeMirror 是否在产物里 |
 | --- | --- | --- | --- |
-| 现在 | 636 | 324 | 是（491 KB chunk） |
-| P1 | 636 | **161** | 否（改由 esm.sh 供） |
-| P1+P2 | **473** | **161** | 否，且首屏不下载 |
-| +P3.1 | ~410 | ~156 | 否 |
-| +P3.2 | **~310** | ~156 | 否 |
+| 改造前 | 636 | 324 | 是（491 KB chunk） |
+| P1 外置 | 636 | 324 → **157** | 否（改由 esm.sh 供） |
+| **P1+P2 实测** | **405** | **157** | 否，且首屏不下载 |
+| +P3.1（未做） | ~350 | ~152 | 否 |
+| +P3.2（未做） | **~270** | ~152 | 否 |
 
-（P1 单独落地时 CDN 档"本地字节"减 163，但真实首屏下载量不变 —— 表格里的 161 只统计本地文件，esm.sh 侧 137 KB br 的 CodeMirror 仍会在首屏发生，除非 P2 也做。）
+默认档实测 405 KB(gz) 比预估 473 还低，因为 P2 里的 `ThemeEditorModal` 惰性化把 antd 的
+Table/ColorPicker/Collapse/Slider/Form/InputNumber 一起带走了（`index` 133 → 88 KB gz）。
+CDN 档 157 KB(gz) / 131 KB(br)，首屏 12 个本地文件，CodeMirror 一个字节都不在本地。
+
+（P1 单独落地时 CDN 档"本地字节"减 163，但真实首屏下载量不变 —— esm.sh 侧 137 KB br 的
+CodeMirror 仍会在首屏发生，除非 P2 也做。这就是 P2 必须同时做的原因。）
 
 ## 7. 测试与门禁
 
-- `scripts/gen-codemirror-cdn-map.mjs --check` 进 `pnpm test`（防版本漂移）。
-- 新增 `tests/docs/cdn-importmap.test.ts`（纯函数级）：断言 react/antd 三条仍在、CodeMirror 条目数 = 闭包大小、每条带 `external=`、无 `bundle`、无重复键、版本与 JSON 一致。
+- `node scripts/gen-cdn-importmap.mjs --check` 进 `pnpm test`（防版本漂移）。
+- 新增 `tests/cdn-importmap.test.ts`（纯函数级）：断言 react/antd 三条仍在、CodeMirror 条目数 = 闭包大小、每条带 `external=`、无 `bundle`、无重复键、版本与 JSON 一致。
 - `pnpm test` / `pnpm test:e2e`（现有 7 个 spec 必须全绿）。
 - 单文件档冒烟：`pnpm build:docs:single` 后 `file://` 打开，确认编辑器可用（证明没被外置污染）。
 - CDN 档浏览器冒烟（chrome-devtools）：`npx vite preview --config vite.docs.cdn.config.ts --port 4173` →
@@ -192,22 +198,75 @@ P3 再把默认档里非首屏必需的大依赖（theme-editor、筛选面板�
 | P2 的 loading 闪动 | 观感 | 等高占位；必要时只对 `#/` 首页保留 eager（牺牲收益） |
 | P3.2 动引擎 | 回归 | 先做 P1/P2，P3.2 单独一次提交，跑 `e2e/filter-in-tree.spec.ts` + 筛选相关单测 |
 
-## 10. 待拍板
+## 10. 拍板结果
 
-1. **P2 做不做**（`CodeView` 惰性化）：不做则 P1 只是换 host，首屏字节不变；做则默认档 −163 KB gz。推荐做。
-2. **P3 本轮做不做**：收益全在默认档（CDN 档 ≈0），其中 5.2 会动引擎与测试。推荐 P1+P2 先落，P3 单独排。
-3. **单文件档是否也要外置**：推荐不要（离线 `file://` 会废）。
+1. **P2 做**（`CodeView` 惰性化）—— 已实施。
+2. **P3 本轮不做** —— 留待单独排期（默认档 ~405 → ~270 KB gz 的空间在 `theme-editor` 之外的 `tree` 上）。
+3. **单文件档不外置** —— 已确认（`dist-docs-single` 仍 961 KB、无 import map、无 esm.sh）。
 
-## 11. 执行顺序（等通知）
+## 11. 实施记录（已完成）
 
-1. P1 步骤 3.2（生成脚本 + JSON）→ 3.3（配置）→ 3.4（守卫 + 探针）→ 7 的单测/门禁 → 8 的 docs-build 与 ADR。
-2. `pnpm build:docs:cdn` → `node tmp/firstscreen.mjs dist-docs-cdn` 对账（预期本地 161 KB gz，CodeMirror 原名消失）。
-3. P2 → 复测两档（636→473 / 324→161）；chrome-devtools 冒烟。
-4. （若拍板做）P3.1 → 复测；P3.2 → 复测 + e2e。
+改动面：
+
+| 文件 | 改动 |
+| --- | --- |
+| `scripts/gen-cdn-importmap.mjs`（新） | 一张 `CDN_ROOTS` 表（single / bundle / family）→ `src/docs/generated/cdn-importmap.json`（23 条映射 + 版本，排序确定性）；`--check` 进 `pnpm test` |
+| `scripts/check-esmsh-externals.mjs`（新） | 联网探针：family 组 18 条 URL（shim + inner）默认查，`--all` 查全部 23 条；断言无 `https://esm.sh/` 绝对 URL、无 externals 外的裸 specifier |
+| `vite.docs.shared.ts` | `CDN_EXTERNALS` = 生成表 externals（23）；`createEsmShImportMap()` 只做"表 → import map"；`docs:cdn-guard` 从 3 条断言扩到 5 条，family 判定改为读 `strategy` 而不是写死 `@codemirror/` 前缀 |
+| `src/App.tsx` | `CodeView` / `ThemeEditorModal` 改 `lazy`；`Suspense` 包住两处使用；Modal 首开才挂载（`themeModalMounted`），保住关闭动画与面板内 UI 状态 |
+| `src/docs/components.tsx` | `CodeView` 改 `lazy`，只读分支包 `Suspense` + 等高占位（避免 CLS） |
+| `package.json` | `docs:cdn-map` / `check:esmsh`；`build:docs:cdn` 生成前置；`test` 链尾加 `--check` |
+| `tests/cdn-importmap.test.ts`（新） | 11 条契约：表与 `CDN_EXTERNALS` 互为全集、每条 URL 与表一致、版本各取自身 package.json（含 react-dom 回归）、single/bundle/family 三种形状各自锁死 |
+
+验收读数：
+
+| 项 | 结果 |
+| --- | --- |
+| `pnpm build:docs` | 首屏 **636 → 405 KB(gz)**（35 js + 2 css），CodeMirror 变纯懒 chunk |
+| `pnpm build:docs:cdn` | 首屏本地 **324 → 157 KB(gz)** / 131 KB(br)，12 个文件；`index.html` 含 23 条 import map |
+| `pnpm build:docs:single` | 961 KB、无 import map、无 esm.sh（未受影响） |
+| `pnpm test` | 134 files / 1869 tests 全绿 + css-compat + `gen-cdn-importmap --check` |
+| `npx tsc -b`、`tsc -p tsconfig.test.json`、`pnpm lint` | 全部 0 错误 |
+| `pnpm check:esmsh` / `--all` | 18 / 23 条全部自洽 |
+| chrome-devtools 冒烟（CDN 产物 4173） | 首屏无 CodeMirror 请求；展开"源码"后才拉本地 `CodeMirrorEditor-*.js` + 18 条 esm.sh；2 个编辑器 / 167 处高亮正常；主题编辑器首开才拉 `ThemeEditorModal-*.js`；Console 无 #527、无 `instanceof` 报错 |
+
+踩到的坑（值得记）：
+
+1. **守卫第一版用正则扫产物全文 → 11 个假阳性**（`module`、`react-highlight-words`、`@dnd-kit/core`……）。
+   docs 页面的代码示例和 `?raw` demo 源码本身就是字符串，minified 后照样匹配 `from"…"`。
+   成品只扫 chunk 顶部的 import 前缀，并加一条"本轮必须在某处扫到 `react`"的自检 —— 否则产物形态一变，守卫会静默变成空跑。
+2. **rolldown 的 `getModuleInfo(id).isExternal` 拿不到外置模块**（实测 `modules=2631 externals=0`），
+   所以"按模块图判断"这条路在这个版本上走不通（`chunk.imports` 也只列相对 chunk）。
+3. **P2 的两个引线都得改**：只改 `App.tsx` 不动 `src/docs/components.tsx` 的话，CodeMirror 仍会被首屏 chunk 拉回去。
+
+## 12. 收尾：把"只有 CodeMirror 有生成脚本"的不对称改掉
+
+第一版只有 CodeMirror 走生成表、react/antd 是配置里五行字面量。看着像设计，其实是路径依赖：
+生成脚本存在的唯一理由是**要枚举一个闭包的版本**，而只有 `family` 策略需要枚举。但它留下两个实际缺陷：
+
+1. `react-dom` 的 URL 复用了 `react` 的版本号（`const reactVersion` 跨包复用）。今天两者都是 19.2.7
+   所以没炸；但 `react-dom` 的 peer 是 `react ^19`，装出 19.3 + 19.2 的组合就会 pin 一个不存在的版本 ⇒ esm.sh 404。
+2. 命名错位：`docs:codemirror` 实际生产**整个 CDN 档的 import map**。下一个外置组（`@dnd-kit/*`、
+   或修 `antd/es/*` 深路径）会立刻再问一次"是不是也该有个 `docs:dnd`"。
+
+改造后的形状（一张表、一个脚本、一种概念）：
+
+| 前 | 后 |
+| --- | --- |
+| 旧脚本（CodeMirror 专用）+ `codemirror-cdn.json`（18 包） | `scripts/gen-cdn-importmap.mjs` + `cdn-importmap.json`（23 条 = 4 single + 1 bundle + 18 family） |
+| `pnpm docs:codemirror` | `pnpm docs:cdn-map` |
+| `CDN_EXTERNALS` = 5 条手写 + 18 条生成 | `CDN_EXTERNALS` = 生成表 `externals`（23） |
+| `createEsmShImportMap()` 里拼 URL、react/antd 硬编码 | 配置只做"表 → import map"的铺平 |
+| react-dom 用 react 的版本 | 每包各取自己的 `package.json`（测试钉住） |
+| 守卫写死 `@codemirror/` / `@lezer/` 前缀 | 守卫读 `strategy === 'family'` |
+
+产物与读数完全不变（CDN 档首屏仍 157 KB gz / 131 KB br，`index.html` 23 条映射），
+新增 4 条契约测试（11 条）。
 
 ## 附：本轮新建的探针（都在 `tmp/`，已忽略）
 
 - `tmp/chunk-share.mjs <dir> <chunk…>`：按 `sourcesContent` 算每个包在 chunk 里的占比，并给 raw/gzip/br。
 - `tmp/firstscreen.mjs <dist>`：从 `index.html` 抓首屏资源，逐文件 raw/gzip/br + 合计。
 - `tmp/firstscreen-audit.mjs <dist>`：默认档首屏逐 chunk 归因（包占比 + 项目入口文件）。
+- `tmp/probe-prefix.mjs <dist>/assets`：验证"只扫 import 前缀"不误报也不漏报真实外部导入。
 - `tmp/dist-docs-srcmap/`、`tmp/dist-cdn-srcmap/`：带 `--sourcemap` 另建的临时产物（`dist-docs*` 原样未动）。

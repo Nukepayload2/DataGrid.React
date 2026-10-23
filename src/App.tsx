@@ -30,10 +30,8 @@ import { docs } from './docs/docRegistry'
 import HomePage from './HomePage'
 import DemoHomePage from './DemoHomePage'
 import DocsPage from './DocsPage'
-import CodeView from './CodeView'
 import { useDemoSource } from './useDemoSource'
 import { useSplitDemoSource } from './useSplitDemoSource'
-import ThemeEditorModal from './ThemeEditorModal'
 import { useTheme, type ThemeMode } from './theme/ThemeContext'
 import { useVirtualization } from './demos/VirtualizationContext'
 // split demo 才接入对比预览和 live 编辑链路。
@@ -45,6 +43,16 @@ import pkg from '../package.json'
 // 编辑器整条链路（CodeMirror + 源码编译 + 注入表）懒加载：
 // 默认渲染路径（列表、对比预览、只读源码）根本不需要它。
 const LiveEditor = lazy(() => import('./live/LiveEditor'))
+
+// 只读源码视图同样惰性化：它静态引入会把整条 CodeMirror 6 + Lezer 链路
+// （491 KB min / 163 KB gz）钉进首屏 —— 而它只在「源码」折叠面板展开时才渲染。
+// docs 侧的同款静态引入在 `src/docs/components.tsx`，两处都要改，否则前功尽弃。
+const CodeView = lazy(() => import('./CodeView'))
+
+// 主题编辑器 Modal 惰性化：它链到 `demos/theme-editor.tsx`，后者一次性静态引入
+// antd 的 Table / ColorPicker / Collapse / Slider / Form / InputNumber / Segmented，
+// 是默认档首屏 index chunk 里 antd 占 48% 的来源。这个 Modal 只在点顶栏按钮时出现。
+const ThemeEditorModal = lazy(() => import('./ThemeEditorModal'))
 
 const { Header, Sider, Content } = Layout
 const { Title, Link } = Typography
@@ -172,6 +180,9 @@ function App() {
   const [openKeys, setOpenKeys] = useState<string[]>([])
   // 主题编辑器 Modal 开关。
   const [themeModalOpen, setThemeModalOpen] = useState(false)
+  // 主题编辑器 Modal 是否已挂载过一次（首开之前不渲染 ⇒ 懒加载产物首屏不下发）。
+  // 挂载后不再卸载：保留面板内部的 UI 状态，也保住关闭动画。
+  const [themeModalMounted, setThemeModalMounted] = useState(false)
   // 窄屏 docs 目录 Drawer 开关（Header 左侧汉堡触发）。
   const [docsTocOpen, setDocsTocOpen] = useState(false)
   // 顶栏全局 demo 搜索输入。URL q 参数用于跳转后高亮，输入框跟随它同步。
@@ -486,7 +497,14 @@ function App() {
 
         {isDemoArea ? (
           <div className="app-demo-actions">
-            <Button onClick={() => setThemeModalOpen(true)}>主题编辑器</Button>
+            <Button
+              onClick={() => {
+                setThemeModalMounted(true)
+                setThemeModalOpen(true)
+              }}
+            >
+              主题编辑器
+            </Button>
             <Switch
               checked={virtual}
               onChange={setVirtual}
@@ -630,7 +648,9 @@ function App() {
                     ) : loading ? (
                       <div>Loading source…</div>
                     ) : source ? (
-                      <CodeView code={source} />
+                      <Suspense fallback={<div>Loading source…</div>}>
+                        <CodeView code={source} />
+                      </Suspense>
                     ) : (
                       <div>无源码</div>
                     ),
@@ -658,10 +678,14 @@ function App() {
           ) : null}
         </Content>
       </Layout>
-      <ThemeEditorModal
-        open={themeModalOpen}
-        onClose={() => setThemeModalOpen(false)}
-      />
+      {themeModalMounted ? (
+        <Suspense fallback={null}>
+          <ThemeEditorModal
+            open={themeModalOpen}
+            onClose={() => setThemeModalOpen(false)}
+          />
+        </Suspense>
+      ) : null}
     </Layout>
   )
 }
