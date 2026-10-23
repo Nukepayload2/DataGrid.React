@@ -1,22 +1,31 @@
-import type { DocEntry, DocGroup } from './types'
-import {
-  renderApiNamespace,
-  renderArchitecture,
-  renderColumnApi,
-  renderCompatMatrix,
-  renderFeatures,
-  renderGridOptions,
-  renderKnownLimitations,
-  renderMigration,
-  renderPublicApi,
-  renderQuickStart,
-  renderRenderingModel,
-  renderScrolling,
-  renderSemanticDom,
-  renderStyling,
-  renderTableApi,
-  renderWhenToMigrate,
-} from './pages'
+import { lazy, Suspense, type ReactNode } from 'react'
+import type { DocEntry, DocGroup, DocsPageContext } from './types'
+
+/**
+ * 文档页按 slug 惰性加载。
+ *
+ * 历史：这里本来是 `import { renderX } from './pages'` 的静态桶 —— 16 个页面
+ * （含 80 KB 的 api.json 与全部 docs 组件）随 App 一起进首屏，实测 96 KB(min)。
+ * 现在每个 slug 只在自己被点开时下载，`render(ctx)` 的同步签名保持不变
+ * （Suspense 兜住加载态），调用方 DocsPage 无需改动。
+ */
+type PageRender = (context: DocsPageContext) => ReactNode
+type PageModule = Record<string, PageRender>
+
+function lazyPage(load: () => Promise<PageModule>, exportName: string): PageRender {
+  const Page = lazy(async () => {
+    const module = await load()
+    const render = module[exportName]
+    return {
+      default: ({ ctx }: { ctx: DocsPageContext }) => <>{render(ctx)}</>,
+    }
+  })
+  return (ctx: DocsPageContext) => (
+    <Suspense fallback={<div style={{ padding: 24, opacity: 0.6 }}>加载文档…</div>}>
+      <Page ctx={ctx} />
+    </Suspense>
+  )
+}
 
 export const docs: DocEntry[] = [
   {
@@ -32,7 +41,7 @@ export const docs: DocEntry[] = [
       { id: 'jsx', title: 'JSX 列声明' },
       { id: 'next', title: '下一步' },
     ],
-    render: renderQuickStart,
+    render: lazyPage(() => import('./pages/quick-start'), 'renderQuickStart'),
   },
   {
     slug: 'when-to-migrate',
@@ -46,7 +55,7 @@ export const docs: DocEntry[] = [
       { id: 'adjust', title: '需要同步调整的部分' },
       { id: 'avoid', title: '不支持的场景' },
     ],
-    render: renderWhenToMigrate,
+    render: lazyPage(() => import('./pages/when-to-migrate'), 'renderWhenToMigrate'),
   },
   {
     slug: 'migrate-from-antd',
@@ -59,7 +68,7 @@ export const docs: DocEntry[] = [
       { id: 'prompt', title: '迁移提示词' },
       { id: 'deprecated-members', title: '核对过时成员' },
     ],
-    render: renderMigration,
+    render: lazyPage(() => import('./pages/migrate-from-antd'), 'renderMigration'),
   },
   {
     slug: 'architecture-overview',
@@ -70,7 +79,7 @@ export const docs: DocEntry[] = [
       { id: 'layers', title: '四层职责' },
       { id: 'boundaries', title: '产品边界' },
     ],
-    render: renderArchitecture,
+    render: lazyPage(() => import('./pages/architecture-overview'), 'renderArchitecture'),
   },
   {
     slug: 'rendering-model',
@@ -81,7 +90,7 @@ export const docs: DocEntry[] = [
       { id: 'css-grid', title: 'CSS Grid' },
       { id: 'dom', title: 'DOM 形态' },
     ],
-    render: renderRenderingModel,
+    render: lazyPage(() => import('./pages/rendering-model'), 'renderRenderingModel'),
   },
   {
     slug: 'api-namespace',
@@ -92,7 +101,7 @@ export const docs: DocEntry[] = [
       { id: 'compatible', title: '兼容 API 留顶层，专属能力进命名空间' },
       { id: 'native', title: '参考入口' },
     ],
-    render: renderApiNamespace,
+    render: lazyPage(() => import('./pages/api-namespace'), 'renderApiNamespace'),
   },
   {
     slug: 'features',
@@ -103,7 +112,7 @@ export const docs: DocEntry[] = [
       { id: 'overview', title: '能力清单' },
       { id: 'demos', title: 'demo 入口' },
     ],
-    render: renderFeatures,
+    render: lazyPage(() => import('./pages/features'), 'renderFeatures'),
   },
   {
     slug: 'scrolling',
@@ -115,7 +124,7 @@ export const docs: DocEntry[] = [
       { id: 'scroll-y', title: 'scroll.y 语义' },
       { id: 'demos', title: '滚动相关 demo' },
     ],
-    render: renderScrolling,
+    render: lazyPage(() => import('./pages/scrolling'), 'renderScrolling'),
   },
   {
     slug: 'styling-and-theme',
@@ -127,7 +136,7 @@ export const docs: DocEntry[] = [
       { id: 'theme-code', title: 'ConfigProvider token' },
       { id: 'demos', title: '优先 demo' },
     ],
-    render: renderStyling,
+    render: lazyPage(() => import('./pages/styling-and-theme'), 'renderStyling'),
   },
   {
     slug: 'semantic-dom',
@@ -139,7 +148,7 @@ export const docs: DocEntry[] = [
       { id: 'a11y', title: 'a11y 属性兼容矩阵' },
       { id: 'demo', title: '交互验证' },
     ],
-    render: renderSemanticDom,
+    render: lazyPage(() => import('./pages/semantic-dom'), 'renderSemanticDom'),
   },
   {
     slug: 'public-api',
@@ -150,7 +159,7 @@ export const docs: DocEntry[] = [
       { id: 'exports', title: '主入口导出' },
       { id: 'native', title: '专属 API 入口' },
     ],
-    render: renderPublicApi,
+    render: lazyPage(() => import('./pages/public-api'), 'renderPublicApi'),
   },
   {
     slug: 'table-api',
@@ -162,7 +171,7 @@ export const docs: DocEntry[] = [
       { id: 'table-ref', title: 'TableRef' },
       { id: 'static', title: '静态属性' },
     ],
-    render: renderTableApi,
+    render: lazyPage(() => import('./pages/table-api'), 'renderTableApi'),
   },
   {
     slug: 'column-api',
@@ -172,7 +181,7 @@ export const docs: DocEntry[] = [
     sections: [
       { id: 'column-props', title: 'Column props' },
     ],
-    render: renderColumnApi,
+    render: lazyPage(() => import('./pages/column-api'), 'renderColumnApi'),
   },
   {
     slug: 'compat-matrix',
@@ -184,7 +193,7 @@ export const docs: DocEntry[] = [
       { id: 'deprecated-members', title: '过时成员迁移特例' },
       { id: 'related', title: '相关说明' },
     ],
-    render: renderCompatMatrix,
+    render: lazyPage(() => import('./pages/compat-matrix'), 'renderCompatMatrix'),
   },
   {
     slug: 'known-limitations',
@@ -194,7 +203,7 @@ export const docs: DocEntry[] = [
     sections: [
       { id: 'boundaries', title: '架构边界' },
     ],
-    render: renderKnownLimitations,
+    render: lazyPage(() => import('./pages/known-limitations'), 'renderKnownLimitations'),
   },
   {
     slug: 'grid-options',
@@ -209,7 +218,7 @@ export const docs: DocEntry[] = [
       { id: 'column-options', title: 'gridColumnOptions' },
       { id: 'recycling', title: 'recycling' },
     ],
-    render: renderGridOptions,
+    render: lazyPage(() => import('./pages/grid-options'), 'renderGridOptions'),
   },
 ]
 

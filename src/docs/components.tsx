@@ -26,6 +26,9 @@ const LiveErrorBoundary = lazy(() =>
 )
 const compileFn = () => import('../live/compile').then((m) => m.compile)
 const evalModuleFn = () => import('../live/evalModule').then((m) => m.evalModule)
+// 注入表解析器也懒加载：它在首屏模块里被静态引入时，rolldown 会把它内部的
+// 动态 import（antd 白名单 / 图标 / data-grid / dnd）一并合并回首屏 chunk。
+const resolveScopeFn = () => import('../live/scope').then((m) => m.resolveLiveScope)
 
 interface DocArticleProps {
   doc: DocEntry
@@ -162,22 +165,19 @@ export function DocsCode({
   maxHeight,
   ariaLabel,
   editable = false,
-  scope,
 }: {
   code: string
   height?: number | string
   maxHeight?: number | string
   ariaLabel: string
-  /** 开启后渲染 LiveEditor + 活预览，替代只读 CodeView。需要 scope 配合。 */
+  /** 开启后渲染 LiveEditor + 活预览，替代只读 CodeView（注入表按源码自动解析）。 */
   editable?: boolean
-  /** editable=true 时必需：require 注入表（通常用 src/docs/liveScope.ts 的 docsScope）。 */
-  scope?: Record<string, unknown>
 }) {
   // 默认行为不变：只读 CodeView + 复制按钮。
-  if (!editable || !scope) {
+  if (!editable) {
     return <CodeView code={code} height={height} maxHeight={maxHeight ?? 360} ariaLabel={ariaLabel} />
   }
-  return <EditableDocsCode code={code} scope={scope} ariaLabel={ariaLabel} />
+  return <EditableDocsCode code={code} ariaLabel={ariaLabel} />
 }
 
 /**
@@ -193,11 +193,9 @@ export function DocsCode({
  */
 function EditableDocsCode({
   code,
-  scope,
   ariaLabel,
 }: {
   code: string
-  scope: Record<string, unknown>
   ariaLabel: string
 }) {
   const [Comp, setComp] = useState<ComponentType<Record<string, unknown>> | null>(null)
@@ -213,13 +211,20 @@ function EditableDocsCode({
     setRuntimeError(null)
     setRunId((n) => n + 1)
     try {
-      const [compile, evalModule] = await Promise.all([compileFn(), evalModuleFn()])
+      const [compile, evalModule, resolveLiveScope] = await Promise.all([
+        compileFn(),
+        evalModuleFn(),
+        resolveScopeFn(),
+      ])
       const compiled = compile(code)
       if (!compiled.ok) {
         setComp(null)
         setBootError(compiled.error)
         return
       }
+      // 注入表按 require 按需构造：docs 示例通常只 import data-grid，
+      // 不该为它把 antd 全家拉进文档页。
+      const scope = await resolveLiveScope(compiled.js)
       const evaluated = evalModule(compiled.js, scope)
       if (!evaluated.ok) {
         setComp(null)
@@ -234,7 +239,7 @@ function EditableDocsCode({
       setComp(null)
       setBootError((e as Error)?.message ?? String(e))
     }
-  }, [code, scope])
+  }, [code])
 
   useEffect(() => {
     void seed()
@@ -280,7 +285,6 @@ function EditableDocsCode({
         <LiveEditor
           initialCode={code}
           title={ariaLabel}
-          scope={scope}
           onApply={(c, e) => {
             setRuntimeError(null)
             setRunId((n) => n + 1)

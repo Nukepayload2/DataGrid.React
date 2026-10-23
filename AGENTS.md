@@ -59,10 +59,9 @@
 - 样式注册 - {style}/registerStyles.ts - ensureDataGridStyles
 
 ## 文档站
-- 文档页 - {src}/docs/pages/*.tsx,{src}/docs/pages/index.ts - renderTableApi renderCompatMatrix
-- 文档注册与别名 - {src}/docs/docRegistry.tsx,{src}/docs/types.ts - docAliases
+- 文档页 - {src}/docs/pages/*.tsx - renderTableApi renderCompatMatrix 按 slug 惰性
+- 文档注册与别名 - {src}/docs/docRegistry.tsx,{src}/docs/types.ts - docAliases lazyPage
 - 页面共享件 - {src}/docs/components.tsx,{src}/docs/pages/shared.tsx,{src}/docs/glossary.ts - GLOSSARY shared
-- live 作用域表 - {src}/docs/liveScope.ts - docsScope
 - API 数据 - {src}/docs/generated/api.json - api.json
 
 ## demo 与对照
@@ -75,7 +74,8 @@
 ## live 编辑器
 - 编辑器与兜底 - {live}/LiveEditor.tsx,{live}/LiveErrorBoundary.tsx - onApply
 - 编译执行 - {live}/compile.ts,{live}/evalModule.ts - sucrase
-- 作用域注入 - {live}/scope.ts - scopeForDemo
+- 作用域注入 - {live}/scope.ts - loadLiveScope resolveLiveScope scanLiveSpecifiers
+- 注入白名单 - {live}/antdScope.ts,{live}/icons.ts - liveAntdScope liveIconScope
 - 去注释 - {live}/stripComments.ts - stripComments
 
 ## 站点壳与页面
@@ -88,7 +88,7 @@
 ## 测试
 - 单元测试 - {tests}/table/** - vitest
 - 契约测试 - {tests}/table/api/*.tsx,{tests}/table/style/*.ts - public-api styleSystemContract
-- 站点与 live - {tests}/live-editable-docs.test.tsx,{tests}/api-json.test.ts,{tests}/live/stripComments.ts - api-json stripComments
+- 站点与 live - {tests}/live-editable-docs.test.tsx,{tests}/api-json.test.ts,{tests}/live/stripComments.ts,{tests}/live/{scope-specifiers,antd-scope,icon-scope}.test.ts - api-json stripComments 白名单
 - 主题 store 测试 - {tests}/theme/*.tsx - ThemeProvider themeMode
 - 夹具 - {tests}/setup.ts - jest-dom cleanup
 - e2e - {e2e}/*.spec.ts - playwright
@@ -96,7 +96,8 @@
 
 ## 构建与脚本
 - 库构建与 TS 配置 - vite.lib.config.ts,tsconfig*.json - build:lib
-- 站点构建 - index.html,{src}/index.css - viteSingleFile
+- 站点构建 - index.html,{src}/index.css,vite.docs.{shared,config,single.config,cdn.config}.ts - dist-docs dist-docs-single dist-docs-cdn importmap
+- 站点构建说明 - {docs}/architecture/docs-build.md - 三档构建 首屏体积
 - API 抽取 - {scripts}/extract-api.mjs - api.json
 - CSS 兼容门 - {scripts}/check-css-compat.mjs - doiuse
 - 静态检查 - oxlintrc.json,.oxlintignore,doctor.config.ts - oxlint react-doctor

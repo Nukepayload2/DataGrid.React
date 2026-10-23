@@ -119,7 +119,9 @@ pnpm dev
 | `pnpm test` | 运行单元测试与 CSS 兼容性检查。 |
 | `pnpm test:e2e` | 运行 Playwright 端到端测试。 |
 | `pnpm lint` | 运行 oxlint。 |
-| `pnpm build:docs` | 构建文档站点产物。 |
+| `pnpm build:docs` | 构建文档站点产物（多文件 + 内容哈希，发布用）。 |
+| `pnpm build:docs:single` | 同上，但内联成单个 HTML（离线分发用）。 |
+| `pnpm build:docs:cdn` | 同上，但 `react`/`react-dom`/`antd` 走 esm.sh import map（源站带宽受限时用）。 |
 
 ## 参考与致谢
 

@@ -4,7 +4,6 @@ import {
   DocsActionList,
   DocsCode,
 } from '../components'
-import { docsScope } from '../liveScope'
 import type { DocsPageContext } from '../types'
 
 const { Text } = Typography
@@ -65,7 +64,6 @@ export function renderQuickStart({ onOpen }: DocsPageContext) {
         <DocsCode
           code={MINIMAL_CODE}
           editable
-          scope={docsScope}
           height={280}
           ariaLabel="最小表格代码"
         />

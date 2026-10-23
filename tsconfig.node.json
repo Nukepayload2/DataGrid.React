@@ -10,6 +10,7 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "noEmit": true,
+    "resolveJsonModule": true,
 
     "strict": true,
     "noUnusedLocals": true,
@@ -17,5 +18,12 @@
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true
   },
-  "include": ["vite.config.ts", "vite.lib.config.ts"]
+  "include": [
+    "vite.config.ts",
+    "vite.lib.config.ts",
+    "vite.docs.shared.ts",
+    "vite.docs.config.ts",
+    "vite.docs.single.config.ts",
+    "vite.docs.cdn.config.ts"
+  ]
 }

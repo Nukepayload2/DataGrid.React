@@ -6,7 +6,7 @@
 
 ## 背景与目标
 
-现状：文档区是**穿了落地页外衣的迁移备忘录**——API 表手抄自家类型系统（`src/docs/pages/index.ts` 里的行数组），迁移杀手锏（SplitDemo + 差异矩阵）只窝在示例区，docs 切过去后搜索/主题/虚拟化全消失。
+现状：文档区是**穿了落地页外衣的迁移备忘录**——API 表手抄自家类型系统（`src/docs/pages` 下各页手抄的行数组），迁移杀手锏（SplitDemo + 差异矩阵）只窝在示例区，docs 切过去后搜索/主题/虚拟化全消失。
 
 目标：升级为**可查询的参考型文档 + 内嵌的迁移兵器库**。
 
@@ -87,7 +87,7 @@
 - 自动补齐评审指出的缺失项：`loading`、`onChange`、`rowClassName`、`bordered`、`size`、`onRow`、`onHeaderRow` 等（这些在 `publicTypes.ts` 已有详尽 JSDoc，清理 + 提取即覆盖）。
 - `api-namespace` 精简：去掉 gridOptions 清单，指向 `grid-options`。
 
-落点：`src/docs/pages/index.ts`、`src/docs/components.tsx`、`src/docs/docRegistry.tsx`。
+落点：`src/docs/pages` 下各页、`src/docs/components.tsx`、`src/docs/docRegistry.tsx`。
 
 ### Phase 3 — 迁移层内嵌（P1）
 
@@ -97,7 +97,7 @@
 - 新增"何时迁移 / 何时不要迁移"选型页（建议放"开始"或"核心概念"组）——antd 给不了、只有继任者才需要写的设计层指引。
 - `compat-matrix` ↔ `deprecated-antd-members` 按"状态 / 动作"分工去重，交叉引用明确。
 
-落点：`src/docs/pages/index.ts`、`src/docs/docRegistry.tsx`、复用 `src/demos/_compare/SplitDemoPreview`。
+落点：`src/docs/pages` 下各页、`src/docs/docRegistry.tsx`、复用 `src/demos/_compare/SplitDemoPreview`。
 
 ### Phase 4 — 写作、术语与可编辑（P2）
 
@@ -109,7 +109,7 @@
 - `semantic-dom` 页改写：a11y 矩阵"结论"列只说"支持/不支持"，移除"因为没有 thead/tbody 所以不行"的内部根因（封装墙）。
 - 代码可编辑：docs 区代码块可选接入 `src/live/LiveEditor`（复用 sucrase 链路），与复制按钮并存。
 
-落点：`src/docs/pages/index.ts`、`src/docs/components.tsx`、`src/docs/glossary.ts`（新）、`src/live/LiveEditor.tsx`。
+落点：`src/docs/pages` 下各页、`src/docs/components.tsx`、`src/docs/glossary.ts`（新）、`src/live/LiveEditor.tsx`。
 
 ## 源码 / API 结构层延后项（记录，不在本轮修）
 

@@ -4,32 +4,47 @@ import { SplitDemo } from './SplitDemo'
 import { LiveErrorBoundary } from '../../live/LiveErrorBoundary'
 import { useVirtualization } from '../VirtualizationContext'
 
-const dgModules = import.meta.glob('../*.dg.tsx', { eager: true, import: 'default' })
-const antdModules = import.meta.glob('../*.antd.tsx', { eager: true, import: 'default' })
+/**
+ * 真实 demo 组件按需加载。
+ *
+ * 这里曾经是 `import.meta.glob(..., { eager: true })`：它把 59 个 `*.antd.tsx`
+ * 全部钉进首屏（实测 59 个 chunk / 153 KB，且把整张 antd 依赖图拖进首屏）。
+ * 但 REAL_DG / REAL_ANTD 只在「编辑模式且某一栏没被编辑」时才用得上 ——
+ * 默认模式渲染的是 App 传进来的 children（懒加载的 DemoComp），完全不需要它们。
+ * 改成 lazy glob + 首次进入编辑模式再取，按需下载单个 demo 的两个变体。
+ */
+const dgLoaders = import.meta.glob('../*.dg.tsx', { import: 'default' })
+const antdLoaders = import.meta.glob('../*.antd.tsx', { import: 'default' })
 
 type RealComp = ComponentType<Record<string, unknown>>
 
-/**
- * 从 glob key（如 '../basic.dg.tsx'）提取 demo name（'basic'）。
- * 正则取 `/` 之后、`.dg.tsx` / `.antd.tsx` 之前的部分。
- */
-function extractName(path: string): string | null {
-  const m = path.match(/([^/]+)\.(?:dg|antd)\.tsx$/)
-  return m ? m[1] : null
+/** 已解析过的真实组件（模块级缓存：切来切去不重复 setState 闪烁）。 */
+const resolvedDg = new Map<string, RealComp>()
+const resolvedAntd = new Map<string, RealComp>()
+
+function isComponent(value: unknown): value is RealComp {
+  return typeof value === 'function'
 }
 
-/** glob modules → name → 真实子组件 map。 */
-function buildRealMap(mods: Record<string, unknown>): Record<string, RealComp> {
-  const m: Record<string, RealComp> = {}
-  for (const [path, mod] of Object.entries(mods)) {
-    const name = extractName(path)
-    if (name) m[name] = mod as RealComp
+async function loadReal(
+  loaders: Record<string, () => Promise<unknown>>,
+  extension: '.dg.tsx' | '.antd.tsx',
+  name: string,
+  cache: Map<string, RealComp>,
+): Promise<RealComp | null> {
+  const cached = cache.get(name)
+  if (cached) return cached
+  const loader = loaders[`../${name}${extension}`]
+  if (!loader) return null
+  try {
+    const mod = await loader()
+    if (!isComponent(mod)) return null
+    cache.set(name, mod)
+    return mod
+  } catch {
+    return null
   }
-  return m
 }
-
-const REAL_DG = buildRealMap(dgModules)
-const REAL_ANTD = buildRealMap(antdModules)
 
 /**
  * 编辑模式统一超集 props（bordered 固定 false，简化）。
@@ -68,6 +83,32 @@ export function SplitDemoPreview({
   const [antdRenderError, setAntdRenderError] = useState<string | null>(null)
   const [dgKey, setDgKey] = useState(0)
   const [antdKey, setAntdKey] = useState(0)
+
+  const editing = editedDg !== null || editedAntd !== null
+
+  // 编辑模式下另一栏要回退到「真实 demo 组件」，此时才按需取模块。
+  const [realDg, setRealDg] = useState<RealComp | null>(() => resolvedDg.get(name) ?? null)
+  const [realAntd, setRealAntd] = useState<RealComp | null>(
+    () => resolvedAntd.get(name) ?? null,
+  )
+
+  useEffect(() => {
+    if (!editing) return
+    let cancelled = false
+    void (async () => {
+      const [dg, antd] = await Promise.all([
+        loadReal(dgLoaders, '.dg.tsx', name, resolvedDg),
+        compareWithAntd ? loadReal(antdLoaders, '.antd.tsx', name, resolvedAntd) : null,
+      ])
+      if (cancelled) return
+      setRealDg(() => dg)
+      setRealAntd(() => antd)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [compareWithAntd, editing, name])
+
   useEffect(() => {
     setDgRenderError(null)
     setDgKey((k) => k + 1)
@@ -77,15 +118,15 @@ export function SplitDemoPreview({
     setAntdKey((k) => k + 1)
   }, [editedAntd])
 
-  if (editedDg === null && editedAntd === null) {
+  if (!editing) {
     return <>{children}</>
   }
 
-  const RealDg = REAL_DG[name]
-  const RealAntd = REAL_ANTD[name]
-
   const EditedDg = editedDg as RealComp | null
   const EditedAntd = editedAntd as RealComp | null
+  // 大写开头才能当组件用（小写标签会被当成字符串标签渲染）。
+  const RealDgComp = realDg
+  const RealAntdComp = realAntd
   const editProps = propsFor(name, virtual)
   const dgPreview = EditedDg ? (
     dgRenderError ? (
@@ -99,8 +140,8 @@ export function SplitDemoPreview({
         <EditedDg {...editProps} />
       </LiveErrorBoundary>
     )
-  ) : RealDg ? (
-    <RealDg {...editProps} />
+  ) : RealDgComp ? (
+    <RealDgComp {...editProps} />
   ) : null
 
   if (!compareWithAntd) {
@@ -124,8 +165,8 @@ export function SplitDemoPreview({
               <EditedAntd {...editProps} />
             </LiveErrorBoundary>
           )
-        ) : RealAntd ? (
-          <RealAntd {...editProps} />
+        ) : RealAntdComp ? (
+          <RealAntdComp {...editProps} />
         ) : null
       }
     />

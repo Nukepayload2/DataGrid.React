@@ -3,6 +3,7 @@ import { useEffect, useState, type ComponentType } from 'react'
 import { Alert, Button } from 'antd'
 import CodeMirrorEditor from '../code/CodeMirrorEditor'
 import { useTheme } from '../theme/ThemeContext'
+import { resolveLiveScope } from './scope'
 
 /** 应用回调的载荷：成功传组件、失败传错误、重置传 (null,null)。 */
 export type LiveEditorApplyPayload = {
@@ -15,8 +16,6 @@ export interface LiveEditorProps {
   initialCode: string
   /** 编辑器标题（用于占位/无障碍）。 */
   title?: string
-  /** require 注入表（由 scopeForDemo 构造）。 */
-  scope: Record<string, unknown>
   /** 应用/重置时触发：成功 (Comp,null)、失败 (null,error)、重置 (null,null)。 */
   onApply: (Comp: ComponentType<Record<string, unknown>> | null, error: string | null) => void
 }
@@ -24,7 +23,6 @@ export interface LiveEditorProps {
 export default function LiveEditor({
   initialCode,
   title,
-  scope,
   onApply,
 }: LiveEditorProps) {
   const { themeMode } = useTheme()
@@ -49,6 +47,9 @@ export default function LiveEditor({
         onApply(null, compiled.error)
         return
       }
+      // 注入表按编译产物里真实出现的 require 构造：只加载代码用到的模块
+      // （全量 antd ≈1.4 MB、全量图标 ≈0.9 MB，都不该为一行 Table 数据下载）。
+      const scope = await resolveLiveScope(compiled.js)
       const evaluated = evalModule(compiled.js, scope)
       if (!evaluated.ok) {
         setError(evaluated.error)

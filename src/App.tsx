@@ -38,11 +38,13 @@ import { useTheme, type ThemeMode } from './theme/ThemeContext'
 import { useVirtualization } from './demos/VirtualizationContext'
 // split demo 才接入对比预览和 live 编辑链路。
 import { SplitDemoPreview } from './demos/_compare/SplitDemoPreview'
-import LiveEditor from './live/LiveEditor'
-import { scopeForDemo } from './live/scope'
 import { stripComments } from './live/stripComments'
 // 版本号单一真理源：package.json#version（顶栏读取）。
 import pkg from '../package.json'
+
+// 编辑器整条链路（CodeMirror + 源码编译 + 注入表）懒加载：
+// 默认渲染路径（列表、对比预览、只读源码）根本不需要它。
+const LiveEditor = lazy(() => import('./live/LiveEditor'))
 
 const { Header, Sider, Content } = Layout
 const { Title, Link } = Typography
@@ -592,36 +594,38 @@ function App() {
                       splitSrc.loading ? (
                         <div>Loading source…</div>
                       ) : (
-                        <div
-                          style={{
-                            display: 'grid',
-                            gridTemplateColumns: hasEditableAntd
-                              ? 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))'
-                              : 'minmax(0, 1fr)',
-                            gap: 16,
-                          }}
-                        >
-                          {/* key={view.name}：切 demo 时 remount → LiveEditor 内部 code state
-                              重新取新 initialCode（否则 useState(initialCode) 仅 mount 取一次，
-                              切 demo 不刷新页面时 code 停留在旧 demo 源码）。App 已有 useEffect
-                              清 editedDg/editedAntd，此处 remount 与之一致。 */}
-                          <LiveEditor
-                            key={`${view.name}-dg`}
-                            initialCode={stripComments(splitSrc.dgSource ?? '')}
-                            title="data-grid"
-                            scope={scopeForDemo(view.name)}
-                            onApply={(c, e) => setEditedDg(() => (e ? null : c))}
-                          />
-                          {hasEditableAntd ? (
+                        <Suspense fallback={<div>Loading editor…</div>}>
+                          <div
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: hasEditableAntd
+                                ? 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))'
+                                : 'minmax(0, 1fr)',
+                              gap: 16,
+                            }}
+                          >
+                            {/* key={view.name}：切 demo 时 remount → LiveEditor 内部 code state
+                                重新取新 initialCode（否则 useState(initialCode) 仅 mount 取一次，
+                                切 demo 不刷新页面时 code 停留在旧 demo 源码）。App 已有 useEffect
+                                清 editedDg/editedAntd，此处 remount 与之一致。
+                                注入表不再由 App 构造：LiveEditor 在「应用」时按源码里的
+                                require 现取（P1），antd/图标/CodeMirror 因此都不在首屏。 */}
                             <LiveEditor
-                              key={`${view.name}-antd`}
-                              initialCode={stripComments(splitSrc.antdSource ?? '')}
-                              title="antd"
-                              scope={scopeForDemo(view.name)}
-                              onApply={(c, e) => setEditedAntd(() => (e ? null : c))}
+                              key={`${view.name}-dg`}
+                              initialCode={stripComments(splitSrc.dgSource ?? '')}
+                              title="data-grid"
+                              onApply={(c, e) => setEditedDg(() => (e ? null : c))}
                             />
-                          ) : null}
-                        </div>
+                            {hasEditableAntd ? (
+                              <LiveEditor
+                                key={`${view.name}-antd`}
+                                initialCode={stripComments(splitSrc.antdSource ?? '')}
+                                title="antd"
+                                onApply={(c, e) => setEditedAntd(() => (e ? null : c))}
+                              />
+                            ) : null}
+                          </div>
+                        </Suspense>
                       )
                     ) : loading ? (
                       <div>Loading source…</div>

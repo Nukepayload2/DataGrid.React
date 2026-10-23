@@ -21,7 +21,6 @@ vi.mock('../src/code/CodeMirrorEditor', () => ({
 }))
 
 import { DocsCode } from '../src/docs/components'
-import { docsScope } from '../src/docs/liveScope'
 import { ThemeProvider } from '../src/theme/ThemeContext'
 
 function withTheme(node: ReactNode) {
@@ -54,7 +53,6 @@ describe('EditableDocsCode seed → setComp', () => {
           <DocsCode
             code={SAMPLE_CODE}
             editable
-            scope={docsScope}
             ariaLabel="quick-start"
           />,
         ),
