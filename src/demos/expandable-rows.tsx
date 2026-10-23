@@ -35,8 +35,6 @@ export default function ExpandDemo() {
 
   return (
     <div className="demo-view">
-      {/* 展开行视觉标记 class（仅左栏 data-grid 用，展开行底色变浅黄便于核对）。 */}
-      <style>{`.dg-demo-expanded-row { background: var(--ant-color-warning-bg) !important; }`}</style>
       {/* 共享控制条：全宽，在 SplitDemo 上方。 */}
       <DemoToolbar>
         <Space>
@@ -84,11 +82,11 @@ export default function ExpandDemo() {
               </ul>
             </li>
             <li>
-              <strong>expandRowByClick + expandedRowClassName</strong>
+              <strong>expandRowByClick</strong>
               <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
-                <li><strong>差异行为</strong>：data-grid 开启 <code>expandRowByClick: true</code>（点击行体切换展开，且不阻止 <code>onRow.onClick</code>）+ <code>expandedRowClassName</code> 给展开行追加 <code>dg-demo-expanded-row</code> class（浅黄底）；antd 不开启这两项设置。</li>
-                <li><strong>触发条件</strong>：点击行体非图标单元格（data-grid），或展开任意行（data-grid 加 class）。</li>
-                <li><strong>说明</strong>：data-grid 额外演示「点击行体展开」与「展开行视觉标记」两项能力。</li>
+                <li><strong>差异行为</strong>：data-grid 开启 <code>expandRowByClick: true</code>（点击行体切换展开，且不阻止 <code>onRow.onClick</code>）；antd 不开启该设置。展开行本身不额外上色，两侧展开行底色一致。</li>
+                <li><strong>触发条件</strong>：点击展开图标之外的行体单元格（data-grid）。</li>
+                <li><strong>说明</strong>：data-grid 额外演示「点击行体展开」这一项能力。</li>
               </ul>
             </li>
             <li>

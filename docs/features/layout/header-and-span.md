@@ -147,7 +147,7 @@ onCell: (record) => ({ rowSpan: key === 'east-1' ? 3 : 0 })  // 依旧是 3
 - 收起：合并格盖 3 条轨道（张三 / 李四 / 王五）。
 - 展开张三：合并格盖 5 条轨道（张三 + 2 条子行 + 李四 + 王五），`aria-rowspan` 同步为 5。
 
-`rowSpan: 0`（被覆盖）依旧按原来的行判定，与行槽折叠正交。非树形（`GridTable` 不传 `rowLevels`）时行为与旧版完全一致；这条语义与 antd 不同（antd 被子行吃掉配额），差异见 [known-limitations.md](../../reference/known-limitations.md)。
+`rowSpan: 0`（被覆盖）依旧按原来的行判定，与行槽折叠正交。非树形（`GridTable` 不传 `rowLevels`）时行为与旧版完全一致；这条语义与 antd 不同（antd 被子行吃掉配额），差异登记在 [compat-matrix.md](../../reference/compat-matrix.md) 的「部分兼容」表。
 
 合并区内的格（含子行、同组剩余行）由覆盖传播统一隐藏，**不必**逐行声明 `rowSpan: 0`；照样声明也无害（与 antd 写法兼容）。
 

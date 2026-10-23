@@ -27,14 +27,13 @@ export default function ExpandDg({
   virtual: boolean
 }) {
   // expandable：expandedRowRender + rowExpandable + 受控 expandedRowKeys。
-  // 左栏额外开启 expandRowByClick（点击行体切换展开）+ expandedRowClassName（展开行加 class）。
+  // 左栏额外开启 expandRowByClick（点击行体切换展开）。
   const dgExpandable: Expandable<RecordType> = {
     expandedRowRender: (record) => <p style={{ margin: 0 }}>{record.description}</p>,
     rowExpandable: (record) => record.name !== 'Not Expandable',
     expandedRowKeys,
     onExpandedRowsChange,
     expandRowByClick: true,
-    expandedRowClassName: () => 'dg-demo-expanded-row',
   }
 
   return (
