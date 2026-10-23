@@ -199,9 +199,9 @@ export const docs: DocEntry[] = [
     slug: 'known-limitations',
     group: '参考',
     title: '已知限制',
-    description: '本页列出长期有效的架构边界、兼容缺口与计划补齐的兼容项，帮助你在迁移前判断取舍。',
+    description: '本页列出长期有效的架构边界、兼容差异和迁移时的行为注意事项，帮助你在迁移前判断取舍。',
     sections: [
-      { id: 'boundaries', title: '架构边界' },
+      { id: 'boundaries', title: '架构边界和兼容缺口' },
     ],
     render: lazyPage(() => import('./pages/known-limitations'), 'renderKnownLimitations'),
   },

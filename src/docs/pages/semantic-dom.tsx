@@ -49,7 +49,7 @@ const semanticA11yRows: A11yRow[] = [
   { key: 'rowheader', attr: 'role="rowheader"（rowScope 列）', antd: '天然（<th scope="row">）', dataGrid: '不输出', conclusion: '不支持。' },
   { key: 'aria-sort', attr: 'aria-sort（可排序列表头）', antd: '显式', dataGrid: '已支持', conclusion: '支持。可排序列表头按排序状态输出 ascending / descending。' },
   { key: 'aria-expanded', attr: 'aria-expanded（展开行）', antd: '显式', dataGrid: '已支持', conclusion: '支持。展开按钮语义与 antd 对齐。' },
-  { key: 'aria-label', attr: 'aria-label（表头/控件）', antd: '部分支持', dataGrid: '部分支持', conclusion: '部分支持。选择列控件、展开按钮、列宽拖拽手柄输出明确标签。可排序列表头**不补** aria-label：antd 把它落在 th 上合法，我们的表头格是无 role 的 div，该属性会被无障碍检查判成不得使用；要合法化需先补整条表格 ARIA 链。列宽拖拽手柄的 role=separator 与英文标签是超出 antd 的自有增强（antd 侧没有这个宿主），因此不走 locale。' },
+  { key: 'aria-label', attr: 'aria-label（表头/控件）', antd: '部分支持', dataGrid: '部分支持', conclusion: '部分支持。选择列控件、展开按钮、列宽拖拽手柄输出明确标签。可排序列表头**不补** aria-label：antd 把它落在 th 上合法，我们的表头格是无 role 的 div，该属性会被无障碍检查判成不得使用；要合法化需先补整条表格 ARIA 链。列宽拖拽手柄的 role=separator 与英文标签是超出 antd 的自有增强（antd 侧没有这个宿主），因此不走 locale，目前也没有覆盖入口（标签写死英文，components.header.cell 还不能替换表头格）。' },
   { key: 'aria-description', attr: 'aria-description（可排序列表头）', antd: '显式（值取自 locale 的全局段）', dataGrid: '已支持', conclusion: '支持。两条表头路径都接，值走 locale 全局段的 sortable（不硬编码英文）；该值由内部计算写入，会覆盖用户 onHeaderCell 传的同名值，与 antd 的落点顺序同形。' },
   { key: 'aria-colspan', attr: 'aria-colspan（合并数据格）', antd: '天然（<td colspan>）', dataGrid: '已支持', conclusion: '支持。colSpan >= 2 的合并数据格输出。' },
   { key: 'aria-rowspan', attr: 'aria-rowspan（合并数据格）', antd: '天然（<td rowspan>）', dataGrid: '已支持', conclusion: '支持。rowSpan >= 2 的合并数据格输出。' },

@@ -9,10 +9,10 @@
 
 > **对照的是哪个版本（务必先读）**：本矩阵里所有「与 antd 一致 / 不一致」的判定，**默认对照的是我们测试时实际安装的
 > antd 6.4.4**；底层组件另标版本（`@rc-component/table 1.10.2`、`@rc-component/util 1.11.1`）。
-> `peerDependencies.antd` 写的是 `^6.1.0`，npm 当前最新是 6.6.5 ⇒ **参照是有版本的依赖，结论天生带版本条件**。
+> `peerDependencies.antd` 写的是 `^6.1.0`，而 npm 上的最新版已经比对照版新 ⇒ **参照是有版本的依赖，结论天生带版本条件**。
 > 已确认的一例（`已实读参照源码`）：列上写 `defaultSortOrder` 且该列带 `responsive` 断点时，
 > **antd 6.5.x 起**参照改用「响应式过滤之前」的列收集排序态（上游 `components/table/InternalTable.tsx:472-476`
-> ＋ `components/table/hooks/useSorter.tsx:424`），**6.4.4 不这么做** ⇒ 装 6.5+/6.6 的用户会看到
+> ＋ `components/table/hooks/useSorter.tsx:424`），**6.4.4 不这么做** ⇒ 装 6.5 及以后版本的用户会看到
 > "antd 排序了、我们没排序"的结果差异，我们与 6.4.4 同值。
 > 「参照版本条件性」这一整类**尚未做全量扫描**，未覆盖范围见
 > [known-limitations.md](known-limitations.md) 末尾。
@@ -216,7 +216,7 @@
 | `gridOptions.rowHeight` / `minRowHeight` / `maxRowHeight` | 表级 | 行高约定：非虚拟路径作 grid track（不测）；虚拟路径作 RO 测量的未测兜底/初值（measured-first，antd 行高随内容）。 | 无 |
 | `gridOptions.virtualizationMode` | 表级 | 虚拟渲染模式：`standard` / `recycling`。仅在 `virtual` + `scroll.y=true` 时生效。 | 无 |
 | `gridOptions.headerHeight` | 表级 | 表头高度约定。 | 无 |
-| `gridOptions.resizable` / `columnResizeMode` / `resizableMinWidth` / `resizableMaxWidth` | 表级 | 列宽拖拽调整。**参照侧没有这个宿主**（见下方注）：手柄的 `role="separator"` 与 `aria-label="Resize column"` 属我们**超出参照的自有无障碍增强**，并且**不走 locale**——参照的规矩是「有 locale 键就走键，没键就写英文字面量」。 | 无 |
+| `gridOptions.resizable` / `columnResizeMode` / `resizableMinWidth` / `resizableMaxWidth` | 表级 | 列宽拖拽调整。**参照侧没有这个宿主**（见下方注）：手柄的 `role="separator"` 与 `aria-label="Resize column"` 属我们**超出参照的自有无障碍增强**，**不走 locale**（参照的规矩是「有 locale 键就走键，没键就写英文字面量」），也**没有覆盖入口**——标签写死英文。 | 无 |
 | `gridOptions.scrollBarFoldMode` | 表级 | data-grid 悬浮滚动条显示/折叠策略。 | 无 |
 | `gridOptions.selection` | 表级 | data-grid 原生选择行为：`selectionMode/showSelectionColumn/selectedValues/getSelectionValue` 等；优先级高于 antd 兼容层 `rowSelection`，但不污染兼容 API。 | 无 |
 | `gridOptions.rowDragSort` / `columnDragSort` | 表级 | data-grid 行/列拖拽排序公开入口，通过回调提交新顺序。 | 无 |

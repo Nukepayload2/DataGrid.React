@@ -138,15 +138,8 @@ data-grid 之前选择列沿用普通 cell padding（large 16/16、middle 8/8、
 - hover 色 `headerIconHoverColor`（= `colorIconHover*opacityLoading`，默认 rgba(0,0,0,0.88)）。
 - 过渡 `transition: all motionDurationSlow`（≈0.3s）。
 
-**与参照的两处已登记差异（同一件事：菜单触发形态）**：
-
-- **触发方式**：我们显式用 `trigger={['click']}`（`SelectionsDropdown`），参照**没有传** `trigger` ⇒ 走下拉组件的默认值 `['hover']`。
-  依据：`antd 6.4.4 es/table/hooks/useSelection.js:326-329` 那个 `Dropdown` 只有 `menu` 与 `getPopupContainer`；
-  `@rc-component/dropdown 1.0.x es/Dropdown.js:24` 的默认形参是 `trigger = ['hover']`。
-  触屏与窄容器下点击更稳，属有意取舍，不改。`已实读参照源码`
-- **`getPopupContainer` 调用次数**：面板开合一轮我们 5 次、参照 4 次；两侧拿到的 `triggerNode` 是同一个触发器 `span`，
-  落点容器也相同。差异只由「我方 trigger 多带一个类名 ＋ 显式 `trigger` 造成的重渲染次数」产生 ⇒
-  **计数级微差**，功能等价、没有漏接。`探针实测`
+**与参照的差异**：菜单要点击才展开（`trigger={['click']}`），参照默认悬停即开。属有意取舍（触屏与窄容器更稳），
+正典与依据见 [`known-limitations.md`](../../reference/known-limitations.md) 的「行选择」一节。
 
 **布局差异（不强制修）**：antd 用 `position:absolute; marginInlineStart:100%` 把箭头放在 checkbox 之外（列宽随之 48px）；data-grid 用 `inline-flex gap:4` 把箭头放在 checkbox 旁（列宽恒 32px）。两种布局功能等价（箭头可见 + 点击弹菜单），data-grid 不改用 absolute（会牵连列宽策略 + 选择列 padding 规则），仅在颜色/对齐层对齐 antd。
 

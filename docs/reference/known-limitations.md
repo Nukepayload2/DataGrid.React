@@ -9,13 +9,17 @@
 ## 对照的是哪个版本的 antd
 
 本仓库的兼容目标是 antd v6 的公共 API。`peerDependencies` 写的是 `^6.1.0`，也就是用户装 6.x 里任意版本都算合法，
-npm 当前最新是 6.6.5。而本页与兼容矩阵里所有「与 antd 一致 / 不一致」的判断，**默认对照的是我们测试时实际安装的
+而 npm 上的最新版已经比对照版（6.4.4）新。本页与兼容矩阵里所有「与 antd 一致 / 不一致」的判断，**默认对照的是我们测试时实际安装的
 antd 6.4.4**——证据一律写成 `antd 6.4.4 <文件>:<行>` 这个形状，参照的传递依赖另标组件与版本
 （如 `@rc-component/table 1.10.2 <文件>:<行>`）。
 
-参照是**有版本的依赖**，因此"参照某行为何"这类结论天生带版本条件。目前核到版本边界的实例是这一条：
-列上写 `defaultSortOrder` 且该列带 `responsive` 断点时，**从 antd 6.5.x 起**参照改用「响应式过滤之前」的列去收集
-排序态，而 6.4.4 完全不这么做。三个版本各自的证据：
+参照是**有版本的依赖**，因此"参照某行为何"这类结论天生带版本条件。目前核到版本边界的实例只有一条，就是排序：
+
+> **列上同时写 `defaultSortOrder` 和 `responsive` 断点时**：antd **6.5.x 起**会拿「响应式过滤之前」的列去收集
+> 排序状态，被断点隐藏的列照样参与排序；**antd 6.4.4 不会**，隐藏列的 `defaultSortOrder` 不生效。
+> data-grid 与 6.4.4 同值：**不排序，行序保持原始序**。
+
+### 证据：三个版本各自怎么读
 
 - **6.4.4（`node_modules` 里装的那版，也是本页所有「与 antd 一致」判断的默认裁判）**：
   `es/table/hooks/useSorter.js` 里搜 `baseColumns` **零命中**；`es/table/InternalTable.js:219-227` 传给 `useSorter`
@@ -25,11 +29,13 @@ antd 6.4.4**——证据一律写成 `antd 6.4.4 <文件>:<行>` 这个形状，
   自带注释「Pass `baseColumns` (pre-responsive) so `defaultSortOrder` and controlled `sortOrder` on a `responsive`
   column are still honored」；`components/table/hooks/useSorter.tsx:424` =
   `const collectColumns = baseColumns ?? mergedColumns`。两处都引 issue #32847。`已实读参照源码`
-- **6.6.5（npm `latest`）**：同一逻辑仍在**发布产物**里 —— `es/table/InternalTable.js:261-268` 传 `baseColumns`，
+- **6.6.5（写作时的 npm `latest`）**：同一逻辑仍在**发布产物**里 —— `es/table/InternalTable.js:261-268` 传 `baseColumns`，
   `es/table/hooks/useSorter.js:297-298` 是 `collectColumns = baseColumns ?? mergedColumns` →
-  `collectSortStates(collectColumns, true)`。⇒ 分叉不是 6.5.2 的一次性写法，`latest` 上仍然成立。`已实读参照源码`
+  `collectSortStates(collectColumns, true)`。⇒ 这个差异不是 6.5.2 的一次性写法，写作时的最新版上仍然成立。`已实读参照源码`
 
-**现值**：data-grid 与**已安装的 6.4.4 同值**——被 `responsive` 隐藏的列，其 `defaultSortOrder` **不生效**，
+### 证据：data-grid 这一侧的现值
+
+现值：与**已安装的 6.4.4 同值**——被 `responsive` 隐藏的列，其 `defaultSortOrder` **不生效**，
 行序保持原始序。机制：不匹配断点的列在 `src/table/useResponsiveColumns.ts:56-72` 就被摘出列集，
 `src/table/Table.tsx:403-424` 的 `sortableColumns` 只从过滤后的列集取叶子并交给我方排序 hook，
 所以 `collectSortStates` 根本看不到那一列（`src/table/engine/sorterUtils.ts:138-144` 的 `defaultSortOrder` 纳入点
@@ -44,11 +50,11 @@ antd 6.4.4**——证据一律写成 `antd 6.4.4 <文件>:<行>` 这个形状，
 注意它的可证范围受 harness 限制：测试环境的 `matchMedia` 恒不匹配（`tests/setup.ts`），
 参照的七枚断点全 false，所以"某断点下可见的 `responsive` 列"这个形状在这套 harness 里构造不出来。`探针实测`
 
-**后果**：`peerDependencies.antd` 是 `^6.1.0`（npm 现 6.6.5），装 **6.5.x / 6.6.x** 的合法用户会看到
-**数据结果分叉**——同一份列定义，antd 按隐藏列的 `defaultSortOrder` 排了序，我们不排。这是行序差异而不是
+**后果**：`peerDependencies.antd` 是 `^6.1.0`（npm 上的最新版比对照版新），装 **6.5 及以后版本**的合法用户会看到
+**行序不同**——同一份列定义，antd 按隐藏列的 `defaultSortOrder` 排了序，我们不排。这是数据结果差异而不是
 样式差异，容易被直接读成 bug。反过来，若改成对齐 6.5+ 的「过滤前收集」，就等于在 peer 下界那侧
 主动背离 6.1–6.4 的参照行为，且会让"隐藏列不参与任何计算"这条我方不变式破口。
-**采哪一侧为对齐目标尚未裁定**，本页只登记分叉事实。`推测`
+**采哪一侧为对齐目标尚未裁定**，本页只登记这个差异。`推测`
 
 「参照版本条件性」**这一整类尚未做过全量扫描**，见文末「本轮验证未覆盖的范围」。
 
@@ -85,6 +91,10 @@ antd 6.4.4**——证据一律写成 `antd 6.4.4 <文件>:<行>` 这个形状，
 - `render` 返回 `RenderedCell` 对象形态仅兼容 `children` 内容；`props` 已废弃并被 data-grid 忽略。单元格合并请使用 `onCell`，其它内置格样式/事件请使用 column/onRow 或自定义 body.cell。
 - `rowSelection.onSelect`、`onSelectMultiple`、`onSelectAll`、`onSelectInvert`、`onSelectNone` 已实现。
 - `rowSelection.columnTitle`、`rowSelection.onCell`、`rowSelection.getTitleCheckboxProps` 已实现。
+- `getTitleCheckboxProps()` 返回的 `indeterminate` 会被内部计算结果覆盖——参照写这两个字段的顺序同样是先用户、
+  后计算（`antd 6.4.4 es/table/hooks/useSelection.js:357, 359`），所以不能靠它手工设半选；
+  要表达半选请改 `selectedRowKeys` 或用树形联动（详见 [`../features/interaction/selection.md`](../features/interaction/selection.md)）。
+  此前文档登记过相反的优先级，已作废。`已实读参照源码`
 - `getCheckboxProps` 现在透传 `disabled` 之外的字段（`aria-label` / `title` / `id` / `className` / `style` 等），不再只取 `disabled`。`已实读参照源码`
 - 树形父子联动的勾选传导已按参照的规则实现：disabled 行不参与传导、子行的半选会向上级联、
   空 `children` 的表项不把父行判成全选。`探针实测`
@@ -156,19 +166,11 @@ antd 6.4.4**——证据一律写成 `antd 6.4.4 <文件>:<行>` 这个形状，
   直测钉在 `Table.rowSelection.test.tsx` 的 `describe('35-F selection scope')`（`menu NONE clears a cross-page
   disabled-selected row`）。`探针实测`
 
-- **选择项下拉的触发形态（触发方式 ＋ 容器回调次数，一件事登记一次）**：
-  - **触发方式**：我们只在**点击**时打开，参照默认**悬停**打开。依据：参照 `antd 6.4.4 es/table/hooks/useSelection.js:326-329`
-    渲染那个下拉时**没有**传 `trigger`，而 `@rc-component/dropdown 1.0.x es/Dropdown.js:24` 的默认值是 `['hover']`；
-    我们在 `src/table/selectionAdapter.tsx` 的 `SelectionsDropdown` 里显式传 `trigger={['click']}`。
-    判类：触屏与窄容器下 `click` 更稳，属有意取舍，不改。`已实读参照源码`
-  - **`getPopupContainer` 的调用次数**：面板开合一轮我们调 5 次、参照 4 次。挂在的容器与触发节点两侧一致
-    （`triggerNode` 都是同一个 `span` 触发器），差异来自我们多带一个类名 ＋ 显式 `trigger` 造成的重渲染次数。
-    判类：**计数级微差**，功能等价、没有漏接。`探针实测`
-- **表头全选框的半选值是计算值覆盖用户值**：`rowSelection.getTitleCheckboxProps()` 返回的 `indeterminate`
-  **会被内部计算值覆盖**。这是对「antd 同名同义字段」跟回 antd 的**修复**，不是新增差异——参照的 spread 顺序就是
-  先展开用户 props、后写计算值（`antd 6.4.4 es/table/hooks/useSelection.js:357, 359`）。
-  要表达半选请改用 `selectedRowKeys` 或树形联动，不要靠这个字段。`已实读参照源码`
-  ⚠️ 这里曾有一条反向承诺（"custom 覆盖计算值"），已作废；**两个方向现在都有直测钉住**，不再是"无用例可证"。`探针实测`
+- **选择项下拉要点开**：`rowSelection.selections` 的下拉菜单要点击选择列上的箭头才展开，参照默认**悬停**即开。
+  依据：参照 `antd 6.4.4 es/table/hooks/useSelection.js:326-329` 渲染那个下拉时**没有**传 `trigger`，
+  而 `@rc-component/dropdown 1.0.x es/Dropdown.js:24` 的默认值是 `['hover']`；我们在
+  `src/table/selectionAdapter.tsx` 的 `SelectionsDropdown` 里显式传 `trigger={['click']}`。
+  判类：触屏与窄容器下 `click` 更稳，属有意取舍，不改。`已实读参照源码`
 - **内部约定：选择适配层要求传入未排序、未筛选、未分页的原始数据源**。这不是冗余参数：
   勾选状态的"这个 key 还存不存在于数据里"必须对着全量数据判定，只喂当前可见行会让跨页 / 跨筛选的已选 key 静默丢失。
   参照同构——`antd 6.4.4 es/table/InternalTable.js:177` 用 `rawData` 建 key↔record 映射。
@@ -246,7 +248,15 @@ antd 6.4.4**——证据一律写成 `antd 6.4.4 <文件>:<行>` 这个形状，
   因此手柄上的 `role="separator"` 与 `aria-label="Resize column"` 是**超出参照的无障碍增强**，
   并且**不走 locale**——参照的规矩是「有 locale 键就走键，没键就写英文字面量」（对照：
   `antd 6.4.4 es/table/ExpandIcon.js:26` 走 locale，`es/table/hooks/useSelection.js:356` 写死 `"Select all"`）。
-  把它接进 locale 会让我们**比参照更激进**，故不做。`读码`
+  把它接进 locale 会让我们**比参照更激进**，故不做。**也没有覆盖入口**：标签写死在
+  `src/table/engine/HeaderCell.tsx:518`，`gridOptions` / `gridColumnOptions` 都没有对应字段，
+  `ColumnResizer` 与 `useColumnResize` 也不从主入口导出。
+  此前登记过「需要本地化文案就关掉 `gridOptions.resizable` 自己画手柄」，这条**对用户不成立**：
+  `components.header.cell` 至今只是类型占位、不消费（`src/table/nativeOptions.ts:139-144`、
+  `src/table/engine/engineTypes.ts:726`），表头格没有官方的手柄槽位，只能把自绘手柄塞进 `column.title`，
+  位置样式与拖拽手势、宽度回写、min/max 与固定列对齐全要自建。
+  判类：**登记不修**——屏幕阅读器里这种控件属性本来就常读英文，英文标签不影响可用性；
+  公开覆盖入口**等真实需求再议**，当前不预留。`读码`
 - **表头无障碍描述 `aria-description` 的「计算值覆盖用户值」这一判据只在单层表头一侧有活门**：
   两条表头渲染路径都实现了该属性，但钉住覆盖顺序的用例只在其中一路是真门——另一路即使把实现摘掉也不会红
   （那一档用的是默认 locale，硬编码值恰好与计算值相等）。补测要求已登记。`探针实测`
@@ -286,30 +296,23 @@ antd 6.4.4**——证据一律写成 `antd 6.4.4 <文件>:<行>` 这个形状，
 
 ### 告警与开发期提示
 
-- **告警通道**：我们一共 5 处开发态提示，全走**同一个出口** `devWarnOnce`（`src/table/devWarn.ts`），
-  消息统一 `[data-grid] ` 前缀（正文在调用点：`src/table/useColumnTreeBuilder.ts` 的重复 `SELECTION_COLUMN`、
-  重复 `EXPAND_COLUMN`、`EXPAND_COLUMN` 无展开列，`src/table/engine/usePagination.ts` 的分页 async 可疑配置，
-  `src/table/columnAdapter.ts` 的函数式 `column.title`）。
-  ① **带生产环境门**：`process.env.NODE_ENV === 'production'` ⇒ 直接返回 ⇒ 生产构建里不发。
-  判据写成**裸 `process.env.NODE_ENV`**（照抄 `antd 6.4.4 es/_util/warning.js:13-15` 的形状），
-  实测两条后果：库构建产物里保留**裸引用**（与参照发布的 ES 产物同契约，`es/table/InternalTable.js:168` 也是裸的）
-  ⇒ 由**消费者的打包器**决定发/不发，消费者的开发构建照样收得到；应用构建会把它折成字面量并**整条 DCE**
-  ⇒ 生产包里确实一条不发。代价＝**不经任何打包器**直接跑 `dist/` 时，告警调用点抛
-  `ReferenceError: process is not defined`（参照同款裸引用，同一代价；换成 `typeof process !== 'undefined'`
-  这类守卫写法会挡住 DCE、把"生产构建里照发"原样留下，故不采用）。`已运行`
-  ② **去重只有一张表**（`src/table/devWarn.ts` 里的模块级 `Set`，跨 Table 实例不重发），键分两档：
-  **消息级**（防刷屏，同一文案至多一次）与**语义级** `onceKey`（"每个 X 只说一次"——目前只有函数式
-  `column.title` 那条按列键传入，见「列与表头」一节）。测试态（`NODE_ENV === 'test'`）只复位**消息级**
-  那一档，好让每条用例都重新看得见告警；**语义级不复位**（它钉的是产品语义）。生产档位在读写这张表
-  **之前**就返回 ⇒ 生产路径不留任何状态。
-  参照侧同形：组件包里导出的 `warning` 其实就是**带去重的** `warningOnce`
-  （`@rc-component/util 1.11.1 es/index.js:30` 以默认导出重导出、`es/warning.js:64`，去重在 `es/warning.js:45-50`
-  的 `call()`、复位在 `es/warning.js:42-44` 的 `resetWarned()`），并且带 `NODE_ENV` 门（`es/warning.js:24-25`）；
-  参照测试里看到"重复打印"是因为 antd 自己在 `NODE_ENV === 'test'` 时每条告警后立刻 `resetWarned()`
-  （`antd 6.4.4 es/_util/warning.js:17-19`），**不是**参照没有去重。
-  仍存的分叉：我们发 `console.warn`，参照的 `warning` 发 `console.error`
-  （`@rc-component/util 1.11.1 es/warning.js:28`），且消息前缀是 `[data-grid]` 而非 `[antd: Table]`
-  ⇒ 按 antd 文案写的日志过滤规则抓不到我们的提示。`已实读参照源码`
+- **发什么**：开发构建下，可疑用法会在控制台收到一条提示。目前共 5 条：重复的 `SELECTION_COLUMN`、重复的
+  `EXPAND_COLUMN`、`EXPAND_COLUMN` 却没有展开列、分页的异步可疑配置、函数式 `column.title`。全部走
+  `src/table/devWarn.ts` 的 `devWarnOnce`，消息前缀统一 `[data-grid] `。
+- **生产构建里一条都不发**：`process.env.NODE_ENV === 'production'` 时直接返回，连去重表都不碰。判据写成未加保护
+  的 `process.env.NODE_ENV`（写法与 `antd 6.4.4 es/_util/warning.js:13-15` 相同）：库产物里保留原表达式，发不发由
+  消费者的打包器决定（消费者的开发构建照样收得到）；应用构建会把它替换成字面量并把整条调用删掉。代价：不经任何
+  打包器直接用 `<script>` 跑 `dist/` 时会抛 `ReferenceError: process is not defined`（参照发布产物同款；换成
+  `typeof process !== 'undefined'` 这类守卫会挡住删除、把"生产构建里照发"原样留下，故不采用）。`已运行`
+- **同一段文案只发一次**：模块级 `Set` 去重，跨 Table 实例不重发。默认按文案去重（防刷屏）；函数式
+  `column.title` 那条按列去重——每列各发一次、同一列不重复。测试态（`NODE_ENV === 'test'`）只复位"按文案"
+  这一档，好让每条用例重新看得见；"按列"那一档不复位。生产档位在读写这张表**之前**就返回 ⇒ 生产路径不留任何状态。
+  参照侧也是这样：导出的 `warning` 就是带去重的 `warningOnce`（`@rc-component/util 1.11.1 es/warning.js:45-50`，
+  `NODE_ENV` 门在 `:24-25`）；参照测试里看到"重复打印"是因为 antd 自己在测试态每条告警后立刻 `resetWarned()`
+  （`antd 6.4.4 es/_util/warning.js:17-19`），不是参照没有去重。
+- **与 antd 仅存的差异是输出方式**：我们发 `console.warn`、前缀 `[data-grid]`；参照发 `console.error`、前缀
+  `[antd: Table]`（`@rc-component/util 1.11.1 es/warning.js:28`）。⇒ 按 antd 文案或前缀写的日志过滤规则抓不到
+  我们的提示，请改用 `[data-grid]`。`已实读参照源码`
 
 ### 测试环境的观测面（不是产品差异）
 
