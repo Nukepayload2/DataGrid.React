@@ -64,6 +64,17 @@ pnpm add @nukepayload2/data-grid antd@^6 react@^19 react-dom@^19
 
 `antd`、`react` 与 `react-dom` 是 peer dependencies。`data-grid` 依赖它们完成主题、运行时和设计系统对齐。
 
+### 运行环境
+
+| 入口 | 适用场景 | 说明 |
+| --- | --- | --- |
+| `dist/index.js`（ESM） | Vite / webpack / Rspack / Next.js 等打包器 | 保留 antd 的 ESM 深路径，由打包器解析。 |
+| `dist/index.cjs`（CJS） | Node：SSR 脚本、Jest / Vitest 的 CJS 测试 | 面向 antd `lib/` CJS 树，可直接 `require`；Node 的 ESM `import` 经 `exports.node` 条件也解析到此入口。 |
+| `@nukepayload2/data-grid/style.css` | 需要显式引入样式的场景 | 默认在模块加载时自动注入同样内容，此子路径为备用入口。 |
+
+样式默认自注入，无需额外引入 CSS 文件。
+
+
 ## 从 antd Table 迁移
 
 多数情况下只需要替换导入来源：

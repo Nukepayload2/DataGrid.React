@@ -8,7 +8,7 @@
 // 按业务域从 compatTypes.ts 拆出；filter/sort 域类型由各自子模块 `import type` 纯类型引入。
 
 import type { ReactNode } from 'react'
-import type { Breakpoint } from 'antd/es/_util/responsiveObserver'
+import type { Breakpoint } from 'antd'
 import type { Align, FixedInput } from '../nativeOptions'
 import type {
   ColumnFilterDropdownProps,

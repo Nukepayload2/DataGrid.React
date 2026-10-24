@@ -17,8 +17,7 @@
 
 import type { CSSProperties, ChangeEvent, MouseEventHandler } from 'react'
 import { Checkbox, Radio } from 'antd'
-import type { CheckboxChangeEvent } from 'antd/es/checkbox'
-import type { RadioChangeEvent } from 'antd/es/radio'
+import type { CheckboxChangeEvent, RadioChangeEvent } from 'antd'
 import type { SelectionType } from './useRowSelection'
 
 export interface SelectionInputProps {

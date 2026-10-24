@@ -5,6 +5,14 @@
   "type": "module",
   "description": "Drop-in antd Table replacement. CSS Grid under the hood. Fixes the bugs antd can't — resizable columns, virtual + summary coexistence, stable empty-data widths, scoped scrollTo. Same API, same look, same tokens as antd v6.",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nukepayload2/DataGrid.React.git"
+  },
+  "homepage": "https://github.com/Nukepayload2/DataGrid.React#readme",
+  "bugs": {
+    "url": "https://github.com/Nukepayload2/DataGrid.React/issues"
+  },
   "keywords": [
     "antd",
     "antd-table",
@@ -31,13 +39,15 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
+      "node": "./dist/index.cjs",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
     "./style.css": "./dist/style.css"
   },
   "files": [
-    "dist"
+    "dist",
+    "NOTICE"
   ],
   "sideEffects": [
     "**/*.css"
@@ -50,7 +60,7 @@
     "restore": "pnpm i",
     "build": "pnpm run build:lib",
     "build:lib": "vite build --config vite.lib.config.ts && pnpm run build:types",
-    "build:types": "tsc -p tsconfig.lib.json",
+    "build:types": "tsc -p tsconfig.lib.json && node scripts/fix-dts-extensions.mjs",
     "docs:api": "node scripts/extract-api.mjs",
     "docs:cdn-map": "node scripts/gen-cdn-importmap.mjs",
     "build:docs": "pnpm docs:api && vite build --config vite.docs.config.ts",

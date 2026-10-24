@@ -3,8 +3,9 @@
  */
 
 import type { CSSProperties, MouseEventHandler } from 'react'
-import type { CheckboxChangeEvent } from 'antd/es/checkbox'
-import type { RadioChangeEvent } from 'antd/es/radio'
+// 事件类型从 antd 根导出取：`antd/es/*` 深路径会原样进 `.d.ts`，
+// 而 `moduleResolution: nodenext` 不解析这类省略扩展名的深路径（TS2307）。
+import type { CheckboxChangeEvent, RadioChangeEvent } from 'antd'
 
 /**
  * 对齐方式（**输入面**双取值，仿 `FixedInput` 先例）：
